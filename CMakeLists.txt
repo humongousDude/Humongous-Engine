@@ -3,9 +3,12 @@ project(frfrthistime)
 
 file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS src/*.cpp)
 
+add_compile_definitions(HGASSERTIONS_ENABLED)
+
 add_executable(main src/main.cpp ${SRCS})
 
-target_include_directories(main PUBLIC src/header)
+target_include_directories(main PUBLIC src/core/inc src/gameplay/inc
+                                       src/graphics/inc src/utils/inc)
 
 find_package(glfw3 REQUIRED)
 target_link_libraries(main PRIVATE glfw)

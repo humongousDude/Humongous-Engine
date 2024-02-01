@@ -38,3 +38,19 @@ STATIC_ASSERT(sizeof(i64) == 8, "Expectex i64 to be 8 bytes.");
 
 STATIC_ASSERT(sizeof(f32) == 4, "Expectex f32 to be 4 bytes.");
 STATIC_ASSERT(sizeof(f64) == 8, "Expectex f64 to be 8 bytes.");
+
+/* #ifdef HEXPORT
+// exports
+#ifdef _MSC_VER
+#define HAPI __declspec(dllexport)
+#else
+#define HAPI __attribute__((visibility("default")))
+#endif
+#else
+// Imports
+#ifdef _MSC_VER
+#define HAPI __declspec(dllimport)
+#else
+#define KAPI
+#endif
+#endif */

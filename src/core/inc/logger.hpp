@@ -6,7 +6,7 @@
 #define LOG_DEBUG_ENABLE 1
 #define LOG_INFO_ENABLE 1
 
-#if HGRELEASE == 1
+#ifdef HGRELEASE
 #define LOG_DEBUG_ENABLE 0
 #define LOG_TRACE_ENABLE 0
 #endif

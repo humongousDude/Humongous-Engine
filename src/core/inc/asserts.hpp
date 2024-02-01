@@ -2,8 +2,6 @@
 
 #include "defines.hpp"
 
-#define HGASSERTIONS_ENABLED
-
 #ifdef HGASSERTIONS_ENABLED
 #if _MSV_VER
 #include <intrin.h>
@@ -34,7 +32,7 @@ void ReportAssertionFaliure(const char* expression, const char* message, const c
         }                                                                                                                                          \
     }
 
-#ifdef _DEBUG
+#ifndef HGRELEASE
 #define HGASSERT_DEBUG(expr)                                                                                                                       \
     {                                                                                                                                              \
         if(expr) {}                                                                                                                                \
