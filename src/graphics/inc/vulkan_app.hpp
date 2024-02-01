@@ -14,9 +14,11 @@ public:
     VulkanApp();
     ~VulkanApp();
 
+    void Run();
+
 private:
     std::unique_ptr<Instance>       instance;
-    std::unique_ptr<Window>         window;
+    Window                          window{};
     std::unique_ptr<PhysicalDevice> physicalDevice;
     std::unique_ptr<LogicalDevice>  logicalDevice;
 

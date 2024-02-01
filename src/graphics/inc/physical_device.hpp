@@ -10,6 +10,8 @@ namespace Humongous
 {
 class PhysicalDevice : NonCopyable
 {
+
+public:
     struct QueueFamilyIndices
     {
         std::optional<u32> graphicsFamily;
@@ -17,19 +19,18 @@ class PhysicalDevice : NonCopyable
         bool IsComplete() { return graphicsFamily.has_value(); }
     };
 
-public:
     PhysicalDevice(VkInstance instance);
     ~PhysicalDevice();
 
     VkPhysicalDevice GetVkPhysicalDevice() const { return m_physicalDevice; }
 
+    QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice physicalDevice);
+
 private:
-    VkPhysicalDevice m_physicalDevice;
+    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
 
     void PickPhysicalDevice(VkInstance instance);
 
     bool IsDeviceSuitable(VkPhysicalDevice physicalDevice);
-
-    QueueFamilyIndices FindQueueFamilies();
 };
 } // namespace Humongous

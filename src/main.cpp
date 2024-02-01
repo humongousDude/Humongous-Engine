@@ -5,7 +5,8 @@ int main()
 {
     try
     {
-        Humongous::VulkanApp app;
+        Humongous::VulkanApp app{};
+        app.Run();
     }
     catch(const std::exception&)
     {

@@ -2,19 +2,22 @@
 #include <defines.hpp>
 #include <non_copyable.hpp>
 
-#include <vulkan/vulkan_core.h>
+#include <instance.hpp>
+#include <physical_device.hpp>
 
 namespace Humongous
 {
 class LogicalDevice : NonCopyable
 {
 public:
-    LogicalDevice(VkInstance instance, VkPhysicalDevice physicalDevice){};
-    ~LogicalDevice(){};
+    LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice);
+    ~LogicalDevice();
 
-    VkDevice GetLogicalDevice() const { return m_logicalDevice; }
+    VkDevice GetVkDevice() const { return m_logicalDevice; }
 
 private:
-    VkDevice m_logicalDevice;
+    VkDevice m_logicalDevice = VK_NULL_HANDLE;
+
+    void CreateLogicalDevice(Instance& instance, PhysicalDevice& physicalDevice);
 };
 } // namespace Humongous

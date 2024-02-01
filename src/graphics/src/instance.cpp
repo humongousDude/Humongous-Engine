@@ -25,6 +25,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityF
                    pCallbackData->pMessage);
             break;
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+            HGINFO("VALIDATION TYPE: %s\n VALIDATION MESSAGE: %s\n", string_VkDebugUtilsMessageTypeFlagsEXT(messageType).c_str(),
+                   pCallbackData->pMessage);
+            break;
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
         default:
             break;
@@ -109,7 +112,7 @@ void Instance::InitInstance()
 
     if(vkCreateInstance(&createInfo, nullptr, &m_instance) != VK_SUCCESS)
     {
-        HGFATAL("Failed to create vulkan m_instance! \nFile: %s, \nLine: %d", __FILE__, __LINE__);
+        HGFATAL("Failed to create vulkan instance! \nFile: %s, \nLine: %d", __FILE__, __LINE__);
     }
 }
 

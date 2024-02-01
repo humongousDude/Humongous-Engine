@@ -14,6 +14,8 @@ public:
 
     GLFWwindow* GetWindow() const { return window; }
 
+    bool ShouldWindowClose() const { return glfwWindowShouldClose(window); }
+
 private:
     GLFWwindow* window = nullptr;
 

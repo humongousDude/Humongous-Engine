@@ -19,6 +19,9 @@ public:
 
     VkInstance GetVkInstance() const { return m_instance; };
 
+    bool                     IsValidationLayerEnabled() const { return ENABLE_VALIDATION_LAYERS; };
+    std::vector<const char*> GetValidationLayers() const { return m_validationLayers; };
+
 private:
     VkInstance m_instance;
 
