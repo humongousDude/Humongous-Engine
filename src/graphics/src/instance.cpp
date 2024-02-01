@@ -33,18 +33,18 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityF
     return VK_FALSE;
 }
 
-VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+VkResult CreateDebugUtilsMessengerEXT(VkInstance m_instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
                                       const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
 {
-    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-    if(func != nullptr) { return func(instance, pCreateInfo, pAllocator, pDebugMessenger); }
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT");
+    if(func != nullptr) { return func(m_instance, pCreateInfo, pAllocator, pDebugMessenger); }
     else { return VK_ERROR_EXTENSION_NOT_PRESENT; }
 }
 
-void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
+void DestroyDebugUtilsMessengerEXT(VkInstance m_instance, VkDebugUtilsMessengerEXT m_debugMessenger, const VkAllocationCallbacks* pAllocator)
 {
-    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-    if(func != nullptr) { func(instance, debugMessenger, pAllocator); }
+    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance, "vkDestroyDebugUtilsMessengerEXT");
+    if(func != nullptr) { func(m_instance, m_debugMessenger, pAllocator); }
 }
 
 Instance::Instance()
@@ -55,9 +55,9 @@ Instance::Instance()
 
 Instance::~Instance()
 {
-    if(ENABLE_VALIDATION_LAYERS) { DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr); }
+    if(ENABLE_VALIDATION_LAYERS) { DestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr); }
 
-    vkDestroyInstance(instance, nullptr);
+    vkDestroyInstance(m_instance, nullptr);
 }
 
 void Instance::InitInstance()
@@ -81,8 +81,8 @@ void Instance::InitInstance()
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
     if(ENABLE_VALIDATION_LAYERS)
     {
-        createInfo.enabledLayerCount = static_cast<u32>(validationLayers.size());
-        createInfo.ppEnabledLayerNames = validationLayers.data();
+        createInfo.enabledLayerCount = static_cast<u32>(m_validationLayers.size());
+        createInfo.ppEnabledLayerNames = m_validationLayers.data();
 
         PopulateDebugMessengerCreateInfo(debugCreateInfo);
         createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
@@ -107,9 +107,9 @@ void Instance::InitInstance()
 
     for(const auto& extension: extensionProperties) { fmt::print("\t{}\n", extension.extensionName); }
 
-    if(vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
+    if(vkCreateInstance(&createInfo, nullptr, &m_instance) != VK_SUCCESS)
     {
-        HGFATAL("Failed to create vulkan instance! \nFile: %s, \nLine: %d", __FILE__, __LINE__);
+        HGFATAL("Failed to create vulkan m_instance! \nFile: %s, \nLine: %d", __FILE__, __LINE__);
     }
 }
 
@@ -120,7 +120,7 @@ bool Instance::CheckValidationLayerSupport()
     std::vector<VkLayerProperties> availableLayers(layerCount);
     vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-    for(const char* layerName: validationLayers)
+    for(const char* layerName: m_validationLayers)
     {
         bool layerFound = false;
 
@@ -157,7 +157,7 @@ void Instance::SetupDebugMessenger()
     if(!ENABLE_VALIDATION_LAYERS) { return; }
     VkDebugUtilsMessengerCreateInfoEXT createInfo{};
     PopulateDebugMessengerCreateInfo(createInfo);
-    if(CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
+    if(CreateDebugUtilsMessengerEXT(m_instance, &createInfo, nullptr, &m_debugMessenger) != VK_SUCCESS)
     {
         HGFATAL("Failed to set up debug messenger!");
     }

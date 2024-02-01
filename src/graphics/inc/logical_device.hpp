@@ -12,9 +12,9 @@ public:
     LogicalDevice(VkInstance instance, VkPhysicalDevice physicalDevice){};
     ~LogicalDevice(){};
 
-    VkDevice GetLogicalDevice() const { return logicalDevice; }
+    VkDevice GetLogicalDevice() const { return m_logicalDevice; }
 
 private:
-    VkDevice logicalDevice;
+    VkDevice m_logicalDevice;
 };
 } // namespace Humongous

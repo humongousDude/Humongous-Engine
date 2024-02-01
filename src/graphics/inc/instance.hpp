@@ -17,13 +17,13 @@ public:
     Instance();
     ~Instance();
 
-    VkInstance GetVkInstance() const { return instance; };
+    VkInstance GetVkInstance() const { return m_instance; };
 
 private:
-    VkInstance instance;
+    VkInstance m_instance;
 
-    VkDebugUtilsMessengerEXT       debugMessenger;
-    const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
+    VkDebugUtilsMessengerEXT       m_debugMessenger;
+    const std::vector<const char*> m_validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
 #ifndef _DEBUG
     const bool EnableValidationLayers = false;
