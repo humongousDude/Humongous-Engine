@@ -18,7 +18,7 @@ public:
 
 private:
     std::unique_ptr<Instance>       instance;
-    Window                          window{};
+    std::unique_ptr<Window>         window;
     std::unique_ptr<PhysicalDevice> physicalDevice;
     std::unique_ptr<LogicalDevice>  logicalDevice;
 

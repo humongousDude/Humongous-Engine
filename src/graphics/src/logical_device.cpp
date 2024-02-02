@@ -1,17 +1,17 @@
 #include "asserts.hpp"
 #include "logger.hpp"
+#include <iostream>
 #include <logical_device.hpp>
+#include <set>
 
 namespace Humongous
 {
-LogicalDevice::LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice) : m_logicalDevice(VK_NULL_HANDLE)
+LogicalDevice::LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice) : m_logicalDevice(VK_NULL_HANDLE), m_instance(instance)
 {
     CreateLogicalDevice(instance, physicalDevice);
 }
 
-LogicalDevice::~LogicalDevice()
-{ /* vkDestroyDevice(m_logicalDevice, nullptr); */
-}
+LogicalDevice::~LogicalDevice() { vkDestroyDevice(m_logicalDevice, nullptr); }
 
 void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& physicalDevice)
 {
@@ -22,13 +22,6 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     PhysicalDevice::QueueFamilyIndices indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 
     HGASSERT(indices.IsComplete() && "Incomplete queue family indices!");
-
-    VkDeviceQueueCreateInfo queueCreateInfo{};
-    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
-    queueCreateInfo.queueCount = 1;
-    float queuePriority = 1.0f;
-    queueCreateInfo.pQueuePriorities = &queuePriority;
 
     // vulkan 1.2 features
     VkPhysicalDeviceVulkan12Features vulkan12Features{};
@@ -49,10 +42,12 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
 
     VkPhysicalDeviceFeatures deviceFeatures{};
 
+    auto queueCreateInfos = CreateQueues(physicalDevice);
+
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.queueCreateInfoCount = 1;
-    createInfo.pQueueCreateInfos = &queueCreateInfo;
+    createInfo.queueCreateInfoCount = static_cast<u32>(queueCreateInfos.size()); // queueCreateInfos.size();
+    // createInfo.pQueueCreateInfos = queueCreateInfos.data();
     createInfo.enabledLayerCount = 0;
     createInfo.enabledExtensionCount = 0;
     createInfo.enabledLayerCount = 0;
@@ -62,7 +57,7 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
 
     if(instance.IsValidationLayerEnabled())
     {
-        // for some reason these lines break everything
+        // for some fucking reason these lines break everything
         // its probably because vulkan can't find the EOS-Winwhateverthefuck validation layer extension
         // as far as i know these lines aren't really needed
         //
@@ -74,14 +69,36 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
         HGINFO("validation layers enabled");
     }
 
-    HGINFO("%d", __LINE__);
     if(vkCreateDevice(physicalDevice.GetVkPhysicalDevice(), &createInfo, nullptr, &m_logicalDevice) != VK_SUCCESS)
     {
         HGFATAL("Failed to create logical device!");
     }
-    HGINFO("%d", __LINE__);
 
     HGINFO("logical device created");
+
+    // vkGetDeviceQueue2(m_logicalDevice, )
+}
+
+std::vector<VkDeviceQueueInfo2> LogicalDevice::CreateQueues(PhysicalDevice& physicalDevice)
+{
+    HGINFO("aqcuiring queue handles...");
+
+    PhysicalDevice::QueueFamilyIndices indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
+
+    std::vector<VkDeviceQueueInfo2> queueCreateInfos;
+    std::set<u32>                   uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+
+    float queuePriority = 1.0f;
+    for(u32 queueFamily: uniqueQueueFamilies)
+    {
+        VkDeviceQueueInfo2 queueCreateInfo{};
+        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2;
+        queueCreateInfo.queueFamilyIndex = queueFamily;
+        queueCreateInfo.queueIndex = 1;
+        queueCreateInfos.push_back(queueCreateInfo);
+    }
+
+    return queueCreateInfos;
 }
 
 } // namespace Humongous

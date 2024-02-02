@@ -1,6 +1,8 @@
 #pragma once
 
+#include "instance.hpp"
 #include "non_copyable.hpp"
+#include "window.hpp"
 #include <asserts.hpp>
 #include <optional>
 
@@ -15,11 +17,12 @@ public:
     struct QueueFamilyIndices
     {
         std::optional<u32> graphicsFamily;
+        std::optional<u32> presentFamily;
 
-        bool IsComplete() { return graphicsFamily.has_value(); }
+        bool IsComplete() { return graphicsFamily.has_value() && presentFamily.has_value(); }
     };
 
-    PhysicalDevice(VkInstance instance);
+    PhysicalDevice(Instance& instance, Window& window);
     ~PhysicalDevice();
 
     VkPhysicalDevice GetVkPhysicalDevice() const { return m_physicalDevice; }
@@ -27,9 +30,11 @@ public:
     QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice physicalDevice);
 
 private:
+    Instance&        m_instance;
     VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
+    VkSurfaceKHR     m_surface = VK_NULL_HANDLE;
 
-    void PickPhysicalDevice(VkInstance instance);
+    void PickPhysicalDevice();
 
     bool IsDeviceSuitable(VkPhysicalDevice physicalDevice);
 };

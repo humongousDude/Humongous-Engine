@@ -1,23 +1,26 @@
 #include "logger.hpp"
 #include <physical_device.hpp>
-#include <string>
 #include <vector>
 
 namespace Humongous
 {
-PhysicalDevice::PhysicalDevice(VkInstance instance) { PickPhysicalDevice(instance); }
+PhysicalDevice::PhysicalDevice(Instance& instance, Window& window) : m_instance{instance}
+{
+    window.CreateWindowSurface(m_instance.GetVkInstance(), &m_surface);
+    PickPhysicalDevice();
+}
 
-PhysicalDevice::~PhysicalDevice() {}
+PhysicalDevice::~PhysicalDevice() { vkDestroySurfaceKHR(m_instance.GetVkInstance(), m_surface, nullptr); }
 
-void PhysicalDevice::PickPhysicalDevice(VkInstance instance)
+void PhysicalDevice::PickPhysicalDevice()
 {
     HGINFO("looking for a physical device...");
     uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+    vkEnumeratePhysicalDevices(m_instance.GetVkInstance(), &deviceCount, nullptr);
     if(deviceCount == 0) { HGFATAL("Failed to find GPUs with Vulkan support!"); }
     HGINFO("found %d devices", deviceCount);
     std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+    vkEnumeratePhysicalDevices(m_instance.GetVkInstance(), &deviceCount, devices.data());
 
     for(const auto& device: devices)
     {
@@ -61,10 +64,14 @@ PhysicalDevice::QueueFamilyIndices PhysicalDevice::FindQueueFamilies(VkPhysicalD
     for(auto& queueFamilyProperty: queueFamilyProperties) { queueFamilyProperty.sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2; }
     vkGetPhysicalDeviceQueueFamilyProperties2(physicalDevice, &queueFamilyCount, queueFamilyProperties.data());
 
+    VkBool32 presentSupport = false;
+
     int i = 0;
     for(const auto& queueFamily: queueFamilyProperties)
     {
         if(queueFamily.queueFamilyProperties.queueFlags & VK_QUEUE_GRAPHICS_BIT) { indices.graphicsFamily = i; }
+        vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, m_surface, &presentSupport);
+        if(presentSupport) { indices.presentFamily = i; }
         i++;
     }
 

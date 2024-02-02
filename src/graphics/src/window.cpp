@@ -1,3 +1,5 @@
+#include "logger.hpp"
+#include <iostream>
 #include <window.hpp>
 
 namespace Humongous
@@ -19,6 +21,12 @@ void Window::CreateWindow()
     window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
 
     glfwSetWindowUserPointer(window, this);
+}
+
+void Window::CreateWindowSurface(VkInstance instance, VkSurfaceKHR* surface)
+{
+    if(glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS) { HGFATAL("Failed to create window surface"); }
+    HGINFO("Created window surface");
 }
 
 } // namespace Humongous

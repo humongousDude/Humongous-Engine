@@ -16,8 +16,15 @@ public:
     VkDevice GetVkDevice() const { return m_logicalDevice; }
 
 private:
+    Instance& m_instance;
+
     VkDevice m_logicalDevice = VK_NULL_HANDLE;
 
+    VkQueue graphicsQueue;
+    VkQueue presentQueue;
+
     void CreateLogicalDevice(Instance& instance, PhysicalDevice& physicalDevice);
+
+    std::vector<VkDeviceQueueInfo2> CreateQueues(PhysicalDevice& physicalDevice);
 };
 } // namespace Humongous
