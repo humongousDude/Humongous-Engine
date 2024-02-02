@@ -14,7 +14,7 @@ class PhysicalDevice : NonCopyable
 {
 
 public:
-    struct QueueFamilyIndices
+    struct QueueFamilyData
     {
         std::optional<u32> graphicsFamily;
         std::optional<u32> presentFamily;
@@ -27,7 +27,7 @@ public:
 
     VkPhysicalDevice GetVkPhysicalDevice() const { return m_physicalDevice; }
 
-    QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice physicalDevice);
+    QueueFamilyData FindQueueFamilies(VkPhysicalDevice physicalDevice);
 
 private:
     Instance&        m_instance;

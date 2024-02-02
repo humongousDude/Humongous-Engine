@@ -20,8 +20,8 @@ private:
 
     VkDevice m_logicalDevice = VK_NULL_HANDLE;
 
-    VkQueue graphicsQueue;
-    VkQueue presentQueue;
+    VkQueue m_graphicsQueue;
+    VkQueue m_presentQueue;
 
     void CreateLogicalDevice(Instance& instance, PhysicalDevice& physicalDevice);
 

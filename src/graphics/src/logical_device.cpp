@@ -19,7 +19,7 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     HGASSERT(physicalDevice.GetVkPhysicalDevice() != VK_NULL_HANDLE && "Can't create a logical device with a null physical device!");
 
     HGINFO("Creating logical device...");
-    PhysicalDevice::QueueFamilyIndices indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
+    PhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 
     HGASSERT(indices.IsComplete() && "Incomplete queue family indices!");
 
@@ -44,10 +44,29 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
 
     auto queueCreateInfos = CreateQueues(physicalDevice);
 
+    // TODO: make queue creation(specifically the aqcuisition of information required for queue creation and aqcuisiton) not fucking ass
+    // this also includes the CreateQueues() func, because what it does doesn't match its name
+    // ps. also look at the calls tovkGetDeviceQueue2, maybe it can be made better
+    //
+    // cant be bothered to fix this right now
+
+    std::vector<VkDeviceQueueCreateInfo> queueInfos(2);
+    float                                p = 1.0f;
+
+    queueInfos[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueInfos[0].queueFamilyIndex = indices.graphicsFamily.value();
+    queueInfos[0].queueCount = 1;
+    queueInfos[0].pQueuePriorities = &p;
+
+    queueInfos[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueInfos[1].queueFamilyIndex = indices.presentFamily.value();
+    queueInfos[1].queueCount = 1;
+    queueInfos[1].pQueuePriorities = &p;
+
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.queueCreateInfoCount = static_cast<u32>(queueCreateInfos.size()); // queueCreateInfos.size();
-    // createInfo.pQueueCreateInfos = queueCreateInfos.data();
+    createInfo.queueCreateInfoCount = static_cast<u32>(queueInfos.size()); // queueCreateInfos.size();
+    createInfo.pQueueCreateInfos = queueInfos.data();
     createInfo.enabledLayerCount = 0;
     createInfo.enabledExtensionCount = 0;
     createInfo.enabledLayerCount = 0;
@@ -76,14 +95,15 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
 
     HGINFO("logical device created");
 
-    // vkGetDeviceQueue2(m_logicalDevice, )
+    vkGetDeviceQueue2(m_logicalDevice, &queueCreateInfos[0], &m_graphicsQueue);
+    vkGetDeviceQueue2(m_logicalDevice, &queueCreateInfos[1], &m_presentQueue);
 }
 
 std::vector<VkDeviceQueueInfo2> LogicalDevice::CreateQueues(PhysicalDevice& physicalDevice)
 {
     HGINFO("aqcuiring queue handles...");
 
-    PhysicalDevice::QueueFamilyIndices indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
+    PhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 
     std::vector<VkDeviceQueueInfo2> queueCreateInfos;
     std::set<u32>                   uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
@@ -94,7 +114,7 @@ std::vector<VkDeviceQueueInfo2> LogicalDevice::CreateQueues(PhysicalDevice& phys
         VkDeviceQueueInfo2 queueCreateInfo{};
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2;
         queueCreateInfo.queueFamilyIndex = queueFamily;
-        queueCreateInfo.queueIndex = 1;
+        queueCreateInfo.queueIndex = 0;
         queueCreateInfos.push_back(queueCreateInfo);
     }
 

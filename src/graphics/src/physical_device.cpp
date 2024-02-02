@@ -55,10 +55,10 @@ bool PhysicalDevice::IsDeviceSuitable(VkPhysicalDevice physicalDevice)
     return deviceHasFeatures && haveAllRequiredIndices;
 }
 
-PhysicalDevice::QueueFamilyIndices PhysicalDevice::FindQueueFamilies(VkPhysicalDevice physicalDevice)
+PhysicalDevice::QueueFamilyData PhysicalDevice::FindQueueFamilies(VkPhysicalDevice physicalDevice)
 {
-    QueueFamilyIndices indices;
-    u32                queueFamilyCount = 0;
+    QueueFamilyData indices;
+    u32             queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties2(physicalDevice, &queueFamilyCount, nullptr);
     std::vector<VkQueueFamilyProperties2> queueFamilyProperties(queueFamilyCount);
     for(auto& queueFamilyProperty: queueFamilyProperties) { queueFamilyProperty.sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2; }
