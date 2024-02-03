@@ -68,7 +68,8 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     createInfo.queueCreateInfoCount = static_cast<u32>(queueInfos.size()); // queueCreateInfos.size();
     createInfo.pQueueCreateInfos = queueInfos.data();
     createInfo.enabledLayerCount = 0;
-    createInfo.enabledExtensionCount = 0;
+    createInfo.enabledExtensionCount = static_cast<u32>(physicalDevice.GetDeviceExtensions().size());
+    createInfo.ppEnabledExtensionNames = physicalDevice.GetDeviceExtensions().data();
     createInfo.enabledLayerCount = 0;
     createInfo.ppEnabledLayerNames = nullptr;
     createInfo.pNext = &vulkan13Features;

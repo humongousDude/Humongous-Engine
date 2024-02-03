@@ -22,12 +22,23 @@ public:
         bool IsComplete() { return graphicsFamily.has_value() && presentFamily.has_value(); }
     };
 
+    struct SwapChainSupportDetails
+    {
+        VkSurfaceCapabilitiesKHR        capabilities;
+        std::vector<VkSurfaceFormatKHR> formats;
+        std::vector<VkPresentModeKHR>   presentModes;
+    };
+
     PhysicalDevice(Instance& instance, Window& window);
     ~PhysicalDevice();
 
     VkPhysicalDevice GetVkPhysicalDevice() const { return m_physicalDevice; }
 
     QueueFamilyData FindQueueFamilies(VkPhysicalDevice physicalDevice);
+
+    std::vector<const char*> GetDeviceExtensions() { return deviceExtensions; }
+
+    SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice physicalDevice);
 
 private:
     Instance&        m_instance;
@@ -37,5 +48,8 @@ private:
     void PickPhysicalDevice();
 
     bool IsDeviceSuitable(VkPhysicalDevice physicalDevice);
+    bool CheckDeviceExtensionSupport(VkPhysicalDevice physicalDevice);
+
+    const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 };
 } // namespace Humongous

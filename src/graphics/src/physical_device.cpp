@@ -1,5 +1,7 @@
 #include "logger.hpp"
 #include <physical_device.hpp>
+#include <set>
+#include <string>
 #include <vector>
 
 namespace Humongous
@@ -37,6 +39,32 @@ void PhysicalDevice::PickPhysicalDevice()
     HGASSERT(m_physicalDevice != VK_NULL_HANDLE && "Failed to find a suitable GPU!");
 }
 
+PhysicalDevice::SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(VkPhysicalDevice physicalDevice)
+{
+    SwapChainSupportDetails details;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, m_surface, &details.capabilities);
+
+    u32 formatCount;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, m_surface, &formatCount, nullptr);
+
+    if(formatCount != 0)
+    {
+        details.formats.resize(formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, m_surface, &formatCount, details.formats.data());
+    }
+
+    u32 presentModeCount;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, m_surface, &presentModeCount, nullptr);
+
+    if(presentModeCount != 0)
+    {
+        details.presentModes.resize(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, m_surface, &presentModeCount, details.presentModes.data());
+    }
+
+    return details;
+}
+
 bool PhysicalDevice::IsDeviceSuitable(VkPhysicalDevice physicalDevice)
 {
     VkPhysicalDeviceProperties2 deviceProperties{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
@@ -49,10 +77,32 @@ bool PhysicalDevice::IsDeviceSuitable(VkPhysicalDevice physicalDevice)
                              deviceFeatures.features.geometryShader;
 
     bool haveAllRequiredIndices = FindQueueFamilies(physicalDevice).IsComplete();
+    bool deviceHasExtensions = CheckDeviceExtensionSupport(physicalDevice);
 
-    if(deviceHasFeatures && haveAllRequiredIndices) { HGINFO("device is suitable"); }
+    bool swapChainAdequate = false;
+    if(deviceHasExtensions)
+    {
+        SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(physicalDevice);
+        swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
+    }
 
-    return deviceHasFeatures && haveAllRequiredIndices;
+    if(deviceHasFeatures && haveAllRequiredIndices && deviceHasExtensions && swapChainAdequate) { HGINFO("device is suitable"); }
+
+    return deviceHasFeatures && haveAllRequiredIndices && deviceHasExtensions && swapChainAdequate;
+}
+
+bool PhysicalDevice::CheckDeviceExtensionSupport(VkPhysicalDevice physicalDevice)
+{
+    u32 extensionCount;
+    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
+    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, availableExtensions.data());
+
+    std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+
+    for(const auto& extension: availableExtensions) { requiredExtensions.erase(extension.extensionName); }
+
+    return requiredExtensions.empty();
 }
 
 PhysicalDevice::QueueFamilyData PhysicalDevice::FindQueueFamilies(VkPhysicalDevice physicalDevice)
