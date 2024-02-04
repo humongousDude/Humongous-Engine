@@ -24,9 +24,9 @@ public:
 
     struct SwapChainSupportDetails
     {
-        VkSurfaceCapabilitiesKHR        capabilities;
-        std::vector<VkSurfaceFormatKHR> formats;
-        std::vector<VkPresentModeKHR>   presentModes;
+        VkSurfaceCapabilities2KHR        capabilities;
+        std::vector<VkSurfaceFormat2KHR> formats;
+        std::vector<VkPresentModeKHR>    presentModes;
     };
 
     PhysicalDevice(Instance& instance, Window& window);
@@ -39,6 +39,8 @@ public:
     std::vector<const char*> GetDeviceExtensions() { return deviceExtensions; }
 
     SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice physicalDevice);
+
+    VkSurfaceKHR GetSurface() const { return m_surface; }
 
 private:
     Instance&        m_instance;

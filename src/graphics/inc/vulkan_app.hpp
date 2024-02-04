@@ -5,6 +5,7 @@
 #include <logical_device.hpp>
 #include <memory>
 #include <physical_device.hpp>
+#include <swapchain.hpp>
 
 namespace Humongous
 {
@@ -21,6 +22,7 @@ private:
     std::unique_ptr<Window>         window;
     std::unique_ptr<PhysicalDevice> physicalDevice;
     std::unique_ptr<LogicalDevice>  logicalDevice;
+    std::unique_ptr<SwapChain>      swapChain;
 
     void Init();
     void Cleanup();

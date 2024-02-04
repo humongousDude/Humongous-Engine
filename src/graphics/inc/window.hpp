@@ -19,6 +19,9 @@ public:
 
     void CreateWindowSurface(VkInstance instance, VkSurfaceKHR* surface);
 
+    bool IsFocused() const { return glfwGetWindowAttrib(window, GLFW_FOCUSED); }
+    bool IsMinimized() const { return glfwGetWindowAttrib(window, GLFW_ICONIFIED); }
+
 private:
     GLFWwindow* window = nullptr;
 

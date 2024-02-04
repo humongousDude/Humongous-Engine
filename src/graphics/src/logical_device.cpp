@@ -1,6 +1,5 @@
 #include "asserts.hpp"
 #include "logger.hpp"
-#include <iostream>
 #include <logical_device.hpp>
 #include <set>
 
@@ -11,7 +10,11 @@ LogicalDevice::LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice)
     CreateLogicalDevice(instance, physicalDevice);
 }
 
-LogicalDevice::~LogicalDevice() { vkDestroyDevice(m_logicalDevice, nullptr); }
+LogicalDevice::~LogicalDevice()
+{
+    vkDestroyDevice(m_logicalDevice, nullptr);
+    HGINFO("Destroyed logical device");
+}
 
 void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& physicalDevice)
 {
@@ -63,31 +66,19 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     queueInfos[1].queueCount = 1;
     queueInfos[1].pQueuePriorities = &p;
 
+    auto extensions = physicalDevice.GetDeviceExtensions();
+
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     createInfo.queueCreateInfoCount = static_cast<u32>(queueInfos.size()); // queueCreateInfos.size();
     createInfo.pQueueCreateInfos = queueInfos.data();
     createInfo.enabledLayerCount = 0;
-    createInfo.enabledExtensionCount = static_cast<u32>(physicalDevice.GetDeviceExtensions().size());
-    createInfo.ppEnabledExtensionNames = physicalDevice.GetDeviceExtensions().data();
+    createInfo.enabledExtensionCount = static_cast<u32>(extensions.size());
+    createInfo.ppEnabledExtensionNames = extensions.data();
     createInfo.enabledLayerCount = 0;
     createInfo.ppEnabledLayerNames = nullptr;
     createInfo.pNext = &vulkan13Features;
     createInfo.pEnabledFeatures = &deviceFeatures;
-
-    if(instance.IsValidationLayerEnabled())
-    {
-        // for some fucking reason these lines break everything
-        // its probably because vulkan can't find the EOS-Winwhateverthefuck validation layer extension
-        // as far as i know these lines aren't really needed
-        //
-        // what a good way to waste 3 hours of my life
-        // lets fucking go vulkan
-        //
-        // createInfo.enabledLayerCount = static_cast<u32>(instance.GetValidationLayers().size());
-        // createInfo.ppEnabledLayerNames = instance.GetValidationLayers().data();
-        HGINFO("validation layers enabled");
-    }
 
     if(vkCreateDevice(physicalDevice.GetVkPhysicalDevice(), &createInfo, nullptr, &m_logicalDevice) != VK_SUCCESS)
     {
@@ -98,6 +89,7 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
 
     vkGetDeviceQueue2(m_logicalDevice, &queueCreateInfos[0], &m_graphicsQueue);
     vkGetDeviceQueue2(m_logicalDevice, &queueCreateInfos[1], &m_presentQueue);
+    HGINFO("logical device queues aqcuired");
 }
 
 std::vector<VkDeviceQueueInfo2> LogicalDevice::CreateQueues(PhysicalDevice& physicalDevice)

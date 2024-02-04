@@ -12,7 +12,11 @@ PhysicalDevice::PhysicalDevice(Instance& instance, Window& window) : m_instance{
     PickPhysicalDevice();
 }
 
-PhysicalDevice::~PhysicalDevice() { vkDestroySurfaceKHR(m_instance.GetVkInstance(), m_surface, nullptr); }
+PhysicalDevice::~PhysicalDevice()
+{
+    vkDestroySurfaceKHR(m_instance.GetVkInstance(), m_surface, nullptr);
+    HGINFO("Destroyed surface and let go of physical device handle");
+}
 
 void PhysicalDevice::PickPhysicalDevice()
 {
@@ -41,16 +45,24 @@ void PhysicalDevice::PickPhysicalDevice()
 
 PhysicalDevice::SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(VkPhysicalDevice physicalDevice)
 {
-    SwapChainSupportDetails details;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, m_surface, &details.capabilities);
+    VkPhysicalDeviceSurfaceInfo2KHR surfaceInfo{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR};
+    surfaceInfo.surface = m_surface;
+    surfaceInfo.pNext = nullptr;
+
+    SwapChainSupportDetails details{};
+    details.capabilities.sType = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR;
+    vkGetPhysicalDeviceSurfaceCapabilities2KHR(physicalDevice, &surfaceInfo, &details.capabilities);
 
     u32 formatCount;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, m_surface, &formatCount, nullptr);
+    vkGetPhysicalDeviceSurfaceFormats2KHR(physicalDevice, &surfaceInfo, &formatCount, nullptr);
 
     if(formatCount != 0)
     {
         details.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, m_surface, &formatCount, details.formats.data());
+        // FIXME: this is probably not a good way to set the sType, but I can't figure out another way
+        for(int i = 0; i < formatCount; i++) { details.formats[i].sType = VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR; }
+
+        vkGetPhysicalDeviceSurfaceFormats2KHR(physicalDevice, &surfaceInfo, &formatCount, details.formats.data());
     }
 
     u32 presentModeCount;

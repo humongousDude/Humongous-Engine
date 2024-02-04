@@ -61,6 +61,7 @@ Instance::~Instance()
     if(ENABLE_VALIDATION_LAYERS) { DestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr); }
 
     vkDestroyInstance(m_instance, nullptr);
+    HGINFO("Destroyed Vulkan Instance");
 }
 
 void Instance::InitInstance()
@@ -151,6 +152,8 @@ std::vector<const char*> Instance::GetRequiredExtensions()
     std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
     if(ENABLE_VALIDATION_LAYERS) { extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME); }
+    extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+    extensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
 
     return extensions;
 }

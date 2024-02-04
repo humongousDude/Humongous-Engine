@@ -1,5 +1,4 @@
 #include "logger.hpp"
-#include <iostream>
 #include <window.hpp>
 
 namespace Humongous
@@ -10,6 +9,7 @@ Window::~Window()
 {
     glfwDestroyWindow(window);
     glfwTerminate();
+    HGINFO("Destroyed window and terminated GLFW");
 }
 
 void Window::CreateWindow()
