@@ -20,7 +20,7 @@ SwapChain::~SwapChain()
 
 void SwapChain::CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, VkSwapchainKHR* oldSwap)
 {
-    HGINFO("Creating SwapChain");
+    HGINFO("Creating SwapChain...");
     PhysicalDevice::SwapChainSupportDetails details = physicalDevice.QuerySwapChainSupport(physicalDevice.GetVkPhysicalDevice());
 
     VkSurfaceFormat2KHR surfaceFormat = ChooseSurfaceFormat(details.formats);
