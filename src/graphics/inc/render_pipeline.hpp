@@ -31,6 +31,8 @@ public:
 
     static PipelineConfigInfo DefaultPipelineConfigInfo();
 
+    VkPipeline GetPipeline() const { return m_pipeline; }
+
 private:
     LogicalDevice& m_logicalDevice;
 

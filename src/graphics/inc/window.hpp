@@ -22,7 +22,11 @@ public:
     bool IsFocused() const { return glfwGetWindowAttrib(window, GLFW_FOCUSED); }
     bool IsMinimized() const { return glfwGetWindowAttrib(window, GLFW_ICONIFIED); }
 
+    VkExtent2D GetExtent() const { return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}; }
+
 private:
+    int width = 800, height = 600;
+
     GLFWwindow* window = nullptr;
 
     void CreateWindow();

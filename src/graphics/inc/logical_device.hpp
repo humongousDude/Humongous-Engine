@@ -15,6 +15,9 @@ public:
 
     VkDevice GetVkDevice() const { return m_logicalDevice; }
 
+    VkQueue GetGraphicsQueue() const { return m_graphicsQueue; }
+    VkQueue GetPresentQueue() const { return m_presentQueue; }
+
 private:
     Instance& m_instance;
 

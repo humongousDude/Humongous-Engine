@@ -9,6 +9,7 @@
 #include <memory>
 #include <physical_device.hpp>
 #include <swapchain.hpp>
+#include <vk_mem_alloc.h>
 
 namespace Humongous
 {
@@ -16,7 +17,7 @@ struct DeletionQueue
 {
     std::deque<std::function<void()>> deletors;
 
-    void PushDeletor(std::function<void()> deletor) { deletors.push_back(deletor); }
+    void PushDeletor(std::function<void()> deletor) { deletors.push_front(deletor); }
 
     void Flush()
     {
@@ -25,6 +26,24 @@ struct DeletionQueue
     }
 };
 
+struct Frame
+{
+    VkCommandBuffer commandBuffer;
+    VkSemaphore     imageAvailableSemaphore;
+    VkSemaphore     renderFinishedSemaphore;
+    VkFence         inFlightFence;
+};
+
+struct AllocatedImage
+{
+    VkImage       image;
+    VkImageView   imageView;
+    VmaAllocation allocation;
+    VkExtent3D    imageExtent;
+    VkFormat      imageFormat;
+};
+
+// TODO: Refactor
 class VulkanApp
 {
 public:
@@ -45,8 +64,25 @@ private:
 
     VkPipelineLayout pipelineLayout;
 
+    VkCommandPool      m_commandPool;
+    std::vector<Frame> m_frames;
+
+    int    frameNumber{0};
+    Frame& GetCurrentFrame() { return m_frames[frameNumber % SwapChain::MAX_FRAMES_IN_FLIGHT]; }
+
+    VmaAllocator m_allocator;
+
+    AllocatedImage m_drawImage;
+    VkExtent2D     m_drawImageExtent;
+
     void Init();
     // TODO: move this function
     void CreatePipelineLayout();
+    void InitSyncStructures();
+    void CreateCommandPool();
+    void AllocateCommandBuffers();
+    void RecordCommandBuffer(VkCommandBuffer commandBuffer, u32 imageIndex);
+    void SubmitCommandBuffer(VkCommandBuffer commandBuffer, u32 imageIndex);
+    void DrawFrame();
 };
 } // namespace Humongous

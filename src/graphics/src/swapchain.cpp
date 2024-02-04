@@ -10,10 +10,13 @@ SwapChain::SwapChain(Window& window, PhysicalDevice& physicalDevice, LogicalDevi
     : m_logicalDevice(logicalDevice)
 {
     CreateSwapChain(window, physicalDevice, oldSwap);
+    CreateImageViews();
 }
 
 SwapChain::~SwapChain()
 {
+    for(auto imageView: m_imageViews) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), imageView, nullptr); }
+
     vkDestroySwapchainKHR(m_logicalDevice.GetVkDevice(), m_swapChain, nullptr);
     HGINFO("Destroyed SwapChain");
 }
@@ -72,6 +75,71 @@ void SwapChain::CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, 
     }
 
     HGINFO("Created SwapChain");
+
+    vkGetSwapchainImagesKHR(m_logicalDevice.GetVkDevice(), m_swapChain, &imageCount, nullptr);
+    m_images.resize(imageCount);
+    vkGetSwapchainImagesKHR(m_logicalDevice.GetVkDevice(), m_swapChain, &imageCount, m_images.data());
+    HGINFO("Got %d swapchain images", imageCount);
+}
+
+void SwapChain::CreateImageViews()
+{
+    m_imageViews.resize(m_images.size());
+
+    for(size_t i = 0; i < m_imageViews.size(); i++)
+    {
+        VkImageViewCreateInfo createInfo{.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        createInfo.image = m_images[i];
+        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        createInfo.format = m_surfaceFormat;
+
+        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        createInfo.subresourceRange.baseMipLevel = 0;
+        createInfo.subresourceRange.levelCount = 1;
+        createInfo.subresourceRange.baseArrayLayer = 0;
+        createInfo.subresourceRange.layerCount = 1;
+
+        if(vkCreateImageView(m_logicalDevice.GetVkDevice(), &createInfo, nullptr, &m_imageViews[i]) != VK_SUCCESS)
+        {
+            HGERROR("Failed to create image view!");
+        }
+    }
+}
+
+void SwapChain::TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout)
+{
+    VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    imageBarrier.pNext = nullptr;
+
+    imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    imageBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
+    imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    imageBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
+
+    imageBarrier.oldLayout = currentLayout;
+    imageBarrier.newLayout = newLayout;
+
+    VkImageAspectFlags aspectMask = (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    imageBarrier.subresourceRange.aspectMask = aspectMask;
+    imageBarrier.subresourceRange.baseMipLevel = 0;
+    imageBarrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+    imageBarrier.subresourceRange.baseArrayLayer = 0;
+    imageBarrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+    imageBarrier.image = image;
+
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.pNext = nullptr;
+
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &imageBarrier;
+
+    vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
 VkSurfaceFormat2KHR SwapChain::ChooseSurfaceFormat(const std::vector<VkSurfaceFormat2KHR>& formats)

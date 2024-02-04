@@ -12,8 +12,23 @@ namespace Humongous
 class SwapChain : NonCopyable
 {
 public:
+    static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+
     SwapChain(Window& window, PhysicalDevice& physicalDevice, LogicalDevice& logicalDevice, VkSwapchainKHR* oldSwap = nullptr);
     ~SwapChain();
+
+    VkExtent2D       GetExtent() const { return m_extent; }
+    VkFormat         GetSurfaceFormat() const { return m_surfaceFormat; }
+    VkPresentModeKHR GetPresentMode() const { return m_presentMode; }
+
+    VkResult AcquireNextImage(uint32_t* imageIndex);
+
+    VkSwapchainKHR GetSwapChain() const { return m_swapChain; }
+
+    static void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
+
+    std::vector<VkImageView> GetImageViews() const { return m_imageViews; }
+    std::vector<VkImage>     GetImages() const { return m_images; }
 
 private:
     VkSwapchainKHR m_swapChain;
@@ -25,7 +40,11 @@ private:
     VkPresentModeKHR m_presentMode;
     VkExtent2D       m_extent;
 
+    std::vector<VkImage>     m_images;
+    std::vector<VkImageView> m_imageViews;
+
     void CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, VkSwapchainKHR* oldSwap);
+    void CreateImageViews();
 
     VkSurfaceFormat2KHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormat2KHR>& formats);
     VkPresentModeKHR    ChoosePresentMode(const std::vector<VkPresentModeKHR>& presentModes);
