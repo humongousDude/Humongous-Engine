@@ -5,6 +5,7 @@ This uses Vulkan and C++, and only targets windows currently
 Dependencies:
 * Vulkan SDK
 * CMake
+* Ninja
 
 Libraries used:
 * GLFW3
