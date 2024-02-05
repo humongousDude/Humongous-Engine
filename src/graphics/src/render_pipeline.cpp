@@ -22,8 +22,8 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
 {
     HGINFO("Creating Render Pipeline...");
 
-    auto vertCode = ReadFile("compiledShaders/simple.vert.spv");
-    auto fragCode = ReadFile("compiledShaders/simple.frag.spv");
+    auto vertCode = ReadFile("compiledShaders/simple.vert.glsl.spv");
+    auto fragCode = ReadFile("compiledShaders/simple.frag.glsl.spv");
     HGINFO("Successfully read shader files");
 
     VkShaderModule vertShaderModule;

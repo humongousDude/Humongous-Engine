@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render_pipeline.hpp"
+#include "renderer.hpp"
 #include "window.hpp"
 #include <deque>
 #include <functional>
@@ -9,6 +10,7 @@
 #include <memory>
 #include <physical_device.hpp>
 #include <swapchain.hpp>
+
 #include <vk_mem_alloc.h>
 
 namespace Humongous
@@ -24,23 +26,6 @@ struct DeletionQueue
         for(auto& deletor: deletors) { deletor(); }
         deletors.clear();
     }
-};
-
-struct Frame
-{
-    VkCommandBuffer commandBuffer;
-    VkSemaphore     imageAvailableSemaphore;
-    VkSemaphore     renderFinishedSemaphore;
-    VkFence         inFlightFence;
-};
-
-struct AllocatedImage
-{
-    VkImage       image;
-    VkImageView   imageView;
-    VmaAllocation allocation;
-    VkExtent3D    imageExtent;
-    VkFormat      imageFormat;
 };
 
 // TODO: Refactor
@@ -59,30 +44,16 @@ private:
     std::unique_ptr<Window>         m_window;
     std::unique_ptr<PhysicalDevice> m_physicalDevice;
     std::unique_ptr<LogicalDevice>  m_logicalDevice;
-    std::unique_ptr<SwapChain>      m_swapChain;
     std::unique_ptr<RenderPipeline> m_renderPipeline;
+    std::unique_ptr<Renderer>       m_renderer;
 
     VkPipelineLayout pipelineLayout;
 
-    VkCommandPool      m_commandPool;
-    std::vector<Frame> m_frames;
-
-    int    frameNumber{0};
-    Frame& GetCurrentFrame() { return m_frames[frameNumber % SwapChain::MAX_FRAMES_IN_FLIGHT]; }
-
     VmaAllocator m_allocator;
-
-    AllocatedImage m_drawImage;
-    VkExtent2D     m_drawImageExtent;
 
     void Init();
     // TODO: move this function
     void CreatePipelineLayout();
     void InitSyncStructures();
-    void CreateCommandPool();
-    void AllocateCommandBuffers();
-    void RecordCommandBuffer(VkCommandBuffer commandBuffer, u32 imageIndex);
-    void SubmitCommandBuffer(VkCommandBuffer commandBuffer, u32 imageIndex);
-    void DrawFrame();
 };
 } // namespace Humongous
