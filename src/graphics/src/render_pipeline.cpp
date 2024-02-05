@@ -52,6 +52,10 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputInfo.vertexBindingDescriptionCount = 0;
     vertexInputInfo.vertexAttributeDescriptionCount = 0;
+    vertexInputInfo.pVertexBindingDescriptions = nullptr;
+    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+    vertexInputInfo.flags = 0;
+    vertexInputInfo.pNext = nullptr;
 
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -60,6 +64,7 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
 
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.pNext = &configInfo.renderingInfo;
     pipelineInfo.stageCount = 2;
     pipelineInfo.pStages = shaderStages;
     pipelineInfo.pVertexInputState = &vertexInputInfo;
@@ -172,6 +177,16 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
     configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();
     configInfo.dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
     configInfo.dynamicStateInfo.flags = 0;
+
+    configInfo.renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    configInfo.renderingInfo.viewMask = 0;
+    configInfo.renderingInfo.colorAttachmentCount = 1;
+
+    // hardcoded for now
+    configInfo.colorAttachmentFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+    configInfo.renderingInfo.pColorAttachmentFormats = &configInfo.colorAttachmentFormat;
+    configInfo.renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
+    // configInfo.renderingInfo.stencilAttachmentFormat = VK_FORMAT_D32_SFLOAT;
 
     return configInfo;
 }

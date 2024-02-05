@@ -182,15 +182,17 @@ void VulkanApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
+    m_drawImageExtent.width = m_drawImage.imageExtent.width;
+    m_drawImageExtent.height = m_drawImage.imageExtent.height;
+
     if(vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) { HGERROR("Failed to begin recording command buffer"); }
 
-    // SwapChain::TransitionImageLayout(commandBuffer, m_drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    SwapChain::TransitionImageLayout(commandBuffer, m_swapChain->GetImages()[imageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    SwapChain::TransitionImageLayout(commandBuffer, m_drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     VkRenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     colorAttachment.imageView = m_drawImage.imageView;
-    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
@@ -204,10 +206,11 @@ void VulkanApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
     renderingInfo.pStencilAttachment = nullptr;
     renderingInfo.pNext = nullptr;
     renderingInfo.viewMask = 0;
+    renderingInfo.flags = 0;
 
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
-    // vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_renderPipeline->GetPipeline());
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_renderPipeline->GetPipeline());
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -226,26 +229,11 @@ void VulkanApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
 
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    // vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-
-    // make a clear-color from frame number. This will flash with a 120 frame period.
-    VkClearColorValue clearValue;
-    float             flash = abs(sin(frameNumber / 120.f));
-    clearValue = {{0.0f, 0.0f, flash, 1.0f}};
-
-    VkImageSubresourceRange clearRange{};
-    clearRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    clearRange.baseMipLevel = 0;
-    clearRange.levelCount = VK_REMAINING_MIP_LEVELS;
-    clearRange.baseArrayLayer = 0;
-    clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-
-    // clear image
+    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
     vkCmdEndRendering(commandBuffer);
-    vkCmdClearColorImage(commandBuffer, m_swapChain->GetImages()[imageIndex], VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 
-    /* SwapChain::TransitionImageLayout(commandBuffer, m_drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    SwapChain::TransitionImageLayout(commandBuffer, m_drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     SwapChain::TransitionImageLayout(commandBuffer, m_swapChain->GetImages()[imageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -254,9 +242,8 @@ void VulkanApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
                                 m_swapChain->GetExtent());
 
     SwapChain::TransitionImageLayout(commandBuffer, m_swapChain->GetImages()[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR); */
+                                     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-    SwapChain::TransitionImageLayout(commandBuffer, m_swapChain->GetImages()[imageIndex], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
     if(vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) { HGERROR("Failed to record command buffer"); }
 }
 
@@ -308,9 +295,7 @@ void VulkanApp::InitSyncStructures()
 
 void VulkanApp::SubmitCommandBuffer(VkCommandBuffer commandBuffer, u32 imageIndex)
 {
-
     // TODO: implement
-    //
     // prepare the submission to the queue.
     // we want to wait on the presentSemaphore, as that semaphore is signaled when the swapchain is ready
     // we will signal the renderSemaphore, to signal the rendering has finishedo
@@ -323,12 +308,12 @@ void VulkanApp::SubmitCommandBuffer(VkCommandBuffer commandBuffer, u32 imageInde
     VkSemaphoreSubmitInfo waitInfo{};
     waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
     waitInfo.semaphore = GetCurrentFrame().imageAvailableSemaphore;
-    waitInfo.stageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    waitInfo.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR;
 
     VkSemaphoreSubmitInfo signalInfo{};
     signalInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
     signalInfo.semaphore = GetCurrentFrame().renderFinishedSemaphore;
-    signalInfo.stageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    signalInfo.stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
 
     VkSubmitInfo2 submit{};
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
@@ -351,8 +336,6 @@ void VulkanApp::SubmitCommandBuffer(VkCommandBuffer commandBuffer, u32 imageInde
     // this will put the image we just rendered into the visible window
     // we want to wait on the renderSemaphore for that
     // as its necessary that drawing commands have finished before the image is displayed to the user
-    //
-
     auto s = m_swapChain->GetSwapChain();
 
     VkPresentInfoKHR presentInfo{};
@@ -369,7 +352,6 @@ void VulkanApp::SubmitCommandBuffer(VkCommandBuffer commandBuffer, u32 imageInde
 
 void VulkanApp::DrawFrame()
 {
-
     // wait until the gpu has finished rendering the last. frame, Timeout of 1 second
     if(vkWaitForFences(m_logicalDevice->GetVkDevice(), 1, &GetCurrentFrame().inFlightFence, VK_TRUE, 1000000000) != VK_SUCCESS)
     {
@@ -386,9 +368,6 @@ void VulkanApp::DrawFrame()
 
     VkCommandBuffer cmd = GetCurrentFrame().commandBuffer;
     if(vkResetCommandBuffer(cmd, 0) != VK_SUCCESS) { HGERROR("Failed to reset command buffer"); }
-
-    m_drawImageExtent.width = m_drawImage.imageExtent.width;
-    m_drawImageExtent.height = m_drawImage.imageExtent.height;
 
     RecordCommandBuffer(cmd, swapchainImageIndex);
     SubmitCommandBuffer(cmd, swapchainImageIndex);

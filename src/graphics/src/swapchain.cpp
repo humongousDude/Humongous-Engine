@@ -181,7 +181,7 @@ VkSurfaceFormat2KHR SwapChain::ChooseSurfaceFormat(const std::vector<VkSurfaceFo
 {
     VkSurfaceFormat2KHR comp{.sType = VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR,
                              .pNext = nullptr,
-                             .surfaceFormat = {VK_FORMAT_R8G8B8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR}};
+                             .surfaceFormat = {VK_FORMAT_R16G16B16A16_SFLOAT, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR}};
 
     for(const auto& format: formats)
     {

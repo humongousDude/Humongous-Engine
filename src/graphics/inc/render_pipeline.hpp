@@ -22,6 +22,8 @@ public:
         std::vector<VkDynamicState>            dynamicStateEnables;
         VkPipelineDynamicStateCreateInfo       dynamicStateInfo;
         VkPipelineLayout                       pipelineLayout = nullptr;
+        VkPipelineRenderingCreateInfo          renderingInfo;
+        VkFormat                               colorAttachmentFormat;
         // VkRenderPass renderPass = nullptr;
         // uint32_t subpass = 0;
     };
@@ -31,7 +33,7 @@ public:
 
     static PipelineConfigInfo DefaultPipelineConfigInfo();
 
-    VkPipeline GetPipeline() const { return m_pipeline; }
+    VkPipeline& GetPipeline() { return m_pipeline; }
 
 private:
     LogicalDevice& m_logicalDevice;
