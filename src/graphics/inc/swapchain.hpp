@@ -26,13 +26,14 @@ public:
     VkSwapchainKHR GetSwapChain() const { return m_swapChain; }
 
     static void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
+    static void CopyImageToImage(VkCommandBuffer cmd, VkImage src, VkImage dst, VkExtent2D srcSize, VkExtent2D dstSize);
 
     std::vector<VkImageView> GetImageViews() const { return m_imageViews; }
     std::vector<VkImage>     GetImages() const { return m_images; }
 
 private:
-    VkSwapchainKHR m_swapChain;
     LogicalDevice& m_logicalDevice;
+    VkSwapchainKHR m_swapChain;
     // maybe unused?
     // VkSwapchainKHR* m_oldSwap = nullptr;
 

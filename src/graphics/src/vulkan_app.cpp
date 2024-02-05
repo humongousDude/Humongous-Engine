@@ -1,3 +1,6 @@
+// okay listen, this class is currently a mess
+// just bear with me, i swear it'll be clean in the next commit
+
 #include <logger.hpp>
 #include <thread>
 #define VMA_IMPLEMENTATION
@@ -181,23 +184,19 @@ void VulkanApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
 
     if(vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) { HGERROR("Failed to begin recording command buffer"); }
 
-    m_swapChain->TransitionImageLayout(commandBuffer, m_swapChain->GetImages()[imageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
-                                       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    // SwapChain::TransitionImageLayout(commandBuffer, m_drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    SwapChain::TransitionImageLayout(commandBuffer, m_swapChain->GetImages()[imageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     VkRenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachment.imageView = m_swapChain->GetImageViews()[imageIndex];
+    colorAttachment.imageView = m_drawImage.imageView;
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.clearValue = {0.0f, 0.0f, 0.0f, 1.0f};
-    colorAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
-    colorAttachment.resolveImageView = VK_NULL_HANDLE;
-    colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     VkRenderingInfo renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    renderingInfo.renderArea = {.offset = {0, 0}, .extent = m_swapChain->GetExtent()};
+    renderingInfo.renderArea = {0, 0, m_swapChain->GetExtent().width, m_swapChain->GetExtent().height};
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachments = &colorAttachment;
@@ -205,19 +204,59 @@ void VulkanApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
     renderingInfo.pStencilAttachment = nullptr;
     renderingInfo.pNext = nullptr;
     renderingInfo.viewMask = 0;
-    renderingInfo.renderArea = {.offset = {0, 0}, .extent = m_swapChain->GetExtent()};
 
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
     // vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_renderPipeline->GetPipeline());
 
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(m_drawImageExtent.width);
+    viewport.height = static_cast<float>(m_drawImageExtent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent.width = m_drawImageExtent.width;
+    scissor.extent.height = m_drawImageExtent.height;
+
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
     // vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
+    // make a clear-color from frame number. This will flash with a 120 frame period.
+    VkClearColorValue clearValue;
+    float             flash = abs(sin(frameNumber / 120.f));
+    clearValue = {{0.0f, 0.0f, flash, 1.0f}};
+
+    VkImageSubresourceRange clearRange{};
+    clearRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    clearRange.baseMipLevel = 0;
+    clearRange.levelCount = VK_REMAINING_MIP_LEVELS;
+    clearRange.baseArrayLayer = 0;
+    clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+    // clear image
+
     vkCmdEndRendering(commandBuffer);
+    vkCmdClearColorImage(commandBuffer, m_swapChain->GetImages()[imageIndex], VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 
-    m_swapChain->TransitionImageLayout(commandBuffer, m_swapChain->GetImages()[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                       VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    /* SwapChain::TransitionImageLayout(commandBuffer, m_drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    SwapChain::TransitionImageLayout(commandBuffer, m_swapChain->GetImages()[imageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
+                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
+    SwapChain::CopyImageToImage(commandBuffer, m_drawImage.image, m_swapChain->GetImages()[imageIndex], m_drawImageExtent,
+                                m_swapChain->GetExtent());
+
+    SwapChain::TransitionImageLayout(commandBuffer, m_swapChain->GetImages()[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR); */
+
+    SwapChain::TransitionImageLayout(commandBuffer, m_swapChain->GetImages()[imageIndex], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
     if(vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) { HGERROR("Failed to record command buffer"); }
 }
 
