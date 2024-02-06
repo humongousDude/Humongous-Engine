@@ -6,7 +6,7 @@
 
 namespace Humongous
 {
-Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator& allocator)
+Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator)
     : m_window{window}, m_logicalDevice{logicalDevice}, m_physicalDevice{physicalDevice}, m_allocator{allocator}
 {
     m_swapChain = std::make_unique<SwapChain>(window, physicalDevice, logicalDevice);

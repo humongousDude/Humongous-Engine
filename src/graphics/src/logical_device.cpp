@@ -8,10 +8,12 @@ namespace Humongous
 LogicalDevice::LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice) : m_logicalDevice(VK_NULL_HANDLE), m_instance(instance)
 {
     CreateLogicalDevice(instance, physicalDevice);
+    CreateVmaAllocator(instance, physicalDevice);
 }
 
 LogicalDevice::~LogicalDevice()
 {
+    vmaDestroyAllocator(m_allocator);
     vkDestroyDevice(m_logicalDevice, nullptr);
     HGINFO("Destroyed logical device");
 }
@@ -89,12 +91,22 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
 
     vkGetDeviceQueue2(m_logicalDevice, &queueCreateInfos[0], &m_graphicsQueue);
     vkGetDeviceQueue2(m_logicalDevice, &queueCreateInfos[1], &m_presentQueue);
-    HGINFO("logical device queues aqcuired");
+    HGINFO("logical device queues acquired");
+}
+
+void LogicalDevice::CreateVmaAllocator(Instance& instance, PhysicalDevice& physicalDevice)
+{
+    VmaAllocatorCreateInfo allocatorInfo{};
+    allocatorInfo.physicalDevice = physicalDevice.GetVkPhysicalDevice();
+    allocatorInfo.device = m_logicalDevice;
+    allocatorInfo.instance = instance.GetVkInstance();
+    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+    vmaCreateAllocator(&allocatorInfo, &m_allocator);
 }
 
 std::vector<VkDeviceQueueInfo2> LogicalDevice::CreateQueues(PhysicalDevice& physicalDevice)
 {
-    HGINFO("aqcuiring queue handles...");
+    HGINFO("acquiring queue handles...");
 
     PhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 

@@ -8,4 +8,3 @@ void main()
 {
     fragColor = vec4(inColor, 1.0);
 }
-

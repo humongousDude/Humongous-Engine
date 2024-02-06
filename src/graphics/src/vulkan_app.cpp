@@ -5,6 +5,8 @@
 #include <vk_mem_alloc.h>
 #include <vulkan_app.hpp>
 
+#include <abstractions/buffer.hpp>
+
 namespace Humongous
 {
 
@@ -20,6 +22,12 @@ void VulkanApp::Init()
     m_logicalDevice = std::make_unique<LogicalDevice>(*m_instance, *m_physicalDevice);
 
     CreatePipelineLayout();
+
+    Buffer buffer{*m_logicalDevice, 256, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT};
+
+    buffer.Map();
+    buffer.UnMap();
 
     // TODO: move this
     RenderPipeline::PipelineConfigInfo info;
@@ -41,22 +49,9 @@ void VulkanApp::Init()
         m_renderPipeline.reset();
     });
 
-    VmaAllocatorCreateInfo allocatorInfo{};
-    allocatorInfo.physicalDevice = m_physicalDevice->GetVkPhysicalDevice();
-    allocatorInfo.device = m_logicalDevice->GetVkDevice();
-    allocatorInfo.instance = m_instance->GetVkInstance();
-    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
-    allocatorInfo.pAllocationCallbacks = nullptr;
-    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator());
 
-    vmaCreateAllocator(&allocatorInfo, &m_allocator);
-
-    m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_allocator);
-
-    m_mainDeletionQueue.PushDeletor([&]() {
-        m_renderer.reset();
-        vmaDestroyAllocator(m_allocator);
-    });
+    m_mainDeletionQueue.PushDeletor([&]() { m_renderer.reset(); });
 }
 
 void VulkanApp::CreatePipelineLayout()

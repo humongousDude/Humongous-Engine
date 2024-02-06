@@ -49,8 +49,6 @@ private:
 
     VkPipelineLayout pipelineLayout;
 
-    VmaAllocator m_allocator;
-
     void Init();
     // TODO: move this function
     void CreatePipelineLayout();

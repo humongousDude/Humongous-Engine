@@ -5,6 +5,8 @@
 #include <instance.hpp>
 #include <physical_device.hpp>
 
+#include <vk_mem_alloc.h>
+
 namespace Humongous
 {
 class LogicalDevice : NonCopyable
@@ -18,6 +20,8 @@ public:
     VkQueue GetGraphicsQueue() const { return m_graphicsQueue; }
     VkQueue GetPresentQueue() const { return m_presentQueue; }
 
+    VmaAllocator GetVmaAllocator() const { return m_allocator; }
+
 private:
     Instance& m_instance;
 
@@ -26,7 +30,10 @@ private:
     VkQueue m_graphicsQueue;
     VkQueue m_presentQueue;
 
+    VmaAllocator m_allocator;
+
     void CreateLogicalDevice(Instance& instance, PhysicalDevice& physicalDevice);
+    void CreateVmaAllocator(Instance& instance, PhysicalDevice& physicalDevice);
 
     std::vector<VkDeviceQueueInfo2> CreateQueues(PhysicalDevice& physicalDevice);
 };

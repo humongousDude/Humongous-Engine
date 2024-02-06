@@ -28,7 +28,7 @@ public:
         VkFormat      imageFormat;
     };
 
-    Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator& allocator);
+    Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator);
     ~Renderer();
 
     VkCommandBuffer GetCommandBuffer() { return GetCurrentFrame().commandBuffer; }
@@ -45,7 +45,7 @@ private:
     LogicalDevice&             m_logicalDevice;
     PhysicalDevice&            m_physicalDevice;
 
-    VmaAllocator& m_allocator;
+    VmaAllocator m_allocator;
 
     VkCommandPool      m_commandPool;
     std::vector<Frame> m_frames;
