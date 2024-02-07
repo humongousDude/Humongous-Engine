@@ -6,6 +6,9 @@
 #include <vulkan_app.hpp>
 
 #include <abstractions/buffer.hpp>
+#include <abstractions/descriptor_layout.hpp>
+#include <abstractions/descriptor_pool.hpp>
+#include <abstractions/descriptor_writer.hpp>
 
 namespace Humongous
 {
@@ -28,6 +31,23 @@ void VulkanApp::Init()
 
     buffer.Map();
     buffer.UnMap();
+
+    DescriptorPool::Builder builder{*m_logicalDevice};
+    builder.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1);
+    builder.SetPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+    builder.SetMaxSets(1);
+
+    std::unique_ptr<DescriptorPool> pool = builder.Build();
+
+    DescriptorSetLayout::Builder builder2{*m_logicalDevice};
+    builder2.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    builder2.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    std::unique_ptr<DescriptorSetLayout> layout = builder2.build();
+
+    DescriptorWriter writer{*layout, *pool};
+    VkDescriptorSet  set;
+    auto             bufInfo = buffer.DescriptorInfo();
+    writer.WriteBuffer(0, &bufInfo).Build(set);
 
     // TODO: move this
     RenderPipeline::PipelineConfigInfo info;

@@ -1,0 +1,50 @@
+#include "asserts.hpp"
+#include "logger.hpp"
+#include <abstractions/descriptor_layout.hpp>
+#include <abstractions/descriptor_pool.hpp>
+
+namespace Humongous
+{
+
+// *************** Descriptor Set Layout Builder *********************
+
+DescriptorSetLayout::Builder& DescriptorSetLayout::Builder::addBinding(uint32_t binding, VkDescriptorType descriptorType,
+                                                                       VkShaderStageFlags stageFlags, uint32_t count)
+{
+    HGASSERT(m_bindings.count(binding) == 0 && "Binding already in use")
+    VkDescriptorSetLayoutBinding layoutBinding{};
+    layoutBinding.binding = binding;
+    layoutBinding.descriptorType = descriptorType;
+    layoutBinding.descriptorCount = count;
+    layoutBinding.stageFlags = stageFlags;
+    m_bindings[binding] = layoutBinding;
+    return *this;
+}
+
+std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::Builder::build() const
+{
+    return std::make_unique<DescriptorSetLayout>(m_device, m_bindings);
+}
+
+// *************** Descriptor Set Layout *********************
+
+DescriptorSetLayout::DescriptorSetLayout(LogicalDevice& m_device, std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> m_bindings)
+    : m_device{m_device}, m_bindings{m_bindings}
+{
+    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings{};
+    for(auto kv: m_bindings) { setLayoutBindings.push_back(kv.second); }
+
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutInfo{};
+    descriptorSetLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptorSetLayoutInfo.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
+    descriptorSetLayoutInfo.pBindings = setLayoutBindings.data();
+
+    if(vkCreateDescriptorSetLayout(m_device.GetVkDevice(), &descriptorSetLayoutInfo, nullptr, &m_descriptorSetLayout) != VK_SUCCESS)
+    {
+        HGERROR("Failed to create descriptor set layout!");
+    }
+}
+
+DescriptorSetLayout::~DescriptorSetLayout() { vkDestroyDescriptorSetLayout(m_device.GetVkDevice(), m_descriptorSetLayout, nullptr); }
+
+} // namespace Humongous
