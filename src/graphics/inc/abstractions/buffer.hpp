@@ -35,6 +35,8 @@ public:
     VkMemoryPropertyFlags GetMemoryPropertyFlags() const { return m_memoryPropertyFlags; }
     VkDeviceSize          GetBufferSize() const { return m_bufferSize; }
 
+    static void CopyBuffer(LogicalDevice& device, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+
 private:
     struct CreateInfo
     {

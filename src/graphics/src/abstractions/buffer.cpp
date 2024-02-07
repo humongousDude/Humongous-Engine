@@ -227,4 +227,16 @@ VkDescriptorBufferInfo Buffer::DescriptorInfoForIndex(int index) { return Descri
  */
 VkResult Buffer::InvalidateIndex(int index) { return Invalidate(m_alignmentSize, index * m_alignmentSize); }
 
+void Buffer::CopyBuffer(LogicalDevice& device, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+{
+    VkCommandBuffer commandBuffer = device.BeginSingleTimeCommands();
+
+    VkBufferCopy copyRegion{};
+    copyRegion.srcOffset = 0; // Optional
+    copyRegion.dstOffset = 0; // Optional
+    copyRegion.size = size;
+    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+    device.EndSingleTimeCommands(commandBuffer);
+}
 } // namespace Humongous

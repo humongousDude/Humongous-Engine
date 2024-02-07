@@ -22,6 +22,9 @@ public:
 
     VmaAllocator GetVmaAllocator() const { return m_allocator; }
 
+    VkCommandBuffer BeginSingleTimeCommands();
+    void            EndSingleTimeCommands(VkCommandBuffer cmd);
+
 private:
     Instance& m_instance;
 
@@ -32,8 +35,12 @@ private:
 
     VmaAllocator m_allocator;
 
+    // pool for single time commands
+    VkCommandPool m_commandPool;
+
     void CreateLogicalDevice(Instance& instance, PhysicalDevice& physicalDevice);
     void CreateVmaAllocator(Instance& instance, PhysicalDevice& physicalDevice);
+    void CreateCommandPool(PhysicalDevice& physicalDevice);
 
     std::vector<VkDeviceQueueInfo2> CreateQueues(PhysicalDevice& physicalDevice);
 };

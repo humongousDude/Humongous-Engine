@@ -7,12 +7,17 @@ namespace Humongous
 {
 LogicalDevice::LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice) : m_logicalDevice(VK_NULL_HANDLE), m_instance(instance)
 {
+    HGINFO("Creating logical device...");
     CreateLogicalDevice(instance, physicalDevice);
     CreateVmaAllocator(instance, physicalDevice);
+    CreateCommandPool(physicalDevice);
+    HGINFO("Created logical device");
 }
 
 LogicalDevice::~LogicalDevice()
 {
+    HGINFO("Destroying logical device...");
+    vkDestroyCommandPool(m_logicalDevice, m_commandPool, nullptr);
     vmaDestroyAllocator(m_allocator);
     vkDestroyDevice(m_logicalDevice, nullptr);
     HGINFO("Destroyed logical device");
@@ -124,6 +129,59 @@ std::vector<VkDeviceQueueInfo2> LogicalDevice::CreateQueues(PhysicalDevice& phys
     }
 
     return queueCreateInfos;
+}
+
+void LogicalDevice::CreateCommandPool(PhysicalDevice& physicalDevice)
+{
+    VkCommandPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    poolInfo.queueFamilyIndex = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice()).graphicsFamily.value();
+    if(vkCreateCommandPool(m_logicalDevice, &poolInfo, nullptr, &m_commandPool) != VK_SUCCESS) { HGFATAL("Failed to create command pool!"); }
+}
+
+VkCommandBuffer LogicalDevice::BeginSingleTimeCommands()
+{
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = m_commandPool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(m_logicalDevice, &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    return commandBuffer;
+}
+
+void LogicalDevice::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
+{
+    vkEndCommandBuffer(commandBuffer);
+
+    VkCommandBufferSubmitInfo commandBufferInfo{};
+    commandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+    commandBufferInfo.commandBuffer = commandBuffer;
+    commandBufferInfo.deviceMask = 0;
+
+    VkSubmitInfo2 submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+    submitInfo.commandBufferInfoCount = 1;
+    submitInfo.pCommandBufferInfos = &commandBufferInfo;
+    submitInfo.signalSemaphoreInfoCount = 0;
+    submitInfo.pSignalSemaphoreInfos = nullptr;
+    submitInfo.waitSemaphoreInfoCount = 0;
+    submitInfo.pWaitSemaphoreInfos = nullptr;
+    submitInfo.pNext = nullptr;
+
+    vkQueueSubmit2(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(m_graphicsQueue);
+
+    vkFreeCommandBuffers(m_logicalDevice, m_commandPool, 1, &commandBuffer);
 }
 
 } // namespace Humongous

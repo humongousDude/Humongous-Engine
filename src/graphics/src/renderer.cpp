@@ -19,6 +19,7 @@ Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice&
 
 Renderer::~Renderer()
 {
+    HGINFO("Destroying renderer...");
     if(m_commandPool) { vkDestroyCommandPool(m_logicalDevice.GetVkDevice(), m_commandPool, nullptr); }
 
     for(Frame& frame: m_frames)
@@ -32,6 +33,7 @@ Renderer::~Renderer()
     vmaDestroyImage(m_allocator, m_drawImage.image, m_drawImage.allocation);
 
     m_swapChain.reset();
+    HGINFO("Destroyed renderer");
 }
 
 void Renderer::InitImagesAndViews()

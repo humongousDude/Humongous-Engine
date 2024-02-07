@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render_pipeline.hpp"
+#include "render_systems/simple_render_system.hpp"
 #include "renderer.hpp"
 #include "window.hpp"
 #include <deque>
@@ -28,7 +29,6 @@ struct DeletionQueue
     }
 };
 
-// TODO: Refactor
 class VulkanApp
 {
 public:
@@ -40,18 +40,16 @@ public:
 private:
     DeletionQueue m_mainDeletionQueue;
 
-    std::unique_ptr<Instance>       m_instance;
-    std::unique_ptr<Window>         m_window;
-    std::unique_ptr<PhysicalDevice> m_physicalDevice;
-    std::unique_ptr<LogicalDevice>  m_logicalDevice;
-    std::unique_ptr<RenderPipeline> m_renderPipeline;
-    std::unique_ptr<Renderer>       m_renderer;
+    std::unique_ptr<Instance>           m_instance;
+    std::unique_ptr<Window>             m_window;
+    std::unique_ptr<PhysicalDevice>     m_physicalDevice;
+    std::unique_ptr<LogicalDevice>      m_logicalDevice;
+    std::unique_ptr<Renderer>           m_renderer;
+    std::unique_ptr<SimpleRenderSystem> m_simpleRenderSystem;
 
-    VkPipelineLayout pipelineLayout;
+    GameObject::Map m_gameObjects;
 
     void Init();
-    // TODO: move this function
-    void CreatePipelineLayout();
-    void InitSyncStructures();
+    void LoadGameObjects();
 };
 } // namespace Humongous

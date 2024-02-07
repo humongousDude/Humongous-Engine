@@ -1,7 +1,8 @@
 #pragma once
 
-#include "render_pipeline.hpp"
+#include <gameobject.hpp>
 #include <memory>
+#include <render_pipeline.hpp>
 
 namespace Humongous
 {
@@ -11,12 +12,14 @@ public:
     SimpleRenderSystem(LogicalDevice& logicalDevice);
     ~SimpleRenderSystem();
 
-    // TODO: add game objects class
-    // void RenderObjects(std::vector<GameObject>& objects);
-private:
-    LogicalDevice& m_logicalDevice;
+    void RenderObjects(GameObject::Map& gameObjects, VkCommandBuffer commandBuffer);
 
+private:
+    LogicalDevice&                  m_logicalDevice;
     std::unique_ptr<RenderPipeline> m_renderPipeline;
     VkPipelineLayout                m_pipelineLayout;
+
+    void CreatePipelineLayout();
+    void CreatePipeline();
 };
 } // namespace Humongous

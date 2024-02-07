@@ -35,6 +35,8 @@ public:
 
     VkPipeline& GetPipeline() { return m_pipeline; }
 
+    void Bind(VkCommandBuffer cmd) { vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline); };
+
 private:
     LogicalDevice& m_logicalDevice;
 

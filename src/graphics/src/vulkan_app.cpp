@@ -1,3 +1,4 @@
+#include "gameobject.hpp"
 #include <logger.hpp>
 #include <thread>
 
@@ -13,7 +14,11 @@
 namespace Humongous
 {
 
-VulkanApp::VulkanApp() { Init(); }
+VulkanApp::VulkanApp()
+{
+    Init();
+    LoadGameObjects();
+}
 
 VulkanApp::~VulkanApp() { m_mainDeletionQueue.Flush(); }
 
@@ -23,69 +28,33 @@ void VulkanApp::Init()
     m_instance = std::make_unique<Instance>();
     m_physicalDevice = std::make_unique<PhysicalDevice>(*m_instance, *m_window);
     m_logicalDevice = std::make_unique<LogicalDevice>(*m_instance, *m_physicalDevice);
-
-    CreatePipelineLayout();
-
-    Buffer buffer{*m_logicalDevice, 256, 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT};
-
-    buffer.Map();
-    buffer.UnMap();
-
-    DescriptorPool::Builder builder{*m_logicalDevice};
-    builder.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1);
-    builder.SetPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
-    builder.SetMaxSets(1);
-
-    std::unique_ptr<DescriptorPool> pool = builder.Build();
-
-    DescriptorSetLayout::Builder builder2{*m_logicalDevice};
-    builder2.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-    builder2.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    std::unique_ptr<DescriptorSetLayout> layout = builder2.build();
-
-    DescriptorWriter writer{*layout, *pool};
-    VkDescriptorSet  set;
-    auto             bufInfo = buffer.DescriptorInfo();
-    writer.WriteBuffer(0, &bufInfo).Build(set);
-
-    // TODO: move this
-    RenderPipeline::PipelineConfigInfo info;
-    HGINFO("default configuring pipeline layout...");
-    info = RenderPipeline::DefaultPipelineConfigInfo();
-    HGINFO("success");
-    info.pipelineLayout = pipelineLayout;
-    m_renderPipeline = std::make_unique<RenderPipeline>(*m_logicalDevice, info);
+    m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator());
+    m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice);
 
     m_mainDeletionQueue.PushDeletor([&]() {
+        m_simpleRenderSystem.reset();
+        m_renderer.reset();
         m_logicalDevice.reset();
         m_physicalDevice.reset();
         m_window.reset();
         m_instance.reset();
     });
-
-    m_mainDeletionQueue.PushDeletor([&]() {
-        vkDestroyPipelineLayout(m_logicalDevice->GetVkDevice(), pipelineLayout, nullptr);
-        m_renderPipeline.reset();
-    });
-
-    m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator());
-
-    m_mainDeletionQueue.PushDeletor([&]() { m_renderer.reset(); });
 }
 
-void VulkanApp::CreatePipelineLayout()
+void VulkanApp::LoadGameObjects()
 {
-    HGINFO("Creating pipeline layout...");
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    HGINFO("Loading game objects...");
+    std::vector<Vertex> vertices{{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}}, {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}}, {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
 
-    if(vkCreatePipelineLayout(m_logicalDevice->GetVkDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
-    {
-        HGERROR("Failed to create pipeline layout");
-    }
+    std::shared_ptr<Model> model = std::make_shared<Model>(*m_logicalDevice, vertices);
 
-    HGINFO("Created pipeline layout");
+    GameObject obj = GameObject::CreateGameObject();
+    obj.model = model;
+
+    m_gameObjects.emplace(obj.GetId(), std::move(obj));
+    HGINFO("Loaded game objects...");
+
+    m_mainDeletionQueue.PushDeletor([&]() { m_gameObjects.clear(); });
 }
 
 void VulkanApp::Run()
@@ -106,9 +75,7 @@ void VulkanApp::Run()
             {
                 m_renderer->BeginRendering(cmd);
 
-                vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_renderPipeline->GetPipeline());
-
-                vkCmdDraw(cmd, 3, 1, 0, 0);
+                m_simpleRenderSystem->RenderObjects(m_gameObjects, cmd);
 
                 m_renderer->EndRendering(cmd);
 
