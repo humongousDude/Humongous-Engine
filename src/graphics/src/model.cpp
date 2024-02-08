@@ -1,3 +1,4 @@
+#include "logger.hpp"
 #include <model.hpp>
 
 namespace Humongous
@@ -10,6 +11,8 @@ void Model::CreateVertexBuffer(const std::vector<Vertex>& vertices)
 {
     m_vertexCount = static_cast<u32>(vertices.size());
     HGASSERT(m_vertexCount >= 3);
+
+    HGINFO("Got %d vertices", m_vertexCount);
 
     VkDeviceSize bufferSize = m_vertexCount * sizeof(Vertex);
     u32          vertexSize = sizeof(Vertex);
@@ -53,7 +56,7 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
-    attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributeDescriptions[0].offset = offsetof(Vertex, position);
 
     attributeDescriptions[1].binding = 0;

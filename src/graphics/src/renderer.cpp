@@ -2,6 +2,7 @@
 // LETS GOOOOO
 
 #include "logger.hpp"
+#include <array>
 #include <renderer.hpp>
 
 namespace Humongous
@@ -235,19 +236,23 @@ void Renderer::EndFrame()
 
 void Renderer::BeginRendering(VkCommandBuffer cmd)
 {
-
     m_drawImageExtent.width = m_drawImage.imageExtent.width;
     m_drawImageExtent.height = m_drawImage.imageExtent.height;
 
     // TODO: move image transitions out
     SwapChain::TransitionImageLayout(cmd, m_drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
+    std::array<VkClearValue, 2> clearValues{};
+    clearValues[0].color = {1.00f, 1.00f, 1.00f, 1.0f};
+    clearValues[1].depthStencil = {1.0f, 0};
+
     VkRenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     colorAttachment.imageView = m_drawImage.imageView;
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.clearValue = clearValues[0];
 
     VkRenderingInfo renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;

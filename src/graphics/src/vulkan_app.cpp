@@ -1,5 +1,6 @@
 #include "camera.hpp"
 #include "gameobject.hpp"
+#include "keyboard_handler.hpp"
 #include <logger.hpp>
 #include <thread>
 
@@ -44,8 +45,8 @@ void VulkanApp::Init()
 void VulkanApp::LoadGameObjects()
 {
     HGINFO("Loading game objects...");
+    // copied from brendan galea's vulkan tutorial series
     std::vector<Vertex> vertices{
-
         // left face (white)
         {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
         {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
@@ -93,15 +94,15 @@ void VulkanApp::LoadGameObjects()
         {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
         {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
         {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-
     };
-    for(auto& v: vertices) { v.position += 0.1; }
+    HGINFO("Loaded %d vertices", vertices.size());
 
     std::shared_ptr<Model> model = std::make_shared<Model>(*m_logicalDevice, vertices);
 
     GameObject obj = GameObject::CreateGameObject();
-    obj.transform.translation = {-0.5f, 0.5f, 0.0f};
+    obj.transform.translation = {0.0f, 0.0f, 0.5f};
     obj.model = model;
+    obj.transform.scale = {.5, .5, .5};
 
     m_gameObjects.emplace(obj.GetId(), std::move(obj));
     HGINFO("Loaded game objects");
@@ -123,17 +124,15 @@ void VulkanApp::Run()
     viewerObject.transform.translation.z = -2.5f;
     cam.SetViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 
+    KeyboardHandler handler{};
+
     while(!m_window->ShouldWindowClose())
     {
         glfwPollEvents();
 
-        if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_ESCAPE) == GLFW_PRESS || glfwGetKey(m_window->GetWindow(), GLFW_KEY_Q) == GLFW_PRESS)
-        {
-            glfwSetWindowShouldClose(m_window->GetWindow(), true);
-        }
-
         aspect = m_renderer->GetAspectRatio();
 
+        handler.MoveInPlaneXZ(m_window->GetWindow(), 0.01f, viewerObject);
         cam.SetViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 
         cam.SetPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 1000.0f);
