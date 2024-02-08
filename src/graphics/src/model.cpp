@@ -14,14 +14,18 @@ void Model::CreateVertexBuffer(const std::vector<Vertex>& vertices)
     VkDeviceSize bufferSize = m_vertexCount * sizeof(Vertex);
     u32          vertexSize = sizeof(Vertex);
 
-    Buffer stagingBuffer{m_logicalDevice, vertexSize, m_vertexCount, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT};
+    Buffer stagingBuffer{m_logicalDevice,
+                         vertexSize,
+                         m_vertexCount,
+                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                         VMA_MEMORY_USAGE_CPU_TO_GPU};
     stagingBuffer.Map();
     stagingBuffer.WriteToBuffer((void*)vertices.data());
 
     m_vertexBuffer =
         std::make_unique<Buffer>(m_logicalDevice, vertexSize, m_vertexCount, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
     Buffer::CopyBuffer(m_logicalDevice, stagingBuffer.GetBuffer(), m_vertexBuffer->GetBuffer(), bufferSize);
 }

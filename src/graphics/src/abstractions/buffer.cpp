@@ -30,7 +30,7 @@ VkDeviceSize Buffer::GetAlignment(VkDeviceSize m_instanceSize, VkDeviceSize minO
 }
 
 Buffer::Buffer(LogicalDevice& device, VkDeviceSize m_instanceSize, uint32_t m_instanceCount, VkBufferUsageFlags usageFlags,
-               VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceSize minOffsetAlignment)
+               VkMemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, VkDeviceSize minOffsetAlignment)
     : m_logicalDevice{device}, m_instanceSize{m_instanceSize}, m_instanceCount{m_instanceCount}, m_usageFlags{usageFlags},
       m_memoryPropertyFlags{memoryPropertyFlags}
 {
@@ -39,7 +39,7 @@ Buffer::Buffer(LogicalDevice& device, VkDeviceSize m_instanceSize, uint32_t m_in
 
     CreateInfo createInfo{.device = m_logicalDevice,
                           .size = m_bufferSize,
-                          .usage = m_usageFlags,
+                          .bufferUsage = m_usageFlags,
                           .properties = m_memoryPropertyFlags,
                           .buffer = &m_buffer,
                           .memory = m_memory,
@@ -59,18 +59,16 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = createInfo.size;
-    bufferInfo.usage = createInfo.usage;
+    bufferInfo.usage = createInfo.bufferUsage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     VmaAllocationCreateInfo allocCreateInfo{};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocCreateInfo.usage = createInfo.memoryUsage;
     allocCreateInfo.requiredFlags = createInfo.properties;
 
     VmaAllocationInfo allocInfo{};
-    allocInfo.pMappedData = createInfo.data;
     allocInfo.offset = 0;
-    allocInfo.deviceMemory = createInfo.memory;
-    allocInfo.pMappedData = createInfo.data;
+    allocInfo.size = createInfo.size;
 
     vmaCreateBuffer(createInfo.device.GetVmaAllocator(), &bufferInfo, &allocCreateInfo, createInfo.buffer, &createInfo.allocation, &allocInfo);
 
@@ -91,12 +89,14 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
  */
 VkResult Buffer::Map(VkDeviceSize size, VkDeviceSize offset)
 {
-    assert(m_buffer && m_memory && "Called map on m_buffer before create");
-    return vkMapMemory(m_logicalDevice.GetVkDevice(), m_memory, offset, size, 0, &m_mapped);
+    HGASSERT(m_buffer && m_memory && "Called map on buffer before create");
+
+    m_mapCallCount++;
+    return vmaMapMemory(m_logicalDevice.GetVmaAllocator(), m_allocation, &m_mapped);
 }
 
 /**
- * Unmap a m_mapped m_memory range
+ * Unmap a mapped memory range
  *
  * @note Does not return a result as vkUnmapMemory can't fail
  */
@@ -104,7 +104,10 @@ void Buffer::UnMap()
 {
     if(m_mapped)
     {
-        vkUnmapMemory(m_logicalDevice.GetVkDevice(), m_memory);
+        if(m_memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) { Invalidate(); }
+
+        for(int i = 0; i < m_mapCallCount; i++) { vmaUnmapMemory(m_logicalDevice.GetVmaAllocator(), m_allocation); }
+
         m_mapped = nullptr;
     }
 }
@@ -170,7 +173,8 @@ VkResult Buffer::Invalidate(VkDeviceSize size, VkDeviceSize offset)
     mappedRange.memory = m_memory;
     mappedRange.offset = offset;
     mappedRange.size = size;
-    return vkInvalidateMappedMemoryRanges(m_logicalDevice.GetVkDevice(), 1, &mappedRange);
+
+    return vmaInvalidateAllocation(m_logicalDevice.GetVmaAllocator(), m_allocation, offset, size);
 }
 
 /**

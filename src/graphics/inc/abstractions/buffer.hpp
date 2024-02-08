@@ -9,8 +9,8 @@ namespace Humongous
 class Buffer : NonCopyable
 {
 public:
-    Buffer(LogicalDevice& device, VkDeviceSize instanceSize, uint32_t instanceCount, VkBufferUsageFlags usageFlags,
-           VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceSize minOffsetAlignment = 1);
+    Buffer(LogicalDevice& device, VkDeviceSize m_instanceSize, uint32_t m_instanceCount, VkBufferUsageFlags usageFlags,
+           VkMemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, VkDeviceSize minOffsetAlignment = 1);
     ~Buffer();
 
     VkResult Map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
@@ -42,7 +42,8 @@ private:
     {
         LogicalDevice&        device;
         VkDeviceSize          size;
-        VkBufferUsageFlags    usage;
+        VkBufferUsageFlags    bufferUsage;
+        VmaMemoryUsage        memoryUsage;
         VkMemoryPropertyFlags properties;
         VkBuffer*             buffer;
         VkDeviceMemory        memory;
@@ -64,5 +65,8 @@ private:
     VkDeviceSize          m_alignmentSize;
     VkBufferUsageFlags    m_usageFlags;
     VkMemoryPropertyFlags m_memoryPropertyFlags;
+
+    // safe gaurd, in case Buffer::Map() gets called more than once
+    int m_mapCallCount{0};
 };
 } // namespace Humongous

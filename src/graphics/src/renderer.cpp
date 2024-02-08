@@ -63,16 +63,12 @@ void Renderer::InitImagesAndViews()
     imgInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imgInfo.usage = drawImageUsages;
 
-    // for the draw image, we want to allocate it from gpu local memory
     VmaAllocationCreateInfo imgAllocInfo{};
     imgAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     imgAllocInfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    // allocate and create the image
     vmaCreateImage(m_allocator, &imgInfo, &imgAllocInfo, &m_drawImage.image, &m_drawImage.allocation, nullptr);
 
-    // build an image-view for the draw image to use for rendering
-    // VkImageViewCreateInfo viewInfo = vkinit::ImageViewCreateInfo(m_drawImage.imageFormat, m_drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = m_drawImage.image;
@@ -135,10 +131,8 @@ void Renderer::InitSyncStructures()
 {
     HGINFO("Initializing synchronization structures...");
 
-    // create synchronization structures
     // one fence to control when the gpu has finished rendering the frame
     // and 2 semaphores to synchronize rendering with swapchain
-    // we want the fence to start signalled so we can wait on it on the first frame
     VkFenceCreateInfo fenceCreateInfo{};
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
@@ -170,7 +164,6 @@ void Renderer::InitSyncStructures()
 
 VkCommandBuffer Renderer::BeginFrame()
 {
-    // wait for the previous frame to finish
     vkWaitForFences(m_logicalDevice.GetVkDevice(), 1, &GetCurrentFrame().inFlightFence, VK_TRUE, std::numeric_limits<u64>::max());
     vkResetFences(m_logicalDevice.GetVkDevice(), 1, &GetCurrentFrame().inFlightFence);
 
@@ -237,11 +230,12 @@ void Renderer::EndFrame()
     presentInfo.pImageIndices = &m_currentImageIndex;
 
     if(vkQueuePresentKHR(m_logicalDevice.GetPresentQueue(), &presentInfo) != VK_SUCCESS) { HGERROR("Failed to present image"); }
-    m_currentFrameIndex++;
+    m_currentFrameIndex = (m_currentFrameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
 }
 
 void Renderer::BeginRendering(VkCommandBuffer cmd)
 {
+
     m_drawImageExtent.width = m_drawImage.imageExtent.width;
     m_drawImageExtent.height = m_drawImage.imageExtent.height;
 

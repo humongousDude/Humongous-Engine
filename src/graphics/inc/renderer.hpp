@@ -1,5 +1,6 @@
 #pragma once
 
+#include "defines.hpp"
 #include <logical_device.hpp>
 #include <memory>
 #include <swapchain.hpp>
@@ -31,10 +32,14 @@ public:
     Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator);
     ~Renderer();
 
+    u32             GetImageIndex() const { return m_currentImageIndex; }
+    u32             GetFrameIndex() const { return m_currentFrameIndex; }
     VkCommandBuffer GetCommandBuffer() { return GetCurrentFrame().commandBuffer; }
 
     VkCommandBuffer BeginFrame();
     void            EndFrame();
+
+    f32 GetAspectRatio() const { return static_cast<float>(m_swapChain->GetExtent().width) / static_cast<float>(m_swapChain->GetExtent().height); }
 
     void BeginRendering(VkCommandBuffer commandBuffer);
     void EndRendering(VkCommandBuffer commandBuffer);
@@ -52,7 +57,7 @@ private:
 
     u32    m_currentImageIndex;
     int    m_currentFrameIndex{0};
-    Frame& GetCurrentFrame() { return m_frames[m_currentFrameIndex % SwapChain::MAX_FRAMES_IN_FLIGHT]; }
+    Frame& GetCurrentFrame() { return m_frames[m_currentFrameIndex]; }
 
     AllocatedImage m_drawImage;
     VkExtent2D     m_drawImageExtent;

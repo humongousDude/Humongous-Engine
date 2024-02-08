@@ -9,10 +9,16 @@
 
 namespace Humongous
 {
+struct ModelPushConstants
+{
+    glm::mat4 model{1.f};
+    glm::mat4 normal{1.f};
+};
+
 // TODO: maybe move this?
 struct Vertex
 {
-    glm::vec2 position;
+    glm::vec3 position;
     glm::vec3 color;
 
     static std::vector<VkVertexInputBindingDescription>   GetBindingDescriptions();

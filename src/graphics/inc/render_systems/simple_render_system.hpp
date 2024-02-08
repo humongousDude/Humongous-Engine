@@ -6,20 +6,27 @@
 
 namespace Humongous
 {
+struct RenderData
+{
+    VkCommandBuffer  commandBuffer;
+    VkDescriptorSet  globalSet;
+    GameObject::Map& gameObjects;
+};
+
 class SimpleRenderSystem
 {
 public:
-    SimpleRenderSystem(LogicalDevice& logicalDevice);
+    SimpleRenderSystem(LogicalDevice& logicalDevice, VkDescriptorSetLayout globalLayout);
     ~SimpleRenderSystem();
 
-    void RenderObjects(GameObject::Map& gameObjects, VkCommandBuffer commandBuffer);
+    void RenderObjects(RenderData& renderData);
 
 private:
     LogicalDevice&                  m_logicalDevice;
     std::unique_ptr<RenderPipeline> m_renderPipeline;
     VkPipelineLayout                m_pipelineLayout;
 
-    void CreatePipelineLayout();
+    void CreatePipelineLayout(VkDescriptorSetLayout globalLayout);
     void CreatePipeline();
 };
 } // namespace Humongous
