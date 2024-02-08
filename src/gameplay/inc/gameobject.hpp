@@ -5,6 +5,8 @@
 #include <model.hpp>
 
 // libs
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <memory>
@@ -15,7 +17,7 @@ namespace Humongous
 struct TransformComponent
 {
     glm::vec3 translation{}; // position offset;
-    glm::vec3 scale{1.0f, 1.0f, 1.f};
+    glm::vec3 scale{1.0f, 1.0f, 1.0f};
     glm::vec3 rotation{};
 
     glm::mat4 Mat4();

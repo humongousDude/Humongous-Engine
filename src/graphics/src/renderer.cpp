@@ -10,9 +10,7 @@ namespace Humongous
 Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator)
     : m_window{window}, m_logicalDevice{logicalDevice}, m_physicalDevice{physicalDevice}, m_allocator{allocator}
 {
-    m_swapChain = std::make_unique<SwapChain>(window, physicalDevice, logicalDevice);
-
-    InitImagesAndViews();
+    RecreateSwapChain();
     CreateCommandPool();
     AllocateCommandBuffers();
     InitSyncStructures();
@@ -30,15 +28,51 @@ Renderer::~Renderer()
         vkDestroyFence(m_logicalDevice.GetVkDevice(), frame.inFlightFence, nullptr);
     }
 
-    vkDestroyImageView(m_logicalDevice.GetVkDevice(), m_drawImage.imageView, nullptr);
-    vmaDestroyImage(m_allocator, m_drawImage.image, m_drawImage.allocation);
+    if(m_drawImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_drawImage.image, m_drawImage.allocation); }
+    if(m_depthImage.imageView != VK_NULL_HANDLE) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), m_drawImage.imageView, nullptr); }
+    if(m_depthImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_depthImage.image, m_depthImage.allocation); }
+    if(m_depthImage.imageView != VK_NULL_HANDLE) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), m_depthImage.imageView, nullptr); }
 
     m_swapChain.reset();
     HGINFO("Destroyed renderer");
 }
 
+void Renderer::RecreateSwapChain()
+{
+    HGINFO("Recreating swap chain...");
+
+    auto extent = m_window.GetExtent();
+    while(extent.width == 0 || extent.height == 0)
+    {
+        extent = m_window.GetExtent();
+        glfwWaitEvents();
+
+        if(m_window.ShouldWindowClose()) { return; }
+    }
+    vkDeviceWaitIdle(m_logicalDevice.GetVkDevice());
+    HGDEBUG("got here %d", __LINE__);
+
+    if(m_swapChain == nullptr) { m_swapChain = std::make_unique<SwapChain>(m_window, m_physicalDevice, m_logicalDevice); }
+    else
+    {
+        std::shared_ptr<SwapChain> oldSwapChain = std::move(m_swapChain);
+        m_swapChain = std::make_unique<SwapChain>(m_window, m_physicalDevice, m_logicalDevice, std::move(m_swapChain));
+
+        if(!oldSwapChain->CompareSwapFormats(*m_swapChain.get())) { HGERROR("Swap chain image(or depth) format has changed"); }
+    }
+    // recreate the image views
+
+    HGINFO("Recreated swap chain");
+
+    InitImagesAndViews();
+    InitDepthImage();
+}
+
 void Renderer::InitImagesAndViews()
 {
+    if(m_drawImage.imageView != VK_NULL_HANDLE) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), m_drawImage.imageView, nullptr); }
+    if(m_drawImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_drawImage.image, m_drawImage.allocation); }
+
     HGINFO("Creating draw image and view...");
 
     VkExtent3D drawImageExtent = {m_window.GetExtent().width, m_window.GetExtent().height, 1};
@@ -87,6 +121,58 @@ void Renderer::InitImagesAndViews()
     }
 
     HGINFO("Created draw image and view");
+}
+
+void Renderer::InitDepthImage()
+{
+    if(m_depthImage.imageView != VK_NULL_HANDLE) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), m_depthImage.imageView, nullptr); }
+    if(m_depthImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_depthImage.image, m_depthImage.allocation); }
+
+    HGINFO("Creating depth image and view...");
+
+    VkExtent3D drawImageExtent = {m_window.GetExtent().width, m_window.GetExtent().height, 1};
+
+    // hardcoding the draw format to 32 bit float
+    m_depthImage.imageFormat = VK_FORMAT_D32_SFLOAT;
+    m_depthImage.imageExtent = drawImageExtent;
+
+    VkImageUsageFlags depthImageUsages{};
+    depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+    VkImageCreateInfo imgInfo{};
+    imgInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imgInfo.imageType = VK_IMAGE_TYPE_2D;
+    imgInfo.format = m_depthImage.imageFormat;
+    imgInfo.extent = m_depthImage.imageExtent;
+    imgInfo.mipLevels = 1;
+    imgInfo.arrayLayers = 1;
+    imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imgInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imgInfo.usage = depthImageUsages;
+
+    VmaAllocationCreateInfo imgAllocInfo{};
+    imgAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    imgAllocInfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    vmaCreateImage(m_allocator, &imgInfo, &imgAllocInfo, &m_depthImage.image, &m_depthImage.allocation, nullptr);
+
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = m_depthImage.image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = m_depthImage.imageFormat;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    if(vkCreateImageView(m_logicalDevice.GetVkDevice(), &viewInfo, nullptr, &m_depthImage.imageView) != VK_SUCCESS)
+    {
+        HGERROR("Failed to create image view");
+    }
+
+    HGINFO("Created depth image and view");
 }
 
 void Renderer::CreateCommandPool()
@@ -168,11 +254,16 @@ VkCommandBuffer Renderer::BeginFrame()
     vkWaitForFences(m_logicalDevice.GetVkDevice(), 1, &GetCurrentFrame().inFlightFence, VK_TRUE, std::numeric_limits<u64>::max());
     vkResetFences(m_logicalDevice.GetVkDevice(), 1, &GetCurrentFrame().inFlightFence);
 
-    if(vkAcquireNextImageKHR(m_logicalDevice.GetVkDevice(), m_swapChain->GetSwapChain(), 1000000000, GetCurrentFrame().imageAvailableSemaphore,
-                             VK_NULL_HANDLE, &m_currentImageIndex) != VK_SUCCESS)
+    VkResult result = vkAcquireNextImageKHR(m_logicalDevice.GetVkDevice(), m_swapChain->GetSwapChain(), 1000000000,
+                                            GetCurrentFrame().imageAvailableSemaphore, VK_NULL_HANDLE, &m_currentImageIndex);
+
+    if(result == VK_ERROR_OUT_OF_DATE_KHR)
     {
-        HGERROR("Failed to acquire next image");
+        RecreateSwapChain();
+        return nullptr;
     }
+
+    if(result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) { HGERROR("failed to acquire swap chain image!"); }
 
     VkCommandBuffer cmd = GetCurrentFrame().commandBuffer;
     if(vkResetCommandBuffer(cmd, 0) != VK_SUCCESS) { HGERROR("Failed to reset command buffer"); }
@@ -230,7 +321,15 @@ void Renderer::EndFrame()
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pImageIndices = &m_currentImageIndex;
 
-    if(vkQueuePresentKHR(m_logicalDevice.GetPresentQueue(), &presentInfo) != VK_SUCCESS) { HGERROR("Failed to present image"); }
+    auto result = vkQueuePresentKHR(m_logicalDevice.GetPresentQueue(), &presentInfo);
+    if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_window.WasWindowResized())
+    {
+        m_window.ResetWindowResizedFlag();
+        RecreateSwapChain();
+    }
+
+    else if(result != VK_SUCCESS) { HGERROR("failed to present swap chain image"); }
+
     m_currentFrameIndex = (m_currentFrameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
 }
 
@@ -238,10 +337,13 @@ void Renderer::BeginRendering(VkCommandBuffer cmd)
 {
     m_drawImageExtent.width = m_drawImage.imageExtent.width;
     m_drawImageExtent.height = m_drawImage.imageExtent.height;
+    m_depthImageExtent.width = m_depthImage.imageExtent.width;
+    m_depthImageExtent.height = m_depthImage.imageExtent.height;
 
     // TODO: move image transitions out
     SwapChain::TransitionImageLayout(cmd, m_drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
+    // fuck you im clearing this shit to white
     std::array<VkClearValue, 2> clearValues{};
     clearValues[0].color = {1.00f, 1.00f, 1.00f, 1.0f};
     clearValues[1].depthStencil = {1.0f, 0};
@@ -254,13 +356,21 @@ void Renderer::BeginRendering(VkCommandBuffer cmd)
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     colorAttachment.clearValue = clearValues[0];
 
+    VkRenderingAttachmentInfo depthAttachment{};
+    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depthAttachment.imageView = m_depthImage.imageView;
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.clearValue = clearValues[1];
+
     VkRenderingInfo renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderingInfo.renderArea = {0, 0, m_swapChain->GetExtent().width, m_swapChain->GetExtent().height};
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachments = &colorAttachment;
-    renderingInfo.pDepthAttachment = nullptr;
+    renderingInfo.pDepthAttachment = &depthAttachment;
     renderingInfo.pStencilAttachment = nullptr;
     renderingInfo.pNext = nullptr;
     renderingInfo.viewMask = 0;

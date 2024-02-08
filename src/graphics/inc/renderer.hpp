@@ -22,8 +22,8 @@ public:
 
     struct AllocatedImage
     {
-        VkImage       image;
-        VkImageView   imageView;
+        VkImage       image{VK_NULL_HANDLE};
+        VkImageView   imageView{VK_NULL_HANDLE};
         VmaAllocation allocation;
         VkExtent3D    imageExtent;
         VkFormat      imageFormat;
@@ -45,7 +45,7 @@ public:
     void EndRendering(VkCommandBuffer commandBuffer);
 
 private:
-    std::unique_ptr<SwapChain> m_swapChain;
+    std::unique_ptr<SwapChain> m_swapChain = nullptr;
     Window&                    m_window;
     LogicalDevice&             m_logicalDevice;
     PhysicalDevice&            m_physicalDevice;
@@ -61,10 +61,14 @@ private:
 
     AllocatedImage m_drawImage;
     VkExtent2D     m_drawImageExtent;
+    AllocatedImage m_depthImage;
+    VkExtent2D     m_depthImageExtent;
 
     void InitImagesAndViews();
+    void InitDepthImage();
     void InitSyncStructures();
     void CreateCommandPool();
     void AllocateCommandBuffers();
+    void RecreateSwapChain();
 };
 } // namespace Humongous

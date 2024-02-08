@@ -135,7 +135,7 @@ void VulkanApp::Run()
         handler.MoveInPlaneXZ(m_window->GetWindow(), 0.01f, viewerObject);
         cam.SetViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 
-        cam.SetPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 1000.0f);
+        cam.SetPerspectiveProjection(glm::radians(90.0f), aspect, 0.1f, 1000.0f);
 
         if(!m_window->IsFocused() || m_window->IsMinimized()) { std::this_thread::sleep_for(std::chrono::milliseconds(300)); }
         else

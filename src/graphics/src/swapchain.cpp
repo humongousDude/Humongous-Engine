@@ -6,10 +6,11 @@
 
 namespace Humongous
 {
-SwapChain::SwapChain(Window& window, PhysicalDevice& physicalDevice, LogicalDevice& logicalDevice, VkSwapchainKHR* oldSwap)
+SwapChain::SwapChain(Window& window, PhysicalDevice& physicalDevice, LogicalDevice& logicalDevice, std::shared_ptr<SwapChain> oldSwap)
     : m_logicalDevice(logicalDevice)
 {
-    CreateSwapChain(window, physicalDevice, oldSwap);
+    auto old = oldSwap == nullptr ? nullptr : oldSwap->m_swapChain;
+    CreateSwapChain(window, physicalDevice, &old);
     CreateImageViews();
 }
 

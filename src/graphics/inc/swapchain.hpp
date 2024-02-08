@@ -4,6 +4,7 @@
 #include "non_copyable.hpp"
 #include "physical_device.hpp"
 #include "window.hpp"
+#include <memory>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -14,7 +15,7 @@ class SwapChain : NonCopyable
 public:
     static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-    SwapChain(Window& window, PhysicalDevice& physicalDevice, LogicalDevice& logicalDevice, VkSwapchainKHR* oldSwap = nullptr);
+    SwapChain(Window& window, PhysicalDevice& physicalDevice, LogicalDevice& logicalDevice, std::shared_ptr<SwapChain> oldSwap = nullptr);
     ~SwapChain();
 
     VkExtent2D       GetExtent() const { return m_extent; }
@@ -27,6 +28,11 @@ public:
 
     static void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
     static void CopyImageToImage(VkCommandBuffer cmd, VkImage src, VkImage dst, VkExtent2D srcSize, VkExtent2D dstSize);
+
+    const bool CompareSwapFormats(const SwapChain& swapChain)
+    {
+        return swapChain.GetSurfaceFormat() == m_surfaceFormat && swapChain.GetPresentMode() == m_presentMode;
+    }
 
     std::vector<VkImageView> GetImageViews() const { return m_imageViews; }
     std::vector<VkImage>     GetImages() const { return m_images; }

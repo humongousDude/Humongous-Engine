@@ -16,17 +16,26 @@ void Window::CreateWindow()
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
     window = glfwCreateWindow(width, height, "Vulkan", nullptr, nullptr);
 
     glfwSetWindowUserPointer(window, this);
+    glfwSetWindowSizeCallback(window, HandleWindowResized);
 }
 
 void Window::CreateWindowSurface(VkInstance instance, VkSurfaceKHR* surface)
 {
     if(glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS) { HGFATAL("Failed to create window surface"); }
     HGINFO("Created window surface");
+}
+
+void Window::HandleWindowResized(GLFWwindow* window, int width, int height)
+{
+    auto self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+    self->m_wasWindowResizedFlag = true;
+    self->width = width;
+    self->height = height;
 }
 
 } // namespace Humongous
