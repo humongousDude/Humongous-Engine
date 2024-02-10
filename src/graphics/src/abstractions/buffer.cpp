@@ -5,11 +5,13 @@
  * https://github.com/SaschaWillems/Vulkan/blob/master/base/VulkanBuffer.h
  */
 
+#include "logger.hpp"
 #include <abstractions/buffer.hpp>
 
 // std
 #include <cassert>
 #include <cstring>
+#include <vulkan/vk_enum_string_helper.h>
 
 namespace Humongous
 {
@@ -29,23 +31,28 @@ VkDeviceSize Buffer::GetAlignment(VkDeviceSize m_instanceSize, VkDeviceSize minO
     return m_instanceSize;
 }
 
-Buffer::Buffer(LogicalDevice& device, VkDeviceSize m_instanceSize, uint32_t m_instanceCount, VkBufferUsageFlags usageFlags,
+Buffer::Buffer(LogicalDevice& device, VkDeviceSize instanceSize, uint32_t instanceCount, VkBufferUsageFlags usageFlags,
                VkMemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, VkDeviceSize minOffsetAlignment)
-    : m_logicalDevice{device}, m_instanceSize{m_instanceSize}, m_instanceCount{m_instanceCount}, m_usageFlags{usageFlags},
+    : m_logicalDevice{device}, m_instanceSize{instanceSize}, m_instanceCount{instanceCount}, m_usageFlags{usageFlags},
       m_memoryPropertyFlags{memoryPropertyFlags}
 {
     m_alignmentSize = GetAlignment(m_instanceSize, minOffsetAlignment);
     m_bufferSize = m_alignmentSize * m_instanceCount;
 
-    CreateInfo createInfo{.device = m_logicalDevice,
-                          .size = m_bufferSize,
-                          .bufferUsage = m_usageFlags,
-                          .properties = m_memoryPropertyFlags,
-                          .buffer = &m_buffer,
-                          .memory = m_memory,
-                          .allocation = m_allocation};
+    CreateInfo createInfo{
+        .device = m_logicalDevice,
+        .size = m_bufferSize,
+        .bufferUsage = m_usageFlags,
+        .properties = m_memoryPropertyFlags,
+        .buffer = &m_buffer,
+        .memory = m_allocationInfo.deviceMemory,
+        .allocation = m_allocation,
+        .minOffsetAlignment = minOffsetAlignment,
+    };
 
     CreateBuffer(createInfo);
+
+    UpdateAddress(m_usageFlags);
 }
 
 Buffer::~Buffer()
@@ -69,13 +76,16 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
     VmaAllocationInfo allocInfo{};
     allocInfo.offset = 0;
     allocInfo.size = createInfo.size;
+    allocInfo.deviceMemory = createInfo.memory;
+    allocInfo.pMappedData = nullptr;
+    allocInfo.pUserData = nullptr;
 
-    vmaCreateBuffer(createInfo.device.GetVmaAllocator(), &bufferInfo, &allocCreateInfo, createInfo.buffer, &createInfo.allocation, &allocInfo);
+    vmaCreateBufferWithAlignment(createInfo.device.GetVmaAllocator(), &bufferInfo, &allocCreateInfo, createInfo.minOffsetAlignment,
+                                 createInfo.buffer, &createInfo.allocation, &allocInfo);
 
-    VmaAllocationInfo returned{};
-    vmaGetAllocationInfo(createInfo.device.GetVmaAllocator(), createInfo.allocation, &returned);
-    m_memory = returned.deviceMemory;
-    m_mapped = returned.pMappedData;
+    VmaAllocationInfo ret{};
+    vmaGetAllocationInfo(createInfo.device.GetVmaAllocator(), createInfo.allocation, &ret);
+    m_allocationInfo = ret;
 }
 
 /**
@@ -89,10 +99,10 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
  */
 VkResult Buffer::Map(VkDeviceSize size, VkDeviceSize offset)
 {
-    HGASSERT(m_buffer && m_memory && "Called map on buffer before create");
+    HGASSERT(m_buffer && m_allocationInfo.deviceMemory && "Called map on buffer before create");
 
     m_mapCallCount++;
-    return vmaMapMemory(m_logicalDevice.GetVmaAllocator(), m_allocation, &m_mapped);
+    return vmaMapMemory(m_logicalDevice.GetVmaAllocator(), m_allocation, &m_allocationInfo.pMappedData);
 }
 
 /**
@@ -102,13 +112,13 @@ VkResult Buffer::Map(VkDeviceSize size, VkDeviceSize offset)
  */
 void Buffer::UnMap()
 {
-    if(m_mapped)
+    if(m_allocationInfo.pMappedData)
     {
-        if(m_memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) { Invalidate(); }
+        if(!(m_memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) { Invalidate(); }
 
         for(int i = 0; i < m_mapCallCount; i++) { vmaUnmapMemory(m_logicalDevice.GetVmaAllocator(), m_allocation); }
 
-        m_mapped = nullptr;
+        m_allocationInfo.pMappedData = nullptr;
     }
 }
 
@@ -123,12 +133,12 @@ void Buffer::UnMap()
  */
 void Buffer::WriteToBuffer(void* data, VkDeviceSize size, VkDeviceSize offset)
 {
-    assert(m_mapped && "Cannot copy to unmapped m_buffer");
+    assert(m_allocationInfo.pMappedData && "Cannot copy to unmapped buffer");
 
-    if(size == VK_WHOLE_SIZE) { memcpy(m_mapped, data, m_bufferSize); }
+    if(size == VK_WHOLE_SIZE) { memcpy(m_allocationInfo.pMappedData, data, m_bufferSize); }
     else
     {
-        char* memOffset = (char*)m_mapped;
+        char* memOffset = (char*)m_allocationInfo.pMappedData;
         memOffset += offset;
         memcpy(memOffset, data, size);
     }
@@ -149,18 +159,18 @@ VkResult Buffer::Flush(VkDeviceSize size, VkDeviceSize offset)
 {
     VkMappedMemoryRange mappedRange = {};
     mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-    mappedRange.memory = m_memory;
+    mappedRange.memory = m_allocationInfo.deviceMemory;
     mappedRange.offset = offset;
     mappedRange.size = size;
     return vkFlushMappedMemoryRanges(m_logicalDevice.GetVkDevice(), 1, &mappedRange);
 }
 
 /**
- * Invalidate a m_memory range of the m_buffer to make it visible to the host
+ * Invalidate a memory range of the buffer to make it visible to the host
  *
- * @note Only required for non-coherent m_memory
+ * @note Only required for non-coherent memory
  *
- * @param size (Optional) Size of the m_memory range to invalidate. Pass VK_WHOLE_SIZE to invalidate
+ * @param size (Optional) Size of the memory range to invalidate. Pass VK_WHOLE_SIZE to invalidate
  * the complete m_buffer range.
  * @param offset (Optional) Byte offset from beginning
  *
@@ -170,15 +180,26 @@ VkResult Buffer::Invalidate(VkDeviceSize size, VkDeviceSize offset)
 {
     VkMappedMemoryRange mappedRange = {};
     mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-    mappedRange.memory = m_memory;
+    mappedRange.memory = m_allocationInfo.deviceMemory;
     mappedRange.offset = offset;
     mappedRange.size = size;
 
     return vmaInvalidateAllocation(m_logicalDevice.GetVmaAllocator(), m_allocation, offset, size);
 }
 
+void Buffer::UpdateAddress(VkBufferUsageFlags usage)
+{
+
+    if(!(usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)) { return; }
+    VkBufferDeviceAddressInfo bufferDeviceAddressInfo{};
+    bufferDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    bufferDeviceAddressInfo.buffer = m_buffer;
+
+    m_deviceAddress = vkGetBufferDeviceAddress(m_logicalDevice.GetVkDevice(), &bufferDeviceAddressInfo);
+}
+
 /**
- * Create a m_buffer info descriptor
+ * Create a buffer info descriptor
  *
  * @param size (Optional) Size of the m_memory range of the descriptor
  * @param offset (Optional) Byte offset from beginning
@@ -231,16 +252,28 @@ VkDescriptorBufferInfo Buffer::DescriptorInfoForIndex(int index) { return Descri
  */
 VkResult Buffer::InvalidateIndex(int index) { return Invalidate(m_alignmentSize, index * m_alignmentSize); }
 
-void Buffer::CopyBuffer(LogicalDevice& device, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+void Buffer::CopyBuffer(LogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, VkDeviceSize size)
 {
     VkCommandBuffer commandBuffer = device.BeginSingleTimeCommands();
 
-    VkBufferCopy copyRegion{};
-    copyRegion.srcOffset = 0; // Optional
-    copyRegion.dstOffset = 0; // Optional
+    VkBufferCopy2 copyRegion{};
+    copyRegion.sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2;
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
     copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+    VkCopyBufferInfo2 copyBufferInfo{};
+    copyBufferInfo.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2;
+    copyBufferInfo.srcBuffer = srcBuffer.GetBuffer();
+    copyBufferInfo.dstBuffer = dstBuffer.GetBuffer();
+    copyBufferInfo.regionCount = 1;
+    copyBufferInfo.pRegions = &copyRegion;
+
+    vkCmdCopyBuffer2(commandBuffer, &copyBufferInfo);
 
     device.EndSingleTimeCommands(commandBuffer);
+
+    srcBuffer.UpdateAddress(srcBuffer.GetUsageFlags());
+    dstBuffer.UpdateAddress(dstBuffer.GetUsageFlags());
 }
 } // namespace Humongous

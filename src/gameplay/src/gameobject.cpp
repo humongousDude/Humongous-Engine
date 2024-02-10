@@ -2,6 +2,7 @@
 
 namespace Humongous
 {
+
 glm::mat4 TransformComponent::Mat4()
 {
     const float c3 = glm::cos(rotation.z);
@@ -58,4 +59,5 @@ glm::mat3 TransformComponent::NormalMatrix()
                          invScale.z * (c1 * c2),
                      }};
 }
+
 } // namespace Humongous

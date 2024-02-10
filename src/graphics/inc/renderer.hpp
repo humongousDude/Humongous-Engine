@@ -5,7 +5,11 @@
 #include <memory>
 #include <swapchain.hpp>
 
+#include <images.hpp>
+
 #include <vk_mem_alloc.h>
+
+// TODO: abstract image creation into a seperate function
 
 namespace Humongous
 {
@@ -18,15 +22,6 @@ public:
         VkSemaphore     imageAvailableSemaphore;
         VkSemaphore     renderFinishedSemaphore;
         VkFence         inFlightFence;
-    };
-
-    struct AllocatedImage
-    {
-        VkImage       image{VK_NULL_HANDLE};
-        VkImageView   imageView{VK_NULL_HANDLE};
-        VmaAllocation allocation;
-        VkExtent3D    imageExtent;
-        VkFormat      imageFormat;
     };
 
     Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator);

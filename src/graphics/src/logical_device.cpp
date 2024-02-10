@@ -51,6 +51,7 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     deviceFeatures2.pNext = &vulkan13Features;
 
     VkPhysicalDeviceFeatures deviceFeatures{};
+    deviceFeatures.samplerAnisotropy = VK_TRUE;
 
     auto queueCreateInfos = CreateQueues(physicalDevice);
 
@@ -106,6 +107,7 @@ void LogicalDevice::CreateVmaAllocator(Instance& instance, PhysicalDevice& physi
     allocatorInfo.device = m_logicalDevice;
     allocatorInfo.instance = instance.GetVkInstance();
     allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
     vmaCreateAllocator(&allocatorInfo, &m_allocator);
 }
 

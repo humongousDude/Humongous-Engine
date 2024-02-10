@@ -1,5 +1,12 @@
 #pragma once
 
+// glm defines
+// putting them here
+// because idk where els to put hthem
+
+#define GLM_FORCE_ALIGNED_GENTYPES
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 // unsigned ints
 typedef unsigned char      u8;
 typedef unsigned short     u16;

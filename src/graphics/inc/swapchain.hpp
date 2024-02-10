@@ -26,9 +26,6 @@ public:
 
     VkSwapchainKHR GetSwapChain() const { return m_swapChain; }
 
-    static void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
-    static void CopyImageToImage(VkCommandBuffer cmd, VkImage src, VkImage dst, VkExtent2D srcSize, VkExtent2D dstSize);
-
     const bool CompareSwapFormats(const SwapChain& swapChain)
     {
         return swapChain.GetSurfaceFormat() == m_surfaceFormat && swapChain.GetPresentMode() == m_presentMode;

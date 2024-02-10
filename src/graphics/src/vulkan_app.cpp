@@ -1,4 +1,5 @@
 #include "camera.hpp"
+#include "defines.hpp"
 #include "gameobject.hpp"
 #include "keyboard_handler.hpp"
 #include <logger.hpp>
@@ -46,63 +47,30 @@ void VulkanApp::LoadGameObjects()
 {
     HGINFO("Loading game objects...");
     // copied from brendan galea's vulkan tutorial series
-    std::vector<Vertex> vertices{
-        // left face (white)
-        {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-        {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-        {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
-        {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-        {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
-        {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
+    std::vector<Vertex> rect_vertices(4);
 
-        // right face (yellow)
-        {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-        {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
-        {{.5f, -.5f, .5f}, {.8f, .8f, .1f}},
-        {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-        {{.5f, .5f, -.5f}, {.8f, .8f, .1f}},
-        {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
+    rect_vertices[0].position = {0.5, -0.5, 0};
+    rect_vertices[1].position = {0.5, 0.5, 0};
+    rect_vertices[2].position = {-0.5, -0.5, 0};
+    rect_vertices[3].position = {-0.5, 0.5, 0};
+    rect_vertices[0].uv = {1, 1};
+    rect_vertices[1].uv = {1, 0};
+    rect_vertices[2].uv = {0, 1};
+    rect_vertices[3].uv = {0, 0};
 
-        // top face (orange, remember y axis points down)
-        {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-        {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-        {{-.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-        {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-        {{.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-        {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
+    std::vector<u32> rect_indices(6);
+    rect_indices[0] = 0;
+    rect_indices[1] = 1;
+    rect_indices[2] = 2;
+    rect_indices[3] = 2;
+    rect_indices[4] = 1;
+    rect_indices[5] = 3;
 
-        // bottom face (red)
-        {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-        {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-        {{-.5f, .5f, .5f}, {.8f, .1f, .1f}},
-        {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-        {{.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-        {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-
-        // nose face (blue)
-        {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-        {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-        {{-.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-        {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-        {{.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-        {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-
-        // tail face (green)
-        {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-        {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-        {{-.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-        {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-        {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-        {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-    };
-    HGINFO("Loaded %d vertices", vertices.size());
-
-    std::shared_ptr<Model> model = std::make_shared<Model>(*m_logicalDevice, vertices);
+    std::shared_ptr<Model> model = std::make_shared<Model>(*m_logicalDevice, rect_vertices, rect_indices, "./textures/texture.jpg");
 
     GameObject obj = GameObject::CreateGameObject();
-    obj.transform.translation = {0.0f, 0.0f, 0.5f};
+    obj.transform.translation = {0.0f, 0.0f, -0.5f};
     obj.model = model;
-    obj.transform.scale = {.5, .5, .5};
 
     m_gameObjects.emplace(obj.GetId(), std::move(obj));
     HGINFO("Loaded game objects");
@@ -142,7 +110,7 @@ void VulkanApp::Run()
         {
             if(auto cmd = m_renderer->BeginFrame())
             {
-                RenderData data{cmd, cam.GetDescriptorSet(m_renderer->GetFrameIndex()), m_gameObjects};
+                RenderData data{cmd, cam.GetDescriptorSet(m_renderer->GetFrameIndex()), m_gameObjects, m_renderer->GetFrameIndex()};
 
                 cam.UpdateUBO(m_renderer->GetFrameIndex());
 

@@ -50,7 +50,6 @@ void Renderer::RecreateSwapChain()
         if(m_window.ShouldWindowClose()) { return; }
     }
     vkDeviceWaitIdle(m_logicalDevice.GetVkDevice());
-    HGDEBUG("got here %d", __LINE__);
 
     if(m_swapChain == nullptr) { m_swapChain = std::make_unique<SwapChain>(m_window, m_physicalDevice, m_logicalDevice); }
     else
@@ -341,7 +340,7 @@ void Renderer::BeginRendering(VkCommandBuffer cmd)
     m_depthImageExtent.height = m_depthImage.imageExtent.height;
 
     // TODO: move image transitions out
-    SwapChain::TransitionImageLayout(cmd, m_drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    Utils::TransitionImageLayout(cmd, m_drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     // fuck you im clearing this shit to white
     std::array<VkClearValue, 2> clearValues{};
@@ -400,14 +399,14 @@ void Renderer::EndRendering(VkCommandBuffer cmd)
 {
     vkCmdEndRendering(cmd);
 
-    SwapChain::TransitionImageLayout(cmd, m_drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    SwapChain::TransitionImageLayout(cmd, m_swapChain->GetImages()[m_currentImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
-                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    Utils::TransitionImageLayout(cmd, m_drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    Utils::TransitionImageLayout(cmd, m_swapChain->GetImages()[m_currentImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
+                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-    SwapChain::CopyImageToImage(cmd, m_drawImage.image, m_swapChain->GetImages()[m_currentImageIndex], m_drawImageExtent, m_swapChain->GetExtent());
+    Utils::CopyImageToImage(cmd, m_drawImage.image, m_swapChain->GetImages()[m_currentImageIndex], m_drawImageExtent, m_swapChain->GetExtent());
 
-    SwapChain::TransitionImageLayout(cmd, m_swapChain->GetImages()[m_currentImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    Utils::TransitionImageLayout(cmd, m_swapChain->GetImages()[m_currentImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 }
 
 } // namespace Humongous
