@@ -54,10 +54,10 @@ void VulkanApp::LoadGameObjects()
     rect_vertices[1].position = {0.5, 0.5, 0};
     rect_vertices[2].position = {-0.5, -0.5, 0};
     rect_vertices[3].position = {-0.5, 0.5, 0};
-    rect_vertices[0].uv = {1, 1};
-    rect_vertices[1].uv = {1, 0};
-    rect_vertices[2].uv = {0, 1};
-    rect_vertices[3].uv = {0, 0};
+    rect_vertices[0].uv = {1, 0};
+    rect_vertices[1].uv = {1, 1};
+    rect_vertices[2].uv = {0, 0};
+    rect_vertices[3].uv = {0, 1};
 
     std::vector<u32> rect_indices(6);
     rect_indices[0] = 0;
@@ -71,17 +71,35 @@ void VulkanApp::LoadGameObjects()
     std::shared_ptr<Model> giga = std::make_shared<Model>(*m_logicalDevice, rect_vertices, rect_indices, "./textures/gigachad.png");
 
     GameObject obj = GameObject::CreateGameObject();
-    obj.transform.translation = {0.0f, 0.0f, -0.5f};
+    obj.transform.translation = {0.0f, 0.0f, 0.0f};
     obj.model = model;
 
     GameObject gigachad = GameObject::CreateGameObject();
-    gigachad.transform.translation = {0.0f, 0.0f, 0.0f};
+    gigachad.transform.translation = {1.0f, 0.0f, 0.0f};
+    gigachad.transform.scale = {-1.0f, -1.0f, 1.0f};
     gigachad.model = giga;
+
+    GameObject sigma = GameObject::CreateGameObject();
+    sigma.transform.translation = {-1.0f, 0.0f, 0.0f};
+    sigma.model = giga;
+
+    GameObject sigma2 = GameObject::CreateGameObject();
+    sigma2.transform.translation = {0.0f, 1.0f, 0.0f};
+    sigma2.transform.rotation = {0.0f, 0.0f, glm::radians(-90.f)};
+    sigma2.model = giga;
+
+    GameObject sigma3 = GameObject::CreateGameObject();
+    sigma3.transform.translation = {0.0f, -1.0f, 0.0f};
+    sigma3.transform.rotation = {0.0f, 0.0f, glm::radians(90.f)};
+    sigma3.model = giga;
 
     m_gameObjects.emplace(obj.GetId(), std::move(obj));
     m_gameObjects.emplace(gigachad.GetId(), std::move(gigachad));
-    HGINFO("Loaded game objects");
+    m_gameObjects.emplace(sigma.GetId(), std::move(sigma));
+    m_gameObjects.emplace(sigma2.GetId(), std::move(sigma2));
+    m_gameObjects.emplace(sigma3.GetId(), std::move(sigma3));
 
+    HGINFO("Loaded game objects");
     m_mainDeletionQueue.PushDeletor([&]() { m_gameObjects.clear(); });
 }
 

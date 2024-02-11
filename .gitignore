@@ -32,6 +32,7 @@
 *.app
 
 build/*
+!build/textures
 
 \.cache/*
 compile_commands.json
