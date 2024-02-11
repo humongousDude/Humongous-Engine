@@ -14,3 +14,22 @@ Libraries used:
 * ImGui
 * TinyObjLoader 
 * STB
+
+
+***To Build***
+
+* NOTE:
+You need to install the above libraries with vcpkg first before trying to build
+*
+
+
+First run
+``` shell
+cmake . --preset debug-llvm-dynamic
+```
+
+and then
+``` shell
+./build
+```
+
