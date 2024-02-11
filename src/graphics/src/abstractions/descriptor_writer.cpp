@@ -4,7 +4,12 @@
 namespace Humongous
 {
 
-DescriptorWriter::DescriptorWriter(DescriptorSetLayout& m_setLayout, DescriptorPool& m_pool) : m_setLayout{m_setLayout}, m_pool{m_pool} {}
+DescriptorWriter::DescriptorWriter(DescriptorSetLayout& m_setLayout, DescriptorPool* m_pool) : m_setLayout{m_setLayout}, m_pool{m_pool} {}
+
+DescriptorWriter::DescriptorWriter(DescriptorSetLayout& m_setLayout, DescriptorPoolGrowable* m_pool)
+    : m_setLayout{m_setLayout}, m_poolGrowable{m_pool}
+{
+}
 
 DescriptorWriter& DescriptorWriter::WriteBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo)
 {
@@ -46,7 +51,8 @@ DescriptorWriter& DescriptorWriter::WriteImage(uint32_t binding, VkDescriptorIma
 
 bool DescriptorWriter::Build(VkDescriptorSet& set)
 {
-    bool success = m_pool.AllocateDescriptor(m_setLayout.GetDescriptorSetLayout(), set);
+    bool success = m_pool == nullptr ? m_poolGrowable->AllocateDescriptor(m_setLayout.GetDescriptorSetLayout(), set)
+                                     : m_pool->AllocateDescriptor(m_setLayout.GetDescriptorSetLayout(), set);
     if(!success) { return false; }
     Overwrite(set);
     return true;
@@ -55,7 +61,8 @@ bool DescriptorWriter::Build(VkDescriptorSet& set)
 void DescriptorWriter::Overwrite(VkDescriptorSet& set)
 {
     for(auto& write: m_writes) { write.dstSet = set; }
-    vkUpdateDescriptorSets(m_pool.m_logicalDevice.GetVkDevice(), m_writes.size(), m_writes.data(), 0, nullptr);
+    if(m_pool) { vkUpdateDescriptorSets(m_pool->m_logicalDevice.GetVkDevice(), m_writes.size(), m_writes.data(), 0, nullptr); }
+    else { vkUpdateDescriptorSets(m_poolGrowable->m_logicalDevice.GetVkDevice(), m_writes.size(), m_writes.data(), 0, nullptr); }
 }
 
 } // namespace Humongous

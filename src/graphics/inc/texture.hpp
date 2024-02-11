@@ -13,7 +13,10 @@ public:
     Texture(LogicalDevice& m_logicalDevice, const std::string& imagePath);
     ~Texture();
 
-    VkDescriptorImageInfo GetDescriptorInfo() { return {m_textureSampler, m_textureImage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}; };
+    VkDescriptorImageInfo GetDescriptorInfo() const
+    {
+        return {m_textureSampler, m_textureImage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    };
 
 private:
     LogicalDevice& m_logicalDevice;

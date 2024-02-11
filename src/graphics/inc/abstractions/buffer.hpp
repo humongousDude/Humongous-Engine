@@ -19,7 +19,7 @@ public:
 
     void                   WriteToBuffer(void* data, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
     VkResult               Flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
-    VkDescriptorBufferInfo DescriptorInfo(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
+    VkDescriptorBufferInfo DescriptorInfo(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) const;
     VkResult               Invalidate(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 
     void                   WriteToIndex(void* data, int index);

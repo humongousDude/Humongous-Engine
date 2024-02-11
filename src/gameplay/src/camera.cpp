@@ -34,7 +34,7 @@ void Camera::InitDescriptorThings(LogicalDevice& logicalDevice)
         m_projectionBuffers[i]->Map();
 
         auto bufInfo = m_projectionBuffers[i]->DescriptorInfo();
-        DescriptorWriter(*m_projectionLayout, *m_projectionPool).WriteBuffer(0, &bufInfo).Build(m_projectionMatrixSet[i]);
+        DescriptorWriter(*m_projectionLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_projectionMatrixSet[i]);
     }
 
     HGINFO("Descriptor things initialized.");

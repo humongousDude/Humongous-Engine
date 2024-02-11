@@ -65,7 +65,15 @@ void Model::CreateIndexBuffer(const std::vector<u32>& indices)
 
 void Model::WriteDescriptorSet(DescriptorSetLayout& layout, DescriptorPool& pool, VkDescriptorSet descriptorSet)
 {
-    DescriptorWriter writer{layout, pool};
+    DescriptorWriter writer{layout, &pool};
+    auto             descriptorInfo = m_texture->GetDescriptorInfo();
+    writer.WriteImage(0, &descriptorInfo);
+    writer.Overwrite(descriptorSet);
+}
+
+void Model::WriteDescriptorSet(DescriptorSetLayout& layout, DescriptorPoolGrowable& pool, VkDescriptorSet descriptorSet)
+{
+    DescriptorWriter writer{layout, &pool};
     auto             descriptorInfo = m_texture->GetDescriptorInfo();
     writer.WriteImage(0, &descriptorInfo);
     writer.Overwrite(descriptorSet);

@@ -9,9 +9,9 @@ SimpleRenderSystem::SimpleRenderSystem(LogicalDevice& logicalDevice, VkDescripto
     HGINFO("Creating simple render system...");
     CreateModelDescriptorSetPool();
     CreateModelDescriptorSetLayout();
-    AllocateDescriptorSets();
     CreatePipelineLayout(globalLayout);
     CreatePipeline();
+    m_modelSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     HGINFO("Created simple render system");
 }
 
@@ -24,11 +24,8 @@ SimpleRenderSystem::~SimpleRenderSystem()
 
 void SimpleRenderSystem::CreateModelDescriptorSetPool()
 {
-    DescriptorPool::Builder builder{m_logicalDevice};
-    builder.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SwapChain::MAX_FRAMES_IN_FLIGHT);
-    builder.SetPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
-    builder.SetMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    m_descriptorPool = builder.Build();
+    std::vector<VkDescriptorType> poolTypes = {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER};
+    m_descriptorPool = std::make_unique<DescriptorPoolGrowable>(m_logicalDevice, 10, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, poolTypes);
 }
 
 void SimpleRenderSystem::CreateModelDescriptorSetLayout()
@@ -38,10 +35,10 @@ void SimpleRenderSystem::CreateModelDescriptorSetLayout()
     m_descriptorSetLayout = builder.build();
 }
 
-void SimpleRenderSystem::AllocateDescriptorSets()
+void SimpleRenderSystem::AllocateDescriptorSet(u32 identifier, u32 index)
 {
-    m_modelSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    for(int i = 0; i < m_modelSets.size(); i++) { DescriptorWriter{*m_descriptorSetLayout, *m_descriptorPool}.Build(m_modelSets[i]); }
+    HGINFO("Allocating descriptor set for %d", identifier);
+    m_modelSets[index].emplace(identifier, m_descriptorPool->AllocateDescriptor(m_descriptorSetLayout->GetDescriptorSetLayout()));
 }
 
 void SimpleRenderSystem::CreatePipelineLayout(VkDescriptorSetLayout globalLayout)
@@ -50,7 +47,6 @@ void SimpleRenderSystem::CreatePipelineLayout(VkDescriptorSetLayout globalLayout
     VkPushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pushConstantRange.offset = 0;
-    HGINFO("PushConstant size = %d", sizeof(ModelPushConstants));
     pushConstantRange.size = sizeof(ModelPushConstants);
 
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {globalLayout, m_descriptorSetLayout->GetDescriptorSetLayout()};
@@ -87,7 +83,8 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
     for(auto& [id, obj]: renderData.gameObjects)
     {
         if(!obj.model) { continue; }
-        obj.model->Bind(renderData.commandBuffer);
+
+        auto objId = obj.GetId();
 
         ModelPushConstants push{};
         push.model = obj.transform.Mat4();
@@ -96,10 +93,13 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
 
         vkCmdPushConstants(renderData.commandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ModelPushConstants), &push);
 
-        obj.model->WriteDescriptorSet(*m_descriptorSetLayout, *m_descriptorPool, m_modelSets[renderData.frameIndex]);
-        vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 1, 1,
-                                &m_modelSets[renderData.frameIndex], 0, nullptr);
+        if(m_modelSets[renderData.frameIndex].count(obj.GetId()) == 0) { AllocateDescriptorSet(objId, renderData.frameIndex); }
 
+        obj.model->WriteDescriptorSet(*m_descriptorSetLayout, *m_descriptorPool, m_modelSets[renderData.frameIndex][objId]);
+        vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 1, 1,
+                                &m_modelSets[renderData.frameIndex][objId], 0, nullptr);
+
+        obj.model->Bind(renderData.commandBuffer);
         obj.model->Draw(renderData.commandBuffer);
     }
 }

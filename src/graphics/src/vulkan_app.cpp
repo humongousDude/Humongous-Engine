@@ -1,3 +1,4 @@
+#include "abstractions/descriptor_pool_growable.hpp"
 #include "camera.hpp"
 #include "defines.hpp"
 #include "gameobject.hpp"
@@ -67,12 +68,18 @@ void VulkanApp::LoadGameObjects()
     rect_indices[5] = 3;
 
     std::shared_ptr<Model> model = std::make_shared<Model>(*m_logicalDevice, rect_vertices, rect_indices, "./textures/texture.jpg");
+    std::shared_ptr<Model> giga = std::make_shared<Model>(*m_logicalDevice, rect_vertices, rect_indices, "./textures/gigachad.png");
 
     GameObject obj = GameObject::CreateGameObject();
     obj.transform.translation = {0.0f, 0.0f, -0.5f};
     obj.model = model;
 
+    GameObject gigachad = GameObject::CreateGameObject();
+    gigachad.transform.translation = {0.0f, 0.0f, 0.0f};
+    gigachad.model = giga;
+
     m_gameObjects.emplace(obj.GetId(), std::move(obj));
+    m_gameObjects.emplace(gigachad.GetId(), std::move(gigachad));
     HGINFO("Loaded game objects");
 
     m_mainDeletionQueue.PushDeletor([&]() { m_gameObjects.clear(); });

@@ -206,7 +206,7 @@ void Buffer::UpdateAddress(VkBufferUsageFlags usage)
  *
  * @return VkDescriptorBufferInfo of specified offset and range
  */
-VkDescriptorBufferInfo Buffer::DescriptorInfo(VkDeviceSize size, VkDeviceSize offset)
+VkDescriptorBufferInfo Buffer::DescriptorInfo(VkDeviceSize size, VkDeviceSize offset) const
 {
     return VkDescriptorBufferInfo{
         m_buffer,

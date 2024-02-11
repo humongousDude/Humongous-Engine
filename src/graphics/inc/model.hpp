@@ -39,6 +39,7 @@ public:
     ~Model();
 
     void WriteDescriptorSet(DescriptorSetLayout& layout, DescriptorPool& pool, VkDescriptorSet descriptorSet);
+    void WriteDescriptorSet(DescriptorSetLayout& layout, DescriptorPoolGrowable& pool, VkDescriptorSet descriptorSet);
 
     void Bind(VkCommandBuffer cmd);
     void Draw(VkCommandBuffer cmd);
