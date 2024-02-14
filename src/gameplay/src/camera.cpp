@@ -20,6 +20,7 @@ void Camera::InitDescriptorThings(LogicalDevice& logicalDevice)
 
     DescriptorSetLayout::Builder builder2{logicalDevice};
     builder2.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+    // builder2.addBinding(2,
     m_projectionLayout = builder2.build();
 
     m_projectionBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -28,7 +29,7 @@ void Camera::InitDescriptorThings(LogicalDevice& logicalDevice)
     for(int i = 0; i < m_projectionBuffers.size(); i++)
     {
         m_projectionBuffers[i] =
-            std::make_unique<Buffer>(logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(ProjectionUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            std::make_unique<Buffer>(&logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(ProjectionUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_AUTO);
 
         m_projectionBuffers[i]->Map();

@@ -12,7 +12,8 @@ Libraries used:
 * GLM
 * VMA
 * ImGui
-* TinyObjLoader 
+* FastGLTF
+* GLI 
 * STB
 
 

@@ -5,9 +5,9 @@
 #ifdef HGASSERTIONS_ENABLED
 #if _MSV_VER
 #include <intrin.h>
-#define DebugBreak() __debugbreak()
+#define BreakDebug() __debugbreak()
 #else
-#define DebugBreak() __builtin_trap()
+#define BreakDebug() __builtin_trap()
 #endif
 
 void ReportAssertionFaliure(const char* expression, const char* message, const char* file, i32 line);
@@ -18,7 +18,7 @@ void ReportAssertionFaliure(const char* expression, const char* message, const c
         else                                                                                                                                       \
         {                                                                                                                                          \
             ReportAssertionFaliure(#expr, "", __FILE__, __LINE__);                                                                                 \
-            DebugBreak();                                                                                                                          \
+            BreakDebug();                                                                                                                          \
         }                                                                                                                                          \
     }
 
@@ -28,7 +28,7 @@ void ReportAssertionFaliure(const char* expression, const char* message, const c
         else                                                                                                                                       \
         {                                                                                                                                          \
             ReportAssertionFaliure(#expr, message, __FILE__, __LINE__);                                                                            \
-            DebugBreak();                                                                                                                          \
+            BreakDebug();                                                                                                                          \
         }                                                                                                                                          \
     }
 
@@ -39,7 +39,7 @@ void ReportAssertionFaliure(const char* expression, const char* message, const c
         else                                                                                                                                       \
         {                                                                                                                                          \
             ReportAssertionFaliure(#expr, "", __FILE__, __LINE__);                                                                                 \
-            DebugBreak();                                                                                                                          \
+            BreakDebug();                                                                                                                          \
         }                                                                                                                                          \
     }
 #else

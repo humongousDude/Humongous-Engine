@@ -27,14 +27,17 @@ target_link_libraries(main PRIVATE fmt::fmt)
 find_package(imgui CONFIG REQUIRED)
 target_link_libraries(main PRIVATE imgui::imgui)
 
-find_package(tinyobjloader CONFIG REQUIRED)
-target_link_libraries(main PRIVATE tinyobjloader::tinyobjloader)
+find_path(TINYGLTF_INCLUDE_DIRS "tiny_gltf.h")
+target_include_directories(main PRIVATE ${TINYGLTF_INCLUDE_DIRS})
+
+find_package(gli CONFIG REQUIRED)
+target_link_libraries(main PRIVATE gli)
 
 find_package(Stb REQUIRED)
 target_include_directories(main PRIVATE ${Stb_INCLUDE_DIR})
 
 # Collect shader files
-file(GLOB_RECURSE SHADER_FILES CONFIGURE_DEPENDS shaders/*.glsl)
+file(GLOB SHADER_FILES CONFIGURE_DEPENDS shaders/*.glsl)
 
 # Find the Vulkan shader compiler (prefer glslc for SPIR-V generation)
 find_program(VULKAN_GLSLC glslc)

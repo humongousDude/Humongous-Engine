@@ -1,19 +1,15 @@
+#include <vulkan_app.hpp>
+
 #include "abstractions/descriptor_pool_growable.hpp"
 #include "camera.hpp"
-#include "defines.hpp"
-#include "gameobject.hpp"
-#include "keyboard_handler.hpp"
+#include <keyboard_handler.hpp>
+
 #include <logger.hpp>
+
 #include <thread>
 
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
-#include <vulkan_app.hpp>
-
-#include <abstractions/buffer.hpp>
-#include <abstractions/descriptor_layout.hpp>
-#include <abstractions/descriptor_pool.hpp>
-#include <abstractions/descriptor_writer.hpp>
 
 namespace Humongous
 {
@@ -47,57 +43,17 @@ void VulkanApp::Init()
 void VulkanApp::LoadGameObjects()
 {
     HGINFO("Loading game objects...");
-    // copied from brendan galea's vulkan tutorial series
-    std::vector<Vertex> rect_vertices(4);
 
-    rect_vertices[0].position = {0.5, -0.5, 0};
-    rect_vertices[1].position = {0.5, 0.5, 0};
-    rect_vertices[2].position = {-0.5, -0.5, 0};
-    rect_vertices[3].position = {-0.5, 0.5, 0};
-    rect_vertices[0].uv = {1, 0};
-    rect_vertices[1].uv = {1, 1};
-    rect_vertices[2].uv = {0, 0};
-    rect_vertices[3].uv = {0, 1};
-
-    std::vector<u32> rect_indices(6);
-    rect_indices[0] = 0;
-    rect_indices[1] = 1;
-    rect_indices[2] = 2;
-    rect_indices[3] = 2;
-    rect_indices[4] = 1;
-    rect_indices[5] = 3;
-
-    std::shared_ptr<Model> model = std::make_shared<Model>(*m_logicalDevice, rect_vertices, rect_indices, "./textures/texture.jpg");
-    std::shared_ptr<Model> giga = std::make_shared<Model>(*m_logicalDevice, rect_vertices, rect_indices, "./textures/gigachad.png");
+    std::shared_ptr<Model> model;
+    model = std::make_shared<Model>(m_logicalDevice.get(), "models/high_res_car.glb", 1);
 
     GameObject obj = GameObject::CreateGameObject();
-    obj.transform.translation = {0.0f, 0.0f, 0.0f};
+    obj.transform.translation = {0.0f, 0.0f, 1.0f};
+    obj.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
+    obj.transform.scale = {1.0f, 1.0f, 1.0f};
     obj.model = model;
 
-    GameObject gigachad = GameObject::CreateGameObject();
-    gigachad.transform.translation = {1.0f, 0.0f, 0.0f};
-    gigachad.transform.scale = {-1.0f, -1.0f, 1.0f};
-    gigachad.model = giga;
-
-    GameObject sigma = GameObject::CreateGameObject();
-    sigma.transform.translation = {-1.0f, 0.0f, 0.0f};
-    sigma.model = giga;
-
-    GameObject sigma2 = GameObject::CreateGameObject();
-    sigma2.transform.translation = {0.0f, 1.0f, 0.0f};
-    sigma2.transform.rotation = {0.0f, 0.0f, glm::radians(-90.f)};
-    sigma2.model = giga;
-
-    GameObject sigma3 = GameObject::CreateGameObject();
-    sigma3.transform.translation = {0.0f, -1.0f, 0.0f};
-    sigma3.transform.rotation = {0.0f, 0.0f, glm::radians(90.f)};
-    sigma3.model = giga;
-
     m_gameObjects.emplace(obj.GetId(), std::move(obj));
-    m_gameObjects.emplace(gigachad.GetId(), std::move(gigachad));
-    m_gameObjects.emplace(sigma.GetId(), std::move(sigma));
-    m_gameObjects.emplace(sigma2.GetId(), std::move(sigma2));
-    m_gameObjects.emplace(sigma3.GetId(), std::move(sigma3));
 
     HGINFO("Loaded game objects");
     m_mainDeletionQueue.PushDeletor([&]() { m_gameObjects.clear(); });
@@ -105,12 +61,11 @@ void VulkanApp::LoadGameObjects()
 
 void VulkanApp::Run()
 {
-    HGINFO("Running...");
-
     Camera cam{*m_logicalDevice};
 
     float aspect = m_renderer->GetAspectRatio();
     cam.SetViewTarget(glm::vec3(-1.0f, -2.0f, -2.0f), glm::vec3(0.0f, 0.0f, 2.5f));
+
     m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, cam.GetDescriptorSetLayout());
 
     GameObject viewerObject = GameObject::CreateGameObject();
@@ -119,6 +74,7 @@ void VulkanApp::Run()
 
     KeyboardHandler handler{};
 
+    HGINFO("Running...");
     while(!m_window->ShouldWindowClose())
     {
         glfwPollEvents();

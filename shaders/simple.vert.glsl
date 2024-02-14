@@ -1,15 +1,19 @@
 #version 450
 #extension GL_EXT_buffer_reference : require
+#extension GL_GOOGLE_include_directive : require
+
+#include "includes/input_structures.glsl"
 
 layout(location = 0) out vec2 fragUV;
 
 struct Vertex {
     vec3 position;
-    vec3 color;
-    vec2 uv;
+    vec3 normal;
+    vec2 uv1;
+    vec2 uv2;
 };
 
-layout(buffer_reference, std430) readonly buffer VertexBuffer
+layout(buffer_reference, std140) readonly buffer VertexBuffer
 {
     Vertex vertices[];
 };
@@ -17,7 +21,6 @@ layout(buffer_reference, std430) readonly buffer VertexBuffer
 layout(push_constant) uniform Push
 {
     mat4 modelMatrix;
-    mat3 normalMatrix;
     VertexBuffer vertexBuffer;
 } push;
 
@@ -33,5 +36,5 @@ void main()
 
     gl_Position = ubo.projection * ubo.view * push.modelMatrix * vec4(v.position, 1.0);
 
-    fragUV = v.uv;
+    fragUV = v.uv1;
 }

@@ -10,12 +10,16 @@ namespace Humongous
 class Buffer : NonCopyable
 {
 public:
-    Buffer(LogicalDevice& device, VkDeviceSize m_instanceSize, uint32_t m_instanceCount, VkBufferUsageFlags usageFlags,
+    Buffer(LogicalDevice* device, VkDeviceSize m_instanceSize, uint32_t m_instanceCount, VkBufferUsageFlags usageFlags,
            VkMemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, VkDeviceSize minOffsetAlignment = 1);
+    Buffer();
     ~Buffer();
 
     VkResult Map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
     void     UnMap();
+
+    void Init(LogicalDevice* device, VkDeviceSize m_instanceSize, uint32_t m_instanceCount, VkBufferUsageFlags usageFlags,
+              VkMemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, VkDeviceSize minOffsetAlignment = 1);
 
     void                   WriteToBuffer(void* data, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
     VkResult               Flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
@@ -37,14 +41,18 @@ public:
     VkBufferUsageFlags    GetUsageFlags() const { return m_usageFlags; }
     VkMemoryPropertyFlags GetMemoryPropertyFlags() const { return m_memoryPropertyFlags; }
     VkDeviceSize          GetBufferSize() const { return m_bufferSize; }
-    VkDeviceAddress       GetDeviceAddress() const { return m_deviceAddress; }
+    VkDeviceAddress       GetDeviceAddress()
+    {
+        UpdateAddress(m_usageFlags);
+        return m_deviceAddress;
+    }
 
     static void CopyBuffer(LogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, VkDeviceSize size);
 
 private:
     struct CreateInfo
     {
-        LogicalDevice&        device;
+        LogicalDevice*        device;
         VkDeviceSize          size;
         VkBufferUsageFlags    bufferUsage;
         VmaMemoryUsage        memoryUsage;
@@ -58,7 +66,7 @@ private:
     static VkDeviceSize GetAlignment(VkDeviceSize instanceSize, VkDeviceSize minOffsetAlignment);
     void                CreateBuffer(CreateInfo& createInfo);
 
-    LogicalDevice&    m_logicalDevice;
+    LogicalDevice*    m_logicalDevice;
     VkBuffer          m_buffer = VK_NULL_HANDLE;
     VmaAllocation     m_allocation;
     VmaAllocationInfo m_allocationInfo;

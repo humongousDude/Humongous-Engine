@@ -31,11 +31,25 @@ VkDeviceSize Buffer::GetAlignment(VkDeviceSize m_instanceSize, VkDeviceSize minO
     return m_instanceSize;
 }
 
-Buffer::Buffer(LogicalDevice& device, VkDeviceSize instanceSize, uint32_t instanceCount, VkBufferUsageFlags usageFlags,
+Buffer::Buffer(LogicalDevice* device, VkDeviceSize instanceSize, uint32_t instanceCount, VkBufferUsageFlags usageFlags,
                VkMemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, VkDeviceSize minOffsetAlignment)
     : m_logicalDevice{device}, m_instanceSize{instanceSize}, m_instanceCount{instanceCount}, m_usageFlags{usageFlags},
       m_memoryPropertyFlags{memoryPropertyFlags}
 {
+    Init(device, instanceSize, instanceCount, usageFlags, memoryPropertyFlags, memoryUsage, minOffsetAlignment);
+}
+
+Buffer::Buffer() : m_logicalDevice{nullptr}, m_instanceSize{0}, m_instanceCount{0}, m_usageFlags{0}, m_memoryPropertyFlags{0} {}
+
+void Buffer::Init(LogicalDevice* device, VkDeviceSize instanceSize, uint32_t instanceCount, VkBufferUsageFlags usageFlags,
+                  VkMemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, VkDeviceSize minOffsetAlignment)
+{
+    m_logicalDevice = device;
+    m_instanceSize = instanceSize;
+    m_instanceCount = instanceCount;
+    m_usageFlags = usageFlags;
+    m_memoryPropertyFlags = memoryPropertyFlags;
+
     m_alignmentSize = GetAlignment(m_instanceSize, minOffsetAlignment);
     m_bufferSize = m_alignmentSize * m_instanceCount;
 
@@ -57,8 +71,8 @@ Buffer::Buffer(LogicalDevice& device, VkDeviceSize instanceSize, uint32_t instan
 
 Buffer::~Buffer()
 {
-    UnMap();
-    vmaDestroyBuffer(m_logicalDevice.GetVmaAllocator(), m_buffer, m_allocation);
+    if(m_allocationInfo.pMappedData) { UnMap(); }
+    if(m_buffer != VK_NULL_HANDLE) { vmaDestroyBuffer(m_logicalDevice->GetVmaAllocator(), m_buffer, m_allocation); }
 }
 
 void Buffer::CreateBuffer(CreateInfo& createInfo)
@@ -80,11 +94,11 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
     allocInfo.pMappedData = nullptr;
     allocInfo.pUserData = nullptr;
 
-    vmaCreateBufferWithAlignment(createInfo.device.GetVmaAllocator(), &bufferInfo, &allocCreateInfo, createInfo.minOffsetAlignment,
+    vmaCreateBufferWithAlignment(createInfo.device->GetVmaAllocator(), &bufferInfo, &allocCreateInfo, createInfo.minOffsetAlignment,
                                  createInfo.buffer, &createInfo.allocation, &allocInfo);
 
     VmaAllocationInfo ret{};
-    vmaGetAllocationInfo(createInfo.device.GetVmaAllocator(), createInfo.allocation, &ret);
+    vmaGetAllocationInfo(createInfo.device->GetVmaAllocator(), createInfo.allocation, &ret);
     m_allocationInfo = ret;
 }
 
@@ -102,7 +116,7 @@ VkResult Buffer::Map(VkDeviceSize size, VkDeviceSize offset)
     HGASSERT(m_buffer && m_allocationInfo.deviceMemory && "Called map on buffer before create");
 
     m_mapCallCount++;
-    return vmaMapMemory(m_logicalDevice.GetVmaAllocator(), m_allocation, &m_allocationInfo.pMappedData);
+    return vmaMapMemory(m_logicalDevice->GetVmaAllocator(), m_allocation, &m_allocationInfo.pMappedData);
 }
 
 /**
@@ -116,7 +130,7 @@ void Buffer::UnMap()
     {
         if(!(m_memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) { Invalidate(); }
 
-        for(int i = 0; i < m_mapCallCount; i++) { vmaUnmapMemory(m_logicalDevice.GetVmaAllocator(), m_allocation); }
+        for(int i = 0; i < m_mapCallCount; i++) { vmaUnmapMemory(m_logicalDevice->GetVmaAllocator(), m_allocation); }
 
         m_allocationInfo.pMappedData = nullptr;
     }
@@ -162,7 +176,7 @@ VkResult Buffer::Flush(VkDeviceSize size, VkDeviceSize offset)
     mappedRange.memory = m_allocationInfo.deviceMemory;
     mappedRange.offset = offset;
     mappedRange.size = size;
-    return vkFlushMappedMemoryRanges(m_logicalDevice.GetVkDevice(), 1, &mappedRange);
+    return vkFlushMappedMemoryRanges(m_logicalDevice->GetVkDevice(), 1, &mappedRange);
 }
 
 /**
@@ -184,7 +198,7 @@ VkResult Buffer::Invalidate(VkDeviceSize size, VkDeviceSize offset)
     mappedRange.offset = offset;
     mappedRange.size = size;
 
-    return vmaInvalidateAllocation(m_logicalDevice.GetVmaAllocator(), m_allocation, offset, size);
+    return vmaInvalidateAllocation(m_logicalDevice->GetVmaAllocator(), m_allocation, offset, size);
 }
 
 void Buffer::UpdateAddress(VkBufferUsageFlags usage)
@@ -195,7 +209,7 @@ void Buffer::UpdateAddress(VkBufferUsageFlags usage)
     bufferDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
     bufferDeviceAddressInfo.buffer = m_buffer;
 
-    m_deviceAddress = vkGetBufferDeviceAddress(m_logicalDevice.GetVkDevice(), &bufferDeviceAddressInfo);
+    m_deviceAddress = vkGetBufferDeviceAddress(m_logicalDevice->GetVkDevice(), &bufferDeviceAddressInfo);
 }
 
 /**

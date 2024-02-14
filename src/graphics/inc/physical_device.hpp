@@ -42,6 +42,20 @@ public:
 
     VkSurfaceKHR GetSurface() const { return m_surface; }
 
+    VkPhysicalDeviceProperties2 GetProperties() const
+    {
+        VkPhysicalDeviceProperties2 properties{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+        vkGetPhysicalDeviceProperties2(m_physicalDevice, &properties);
+        return properties;
+    }
+
+    VkPhysicalDeviceFeatures2 GetFeatures() const
+    {
+        VkPhysicalDeviceFeatures2 features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+        vkGetPhysicalDeviceFeatures2(m_physicalDevice, &features);
+        return features;
+    }
+
 private:
     Instance&        m_instance;
     VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;

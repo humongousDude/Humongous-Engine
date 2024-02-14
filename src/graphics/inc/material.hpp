@@ -1,13 +1,12 @@
 #pragma once
 
-// will remain unused for a while
-
-/* #include "abstractions/buffer.hpp"
+#include "abstractions/buffer.hpp"
 #include "abstractions/descriptor_writer.hpp"
 #include "images.hpp"
 #include "texture.hpp"
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/fwd.hpp>
 #include <glm/glm.hpp>
 
 #include "defines.hpp"
@@ -15,54 +14,63 @@
 
 namespace Humongous
 {
+struct Node;
 
-enum class MaterialPass : u8
+struct BoundingBox
 {
-    MainColor,
-    Transparent,
-    Other
+    glm::vec3 min;
+    glm::vec3 max;
+    bool      valid = false;
+    BoundingBox(){};
+    BoundingBox(glm::vec3 min, glm::vec3 max) : min(min), max(max){};
+    BoundingBox GetAABB(glm::mat4 m);
 };
 
-struct MaterialPipeline
+struct Material
 {
-    std::unique_ptr<RenderPipeline> pipeline;
-    VkPipelineLayout                pipelineLayout;
-};
-
-struct MaterialInstance
-{
-    std::shared_ptr<RenderPipeline> pipeline;
-    VkDescriptorSet                 materialSet;
-    MaterialPass                    type;
-};
-
-struct GLTFMetallicRoughness
-{
-    std::unique_ptr<MaterialPipeline> opaquePipeline;
-    std::unique_ptr<MaterialPipeline> transparentPipeline;
-
-    VkDescriptorSetLayout materialLayout;
-
-    struct MaterialConstants
+    enum AlphaMode
     {
-        glm::vec4 colorFactors;
-        glm::vec4 metalRoughFactors;
+        ALPHAMODE_OPAQUE,
+        ALPHAMODE_MASK,
+        ALPHAMODE_BLEND
     };
-
-    struct MaterialResources
+    AlphaMode alphaMode = ALPHAMODE_OPAQUE;
+    float     alphaCutoff = 1.0f;
+    float     metallicFactor = 1.0f;
+    float     roughnessFactor = 1.0f;
+    glm::vec4 baseColorFactor = glm::vec4(1.0f);
+    glm::vec4 emissiveFactor = glm::vec4(0.0f);
+    Texture*  baseColorTexture;
+    Texture*  metallicRoughnessTexture;
+    Texture*  normalTexture;
+    Texture*  occlusionTexture;
+    Texture*  emissiveTexture;
+    bool      doubleSided = false;
+    struct TexCoordSets
     {
-        Texture* colorTexture;
-        Texture* metalRoughTexture;
-        Buffer*  dataBuffer;
-        u32      dataBufferOffset;
-    };
-
-    DescriptorWriter writer;
-
-    void BuildPipelines(LogicalDevice& logicalDevice, VkDescriptorSetLayout globalLayout);
-    void ClearResources(LogicalDevice& logicalDevice);
-
-    MaterialInstance WriteMaterial(VkDevice device, MaterialPass pass, const MaterialResources& resources,
-                                   DescriptorPoolGrowable& descriptorAllocator);
+        uint8_t baseColor = 0;
+        uint8_t metallicRoughness = 0;
+        uint8_t specularGlossiness = 0;
+        uint8_t normal = 0;
+        uint8_t occlusion = 0;
+        uint8_t emissive = 0;
+    } texCoordSets;
+    struct Extension
+    {
+        Texture*  specularGlossinessTexture;
+        Texture*  diffuseTexture;
+        glm::vec4 diffuseFactor = glm::vec4(1.0f);
+        glm::vec3 specularFactor = glm::vec3(0.0f);
+    } extension;
+    struct PbrWorkflows
+    {
+        bool metallicRoughness = true;
+        bool specularGlossiness = false;
+    } pbrWorkflows;
+    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    int             index = 0;
+    bool            unlit = false;
+    float           emissiveStrength = 1.0f;
 };
-} // namespace Humongous */
+
+} // namespace Humongous

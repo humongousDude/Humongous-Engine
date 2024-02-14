@@ -15,7 +15,8 @@ public:
     LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice);
     ~LogicalDevice();
 
-    VkDevice GetVkDevice() const { return m_logicalDevice; }
+    VkDevice        GetVkDevice() const { return m_logicalDevice; }
+    PhysicalDevice& GetPhysicalDevice() const { return *m_physicalDevice; }
 
     VkQueue GetGraphicsQueue() const { return m_graphicsQueue; }
     VkQueue GetPresentQueue() const { return m_presentQueue; }
@@ -29,6 +30,8 @@ private:
     Instance& m_instance;
 
     VkDevice m_logicalDevice = VK_NULL_HANDLE;
+    // here for convenience
+    PhysicalDevice* m_physicalDevice;
 
     VkQueue m_graphicsQueue;
     VkQueue m_presentQueue;

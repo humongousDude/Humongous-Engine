@@ -1,8 +1,5 @@
 #pragma once
-
-#include "render_pipeline.hpp"
 #include "render_systems/simple_render_system.hpp"
-#include "renderer.hpp"
 #include "window.hpp"
 #include <deque>
 #include <functional>

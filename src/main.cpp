@@ -6,9 +6,9 @@
 #include "logger.hpp"
 #include <fmt/core.h>
 #include <vulkan_app.hpp>
-
 int main()
 {
+
     try
     {
         Humongous::VulkanApp app{};

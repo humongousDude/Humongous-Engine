@@ -54,6 +54,51 @@ void CreateAllocatedImage(LogicalDevice& logicalDevice, u32 width, u32 height, V
     }
 }
 
+void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
+{
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = createInfo.width;
+    imageInfo.extent.height = createInfo.height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = createInfo.mipLevels;
+    imageInfo.arrayLayers = createInfo.layerCount;
+    imageInfo.format = createInfo.format;
+    imageInfo.tiling = createInfo.tiling;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = createInfo.usage;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.flags = createInfo.flags;
+
+    VmaAllocationCreateInfo allocInfo{};
+    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    if(vmaCreateImage(createInfo.logicalDevice.GetVmaAllocator(), &imageInfo, &allocInfo, &createInfo.allocatedImage.image,
+                      &createInfo.allocatedImage.allocation, nullptr) != VK_SUCCESS)
+    {
+        HGERROR("Failed to create image");
+    }
+
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = createInfo.allocatedImage.image;
+    viewInfo.viewType = createInfo.imageViewType;
+    viewInfo.format = createInfo.format;
+    viewInfo.subresourceRange.aspectMask = createInfo.aspectFlags;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = createInfo.mipLevels;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = createInfo.layerCount;
+
+    if(vkCreateImageView(createInfo.logicalDevice.GetVkDevice(), &viewInfo, nullptr, &createInfo.allocatedImage.imageView) != VK_SUCCESS)
+    {
+        HGERROR("Failed to create image view");
+    }
+}
+
 void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout)
 {
     VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
@@ -161,6 +206,14 @@ void CopyBufferToImage(LogicalDevice& logicalDevice, VkBuffer buffer, VkImage im
     region.imageOffset = {0, 0, 0};
     region.imageExtent = {width, height, 1};
     vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    logicalDevice.EndSingleTimeCommands(commandBuffer);
+}
+
+void CopyBufferToImage(LogicalDevice& logicalDevice, VkBuffer buffer, VkImage image, const std::vector<VkBufferImageCopy>& bufferCopyRegions)
+{
+    VkCommandBuffer commandBuffer = logicalDevice.BeginSingleTimeCommands();
+    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, static_cast<u32>(bufferCopyRegions.size()),
+                           bufferCopyRegions.data());
     logicalDevice.EndSingleTimeCommands(commandBuffer);
 }
 

@@ -1,17 +1,37 @@
 #version 450
-
-layout(set = 0, binding = 0) uniform UBO
-{
-    mat4 projection;
-    mat4 view;
-} ubo;
-
-layout(set = 1, binding = 0) uniform sampler2D tex;
+#extension GL_GOOGLE_include_directive : require
 
 layout(location = 0) in vec2 inUV;
-layout(location = 0) out vec4 fragColor;
+
+layout(location = 0) out vec4 outFragColor;
+
+// Material bindings
+
+// Textures
+
+layout(set = 1, binding = 0) uniform sampler2D colorMap;
+layout(set = 1, binding = 1) uniform sampler2D physicalDescriptorMap;
+layout(set = 1, binding = 2) uniform sampler2D normalMap;
+layout(set = 1, binding = 3) uniform sampler2D aoMap;
+layout(set = 1, binding = 4) uniform sampler2D emissiveMap;
+
+// Properties
+
+#include "includes/shadermaterial.glsl"
+
+layout(std430, set = 3, binding = 0) buffer SSBO
+{
+    ShaderMaterial materials[];
+};
+
+layout(push_constant) uniform Push
+{
+    uint materialIndex;
+} push;
 
 void main()
 {
-    fragColor = texture(tex, inUV);
+    ShaderMaterial shad = materials[push.materialIndex];
+
+    outFragColor = vec4(shad.baseColorFactor.rgb, 1.0f);
 }

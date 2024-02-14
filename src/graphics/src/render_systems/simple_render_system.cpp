@@ -1,4 +1,3 @@
-#include "abstractions/descriptor_writer.hpp"
 #include "logger.hpp"
 #include <render_systems/simple_render_system.hpp>
 
@@ -24,39 +23,64 @@ SimpleRenderSystem::~SimpleRenderSystem()
 
 void SimpleRenderSystem::CreateModelDescriptorSetPool()
 {
-    std::vector<VkDescriptorType> poolTypes = {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER};
-    m_descriptorPool = std::make_unique<DescriptorPoolGrowable>(m_logicalDevice, 10, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, poolTypes);
+    std::vector<VkDescriptorType> t1 = {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER};
+    std::vector<VkDescriptorType> t2 = {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER};
+    std::vector<VkDescriptorType> t3 = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER};
+
+    m_imageSamplerPool = std::make_unique<DescriptorPoolGrowable>(m_logicalDevice, 10, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, t1);
+    m_uniformPool = std::make_unique<DescriptorPoolGrowable>(m_logicalDevice, 10, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, t2);
+    m_storagePool = std::make_unique<DescriptorPoolGrowable>(m_logicalDevice, 10, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, t3);
 }
 
 void SimpleRenderSystem::CreateModelDescriptorSetLayout()
 {
-    DescriptorSetLayout::Builder builder{m_logicalDevice};
-    builder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    m_descriptorSetLayout = builder.build();
+    DescriptorSetLayout::Builder nodeBuilder{m_logicalDevice};
+    nodeBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    m_descriptorSetLayouts.node = nodeBuilder.build();
+
+    DescriptorSetLayout::Builder materialBufferBuilder{m_logicalDevice};
+    materialBufferBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    m_descriptorSetLayouts.materialBuffers = materialBufferBuilder.build();
+
+    DescriptorSetLayout::Builder materialBuilder{m_logicalDevice};
+    materialBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    materialBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    materialBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    materialBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    materialBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    m_descriptorSetLayouts.material = materialBuilder.build();
 }
 
-void SimpleRenderSystem::AllocateDescriptorSet(u32 identifier, u32 index)
-{
-    HGINFO("Allocating descriptor set for %d", identifier);
-    m_modelSets[index].emplace(identifier, m_descriptorPool->AllocateDescriptor(m_descriptorSetLayout->GetDescriptorSetLayout()));
-}
+void SimpleRenderSystem::AllocateDescriptorSet(u32 identifier, u32 index) {}
 
 void SimpleRenderSystem::CreatePipelineLayout(VkDescriptorSetLayout globalLayout)
 {
     HGINFO("Creating pipeline layout...");
+
     VkPushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pushConstantRange.offset = 0;
-    pushConstantRange.size = sizeof(ModelPushConstants);
+    pushConstantRange.size = sizeof(Model::PushConstantData);
+    HGDEBUG("push constant range size: %d, aligneof: %d", pushConstantRange.size, alignof(Model::PushConstantData));
 
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {globalLayout, m_descriptorSetLayout->GetDescriptorSetLayout()};
+    VkPushConstantRange indexRange{};
+    indexRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    indexRange.offset = sizeof(Model::PushConstantData);
+    indexRange.size = sizeof(u32);
+    HGDEBUG("push constant range size: %d, aligneof: %d", indexRange.size, alignof(u32));
+
+    std::vector<VkPushConstantRange> ranges = {pushConstantRange, indexRange};
+
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {globalLayout, m_descriptorSetLayouts.material->GetDescriptorSetLayout(),
+                                                               m_descriptorSetLayouts.node->GetDescriptorSetLayout(),
+                                                               m_descriptorSetLayouts.materialBuffers->GetDescriptorSetLayout()};
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = static_cast<u32>(descriptorSetLayouts.size());
     pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
-    pipelineLayoutInfo.pushConstantRangeCount = 1;
-    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+    pipelineLayoutInfo.pushConstantRangeCount = ranges.size();
+    pipelineLayoutInfo.pPushConstantRanges = ranges.data();
 
     if(vkCreatePipelineLayout(m_logicalDevice.GetVkDevice(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS)
     {
@@ -86,21 +110,15 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
 
         auto objId = obj.GetId();
 
-        ModelPushConstants push{};
-        push.model = obj.transform.Mat4();
-        push.normal = obj.transform.NormalMatrix();
-        push.vertexAddress = obj.model->GetVertexBufferAddress();
+        Model::PushConstantData data{};
+        data.model = obj.transform.Mat4();
+        data.vertexAddress = obj.model->GetVertexBuffer().GetDeviceAddress();
 
-        vkCmdPushConstants(renderData.commandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ModelPushConstants), &push);
+        vkCmdPushConstants(renderData.commandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Model::PushConstantData), &data);
 
-        if(m_modelSets[renderData.frameIndex].count(obj.GetId()) == 0) { AllocateDescriptorSet(objId, renderData.frameIndex); }
-
-        obj.model->WriteDescriptorSet(*m_descriptorSetLayout, *m_descriptorPool, m_modelSets[renderData.frameIndex][objId]);
-        vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 1, 1,
-                                &m_modelSets[renderData.frameIndex][objId], 0, nullptr);
-
-        obj.model->Bind(renderData.commandBuffer);
-        obj.model->Draw(renderData.commandBuffer);
+        obj.model->Init(m_descriptorSetLayouts.material.get(), m_descriptorSetLayouts.node.get(), m_descriptorSetLayouts.materialBuffers.get(),
+                        m_imageSamplerPool.get(), m_uniformPool.get(), m_storagePool.get());
+        obj.model->Draw(renderData.commandBuffer, m_pipelineLayout);
     }
 }
 } // namespace Humongous

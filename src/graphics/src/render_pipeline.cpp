@@ -49,15 +49,12 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
 
     VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
-    auto bindingInfo = Vertex::GetBindingDescriptions();
-    auto attribInfo = Vertex::GetAttributeDescriptions();
-
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = static_cast<u32>(bindingInfo.size());
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<u32>(attribInfo.size());
-    vertexInputInfo.pVertexBindingDescriptions = bindingInfo.data();
-    vertexInputInfo.pVertexAttributeDescriptions = attribInfo.data();
+    vertexInputInfo.vertexBindingDescriptionCount = 0;
+    vertexInputInfo.vertexAttributeDescriptionCount = 0;
+    vertexInputInfo.pVertexBindingDescriptions = nullptr;
+    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
     vertexInputInfo.flags = 0;
     vertexInputInfo.pNext = nullptr;
 

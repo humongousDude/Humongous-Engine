@@ -5,7 +5,8 @@
 
 namespace Humongous
 {
-LogicalDevice::LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice) : m_logicalDevice(VK_NULL_HANDLE), m_instance(instance)
+LogicalDevice::LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice)
+    : m_logicalDevice(VK_NULL_HANDLE), m_instance(instance), m_physicalDevice(&physicalDevice)
 {
     HGINFO("Creating logical device...");
     CreateLogicalDevice(instance, physicalDevice);

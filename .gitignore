@@ -33,6 +33,7 @@
 
 build/*
 !build/textures
+!build/models
 
 \.cache/*
 compile_commands.json
