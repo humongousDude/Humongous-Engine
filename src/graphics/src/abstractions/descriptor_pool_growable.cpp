@@ -40,7 +40,6 @@ bool DescriptorPoolGrowable::AllocateDescriptor(const VkDescriptorSetLayout desc
     allocInfo.descriptorSetCount = 1;
 
     VkResult result = vkAllocateDescriptorSets(m_logicalDevice.GetVkDevice(), &allocInfo, &descriptor);
-    HGINFO("Allocate descriptor set result: %d", string_VkResult(result));
 
     if(result == VK_ERROR_OUT_OF_POOL_MEMORY)
     {
@@ -53,8 +52,6 @@ bool DescriptorPoolGrowable::AllocateDescriptor(const VkDescriptorSetLayout desc
     }
 
     m_readyPools.push_back(poolToUse);
-
-    HGINFO("Allocate descriptor set: %d", descriptor);
 
     return true;
 }

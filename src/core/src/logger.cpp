@@ -7,7 +7,9 @@
 #include <stdarg.h>
 #include <string>
 
-// asserts is here because
+// TODO: create log file
+// TODO: make async
+
 void ReportAssertionFaliure(const char* expression, const char* message, const char* file, i32 line)
 {
     LogOutput(LOG_LEVEL_FATAL, "Assertion failed: %s\nFile: %s\nLine: %d\nMessage: %s", expression, file, line, message);
