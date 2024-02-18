@@ -4,6 +4,7 @@
 #include "abstractions/descriptor_writer.hpp"
 #include "images.hpp"
 #include "texture.hpp"
+#include <string>
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/fwd.hpp>
@@ -69,6 +70,7 @@ struct Material
     } pbrWorkflows;
     VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
     int             index = 0;
+    std::string     name = "";
     bool            unlit = false;
     float           emissiveStrength = 1.0f;
 };

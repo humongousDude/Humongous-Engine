@@ -29,7 +29,7 @@ private:
     const std::vector<const char*> m_validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
 #ifndef _DEBUG
-    const bool EnableValidationLayers = false;
+    const bool ENABLE_VALIDATION_LAYERS = false;
 #else
     const bool ENABLE_VALIDATION_LAYERS = true;
 #endif

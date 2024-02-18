@@ -31,7 +31,7 @@ public:
         VkSamplerAddressMode addressModeW;
     };
 
-    Texture(LogicalDevice* m_logicalDevice, const std::string& imagePath, const ImageType& imageTyp = ImageType::TEX2D);
+    Texture(LogicalDevice* m_logicalDevice, const std::string& imagePath, const ImageType& imageType = ImageType::TEX2D);
     Texture() : m_logicalDevice{nullptr} {};
 
     VkDescriptorImageInfo GetDescriptorInfo() const { return descriptorInfo; };

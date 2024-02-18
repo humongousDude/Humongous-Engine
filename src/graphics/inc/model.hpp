@@ -99,10 +99,11 @@ private:
     std::vector<Node*> nodes;
     std::vector<Node*> linearNodes;
 
-    Texture                              emptyTexture;
-    std::vector<Texture>                 textures;
-    std::vector<Texture::TexSamplerInfo> textureSamplers;
-    std::vector<Material>                materials;
+    Texture                                          emptyTexture;
+    std::vector<Texture>                             textures;
+    std::vector<Texture::TexSamplerInfo>             textureSamplers;
+    std::vector<Material>                            materials;
+    std::unordered_map<u32, std::vector<Primitive*>> materialBatches; // <Material*, Primitive*> materialBatches;
 
     VkDescriptorSet descriptorSetMaterials{VK_NULL_HANDLE};
     enum PBRWorkflows
@@ -150,6 +151,7 @@ private:
     void CreateMaterialBuffer();
     void UpdateShaderMaterialBuffer(Node* node);
     void UpdateUBO(Node* node, glm::mat4 matrix);
+    void UpdateMaterialBatches(Node* node);
 
     void Destroy(VkDevice device);
     void LoadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo,

@@ -61,18 +61,16 @@ void SimpleRenderSystem::CreatePipelineLayout(VkDescriptorSetLayout globalLayout
     pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pushConstantRange.offset = 0;
     pushConstantRange.size = sizeof(Model::PushConstantData);
-    HGDEBUG("push constant range size: %d, aligneof: %d", pushConstantRange.size, alignof(Model::PushConstantData));
 
     VkPushConstantRange indexRange{};
     indexRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     indexRange.offset = sizeof(Model::PushConstantData);
     indexRange.size = sizeof(u32);
-    HGDEBUG("push constant range size: %d, aligneof: %d", indexRange.size, alignof(u32));
 
     std::vector<VkPushConstantRange> ranges = {pushConstantRange, indexRange};
 
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {globalLayout, m_descriptorSetLayouts.material->GetDescriptorSetLayout(),
-                                                               m_descriptorSetLayouts.node->GetDescriptorSetLayout(),
+
                                                                m_descriptorSetLayouts.materialBuffers->GetDescriptorSetLayout()};
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -102,7 +100,9 @@ void SimpleRenderSystem::CreatePipeline()
 void SimpleRenderSystem::RenderObjects(RenderData& renderData)
 {
     m_renderPipeline->Bind(renderData.commandBuffer);
-    vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &renderData.globalSet, 0, nullptr);
+
+    vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &renderData.globalSets[0], 0,
+                            nullptr);
 
     for(auto& [id, obj]: renderData.gameObjects)
     {

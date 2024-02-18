@@ -557,7 +557,10 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         }
 
         material.index = static_cast<uint32_t>(materials.size());
+        material.name = mat.name;
         materials.push_back(material);
+        std::vector<Primitive*> empt{};
+        materialBatches.emplace(material.index, empt);
     }
     // Push a default material at the end of the list for meshes with no material assigned
     materials.push_back(Material());
@@ -700,7 +703,23 @@ void Model::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout
     const VkDeviceSize offsets[1] = {0};
     vkCmdBindIndexBuffer(commandBuffer, this->indices.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    for(auto& node: nodes) { DrawNode(node, commandBuffer, pipelineLayout); }
+    for(auto& [id, prim]: materialBatches)
+    {
+        auto mat = &materials[id];
+
+        for(auto& primitive: prim)
+        {
+            std::vector<VkDescriptorSet> descriptorSets{mat->descriptorSet, descriptorSetMaterials};
+
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, static_cast<uint32_t>(descriptorSets.size()),
+                                    descriptorSets.data(), 0, nullptr);
+            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 80, sizeof(u32), &mat->index);
+
+            vkCmdDrawIndexed(commandBuffer, primitive->indexCount, 1, primitive->firstIndex, 0, 0);
+        }
+    }
+
+    // for(auto& node: nodes) { DrawNode(node, commandBuffer, pipelineLayout); }
 }
 
 void Model::CalculateBoundingBox(Node* node, Node* parent)
@@ -784,27 +803,29 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
     if(initialized) { return; }
     HGINFO("Initializing model...");
 
-    for(auto& mat: materials)
+    for(auto& [id, vec]: materialBatches)
     {
-        if(mat.descriptorSet == VK_NULL_HANDLE) { mat.descriptorSet = imagePool->AllocateDescriptor(materialLayout->GetDescriptorSetLayout()); }
+        auto mat = &materials[id];
+
+        if(mat->descriptorSet == VK_NULL_HANDLE) { mat->descriptorSet = imagePool->AllocateDescriptor(materialLayout->GetDescriptorSetLayout()); }
 
         std::vector<VkDescriptorImageInfo> imageDescriptors = {
             emptyTexture.GetDescriptorInfo(), emptyTexture.GetDescriptorInfo(),
-            mat.normalTexture ? mat.normalTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo(),
-            mat.occlusionTexture ? mat.occlusionTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo(),
-            mat.emissiveTexture ? mat.emissiveTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo()};
+            mat->normalTexture ? mat->normalTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo(),
+            mat->occlusionTexture ? mat->occlusionTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo(),
+            mat->emissiveTexture ? mat->emissiveTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo()};
 
-        if(mat.pbrWorkflows.metallicRoughness)
+        if(mat->pbrWorkflows.metallicRoughness)
         {
-            if(mat.baseColorTexture) { imageDescriptors[0] = mat.baseColorTexture->GetDescriptorInfo(); }
-            if(mat.metallicRoughnessTexture) { imageDescriptors[1] = mat.metallicRoughnessTexture->GetDescriptorInfo(); }
+            if(mat->baseColorTexture) { imageDescriptors[0] = mat->baseColorTexture->GetDescriptorInfo(); }
+            if(mat->metallicRoughnessTexture) { imageDescriptors[1] = mat->metallicRoughnessTexture->GetDescriptorInfo(); }
         }
 
         // TODO: make this specular
-        if(mat.pbrWorkflows.specularGlossiness)
+        if(mat->pbrWorkflows.specularGlossiness)
         {
-            if(mat.baseColorTexture) { imageDescriptors[0] = mat.baseColorTexture->GetDescriptorInfo(); }
-            if(mat.metallicRoughnessTexture) { imageDescriptors[1] = mat.metallicRoughnessTexture->GetDescriptorInfo(); }
+            if(mat->baseColorTexture) { imageDescriptors[0] = mat->baseColorTexture->GetDescriptorInfo(); }
+            if(mat->metallicRoughnessTexture) { imageDescriptors[1] = mat->metallicRoughnessTexture->GetDescriptorInfo(); }
         }
 
         std::array<VkWriteDescriptorSet, 5> writeDescriptorSets = {};
@@ -813,7 +834,7 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
             writeDescriptorSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             writeDescriptorSets[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             writeDescriptorSets[i].descriptorCount = 1;
-            writeDescriptorSets[i].dstSet = mat.descriptorSet;
+            writeDescriptorSets[i].dstSet = mat->descriptorSet;
             writeDescriptorSets[i].dstBinding = static_cast<uint32_t>(i);
             writeDescriptorSets[i].pImageInfo = &imageDescriptors[i];
         }
@@ -821,7 +842,11 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
         vkUpdateDescriptorSets(device->GetVkDevice(), static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, NULL);
     }
 
-    for(auto& node: nodes) { SetupNodeDescriptorSet(node, uniformPool, nodeLayout); }
+    for(auto& node: nodes)
+    {
+        // SetupNodeDescriptorSet(node, uniformPool, nodeLayout);
+        UpdateMaterialBatches(node);
+    }
 
     if(descriptorSetMaterials == VK_NULL_HANDLE)
     {
@@ -834,6 +859,16 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
     DescriptorWriter(*materialBufferLayout, storagePool).WriteBuffer(0, &bufInfo).Overwrite(descriptorSetMaterials);
 
     initialized = true;
+}
+
+void Model::UpdateMaterialBatches(Node* node)
+{
+    if(node->mesh)
+    {
+        for(auto* prim: node->mesh->primitives) { materialBatches[prim->material.index].push_back(prim); }
+    }
+
+    for(auto& c: node->children) { UpdateMaterialBatches(c); }
 }
 
 void Model::SetupNodeDescriptorSet(Node* node, DescriptorPoolGrowable* descriptorPool, DescriptorSetLayout* layout)

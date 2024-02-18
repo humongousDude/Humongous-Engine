@@ -48,9 +48,8 @@ void VulkanApp::LoadGameObjects()
     model = std::make_shared<Model>(m_logicalDevice.get(), "models/high_res_car.glb", 1);
 
     GameObject obj = GameObject::CreateGameObject();
-    obj.transform.translation = {0.0f, 0.0f, 1.0f};
+    obj.transform.translation = {0.0f, 0.0f, -1.0f};
     obj.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
-    obj.transform.scale = {1.0f, 1.0f, 1.0f};
     obj.model = model;
 
     m_gameObjects.emplace(obj.GetId(), std::move(obj));
@@ -91,7 +90,7 @@ void VulkanApp::Run()
         {
             if(auto cmd = m_renderer->BeginFrame())
             {
-                RenderData data{cmd, cam.GetDescriptorSet(m_renderer->GetFrameIndex()), m_gameObjects, m_renderer->GetFrameIndex()};
+                RenderData data{cmd, cam.GetCombinedSets(m_renderer->GetFrameIndex()), m_gameObjects, m_renderer->GetFrameIndex()};
 
                 cam.UpdateUBO(m_renderer->GetFrameIndex());
 

@@ -10,10 +10,10 @@ namespace Humongous
 {
 struct RenderData
 {
-    VkCommandBuffer  commandBuffer;
-    VkDescriptorSet  globalSet;
-    GameObject::Map& gameObjects;
-    u32              frameIndex;
+    VkCommandBuffer              commandBuffer;
+    std::vector<VkDescriptorSet> globalSets;
+    GameObject::Map&             gameObjects;
+    u32                          frameIndex;
 };
 
 class SimpleRenderSystem

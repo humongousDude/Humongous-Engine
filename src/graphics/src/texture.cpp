@@ -140,8 +140,6 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
 
 void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& imageType)
 {
-    /*  */
-
     SamplerCreateInfo samplerInfo{};
 
     if(imageType == ImageType::TEX2D)
@@ -191,10 +189,13 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
 
         CreateTextureImageSampler(samplerInfo);
     }
-    else
+    else if(imageType == ImageType::CUBEMAP)
     {
         gli::texture_cube texCube(gli::load(imagePath));
         HGASSERT(!texCube.empty() && "Failed to load texture!");
+        width = static_cast<uint32_t>(texCube.extent().x);
+        height = static_cast<uint32_t>(texCube.extent().y);
+        mipLevels = static_cast<uint32_t>(texCube.levels());
 
         Buffer stagingBuffer{m_logicalDevice,
                              texCube.size(),
@@ -232,7 +233,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = *m_logicalDevice, .allocatedImage = m_textureImage};
         createInfo.layerCount = 6;
         createInfo.mipLevels = mipLevels;
-        createInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+        createInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -244,13 +245,13 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
 
         Utils::CreateAllocatedImage(createInfo);
 
+        Utils::TransitionImageLayout(*m_logicalDevice, m_textureImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
         Utils::CopyBufferToImage(*m_logicalDevice, stagingBuffer.GetBuffer(), m_textureImage.image, bufferCopyRegions);
 
-        Utils::TransitionImageLayout(*m_logicalDevice, m_textureImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        Utils::CopyBufferToImage(*m_logicalDevice, stagingBuffer.GetBuffer(), m_textureImage.image, static_cast<u32>(width),
-                                 static_cast<u32>(height));
         Utils::TransitionImageLayout(*m_logicalDevice, m_textureImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
         samplerInfo.magFilter = VK_FILTER_LINEAR;
         samplerInfo.minFilter = VK_FILTER_LINEAR;
         samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;

@@ -12,30 +12,40 @@ Camera::Camera(LogicalDevice& logicalDevice) { InitDescriptorThings(logicalDevic
 void Camera::InitDescriptorThings(LogicalDevice& logicalDevice)
 {
     HGINFO("Initializing descriptor things...");
-    DescriptorPool::Builder builder{logicalDevice};
-    builder.SetMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    builder.SetPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
-    builder.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, SwapChain::MAX_FRAMES_IN_FLIGHT);
-    m_projectionPool = builder.Build();
+
+    std::vector<VkDescriptorType> t = {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER};
+    m_projectionPool = std::make_unique<DescriptorPoolGrowable>(logicalDevice, 3, 0, t);
+    /* std::vector<VkDescriptorType> t2 = {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER};
+    m_cubeMapPool = std::make_unique<DescriptorPoolGrowable>(logicalDevice, 3, 0, t2); */
 
     DescriptorSetLayout::Builder builder2{logicalDevice};
     builder2.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-    // builder2.addBinding(2,
+    // builder2.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     m_projectionLayout = builder2.build();
 
     m_projectionBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_projectionMatrixSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-
-    for(int i = 0; i < m_projectionBuffers.size(); i++)
+    m_cubeMaps.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_cubeMapSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    for(int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
     {
         m_projectionBuffers[i] =
             std::make_unique<Buffer>(&logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(ProjectionUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_AUTO);
 
+        /* m_cubeMaps[i] = std::make_unique<Texture>();
+        m_cubeMaps[i]->CreateFromFile("textures/papermill.ktx", &logicalDevice, Texture::ImageType::CUBEMAP); */
+
         m_projectionBuffers[i]->Map();
 
         auto bufInfo = m_projectionBuffers[i]->DescriptorInfo();
         DescriptorWriter(*m_projectionLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_projectionMatrixSet[i]);
+
+        /* auto imgInfo = m_cubeMaps[i]->GetDescriptorInfo();
+        if(!DescriptorWriter(*m_projectionLayout, m_cubeMapPool.get()).WriteImage(1, &imgInfo).Build(m_cubeMapSets[i]))
+        {
+            HGERROR("Failed to build cube map descriptor set.");
+        } */
     }
 
     HGINFO("Descriptor things initialized.");

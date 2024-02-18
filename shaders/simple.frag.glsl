@@ -5,6 +5,8 @@ layout(location = 0) in vec2 inUV;
 
 layout(location = 0) out vec4 outFragColor;
 
+layout(set = 0, binding = 1) uniform samplerCube cubeMap;
+
 // Material bindings
 
 // Textures
@@ -19,7 +21,7 @@ layout(set = 1, binding = 4) uniform sampler2D emissiveMap;
 
 #include "includes/shadermaterial.glsl"
 
-layout(std430, set = 3, binding = 0) buffer SSBO
+layout(std430, set = 2, binding = 0) buffer SSBO
 {
     ShaderMaterial materials[];
 };
