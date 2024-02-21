@@ -34,7 +34,12 @@ public:
     Texture(LogicalDevice* m_logicalDevice, const std::string& imagePath, const ImageType& imageType = ImageType::TEX2D);
     Texture() : m_logicalDevice{nullptr} {};
 
-    VkDescriptorImageInfo GetDescriptorInfo() const { return descriptorInfo; };
+    VkDescriptorImageInfo GetDescriptorInfo() const { return {m_textureSampler, m_textureImage.imageView, m_textureImage.imageLayout}; };
+
+    VkImage       GetRawImageHandle() const { return m_textureImage.image; }
+    VkImageView   GetRawImageViewHandle() const { return m_textureImage.imageView; }
+    VkImageLayout GetRawImageLayout() const { return m_textureImage.imageLayout; }
+    VkSampler     GetRawSamplerHandle() const { return m_textureSampler; }
 
     void Destroy();
 
@@ -54,8 +59,6 @@ private:
     LogicalDevice* m_logicalDevice;
     AllocatedImage m_textureImage;
     VkSampler      m_textureSampler;
-
-    VkDescriptorImageInfo descriptorInfo;
 
     u32 width, height, mipLevels, layerCount;
 

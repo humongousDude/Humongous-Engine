@@ -114,6 +114,8 @@ bool PhysicalDevice::CheckDeviceExtensionSupport(VkPhysicalDevice physicalDevice
 
     for(const auto& extension: availableExtensions) { requiredExtensions.erase(extension.extensionName); }
 
+    for(const auto& extension: requiredExtensions) { HGINFO("Missing extension: %s", extension.c_str()); }
+
     return requiredExtensions.empty();
 }
 

@@ -3,50 +3,63 @@
 #include <camera.hpp>
 
 #include <swapchain.hpp>
+#include <vulkan/vk_enum_string_helper.h>
 
 namespace Humongous
 {
 
-Camera::Camera(LogicalDevice& logicalDevice) { InitDescriptorThings(logicalDevice); }
+Camera::Camera(LogicalDevice* logicalDevice) { InitDescriptorThings(logicalDevice); }
 
-void Camera::InitDescriptorThings(LogicalDevice& logicalDevice)
+Camera::~Camera() { m_cubeMap->Destroy(); }
+
+void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
 {
     HGINFO("Initializing descriptor things...");
 
-    std::vector<VkDescriptorType> t = {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER};
-    m_projectionPool = std::make_unique<DescriptorPoolGrowable>(logicalDevice, 3, 0, t);
-    /* std::vector<VkDescriptorType> t2 = {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER};
-    m_cubeMapPool = std::make_unique<DescriptorPoolGrowable>(logicalDevice, 3, 0, t2); */
+    DescriptorPool::Builder builder{*logicalDevice};
+    builder.SetMaxSets(20);
+    builder.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3);
+    builder.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 9);
+    m_projectionPool = builder.Build();
 
-    DescriptorSetLayout::Builder builder2{logicalDevice};
-    builder2.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-    // builder2.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    DescriptorSetLayout::Builder builder2{*logicalDevice};
+    builder2.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    builder2.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     m_projectionLayout = builder2.build();
+
+    DescriptorSetLayout::Builder builder69{*logicalDevice};
+    builder69.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    m_cubeMapLayout = builder69.build();
 
     m_projectionBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_projectionMatrixSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    m_cubeMaps.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    m_cubeMapSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+
+    HGDEBUG("Looping for camera sets...");
+
     for(int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
     {
         m_projectionBuffers[i] =
-            std::make_unique<Buffer>(&logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(ProjectionUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            std::make_unique<Buffer>(logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(ProjectionUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_AUTO);
-
-        /* m_cubeMaps[i] = std::make_unique<Texture>();
-        m_cubeMaps[i]->CreateFromFile("textures/papermill.ktx", &logicalDevice, Texture::ImageType::CUBEMAP); */
 
         m_projectionBuffers[i]->Map();
 
         auto bufInfo = m_projectionBuffers[i]->DescriptorInfo();
         DescriptorWriter(*m_projectionLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_projectionMatrixSet[i]);
-
-        /* auto imgInfo = m_cubeMaps[i]->GetDescriptorInfo();
-        if(!DescriptorWriter(*m_projectionLayout, m_cubeMapPool.get()).WriteImage(1, &imgInfo).Build(m_cubeMapSets[i]))
-        {
-            HGERROR("Failed to build cube map descriptor set.");
-        } */
     }
+
+    HGDEBUG("done");
+
+    m_cubeMap = std::make_unique<Texture>(logicalDevice, "textures/papermill.ktx", Texture::ImageType::CUBEMAP);
+
+    if(m_cubeMap->GetRawImageHandle() == VK_NULL_HANDLE) { HGERROR("Failed to create cubemap image"); }
+    if(m_cubeMap->GetRawImageViewHandle() == VK_NULL_HANDLE) { HGERROR("Failed to create cubemap image view"); }
+    if(m_cubeMap->GetRawSamplerHandle() == VK_NULL_HANDLE) { HGERROR("Failed to create cubemap sampler"); }
+
+    HGDEBUG("Cubemap image layout is %s", string_VkImageLayout(m_cubeMap->GetRawImageLayout()));
+
+    auto imgInfo = m_cubeMap->GetDescriptorInfo();
+    if(!DescriptorWriter(*m_cubeMapLayout, m_projectionPool.get()).WriteImage(0, &imgInfo).Build(m_cubeMapSet)) { HGERROR("i shit"); }
 
     HGINFO("Descriptor things initialized.");
 }

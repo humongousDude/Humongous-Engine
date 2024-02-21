@@ -29,20 +29,21 @@ public:
 private:
     Instance& m_instance;
 
-    VkDevice m_logicalDevice = VK_NULL_HANDLE;
-    // here for convenience
+    VkDevice        m_logicalDevice = VK_NULL_HANDLE;
     PhysicalDevice* m_physicalDevice;
 
     VkQueue m_graphicsQueue;
     VkQueue m_presentQueue;
 
     VmaAllocator m_allocator;
+    // TODO: figure out a better way to manage VMAPools than this
+    VmaPool m_vmaPool = VK_NULL_HANDLE;
 
-    // pool for single time commands
     VkCommandPool m_commandPool;
 
     void CreateLogicalDevice(Instance& instance, PhysicalDevice& physicalDevice);
     void CreateVmaAllocator(Instance& instance, PhysicalDevice& physicalDevice);
+    void CreateVmaPool(Instance& instance, PhysicalDevice& physicalDevice);
     void CreateCommandPool(PhysicalDevice& physicalDevice);
 
     std::vector<VkDeviceQueueInfo2> CreateQueues(PhysicalDevice& physicalDevice);

@@ -51,8 +51,10 @@ DescriptorWriter& DescriptorWriter::WriteImage(uint32_t binding, VkDescriptorIma
 
 bool DescriptorWriter::Build(VkDescriptorSet& set)
 {
-    bool success = m_pool == nullptr ? m_poolGrowable->AllocateDescriptor(m_setLayout.GetDescriptorSetLayout(), set)
-                                     : m_pool->AllocateDescriptor(m_setLayout.GetDescriptorSetLayout(), set);
+    bool success;
+    if(m_pool) { success = m_pool->AllocateDescriptor(m_setLayout.m_descriptorSetLayout, set); }
+    else if(m_poolGrowable) { success = m_poolGrowable->AllocateDescriptor(m_setLayout.m_descriptorSetLayout, set); }
+
     if(!success) { return false; }
     Overwrite(set);
     return true;

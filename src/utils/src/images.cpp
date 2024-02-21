@@ -1,6 +1,5 @@
 #include "logger.hpp"
 #include <images.hpp>
-#include <stdexcept>
 #include <vulkan/vk_enum_string_helper.h>
 
 namespace Humongous
@@ -87,11 +86,11 @@ void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
     viewInfo.image = createInfo.allocatedImage.image;
     viewInfo.viewType = createInfo.imageViewType;
     viewInfo.format = createInfo.format;
+    viewInfo.components = {VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A};
+    viewInfo.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     viewInfo.subresourceRange.aspectMask = createInfo.aspectFlags;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = createInfo.mipLevels;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = createInfo.layerCount;
+    viewInfo.subresourceRange.levelCount = createInfo.mipLevels;
 
     if(vkCreateImageView(createInfo.logicalDevice.GetVkDevice(), &viewInfo, nullptr, &createInfo.allocatedImage.imageView) != VK_SUCCESS)
     {
@@ -99,8 +98,12 @@ void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
     }
 }
 
-void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout)
+void TransitionImageLayout(ImageTransitionInfo& info)
 {
+    auto& logicalDevice = info.logicalDevice;
+    auto  currentLayout = info.oldLayout;
+    auto  newLayout = info.newLayout;
+
     VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
     imageBarrier.pNext = nullptr;
 
@@ -136,11 +139,11 @@ void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout cur
 
     VkImageAspectFlags aspectMask = (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
     imageBarrier.subresourceRange.aspectMask = aspectMask;
-    imageBarrier.subresourceRange.baseMipLevel = 0;
-    imageBarrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-    imageBarrier.subresourceRange.baseArrayLayer = 0;
-    imageBarrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-    imageBarrier.image = image;
+    imageBarrier.subresourceRange.baseMipLevel = info.baseMipLevel;
+    imageBarrier.subresourceRange.levelCount = info.levelCount;
+    imageBarrier.subresourceRange.baseArrayLayer = info.baseArrayLayer;
+    imageBarrier.subresourceRange.layerCount = info.layerCount;
+    imageBarrier.image = info.image;
 
     VkDependencyInfo depInfo{};
     depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
@@ -148,13 +151,21 @@ void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout cur
     depInfo.imageMemoryBarrierCount = 1;
     depInfo.pImageMemoryBarriers = &imageBarrier;
 
-    vkCmdPipelineBarrier2(cmd, &depInfo);
+    vkCmdPipelineBarrier2(info.cmd, &depInfo);
 }
 
 void TransitionImageLayout(LogicalDevice& logicalDevice, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout)
 {
-    VkCommandBuffer cmd = logicalDevice.BeginSingleTimeCommands();
-    TransitionImageLayout(cmd, image, currentLayout, newLayout);
+    VkCommandBuffer     cmd = logicalDevice.BeginSingleTimeCommands();
+    ImageTransitionInfo info{};
+    info.cmd = cmd;
+    info.oldLayout = currentLayout;
+    info.newLayout = newLayout;
+    info.logicalDevice = &logicalDevice;
+    info.image = image;
+
+    TransitionImageLayout(info);
+
     logicalDevice.EndSingleTimeCommands(cmd);
 }
 
@@ -212,8 +223,10 @@ void CopyBufferToImage(LogicalDevice& logicalDevice, VkBuffer buffer, VkImage im
 void CopyBufferToImage(LogicalDevice& logicalDevice, VkBuffer buffer, VkImage image, const std::vector<VkBufferImageCopy>& bufferCopyRegions)
 {
     VkCommandBuffer commandBuffer = logicalDevice.BeginSingleTimeCommands();
+
     vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, static_cast<u32>(bufferCopyRegions.size()),
                            bufferCopyRegions.data());
+
     logicalDevice.EndSingleTimeCommands(commandBuffer);
 }
 

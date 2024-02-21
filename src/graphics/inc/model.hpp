@@ -103,7 +103,7 @@ private:
     std::vector<Texture>                             textures;
     std::vector<Texture::TexSamplerInfo>             textureSamplers;
     std::vector<Material>                            materials;
-    std::unordered_map<u32, std::vector<Primitive*>> materialBatches; // <Material*, Primitive*> materialBatches;
+    std::unordered_map<u32, std::vector<Primitive*>> materialBatches;
 
     VkDescriptorSet descriptorSetMaterials{VK_NULL_HANDLE};
     enum PBRWorkflows

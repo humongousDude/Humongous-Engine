@@ -11,7 +11,8 @@ namespace Humongous
 struct RenderData
 {
     VkCommandBuffer              commandBuffer;
-    std::vector<VkDescriptorSet> globalSets;
+    std::vector<VkDescriptorSet> uboSets;
+    std::vector<VkDescriptorSet> sceneSets;
     GameObject::Map&             gameObjects;
     u32                          frameIndex;
 };
@@ -19,7 +20,7 @@ struct RenderData
 class SimpleRenderSystem
 {
 public:
-    SimpleRenderSystem(LogicalDevice& logicalDevice, VkDescriptorSetLayout globalLayout);
+    SimpleRenderSystem(LogicalDevice& logicalDevice, std::vector<VkDescriptorSetLayout>& descriptorSetLayouts);
     ~SimpleRenderSystem();
 
     void RenderObjects(RenderData& renderData);
@@ -49,7 +50,7 @@ private:
     void CreateModelDescriptorSetPool();
     void CreateModelDescriptorSetLayout();
     void AllocateDescriptorSet(u32 identifier, u32 index);
-    void CreatePipelineLayout(VkDescriptorSetLayout globalLayout);
+    void CreatePipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSetLayouts);
     void CreatePipeline();
 };
 } // namespace Humongous

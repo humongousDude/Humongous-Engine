@@ -4,6 +4,8 @@
 #include "camera.hpp"
 #include <keyboard_handler.hpp>
 
+#include "allocator.hpp"
+
 #include <logger.hpp>
 
 #include <thread>
@@ -28,11 +30,15 @@ void VulkanApp::Init()
     m_instance = std::make_unique<Instance>();
     m_physicalDevice = std::make_unique<PhysicalDevice>(*m_instance, *m_window);
     m_logicalDevice = std::make_unique<LogicalDevice>(*m_instance, *m_physicalDevice);
+
+    // Allocator::Get().Initialize(m_logicalDevice.get());
+
     m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator());
 
     m_mainDeletionQueue.PushDeletor([&]() {
         m_simpleRenderSystem.reset();
         m_renderer.reset();
+        Allocator::Get().Shutdown();
         m_logicalDevice.reset();
         m_physicalDevice.reset();
         m_window.reset();
@@ -60,12 +66,14 @@ void VulkanApp::LoadGameObjects()
 
 void VulkanApp::Run()
 {
-    Camera cam{*m_logicalDevice};
+    Camera cam{m_logicalDevice.get()};
 
     float aspect = m_renderer->GetAspectRatio();
     cam.SetViewTarget(glm::vec3(-1.0f, -2.0f, -2.0f), glm::vec3(0.0f, 0.0f, 2.5f));
 
-    m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, cam.GetDescriptorSetLayout());
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {cam.GetDescriptorSetLayout(), cam.GetCubemapLayout()};
+
+    m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, descriptorSetLayouts);
 
     GameObject viewerObject = GameObject::CreateGameObject();
     viewerObject.transform.translation.z = -2.5f;
@@ -90,7 +98,11 @@ void VulkanApp::Run()
         {
             if(auto cmd = m_renderer->BeginFrame())
             {
-                RenderData data{cmd, cam.GetCombinedSets(m_renderer->GetFrameIndex()), m_gameObjects, m_renderer->GetFrameIndex()};
+                RenderData data{cmd,
+                                {cam.GetDescriptorSet(m_renderer->GetFrameIndex())},
+                                {cam.GetCubemapSet()},
+                                m_gameObjects,
+                                m_renderer->GetFrameIndex()};
 
                 cam.UpdateUBO(m_renderer->GetFrameIndex());
 
@@ -105,6 +117,8 @@ void VulkanApp::Run()
         }
     }
     vkDeviceWaitIdle(m_logicalDevice->GetVkDevice());
+
+    // cam.~Camera();
 
     HGINFO("Quitting...");
 }

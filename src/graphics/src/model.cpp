@@ -424,7 +424,7 @@ void Model::LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, VkQu
         textures.push_back(texture);
     }
 
-    emptyTexture.CreateFromFile("textures/gigachad.png", device);
+    emptyTexture.CreateFromFile("textures/gigachad.png", device, Texture::ImageType::TEX2D);
 }
 
 void Model::LoadTextureSamplers(tinygltf::Model& gltfModel)
@@ -688,7 +688,7 @@ void Model::DrawNode(Node* node, VkCommandBuffer commandBuffer, VkPipelineLayout
             std::vector<VkDescriptorSet> descriptorSets{primitive->material.descriptorSet, node->mesh->uniformBuffer.descriptorSet,
                                                         descriptorSetMaterials};
 
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, static_cast<uint32_t>(descriptorSets.size()),
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, static_cast<uint32_t>(descriptorSets.size()),
                                     descriptorSets.data(), 0, nullptr);
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 80, sizeof(u32), &primitive->material.index);
 
@@ -711,7 +711,7 @@ void Model::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout
         {
             std::vector<VkDescriptorSet> descriptorSets{mat->descriptorSet, descriptorSetMaterials};
 
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, static_cast<uint32_t>(descriptorSets.size()),
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, static_cast<uint32_t>(descriptorSets.size()),
                                     descriptorSets.data(), 0, nullptr);
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 80, sizeof(u32), &mat->index);
 

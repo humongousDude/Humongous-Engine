@@ -12,6 +12,7 @@ class DescriptorPoolGrowable : NonCopyable
 public:
     DescriptorPoolGrowable(LogicalDevice& logicalDevice, u32 m_maxSets, VkDescriptorPoolCreateFlags m_poolFlags,
                            std::vector<VkDescriptorType>& poolTypes);
+
     ~DescriptorPoolGrowable();
 
     int GetPoolCount() { return m_readyPools.size() + m_fullPools.size(); }

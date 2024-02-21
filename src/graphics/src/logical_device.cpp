@@ -11,6 +11,7 @@ LogicalDevice::LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice)
     HGINFO("Creating logical device...");
     CreateLogicalDevice(instance, physicalDevice);
     CreateVmaAllocator(instance, physicalDevice);
+    CreateVmaPool(instance, physicalDevice);
     CreateCommandPool(physicalDevice);
     HGINFO("Created logical device");
 }
@@ -111,6 +112,8 @@ void LogicalDevice::CreateVmaAllocator(Instance& instance, PhysicalDevice& physi
     allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
     vmaCreateAllocator(&allocatorInfo, &m_allocator);
 }
+
+void LogicalDevice::CreateVmaPool(Instance& instance, PhysicalDevice& physicalDevice) {}
 
 std::vector<VkDeviceQueueInfo2> LogicalDevice::CreateQueues(PhysicalDevice& physicalDevice)
 {

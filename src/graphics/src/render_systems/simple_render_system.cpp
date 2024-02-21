@@ -3,12 +3,13 @@
 
 namespace Humongous
 {
-SimpleRenderSystem::SimpleRenderSystem(LogicalDevice& logicalDevice, VkDescriptorSetLayout globalLayout) : m_logicalDevice(logicalDevice)
+SimpleRenderSystem::SimpleRenderSystem(LogicalDevice& logicalDevice, std::vector<VkDescriptorSetLayout>& descriptorSetLayouts)
+    : m_logicalDevice(logicalDevice)
 {
     HGINFO("Creating simple render system...");
     CreateModelDescriptorSetPool();
     CreateModelDescriptorSetLayout();
-    CreatePipelineLayout(globalLayout);
+    CreatePipelineLayout(descriptorSetLayouts);
     CreatePipeline();
     m_modelSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     HGINFO("Created simple render system");
@@ -53,7 +54,7 @@ void SimpleRenderSystem::CreateModelDescriptorSetLayout()
 
 void SimpleRenderSystem::AllocateDescriptorSet(u32 identifier, u32 index) {}
 
-void SimpleRenderSystem::CreatePipelineLayout(VkDescriptorSetLayout globalLayout)
+void SimpleRenderSystem::CreatePipelineLayout(std::vector<VkDescriptorSetLayout>& layouts)
 {
     HGINFO("Creating pipeline layout...");
 
@@ -69,9 +70,10 @@ void SimpleRenderSystem::CreatePipelineLayout(VkDescriptorSetLayout globalLayout
 
     std::vector<VkPushConstantRange> ranges = {pushConstantRange, indexRange};
 
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {globalLayout, m_descriptorSetLayouts.material->GetDescriptorSetLayout(),
-
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {m_descriptorSetLayouts.material->GetDescriptorSetLayout(),
                                                                m_descriptorSetLayouts.materialBuffers->GetDescriptorSetLayout()};
+
+    descriptorSetLayouts.insert(descriptorSetLayouts.begin(), layouts.begin(), layouts.end());
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -101,8 +103,11 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
 {
     m_renderPipeline->Bind(renderData.commandBuffer);
 
-    vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &renderData.globalSets[0], 0,
-                            nullptr);
+    vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, renderData.uboSets.size(),
+                            renderData.uboSets.data(), 0, nullptr);
+
+    vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 1, renderData.sceneSets.size(),
+                            renderData.sceneSets.data(), 0, nullptr);
 
     for(auto& [id, obj]: renderData.gameObjects)
     {

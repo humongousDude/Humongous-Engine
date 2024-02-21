@@ -1,5 +1,6 @@
 #include "logger.hpp"
 #include <abstractions/descriptor_pool.hpp>
+#include <vulkan/vk_enum_string_helper.h>
 
 namespace Humongous
 {
@@ -58,8 +59,12 @@ bool DescriptorPool::AllocateDescriptor(const VkDescriptorSetLayout descriptorSe
 
     // might want to create a "DescriptorPoolManager" class that handles this case, and builds
     // a new pool whenever an old pool fills up. will do later
-    if(vkAllocateDescriptorSets(m_logicalDevice.GetVkDevice(), &allocInfo, &descriptor) != VK_SUCCESS) { return false; }
-    return true;
+
+    /* if(vkAllocateDescriptorSets(m_logicalDevice.GetVkDevice(), &allocInfo, &descriptor) != VK_SUCCESS) { return false; }
+    return true; */
+    VkResult result = vkAllocateDescriptorSets(m_logicalDevice.GetVkDevice(), &allocInfo, &descriptor);
+    HGDEBUG("Descriptor set allocation result: %s", string_VkResult(result));
+    return result == VK_SUCCESS;
 }
 
 void DescriptorPool::FreeDescriptors(std::vector<VkDescriptorSet>& descriptors) const

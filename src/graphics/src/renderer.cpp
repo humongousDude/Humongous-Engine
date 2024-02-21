@@ -1,6 +1,3 @@
-// THIS WORKED FIRST TRY
-// LETS GOOOOO
-
 #include "logger.hpp"
 #include <array>
 #include <renderer.hpp>
@@ -340,9 +337,14 @@ void Renderer::BeginRendering(VkCommandBuffer cmd)
     m_depthImageExtent.height = m_depthImage.imageExtent.height;
 
     // TODO: move image transitions out
-    Utils::TransitionImageLayout(cmd, m_drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    Utils::ImageTransitionInfo transInfo{};
+    transInfo.image = m_drawImage.image;
+    transInfo.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    transInfo.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    transInfo.cmd = cmd;
 
-    // fuck you im clearing this shit to grey
+    Utils::TransitionImageLayout(transInfo);
+
     std::array<VkClearValue, 2> clearValues{};
     clearValues[0].color = {0.3f, 0.3f, 0.3f, 1.0f};
     clearValues[1].depthStencil = {1.0f, 0};
@@ -399,14 +401,30 @@ void Renderer::EndRendering(VkCommandBuffer cmd)
 {
     vkCmdEndRendering(cmd);
 
-    Utils::TransitionImageLayout(cmd, m_drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    Utils::TransitionImageLayout(cmd, m_swapChain->GetImages()[m_currentImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
-                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    Utils::ImageTransitionInfo drawInfo{};
+    drawInfo.image = m_drawImage.image;
+    drawInfo.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    drawInfo.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    drawInfo.cmd = cmd;
+
+    Utils::ImageTransitionInfo swapInfo{};
+    swapInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
+    swapInfo.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    swapInfo.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    swapInfo.cmd = cmd;
+
+    Utils::TransitionImageLayout(drawInfo);
+    Utils::TransitionImageLayout(swapInfo);
 
     Utils::CopyImageToImage(cmd, m_drawImage.image, m_swapChain->GetImages()[m_currentImageIndex], m_drawImageExtent, m_swapChain->GetExtent());
 
-    Utils::TransitionImageLayout(cmd, m_swapChain->GetImages()[m_currentImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    Utils::ImageTransitionInfo presentInfo{};
+    presentInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
+    presentInfo.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    presentInfo.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    presentInfo.cmd = cmd;
+
+    Utils::TransitionImageLayout(presentInfo);
 }
 
 } // namespace Humongous

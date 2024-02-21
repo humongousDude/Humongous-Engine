@@ -23,7 +23,8 @@ struct ProjectionUBO
 class Camera
 {
 public:
-    Camera(LogicalDevice& logicalDevice);
+    Camera(LogicalDevice* logicalDevice);
+    ~Camera();
 
     void SetOrthographicProjection(float left, float right, float top, float bottom, float near, float far);
 
@@ -34,9 +35,10 @@ public:
     void SetViewYXZ(glm::vec3 position, glm::vec3 rotation);
 
     VkDescriptorSet              GetDescriptorSet(u32 index) const { return m_projectionMatrixSet[index]; };
-    VkDescriptorSet              GetCubemapSet(u32 index) const { return m_cubeMapSets[index]; };
-    std::vector<VkDescriptorSet> GetCombinedSets(u32 index) const { return {m_projectionMatrixSet[index], m_cubeMapSets[1]}; };
+    VkDescriptorSet              GetCubemapSet() const { return m_cubeMapSet; };
+    std::vector<VkDescriptorSet> GetCombinedSets(u32 index) const { return {m_projectionMatrixSet[index], m_cubeMapSet}; };
     VkDescriptorSetLayout        GetDescriptorSetLayout() const { return m_projectionLayout->GetDescriptorSetLayout(); };
+    VkDescriptorSetLayout        GetCubemapLayout() const { return m_cubeMapLayout->GetDescriptorSetLayout(); }
     VkBuffer                     GetProjectionBuffer(u32 index) const { return m_projectionBuffers[index]->GetBuffer(); };
 
     const glm::mat4& GetProjection() const { return m_projectionMatrix; };
@@ -46,16 +48,17 @@ public:
 
 private:
     std::vector<std::unique_ptr<Buffer>>    m_projectionBuffers;
-    std::unique_ptr<DescriptorPoolGrowable> m_projectionPool;
+    std::unique_ptr<DescriptorPool>         m_projectionPool;
     std::unique_ptr<DescriptorPoolGrowable> m_cubeMapPool;
     std::unique_ptr<DescriptorSetLayout>    m_projectionLayout;
+    std::unique_ptr<DescriptorSetLayout>    m_cubeMapLayout;
     std::vector<VkDescriptorSet>            m_projectionMatrixSet;
-    std::vector<VkDescriptorSet>            m_cubeMapSets;
-    std::vector<std::unique_ptr<Texture>>   m_cubeMaps;
+    VkDescriptorSet                         m_cubeMapSet;
+    std::unique_ptr<Texture>                m_cubeMap;
 
     glm::mat4 m_projectionMatrix{1.f};
     glm::mat4 m_viewMatrix{1.0f};
 
-    void InitDescriptorThings(LogicalDevice& logicalDevice);
+    void InitDescriptorThings(LogicalDevice* logicalDevice);
 };
 } // namespace Humongous

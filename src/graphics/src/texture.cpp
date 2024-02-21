@@ -3,13 +3,17 @@
 #include "defines.hpp"
 #include "images.hpp"
 #include "logger.hpp"
+#include <vulkan/vk_enum_string_helper.h>
+
 #define GLM_ENABLE_EXPERIMENTAL
 #include <gli/texture.hpp>
 #include <gli/texture_cube.hpp>
 #include <texture.hpp>
-#include <tiny_gltf.h>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
+#include <tiny_gltf.h>
 
 namespace Humongous
 {
@@ -30,10 +34,6 @@ void Texture::CreateFromFile(const std::string& path, LogicalDevice* device, con
     this->m_logicalDevice = device;
 
     CreateTextureImage(path, imageType);
-
-    descriptorInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    descriptorInfo.imageView = m_textureImage.imageView;
-    descriptorInfo.sampler = m_textureSampler;
 }
 
 void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo textureSampler, LogicalDevice* device, VkQueue copyQueue)
@@ -107,34 +107,16 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     Utils::TransitionImageLayout(*m_logicalDevice, m_textureImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = textureSampler.magFilter;
-    samplerInfo.minFilter = textureSampler.minFilter;
-    samplerInfo.addressModeU = textureSampler.addressModeU;
-    samplerInfo.addressModeV = textureSampler.addressModeV;
-    samplerInfo.addressModeW = textureSampler.addressModeW;
-    samplerInfo.anisotropyEnable = VK_TRUE;
-    samplerInfo.maxAnisotropy = 1.0;
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = VK_COMPARE_OP_NEVER;
-    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-    samplerInfo.maxAnisotropy = 1.0;
-    samplerInfo.anisotropyEnable = VK_FALSE;
-    samplerInfo.maxLod = (float)mipLevels;
-    samplerInfo.maxAnisotropy = 8.0f;
-    samplerInfo.anisotropyEnable = VK_TRUE;
-    if(vkCreateSampler(m_logicalDevice->GetVkDevice(), &samplerInfo, nullptr, &m_textureSampler) != VK_SUCCESS)
-    {
-        HGERROR("Failed to create texture sampler");
-    }
+    m_textureImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    descriptorInfo.imageView = m_textureImage.imageView;
-    descriptorInfo.sampler = m_textureSampler;
-    descriptorInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    SamplerCreateInfo samplerCreateInfo{};
+    samplerCreateInfo.magFilter = textureSampler.magFilter;
+    samplerCreateInfo.minFilter = textureSampler.minFilter;
+    samplerCreateInfo.addressModeU = textureSampler.addressModeU;
+    samplerCreateInfo.addressModeV = textureSampler.addressModeV;
+    samplerCreateInfo.addressModeW = textureSampler.addressModeW;
 
+    CreateTextureImageSampler(samplerCreateInfo);
     if(deleteBuffer) { delete[] buffer; }
 }
 
@@ -177,10 +159,15 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         Utils::CreateAllocatedImage(createInfo);
 
         Utils::TransitionImageLayout(*m_logicalDevice, m_textureImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        m_textureImage.imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
         Utils::CopyBufferToImage(*m_logicalDevice, stagingBuffer.GetBuffer(), m_textureImage.image, static_cast<u32>(width),
                                  static_cast<u32>(height));
-        Utils::TransitionImageLayout(*m_logicalDevice, m_textureImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+        Utils::TransitionImageLayout(*m_logicalDevice, m_textureImage.image, m_textureImage.imageLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+        m_textureImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
         samplerInfo.magFilter = VK_FILTER_LINEAR;
         samplerInfo.minFilter = VK_FILTER_LINEAR;
         samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -196,6 +183,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         width = static_cast<uint32_t>(texCube.extent().x);
         height = static_cast<uint32_t>(texCube.extent().y);
         mipLevels = static_cast<uint32_t>(texCube.levels());
+        mipLevels = 1;
 
         Buffer stagingBuffer{m_logicalDevice,
                              texCube.size(),
@@ -245,21 +233,54 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
 
         Utils::CreateAllocatedImage(createInfo);
 
-        Utils::TransitionImageLayout(*m_logicalDevice, m_textureImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        VkCommandBuffer cmd = m_logicalDevice->BeginSingleTimeCommands();
+
+        Utils::ImageTransitionInfo first{};
+        first.cmd = cmd;
+        first.image = m_textureImage.image;
+        first.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        first.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        first.logicalDevice = m_logicalDevice;
+        first.baseMipLevel = 0;
+        first.levelCount = mipLevels;
+        first.baseArrayLayer = 0;
+        first.layerCount = 6;
+
+        Utils::TransitionImageLayout(first);
+
+        m_logicalDevice->EndSingleTimeCommands(cmd);
+        m_textureImage.imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
         Utils::CopyBufferToImage(*m_logicalDevice, stagingBuffer.GetBuffer(), m_textureImage.image, bufferCopyRegions);
 
-        Utils::TransitionImageLayout(*m_logicalDevice, m_textureImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        VkCommandBuffer cmd2 = m_logicalDevice->BeginSingleTimeCommands();
+
+        Utils::ImageTransitionInfo second{};
+        second.cmd = cmd;
+        second.image = m_textureImage.image;
+        second.oldLayout = m_textureImage.imageLayout;
+        second.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        second.logicalDevice = m_logicalDevice;
+        second.baseMipLevel = 0;
+        second.levelCount = mipLevels;
+        second.baseArrayLayer = 0;
+        second.layerCount = 6;
+
+        Utils::TransitionImageLayout(second);
+
+        m_logicalDevice->EndSingleTimeCommands(cmd2);
+        m_textureImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         samplerInfo.magFilter = VK_FILTER_LINEAR;
         samplerInfo.minFilter = VK_FILTER_LINEAR;
         samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 
         CreateTextureImageSampler(samplerInfo, ImageType::CUBEMAP);
     }
+
+    HGDEBUG("made image with layout %s", string_VkImageLayout(m_textureImage.imageLayout));
 }
 
 void Texture::CreateTextureImageSampler(const SamplerCreateInfo& info, const ImageType& imageType)
@@ -272,15 +293,12 @@ void Texture::CreateTextureImageSampler(const SamplerCreateInfo& info, const Ima
     samplerInfo.addressModeV = info.addressModeV;
     samplerInfo.addressModeW = info.addressModeW;
     samplerInfo.anisotropyEnable = m_logicalDevice->GetPhysicalDevice().GetFeatures().features.samplerAnisotropy;
-    // for now this is hardcoded
-    // planning to make LogicalDevice and PhysicalDevice Singletons
-    // to make access easier, as the engine will only use one GPU
     samplerInfo.maxAnisotropy =
         samplerInfo.anisotropyEnable ? m_logicalDevice->GetPhysicalDevice().GetProperties().properties.limits.maxSamplerAnisotropy : 1.0f;
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
     samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    samplerInfo.compareOp = VK_COMPARE_OP_NEVER;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;

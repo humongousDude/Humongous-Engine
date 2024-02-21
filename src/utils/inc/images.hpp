@@ -13,6 +13,7 @@ struct AllocatedImage
     VmaAllocation allocation;
     VkExtent3D    imageExtent;
     VkFormat      imageFormat;
+    VkImageLayout imageLayout;
 };
 
 namespace Utils
@@ -32,15 +33,27 @@ struct AllocatedImageCreateInfo
     VkImageViewType       imageViewType = VK_IMAGE_VIEW_TYPE_2D;
 };
 
+struct ImageTransitionInfo
+{
+    VkCommandBuffer cmd;
+    VkImageLayout   oldLayout;
+    VkImageLayout   newLayout;
+    LogicalDevice*  logicalDevice;
+    VkImage         image;
+    u32             baseMipLevel = 0;
+    u32             levelCount = 1;
+    u32             baseArrayLayer = 0;
+    u32             layerCount = 1;
+};
+
 void CreateAllocatedImage(LogicalDevice& logicalDevice, u32 width, u32 height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
                           VkMemoryPropertyFlags properties, AllocatedImage& allocatedImage,
                           VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT);
 
 void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo);
 
-void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
-
 void TransitionImageLayout(LogicalDevice& logicalDevice, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
+void TransitionImageLayout(ImageTransitionInfo& info);
 
 void CopyImageToImage(VkCommandBuffer cmd, VkImage src, VkImage dst, VkExtent2D srcSize, VkExtent2D dstSize);
 
