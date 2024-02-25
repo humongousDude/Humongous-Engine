@@ -1,8 +1,5 @@
 #pragma once
 
-#include "abstractions/buffer.hpp"
-#include "abstractions/descriptor_writer.hpp"
-#include "images.hpp"
 #include "texture.hpp"
 #include <string>
 #define GLM_FORCE_RADIANS
@@ -10,7 +7,6 @@
 #include <glm/fwd.hpp>
 #include <glm/glm.hpp>
 
-#include "defines.hpp"
 #include <render_pipeline.hpp>
 
 namespace Humongous

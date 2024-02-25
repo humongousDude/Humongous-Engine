@@ -2,6 +2,8 @@
 
 // based of off Sascha Willems tinyGltf vulkan example
 
+#include "abstractions/descriptor_layout.hpp"
+
 #include "abstractions/buffer.hpp"
 #include "abstractions/descriptor_pool_growable.hpp"
 #include "logical_device.hpp"
@@ -65,18 +67,30 @@ struct Mesh
 class Model
 {
 public:
-    struct PushConstantData
+#pragma pack(push, 4) // Ensure 4-byte alignment for members
+
+    struct alignas(16) PushConstantData
     {
-        alignas(16) glm::mat4 model{1.f};
-        VkDeviceAddress vertexAddress{0};
+        glm::mat4 model{1.f};
+        // glm::vec4       padding0; // Padding to maintain 16-byte alignment for normalMatrix
+        // glm::mat3       normalMatrix{1.f};
+        VkDeviceAddress vertexAddress;
     };
-    struct Vertex
+
+#pragma pack(pop) // Reset packing to default
+
+#pragma pack(push, 1)
+
+    struct alignas(16) Vertex
     {
-        alignas(16) glm::vec3 position;
-        alignas(16) glm::vec3 normal;
-        alignas(8) glm::vec2 uv0;
-        alignas(8) glm::vec2 uv1;
+        glm::vec3 position;
+        glm::vec3 normal;
+        glm::vec2 uv0;
+        glm::vec2 uv1;
+        glm::vec4 color;
     };
+
+#pragma pack(pop)
 
     Model(LogicalDevice* device, const std::string& modelPath, float scale);
     ~Model();
@@ -111,6 +125,7 @@ private:
         PBR_WORKFLOW_METALLIC_ROUGHNESS = 0,
         PBR_WORKFLOW_SPECULAR_GLOSSINESS = 1
     };
+
     struct alignas(16) ShaderMaterial
     {
         glm::vec4 baseColorFactor;
@@ -129,7 +144,7 @@ private:
         float     alphaMaskCutoff;
         float     emissiveStrength;
     };
-    Buffer shaderMaterialBuffer{};
+    Buffer shaderMaterialBuffer;
 
     struct Dimensions
     {

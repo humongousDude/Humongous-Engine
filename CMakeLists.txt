@@ -14,9 +14,13 @@ find_package(glfw3 REQUIRED)
 target_link_libraries(main PRIVATE glfw)
 
 find_package(Vulkan)
+target_link_libraries(main PRIVATE Vulkan::Vulkan)
+
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 target_link_libraries(main PRIVATE Vulkan::Headers
                                    GPUOpen::VulkanMemoryAllocator)
+
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 
 find_package(glm CONFIG REQUIRED)
 target_link_libraries(main PRIVATE glm::glm)
@@ -24,8 +28,8 @@ target_link_libraries(main PRIVATE glm::glm)
 find_package(fmt CONFIG REQUIRED)
 target_link_libraries(main PRIVATE fmt::fmt)
 
-find_package(imgui CONFIG REQUIRED)
-target_link_libraries(main PRIVATE imgui::imgui)
+# find_package(imgui CONFIG REQUIRED) target_link_libraries(main PRIVATE
+# imgui::imgui)
 
 find_path(TINYGLTF_INCLUDE_DIRS "tiny_gltf.h")
 target_include_directories(main PRIVATE ${TINYGLTF_INCLUDE_DIRS})

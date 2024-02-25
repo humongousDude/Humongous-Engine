@@ -63,7 +63,6 @@ bool DescriptorPool::AllocateDescriptor(const VkDescriptorSetLayout descriptorSe
     /* if(vkAllocateDescriptorSets(m_logicalDevice.GetVkDevice(), &allocInfo, &descriptor) != VK_SUCCESS) { return false; }
     return true; */
     VkResult result = vkAllocateDescriptorSets(m_logicalDevice.GetVkDevice(), &allocInfo, &descriptor);
-    HGDEBUG("Descriptor set allocation result: %s", string_VkResult(result));
     return result == VK_SUCCESS;
 }
 

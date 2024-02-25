@@ -239,7 +239,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeInde
                     vert.normal = glm::normalize(glm::vec3(bufferNormals ? glm::make_vec3(&bufferNormals[v * normByteStride]) : glm::vec3(0.0f)));
                     vert.uv0 = bufferTexCoordSet0 ? glm::make_vec2(&bufferTexCoordSet0[v * uv0ByteStride]) : glm::vec3(0.0f);
                     vert.uv1 = bufferTexCoordSet1 ? glm::make_vec2(&bufferTexCoordSet1[v * uv1ByteStride]) : glm::vec3(0.0f);
-                    // vert.color = bufferColorSet0 ? glm::make_vec4(&bufferColorSet0[v * color0ByteStride]) : glm::vec4(1.0f);
+                    vert.color = bufferColorSet0 ? glm::make_vec4(&bufferColorSet0[v * color0ByteStride]) : glm::vec4(1.0f);
 
                     if(hasSkin)
                     {
@@ -424,11 +424,16 @@ void Model::LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, VkQu
         textures.push_back(texture);
     }
 
-    emptyTexture.CreateFromFile("textures/gigachad.png", device, Texture::ImageType::TEX2D);
+    emptyTexture.CreateFromFile("textures/empty.ktx", device, Texture::ImageType::TEX2D);
+
+    HGDEBUG("Loaded %d textures", textures.size());
 }
 
 void Model::LoadTextureSamplers(tinygltf::Model& gltfModel)
 {
+    HGDEBUG("Model has %d texture samplers, %d textures, %d materials", gltfModel.samplers.size(), gltfModel.textures.size(),
+            gltfModel.materials.size());
+
     for(tinygltf::Sampler smpl: gltfModel.samplers)
     {
         Texture::TexSamplerInfo sampler{};
@@ -447,13 +452,11 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
     {
         Material material{};
         material.doubleSided = mat.doubleSided;
-        for(tinygltf::Material& mat: gltfModel.materials)
+
+        if(mat.values.find("baseColorTexture") != mat.values.end())
         {
-            if(mat.values.find("baseColorTexture") != mat.values.end())
-            {
-                material.baseColorTexture = &textures[mat.values["baseColorTexture"].TextureIndex()];
-                material.texCoordSets.baseColor = mat.values["baseColorTexture"].TextureTexCoord();
-            }
+            material.baseColorTexture = &textures[mat.values["baseColorTexture"].TextureIndex()];
+            material.texCoordSets.baseColor = mat.values["baseColorTexture"].TextureTexCoord();
         }
         if(mat.values.find("metallicRoughnessTexture") != mat.values.end())
         {
@@ -556,14 +559,21 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             }
         }
 
-        material.index = static_cast<uint32_t>(materials.size());
+        material.index = static_cast<u32>(materials.size());
         material.name = mat.name;
         materials.push_back(material);
-        std::vector<Primitive*> empt{};
-        materialBatches.emplace(material.index, empt);
+
+        std::vector<Primitive*> empty{};
+        materialBatches.emplace(material.index, empty);
     }
     // Push a default material at the end of the list for meshes with no material assigned
     materials.push_back(Material());
+
+    std::vector<Primitive*> empt{};
+    materialBatches.emplace(materialBatches.size(), empt);
+
+    HGDEBUG("Loaded %d materials", materials.size());
+    HGDEBUG("Loaded %d batches", materialBatches.size());
 }
 
 void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue transferQueue, float scale)
@@ -626,8 +636,6 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
 
     // extensions = gltfModel.extensionsUsed;
 
-    HGINFO("vertex count %d, index count %d", vertexCount, indexCount);
-
     size_t vertexBufferSize = vertexCount * sizeof(Vertex);
     size_t indexBufferSize = indexCount * sizeof(uint32_t);
 
@@ -685,41 +693,17 @@ void Model::DrawNode(Node* node, VkCommandBuffer commandBuffer, VkPipelineLayout
     {
         for(Primitive* primitive: node->mesh->primitives)
         {
-            std::vector<VkDescriptorSet> descriptorSets{primitive->material.descriptorSet, node->mesh->uniformBuffer.descriptorSet,
-                                                        descriptorSetMaterials};
+            std::vector<VkDescriptorSet> descriptorSets{primitive->material.descriptorSet, descriptorSetMaterials};
 
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, static_cast<uint32_t>(descriptorSets.size()),
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, static_cast<uint32_t>(descriptorSets.size()),
                                     descriptorSets.data(), 0, nullptr);
-            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 80, sizeof(u32), &primitive->material.index);
+            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Model::PushConstantData), sizeof(u32),
+                               &primitive->material.index);
 
             vkCmdDrawIndexed(commandBuffer, primitive->indexCount, 1, primitive->firstIndex, 0, 0);
         }
     }
     for(auto& child: node->children) { DrawNode(child, commandBuffer, pipelineLayout); }
-}
-
-void Model::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout)
-{
-    const VkDeviceSize offsets[1] = {0};
-    vkCmdBindIndexBuffer(commandBuffer, this->indices.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
-
-    for(auto& [id, prim]: materialBatches)
-    {
-        auto mat = &materials[id];
-
-        for(auto& primitive: prim)
-        {
-            std::vector<VkDescriptorSet> descriptorSets{mat->descriptorSet, descriptorSetMaterials};
-
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, static_cast<uint32_t>(descriptorSets.size()),
-                                    descriptorSets.data(), 0, nullptr);
-            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 80, sizeof(u32), &mat->index);
-
-            vkCmdDrawIndexed(commandBuffer, primitive->indexCount, 1, primitive->firstIndex, 0, 0);
-        }
-    }
-
-    // for(auto& node: nodes) { DrawNode(node, commandBuffer, pipelineLayout); }
 }
 
 void Model::CalculateBoundingBox(Node* node, Node* parent)
@@ -797,17 +781,53 @@ Node* Model::NodeFromIndex(uint32_t index)
     return nodeFound;
 }
 
+void Model::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout)
+{
+    const VkDeviceSize offsets[] = {0};
+    vkCmdBindIndexBuffer(commandBuffer, this->indices.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+    for(auto& [id, prim]: materialBatches)
+    {
+        auto mat = &materials[id];
+
+        if(mat->descriptorSet == VK_NULL_HANDLE)
+        {
+            HGERROR("Invalid material descriptor set, did you forget to allocate it?");
+            HGERROR("Material: %d, %s", id, mat->name.c_str());
+        }
+
+        for(auto& primitive: prim)
+        {
+            std::vector<VkDescriptorSet> descriptorSets{mat->descriptorSet, descriptorSetMaterials};
+
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, static_cast<uint32_t>(descriptorSets.size()),
+                                    descriptorSets.data(), 0, nullptr);
+
+            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Model::PushConstantData), sizeof(u32),
+                               &mat->index);
+
+            vkCmdDrawIndexed(commandBuffer, primitive->indexCount, 1, primitive->firstIndex, 0, 0);
+        }
+    }
+
+    // for(auto& node: nodes) { DrawNode(node, commandBuffer, pipelineLayout); }
+}
+
 void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeLayout, DescriptorSetLayout* materialBufferLayout,
                  DescriptorPoolGrowable* imagePool, DescriptorPoolGrowable* uniformPool, DescriptorPoolGrowable* storagePool)
 {
     if(initialized) { return; }
-    HGINFO("Initializing model...");
+    HGINFO("Initialiaing model...");
 
     for(auto& [id, vec]: materialBatches)
     {
         auto mat = &materials[id];
 
-        if(mat->descriptorSet == VK_NULL_HANDLE) { mat->descriptorSet = imagePool->AllocateDescriptor(materialLayout->GetDescriptorSetLayout()); }
+        if(mat->descriptorSet == VK_NULL_HANDLE)
+        {
+            mat->descriptorSet = imagePool->AllocateDescriptor(materialLayout->GetDescriptorSetLayout());
+            HGDEBUG("Allocated material: %s, id: %d", mat->name.c_str(), mat->index);
+        }
 
         std::vector<VkDescriptorImageInfo> imageDescriptors = {
             emptyTexture.GetDescriptorInfo(), emptyTexture.GetDescriptorInfo(),
@@ -824,11 +844,11 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
         // TODO: make this specular
         if(mat->pbrWorkflows.specularGlossiness)
         {
-            if(mat->baseColorTexture) { imageDescriptors[0] = mat->baseColorTexture->GetDescriptorInfo(); }
-            if(mat->metallicRoughnessTexture) { imageDescriptors[1] = mat->metallicRoughnessTexture->GetDescriptorInfo(); }
+            if(mat->extension.diffuseTexture) { imageDescriptors[0] = mat->extension.diffuseTexture->GetDescriptorInfo(); }
+            if(mat->extension.specularGlossinessTexture) { imageDescriptors[1] = mat->extension.specularGlossinessTexture->GetDescriptorInfo(); }
         }
 
-        std::array<VkWriteDescriptorSet, 5> writeDescriptorSets = {};
+        std::array<VkWriteDescriptorSet, 5> writeDescriptorSets{};
         for(size_t i = 0; i < imageDescriptors.size(); i++)
         {
             writeDescriptorSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -837,9 +857,11 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
             writeDescriptorSets[i].dstSet = mat->descriptorSet;
             writeDescriptorSets[i].dstBinding = static_cast<uint32_t>(i);
             writeDescriptorSets[i].pImageInfo = &imageDescriptors[i];
+
+            DescriptorWriter(*materialLayout, imagePool).WriteImage(static_cast<u32>(i), &imageDescriptors[i]).Overwrite(mat->descriptorSet);
         }
 
-        vkUpdateDescriptorSets(device->GetVkDevice(), static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, NULL);
+        // vkUpdateDescriptorSets(device->GetVkDevice(), static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, NULL);
     }
 
     for(auto& node: nodes)
@@ -933,19 +955,17 @@ void Model::CreateMaterialBuffer()
         shaderMaterials.push_back(shaderMaterial);
     }
 
-    if(shaderMaterialBuffer.GetBuffer() != VK_NULL_HANDLE) { HGINFO("uhhhh this happend for some reason %d %s", __LINE__, __FILE__); }
-
     VkDeviceSize bufferSize = shaderMaterials.size() * sizeof(ShaderMaterial);
     Buffer       stagingBuffer{device,
                          bufferSize,
-                         1,
+                         3,
                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                          VMA_MEMORY_USAGE_CPU_TO_GPU};
     stagingBuffer.Map();
-    stagingBuffer.WriteToBuffer((void*)shaderMaterials.data());
+    stagingBuffer.WriteToBuffer((void*)shaderMaterials.data(), bufferSize);
 
-    shaderMaterialBuffer.Init(device, bufferSize, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+    shaderMaterialBuffer.Init(device, bufferSize, 3, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
     Buffer::CopyBuffer(*device, stagingBuffer, shaderMaterialBuffer, bufferSize);

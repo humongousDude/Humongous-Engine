@@ -5,9 +5,9 @@
 
 #include "logger.hpp"
 #include <vulkan_app.hpp>
+
 int main()
 {
-
     try
     {
         Humongous::VulkanApp app{};

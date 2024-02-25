@@ -55,12 +55,10 @@ bool DescriptorPoolGrowable::AllocateDescriptor(const VkDescriptorSetLayout desc
             HGERROR("Error Code: %d", result);
             return false;
         }
-        HGDEBUG("pool was full, made a new one");
+        else { HGDEBUG("pool was full, got a new one"); }
     }
 
     m_readyPools.push_back(poolToUse);
-
-    HGDEBUG("Descriptor set allocation growable result: %s", string_VkResult(result));
 
     return true;
 }

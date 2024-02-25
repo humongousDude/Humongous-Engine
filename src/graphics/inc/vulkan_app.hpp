@@ -8,7 +8,6 @@
 #include <memory>
 #include <physical_device.hpp>
 #include <swapchain.hpp>
-
 #include <vk_mem_alloc.h>
 
 namespace Humongous

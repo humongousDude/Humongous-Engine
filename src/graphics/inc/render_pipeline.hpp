@@ -2,6 +2,7 @@
 
 #include "logical_device.hpp"
 #include <non_copyable.hpp>
+#include <string>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -12,6 +13,9 @@ class RenderPipeline : NonCopyable
 public:
     struct PipelineConfigInfo
     {
+        std::string vertShaderPath;
+        std::string fragShaderPath;
+
         VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
         VkPipelineRasterizationStateCreateInfo rasterizationInfo;
         VkPipelineMultisampleStateCreateInfo   multisampleInfo;

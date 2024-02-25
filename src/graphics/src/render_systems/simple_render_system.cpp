@@ -3,7 +3,7 @@
 
 namespace Humongous
 {
-SimpleRenderSystem::SimpleRenderSystem(LogicalDevice& logicalDevice, std::vector<VkDescriptorSetLayout>& descriptorSetLayouts)
+SimpleRenderSystem::SimpleRenderSystem(LogicalDevice& logicalDevice, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts)
     : m_logicalDevice(logicalDevice)
 {
     HGINFO("Creating simple render system...");
@@ -54,7 +54,7 @@ void SimpleRenderSystem::CreateModelDescriptorSetLayout()
 
 void SimpleRenderSystem::AllocateDescriptorSet(u32 identifier, u32 index) {}
 
-void SimpleRenderSystem::CreatePipelineLayout(std::vector<VkDescriptorSetLayout>& layouts)
+void SimpleRenderSystem::CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts)
 {
     HGINFO("Creating pipeline layout...");
 
@@ -95,6 +95,10 @@ void SimpleRenderSystem::CreatePipeline()
     HGINFO("Creating pipeline...");
     RenderPipeline::PipelineConfigInfo configInfo = RenderPipeline::DefaultPipelineConfigInfo();
     configInfo.pipelineLayout = m_pipelineLayout;
+
+    configInfo.vertShaderPath = "compiledShaders/simple.vert.glsl.spv";
+    configInfo.fragShaderPath = "compiledShaders/simple.frag.glsl.spv";
+
     m_renderPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
     HGINFO("Created pipeline");
 }
@@ -106,9 +110,6 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
     vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, renderData.uboSets.size(),
                             renderData.uboSets.data(), 0, nullptr);
 
-    vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 1, renderData.sceneSets.size(),
-                            renderData.sceneSets.data(), 0, nullptr);
-
     for(auto& [id, obj]: renderData.gameObjects)
     {
         if(!obj.model) { continue; }
@@ -117,6 +118,7 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
 
         Model::PushConstantData data{};
         data.model = obj.transform.Mat4();
+        // data.normalMatrix = obj.transform.NormalMatrix();
         data.vertexAddress = obj.model->GetVertexBuffer().GetDeviceAddress();
 
         vkCmdPushConstants(renderData.commandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Model::PushConstantData), &data);

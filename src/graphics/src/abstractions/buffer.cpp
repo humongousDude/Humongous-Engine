@@ -5,7 +5,6 @@
  * https://github.com/SaschaWillems/Vulkan/blob/master/base/VulkanBuffer.h
  */
 
-#include "logger.hpp"
 #include <abstractions/buffer.hpp>
 
 // std
@@ -275,6 +274,7 @@ void Buffer::CopyBuffer(LogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuf
     copyRegion.srcOffset = 0;
     copyRegion.dstOffset = 0;
     copyRegion.size = size;
+    copyRegion.pNext = nullptr;
 
     VkCopyBufferInfo2 copyBufferInfo{};
     copyBufferInfo.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2;
@@ -282,6 +282,7 @@ void Buffer::CopyBuffer(LogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuf
     copyBufferInfo.dstBuffer = dstBuffer.GetBuffer();
     copyBufferInfo.regionCount = 1;
     copyBufferInfo.pRegions = &copyRegion;
+    copyBufferInfo.pNext = nullptr;
 
     vkCmdCopyBuffer2(commandBuffer, &copyBufferInfo);
 

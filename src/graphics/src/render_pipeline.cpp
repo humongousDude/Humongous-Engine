@@ -22,9 +22,9 @@ RenderPipeline::~RenderPipeline()
 void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigInfo& configInfo)
 {
     HGINFO("Creating Render Pipeline...");
-
-    auto vertCode = ReadFile("compiledShaders/simple.vert.glsl.spv");
-    auto fragCode = ReadFile("compiledShaders/simple.frag.glsl.spv");
+    HGINFO("Reading shader files...");
+    auto vertCode = ReadFile(configInfo.vertShaderPath);
+    auto fragCode = ReadFile(configInfo.fragShaderPath);
     HGINFO("Successfully read shader files");
 
     VkShaderModule vertShaderModule;
@@ -111,16 +111,13 @@ void RenderPipeline::CreateShaderModule(const std::vector<char>& code, VkShaderM
 
 RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
 {
-    PipelineConfigInfo configInfo{};
+
+    PipelineConfigInfo configInfo{.vertShaderPath = "compiledShaders/simple.vert.glsl.spv",
+                                  .fragShaderPath = "compiledShaders/simple.frag.glsl.spv"};
+
     configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
-
-    /* configInfo.viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    configInfo.viewportInfo.viewportCount = 1;
-    configInfo.viewportInfo.pViewports = nullptr;
-    configInfo.viewportInfo.scissorCount = 1;
-    configInfo.viewportInfo.pScissors = nullptr; */
 
     configInfo.rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     configInfo.rasterizationInfo.depthClampEnable = VK_FALSE;

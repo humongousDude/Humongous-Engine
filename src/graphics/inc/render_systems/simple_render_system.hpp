@@ -20,7 +20,7 @@ struct RenderData
 class SimpleRenderSystem
 {
 public:
-    SimpleRenderSystem(LogicalDevice& logicalDevice, std::vector<VkDescriptorSetLayout>& descriptorSetLayouts);
+    SimpleRenderSystem(LogicalDevice& logicalDevice, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts);
     ~SimpleRenderSystem();
 
     void RenderObjects(RenderData& renderData);
@@ -50,7 +50,7 @@ private:
     void CreateModelDescriptorSetPool();
     void CreateModelDescriptorSetLayout();
     void AllocateDescriptorSet(u32 identifier, u32 index);
-    void CreatePipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSetLayouts);
+    void CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts);
     void CreatePipeline();
 };
 } // namespace Humongous

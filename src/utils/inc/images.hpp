@@ -56,6 +56,7 @@ void TransitionImageLayout(LogicalDevice& logicalDevice, VkImage image, VkImageL
 void TransitionImageLayout(ImageTransitionInfo& info);
 
 void CopyImageToImage(VkCommandBuffer cmd, VkImage src, VkImage dst, VkExtent2D srcSize, VkExtent2D dstSize);
+void CopyImageToImage(VkCommandBuffer cmd, AllocatedImage& src, AllocatedImage& dst, std::vector<VkImageBlit>& blits);
 
 void CopyBufferToImage(LogicalDevice& logicalDevice, VkBuffer buffer, VkImage image, u32 width, u32 height);
 void CopyBufferToImage(LogicalDevice& logicalDevice, VkBuffer buffer, VkImage image, const std::vector<VkBufferImageCopy>& bufferCopyRegions);
