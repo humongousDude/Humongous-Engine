@@ -37,8 +37,8 @@ target_include_directories(main PRIVATE ${TINYGLTF_INCLUDE_DIRS})
 find_package(gli CONFIG REQUIRED)
 target_link_libraries(main PRIVATE gli)
 
-find_package(Stb REQUIRED)
-target_include_directories(main PRIVATE ${Stb_INCLUDE_DIR})
+find_package(Boost REQUIRED COMPONENTS log)
+target_link_libraries(main PRIVATE Boost::boost Boost::log)
 
 # Collect shader files
 file(GLOB SHADER_FILES CONFIGURE_DEPENDS shaders/*.glsl)

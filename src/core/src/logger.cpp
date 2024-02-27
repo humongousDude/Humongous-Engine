@@ -8,7 +8,9 @@
 #include <string>
 
 // TODO: create log file
-// TODO: make async
+// TODO: Actually setup Boost.log, or maybe switch to a custom logging system
+
+#include <boost/log/trivial.hpp>
 
 void ReportAssertionFaliure(const char* expression, const char* message, const char* file, i32 line)
 {
@@ -39,9 +41,32 @@ void LogOutput(LogLevel level, const char* message, ...)
     vsnprintf(&outMessage[0], outMessage.size(), message, argPtr);
     va_end(argPtr);
 
-    outMessage.insert(0, LevelStrings[level]);
-    outMessage.append("\n");
+    switch(level)
+    {
+        case LOG_LEVEL_FATAL:
+            BOOST_LOG_TRIVIAL(fatal) << outMessage;
+            break;
+
+        case LOG_LEVEL_ERROR:
+            BOOST_LOG_TRIVIAL(error) << outMessage;
+            break;
+
+        case LOG_LEVEL_WARN:
+            BOOST_LOG_TRIVIAL(warning) << outMessage;
+            break;
+
+        case LOG_LEVEL_INFO:
+            BOOST_LOG_TRIVIAL(info) << outMessage;
+            break;
+
+        case LOG_LEVEL_DEBUG:
+            BOOST_LOG_TRIVIAL(debug) << outMessage;
+            break;
+
+        case LOG_LEVEL_TRACE:
+            BOOST_LOG_TRIVIAL(trace) << outMessage;
+            break;
+    }
 
     // TODO: platform specific output
-    fmt::print(stderr, "{}", outMessage);
 }

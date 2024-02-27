@@ -49,11 +49,11 @@ void VulkanApp::LoadGameObjects()
     HGINFO("Loading game objects...");
 
     std::shared_ptr<Model> model;
-    model = std::make_shared<Model>(m_logicalDevice.get(), "models/old_hunter.glb", 1);
+    model = std::make_shared<Model>(m_logicalDevice.get(), "models/employee.glb", 1);
 
     GameObject obj = GameObject::CreateGameObject();
     obj.transform.translation = {0.0f, 0.0f, -1.0f};
-    obj.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
+    // obj.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
 
     obj.model = model;
 

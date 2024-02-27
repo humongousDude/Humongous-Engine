@@ -25,6 +25,7 @@ So, I'm sorry in advance about the speed of development.
 * ImGui
 * FastGLTF
 * GLI 
+* Boost.log
 
 
 ## To Build
