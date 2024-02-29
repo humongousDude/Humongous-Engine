@@ -48,14 +48,15 @@ bool DescriptorPoolGrowable::AllocateDescriptor(const VkDescriptorSetLayout desc
         poolToUse = GetPool(m_logicalDevice);
         allocInfo.descriptorPool = poolToUse;
 
-        if(VkResult result = vkAllocateDescriptorSets(m_logicalDevice.GetVkDevice(), &allocInfo, &descriptor))
+        VkResult result = vkAllocateDescriptorSets(m_logicalDevice.GetVkDevice(), &allocInfo, &descriptor);
+
+        if(result != VK_SUCCESS)
         {
             HGERROR("Completely failed to allocate a descriptor set, failing");
             HGERROR("Cause: %s", string_VkResult(result));
             HGERROR("Error Code: %d", result);
             return false;
         }
-        else { HGDEBUG("pool was full, got a new one"); }
     }
 
     m_readyPools.push_back(poolToUse);

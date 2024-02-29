@@ -72,9 +72,10 @@ foreach(SHADER_FILE ${SHADER_FILES})
   # files in a shaders
 
   add_custom_command(
-    TARGET main
+    PRE_BUILD TARGET main
     COMMAND ${VULKAN_GLSLC} -fshader-stage=${SHADER_STAGE} ${SHADER_FILE} -g -o
-            ${SPIRV_FILE} DEPENDS ${SHADER_FILE} FILE
+            ${SPIRV_FILE}
+    DEPENDS ${SHADER_FILE} FILE
     COMMENT "Compiling ${SHADER_FILE} to ${SPIRV_FILE}\n"
     VERBATIM)
 endforeach()

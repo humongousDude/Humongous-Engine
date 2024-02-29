@@ -110,7 +110,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeInde
     if(node.matrix.size() == 16) { newNode->matrix = glm::make_mat4x4(node.matrix.data()); };
 
     // Node with children
-
     if(node.children.size() > 0)
     {
         for(size_t i = 0; i < node.children.size(); i++)
@@ -156,7 +155,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeInde
                 int jointComponentType;
 
                 // Position attribute is required
-                assert(primitive.attributes.find("POSITION") != primitive.attributes.end());
+                HGASSERT(primitive.attributes.find("POSITION") != primitive.attributes.end());
 
                 const tinygltf::Accessor&   posAccessor = model.accessors[primitive.attributes.find("POSITION")->second];
                 const tinygltf::BufferView& posView = model.bufferViews[posAccessor.bufferView];
@@ -270,7 +269,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeInde
                     // vert.weight0 = hasSkin ? glm::make_vec4(&bufferWeights[v * weightByteStride]) : glm::vec4(0.0f);
                     // Fix for all zero weights
                     // if (glm::length(vert.weight0) == 0.0f) {
-                    // vert.weight0 = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+                    // 	vert.weight0 = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
                     // }
                     loaderInfo.vertexPos++;
                 }
@@ -325,6 +324,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeInde
             Primitive* newPrimitive =
                 new Primitive(indexStart, indexCount, vertexCount, primitive.material > -1 ? materials[primitive.material] : materials.back());
             newPrimitive->SetBoundingBox(posMin, posMax);
+            newPrimitive->owner = newNode;
             newMesh->primitives.push_back(newPrimitive);
         }
         // Mesh BB from BBs of primitives
@@ -425,15 +425,10 @@ void Model::LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, VkQu
     }
 
     emptyTexture.CreateFromFile("textures/empty.ktx", device, Texture::ImageType::TEX2D);
-
-    HGDEBUG("Loaded %d textures", textures.size());
 }
 
 void Model::LoadTextureSamplers(tinygltf::Model& gltfModel)
 {
-    HGDEBUG("Model has %d texture samplers, %d textures, %d materials", gltfModel.samplers.size(), gltfModel.textures.size(),
-            gltfModel.materials.size());
-
     for(tinygltf::Sampler smpl: gltfModel.samplers)
     {
         Texture::TexSamplerInfo sampler{};
@@ -448,6 +443,8 @@ void Model::LoadTextureSamplers(tinygltf::Model& gltfModel)
 
 void Model::LoadMaterials(tinygltf::Model& gltfModel)
 {
+    int i = 0;
+
     for(tinygltf::Material& mat: gltfModel.materials)
     {
         Material material{};
@@ -559,21 +556,20 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             }
         }
 
-        material.index = static_cast<u32>(materials.size());
+        u32 index = static_cast<u32>(materials.size());
+
+        material.index = index;
         material.name = mat.name;
         materials.push_back(material);
 
         std::vector<Primitive*> empty{};
-        materialBatches.emplace(material.index, empty);
+        materialBatches.emplace(index, empty);
     }
     // Push a default material at the end of the list for meshes with no material assigned
     materials.push_back(Material());
 
     std::vector<Primitive*> empt{};
     materialBatches.emplace(materialBatches.size(), empt);
-
-    HGDEBUG("Loaded %d materials", materials.size());
-    HGDEBUG("Loaded %d batches", materialBatches.size());
 }
 
 void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue transferQueue, float scale)
@@ -630,7 +626,7 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
     else
     {
         // TODO: throw
-        std::cerr << "Could not load gltf file: " << error << std::endl;
+        HGERROR(error.c_str());
         return;
     }
 
@@ -800,6 +796,8 @@ void Model::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout
         {
             std::vector<VkDescriptorSet> descriptorSets{mat->descriptorSet, descriptorSetMaterials};
 
+            if(primitive->owner->mesh) { descriptorSets.push_back(primitive->owner->mesh->uniformBuffer.descriptorSet); }
+
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, static_cast<uint32_t>(descriptorSets.size()),
                                     descriptorSets.data(), 0, nullptr);
 
@@ -817,35 +815,39 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
                  DescriptorPoolGrowable* imagePool, DescriptorPoolGrowable* uniformPool, DescriptorPoolGrowable* storagePool)
 {
     if(initialized) { return; }
-    HGINFO("Initialiaing model...");
+    HGINFO("Initializing model...");
 
     for(auto& [id, vec]: materialBatches)
     {
-        auto mat = &materials[id];
+        auto material = &materials[id];
 
-        if(mat->descriptorSet == VK_NULL_HANDLE)
+        if(material->descriptorSet == VK_NULL_HANDLE)
         {
-            mat->descriptorSet = imagePool->AllocateDescriptor(materialLayout->GetDescriptorSetLayout());
-            HGDEBUG("Allocated material: %s, id: %d", mat->name.c_str(), mat->index);
+            material->descriptorSet = imagePool->AllocateDescriptor(materialLayout->GetDescriptorSetLayout());
         }
 
         std::vector<VkDescriptorImageInfo> imageDescriptors = {
             emptyTexture.GetDescriptorInfo(), emptyTexture.GetDescriptorInfo(),
-            mat->normalTexture ? mat->normalTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo(),
-            mat->occlusionTexture ? mat->occlusionTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo(),
-            mat->emissiveTexture ? mat->emissiveTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo()};
+            material->normalTexture ? material->normalTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo(),
+            material->occlusionTexture ? material->occlusionTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo(),
+            material->emissiveTexture ? material->emissiveTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo()};
 
-        if(mat->pbrWorkflows.metallicRoughness)
+        // TODO: glTF specs states that metallic roughness should be preferred, even if specular glosiness is present
+
+        if(material->pbrWorkflows.metallicRoughness)
         {
-            if(mat->baseColorTexture) { imageDescriptors[0] = mat->baseColorTexture->GetDescriptorInfo(); }
-            if(mat->metallicRoughnessTexture) { imageDescriptors[1] = mat->metallicRoughnessTexture->GetDescriptorInfo(); }
+            if(material->baseColorTexture) { imageDescriptors[0] = material->baseColorTexture->GetDescriptorInfo(); }
+            if(material->metallicRoughnessTexture) { imageDescriptors[1] = material->metallicRoughnessTexture->GetDescriptorInfo(); }
         }
 
-        // TODO: make this specular
-        if(mat->pbrWorkflows.specularGlossiness)
+        if(material->pbrWorkflows.specularGlossiness)
         {
-            if(mat->extension.diffuseTexture) { imageDescriptors[0] = mat->extension.diffuseTexture->GetDescriptorInfo(); }
-            if(mat->extension.specularGlossinessTexture) { imageDescriptors[1] = mat->extension.specularGlossinessTexture->GetDescriptorInfo(); }
+
+            if(material->extension.diffuseTexture) { imageDescriptors[0] = material->extension.diffuseTexture->GetDescriptorInfo(); }
+            if(material->extension.specularGlossinessTexture)
+            {
+                imageDescriptors[1] = material->extension.specularGlossinessTexture->GetDescriptorInfo();
+            }
         }
 
         std::array<VkWriteDescriptorSet, 5> writeDescriptorSets{};
@@ -854,11 +856,11 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
             writeDescriptorSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             writeDescriptorSets[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             writeDescriptorSets[i].descriptorCount = 1;
-            writeDescriptorSets[i].dstSet = mat->descriptorSet;
+            writeDescriptorSets[i].dstSet = material->descriptorSet;
             writeDescriptorSets[i].dstBinding = static_cast<uint32_t>(i);
             writeDescriptorSets[i].pImageInfo = &imageDescriptors[i];
 
-            DescriptorWriter(*materialLayout, imagePool).WriteImage(static_cast<u32>(i), &imageDescriptors[i]).Overwrite(mat->descriptorSet);
+            DescriptorWriter(*materialLayout, imagePool).WriteImage(static_cast<u32>(i), &imageDescriptors[i]).Overwrite(material->descriptorSet);
         }
 
         // vkUpdateDescriptorSets(device->GetVkDevice(), static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, NULL);
@@ -866,7 +868,7 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
 
     for(auto& node: nodes)
     {
-        // SetupNodeDescriptorSet(node, uniformPool, nodeLayout);
+        SetupNodeDescriptorSet(node, uniformPool, nodeLayout);
         UpdateMaterialBatches(node);
     }
 

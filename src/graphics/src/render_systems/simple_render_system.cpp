@@ -71,7 +71,8 @@ void SimpleRenderSystem::CreatePipelineLayout(const std::vector<VkDescriptorSetL
     std::vector<VkPushConstantRange> ranges = {pushConstantRange, indexRange};
 
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {m_descriptorSetLayouts.material->GetDescriptorSetLayout(),
-                                                               m_descriptorSetLayouts.materialBuffers->GetDescriptorSetLayout()};
+                                                               m_descriptorSetLayouts.materialBuffers->GetDescriptorSetLayout(),
+                                                               m_descriptorSetLayouts.node->GetDescriptorSetLayout()};
 
     descriptorSetLayouts.insert(descriptorSetLayouts.begin(), layouts.begin(), layouts.end());
 
@@ -97,7 +98,7 @@ void SimpleRenderSystem::CreatePipeline()
     configInfo.pipelineLayout = m_pipelineLayout;
 
     configInfo.vertShaderPath = "compiledShaders/simple.vert.glsl.spv";
-    configInfo.fragShaderPath = "compiledShaders/simple.frag.glsl.spv";
+    configInfo.fragShaderPath = "compiledShaders/unlit.frag.glsl.spv";
 
     m_renderPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
     HGINFO("Created pipeline");
@@ -118,7 +119,6 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
 
         Model::PushConstantData data{};
         data.model = obj.transform.Mat4();
-        // data.normalMatrix = obj.transform.NormalMatrix();
         data.vertexAddress = obj.model->GetVertexBuffer().GetDeviceAddress();
 
         vkCmdPushConstants(renderData.commandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Model::PushConstantData), &data);

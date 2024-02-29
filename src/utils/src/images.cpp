@@ -224,6 +224,8 @@ void CopyBufferToImage(LogicalDevice& logicalDevice, VkBuffer buffer, VkImage im
 {
     VkCommandBuffer commandBuffer = logicalDevice.BeginSingleTimeCommands();
 
+    // vkCmdCopyBufferToImage2(commandBuffer, );
+
     vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, static_cast<u32>(bufferCopyRegions.size()),
                            bufferCopyRegions.data());
 

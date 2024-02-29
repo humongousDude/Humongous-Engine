@@ -30,9 +30,7 @@ void ShutDownLogging()
 
 void LogOutput(LogLevel level, const char* message, ...)
 {
-    std::string LevelStrings[6] = {"[FATAL]: ", "[ERROR]: ", "[WARN]: ", "[INFO]: ", "[DEBUG]: ", "[TRACE]: "};
-
-    b8 isError = level == LOG_LEVEL_ERROR || level == LOG_LEVEL_FATAL;
+    // b8 isError = level == LOG_LEVEL_ERROR || level == LOG_LEVEL_FATAL;
 
     std::string outMessage;
     outMessage.resize(320000);

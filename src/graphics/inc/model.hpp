@@ -31,6 +31,7 @@ namespace Humongous
 {
 struct Primitive
 {
+    Node*       owner;
     uint32_t    firstIndex;
     uint32_t    indexCount;
     uint32_t    vertexCount;
@@ -67,30 +68,20 @@ struct Mesh
 class Model
 {
 public:
-#pragma pack(push, 4) // Ensure 4-byte alignment for members
-
-    struct alignas(16) PushConstantData
+    struct alignas(16) PushConstantData // Align to 16 bytes for mat4
     {
-        glm::mat4 model{1.f};
-        // glm::vec4       padding0; // Padding to maintain 16-byte alignment for normalMatrix
-        // glm::mat3       normalMatrix{1.f};
-        VkDeviceAddress vertexAddress;
+        glm::mat4       model{1.f};    // 16 bytes (4x4 matrix)
+        VkDeviceAddress vertexAddress; // 8 bytes (assuming 64-bit)
     };
-
-#pragma pack(pop) // Reset packing to default
-
-#pragma pack(push, 1)
 
     struct alignas(16) Vertex
     {
-        glm::vec3 position;
-        glm::vec3 normal;
-        glm::vec2 uv0;
-        glm::vec2 uv1;
-        glm::vec4 color;
+        alignas(16) glm::vec3 position; // 12 bytes (aligned to 16 bytes)
+        alignas(16) glm::vec3 normal;   // 12 bytes (aligned to 16 bytes)
+        alignas(8) glm::vec2 uv0;       // 8 bytes
+        alignas(8) glm::vec2 uv1;       // 8 bytes
+        alignas(16) glm::vec4 color;    // 16 bytes
     };
-
-#pragma pack(pop)
 
     Model(LogicalDevice* device, const std::string& modelPath, float scale);
     ~Model();

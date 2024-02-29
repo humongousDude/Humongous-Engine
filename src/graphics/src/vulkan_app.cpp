@@ -1,14 +1,11 @@
-#include <vulkan_app.hpp>
-
-#include "camera.hpp"
-#include <keyboard_handler.hpp>
+// TIME LOST DUE TO VULKAN BUFFER / PUSH CONSTANT MISALIGNMENT: 10 HOURS
 
 #include "allocator.hpp"
-
+#include "camera.hpp"
+#include <keyboard_handler.hpp>
 #include <logger.hpp>
-
 #include <thread>
-
+#include <vulkan_app.hpp>
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
 
@@ -45,15 +42,17 @@ void VulkanApp::Init()
 
 void VulkanApp::LoadGameObjects()
 {
-
     HGINFO("Loading game objects...");
 
     std::shared_ptr<Model> model;
+    // model = std::make_shared<Model>(m_logicalDevice.get(),
+    //                                 "C:/dev/Coding/Github Repos/glTF-Sample-Assets/Models/ABeautifulGame/glTF/ABeautifulGame.gltf", 1);
     model = std::make_shared<Model>(m_logicalDevice.get(), "models/employee.glb", 1);
 
     GameObject obj = GameObject::CreateGameObject();
     obj.transform.translation = {0.0f, 0.0f, -1.0f};
-    // obj.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
+    obj.transform.rotation = {glm::radians(180.0f), 0, 0};
+    obj.transform.scale = {001.0f, 001.0f, 001.0f};
 
     obj.model = model;
 
