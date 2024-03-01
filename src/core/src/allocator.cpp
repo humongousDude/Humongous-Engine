@@ -20,10 +20,25 @@ void Allocator::Initialize(LogicalDevice* logicalDevice)
 
     vmaCreatePool(m_logicalDevice->GetVmaAllocator(), &vertInfo, &m_vertexBufPool);
 
-    VkImageCreateInfo imgCI{};
-    // imgCI.
+    VkImageCreateInfo gltfCI{};
+    gltfCI.imageType = VK_IMAGE_TYPE_2D;
+    gltfCI.format = VK_FORMAT_R8G8B8A8_UNORM;
+    gltfCI.extent.width = 1024;
+    gltfCI.extent.height = 1024;
+    gltfCI.extent.depth = 1;
+    gltfCI.mipLevels = 11;
+    gltfCI.arrayLayers = 1;
+    gltfCI.samples = VK_SAMPLE_COUNT_1_BIT;
+    gltfCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+    gltfCI.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
-    VmaPoolCreateInfo imgInfo{};
+    VmaPoolCreateInfo gltfPoolCI{};
+    gltfPoolCI.memoryTypeIndex = vmaFindMemoryTypeIndexForImageInfo(m_logicalDevice->GetVmaAllocator(), &gltfCI, &bufAlloc, &memTypeIndex);
+    gltfPoolCI.minAllocationAlignment = 1;
+
+    vmaCreatePool(m_logicalDevice->GetVmaAllocator(), &gltfPoolCI, &m_gltfImgPool);
+
+    // TODO: create a pool for all the rest
 
     m_initialized = true;
 }
@@ -33,7 +48,7 @@ void Allocator::Shutdown()
     if(!m_initialized) { return; }
 
     vmaDestroyPool(m_logicalDevice->GetVmaAllocator(), m_vertexBufPool);
-    // vmaDestroyPool(m_logicalDevice->GetVmaAllocator(), m_imagePool);
+    vmaDestroyPool(m_logicalDevice->GetVmaAllocator(), m_gltfImgPool);
 
     m_initialized = false;
 }

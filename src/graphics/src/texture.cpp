@@ -1,4 +1,5 @@
 #include "abstractions/buffer.hpp"
+#include "allocator.hpp"
 #include "asserts.hpp"
 #include "defines.hpp"
 #include "images.hpp"
@@ -68,8 +69,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
         bufferSize = gltfimage.image.size();
     }
 
-    VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
-
+    VkFormat           format = VK_FORMAT_R8G8B8A8_UNORM;
     VkFormatProperties formatProperties;
 
     width = gltfimage.width;
@@ -101,6 +101,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     createInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
     createInfo.flags = 0;
     createInfo.imageViewType = VK_IMAGE_VIEW_TYPE_2D;
+    createInfo.imagePool = Allocator::Get().GetglTFImagePool();
 
     Utils::CreateAllocatedImage(createInfo);
 
@@ -222,6 +223,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     samplerCreateInfo.addressModeW = textureSampler.addressModeW;
 
     CreateTextureImageSampler(samplerCreateInfo);
+
     if(deleteBuffer) { delete[] buffer; }
 }
 
@@ -273,7 +275,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         createInfo.height = height;
         createInfo.mipLevels = mipLevels;
         createInfo.layerCount = 1;
-        createInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+        createInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
         createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;

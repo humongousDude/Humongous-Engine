@@ -31,6 +31,7 @@ struct AllocatedImageCreateInfo
     VkImageAspectFlags    aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
     VkImageCreateFlags    flags = 0;
     VkImageViewType       imageViewType = VK_IMAGE_VIEW_TYPE_2D;
+    VmaPool               imagePool{VK_NULL_HANDLE};
 };
 
 struct ImageTransitionInfo

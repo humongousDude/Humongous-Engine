@@ -27,6 +27,8 @@ void VulkanApp::Init()
     m_physicalDevice = std::make_unique<PhysicalDevice>(*m_instance, *m_window);
     m_logicalDevice = std::make_unique<LogicalDevice>(*m_instance, *m_physicalDevice);
 
+    Allocator::Get().Initialize(m_logicalDevice.get());
+
     m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator());
 
     m_mainDeletionQueue.PushDeletor([&]() {
@@ -47,7 +49,7 @@ void VulkanApp::LoadGameObjects()
     std::shared_ptr<Model> model;
     // model = std::make_shared<Model>(m_logicalDevice.get(),
     //                                 "C:/dev/Coding/Github Repos/glTF-Sample-Assets/Models/ABeautifulGame/glTF/ABeautifulGame.gltf", 1);
-    model = std::make_shared<Model>(m_logicalDevice.get(), "models/employee.glb", 1);
+    model = std::make_shared<Model>(m_logicalDevice.get(), "models/old_hunter.glb", 1);
 
     GameObject obj = GameObject::CreateGameObject();
     obj.transform.translation = {0.0f, 0.0f, -1.0f};
@@ -91,8 +93,7 @@ void VulkanApp::Run()
 
         cam.SetPerspectiveProjection(glm::radians(90.0f), aspect, 0.1f, 1000.0f);
 
-        if(!m_window->IsFocused() || m_window->IsMinimized()) { std::this_thread::sleep_for(std::chrono::milliseconds(300)); }
-        else
+        if(!m_window->IsMinimized() && m_window->IsFocused())
         {
             if(auto cmd = m_renderer->BeginFrame())
             {

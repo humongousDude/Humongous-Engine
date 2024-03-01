@@ -74,6 +74,7 @@ void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
     VmaAllocationCreateInfo allocInfo{};
     allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    allocInfo.pool = createInfo.imagePool == VK_NULL_HANDLE ? nullptr : createInfo.imagePool;
 
     if(vmaCreateImage(createInfo.logicalDevice.GetVmaAllocator(), &imageInfo, &allocInfo, &createInfo.allocatedImage.image,
                       &createInfo.allocatedImage.allocation, nullptr) != VK_SUCCESS)
