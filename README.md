@@ -11,7 +11,7 @@ use Vulkan in a non tutorial environment, There will sometimes be a large number
 
 So, I'm sorry in advance about the speed of development.
 
-##You can view the projects Trello Here: https://trello.com/b/lc23IYtF/humongous-engine**
+**You can view the projects Trello Here: https://trello.com/b/lc23IYtF/humongous-engine**
 
 ###### also i'm like 14 so i have school lol.
 
