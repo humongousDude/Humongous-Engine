@@ -48,9 +48,6 @@ void main()
 {
     ShaderMaterial material = materials[push.materialIndex];
 
-    float perceptualRoughness;
-    float metallic;
-    vec3 diffuseColor;
     vec4 baseColor;
 
     if (material.baseColorTextureSet > -1) {

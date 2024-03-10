@@ -67,17 +67,16 @@ foreach(SHADER_FILE ${SHADER_FILES})
 
   message(STATUS "Stage: ${SHADER_STAGE}")
 
-  set(SPIRV_FILE ${CMAKE_CURRENT_BINARY_DIR}/compiledShaders/${SHADER_NAME}.spv
-  )# Place SPIR-V
-  # files in a shaders
+  set(SPIRV_FILE ${CMAKE_CURRENT_BINARY_DIR}/compiledShaders/${SHADER_NAME}.spv)
+  # Place SPIR-V files in a shaders directory
 
   add_custom_command(
-    PRE_BUILD TARGET main
-    COMMAND ${VULKAN_GLSLC} -fshader-stage=${SHADER_STAGE} ${SHADER_FILE} -g -o
-            ${SPIRV_FILE}
-    DEPENDS ${SHADER_FILE} FILE
-    COMMENT "Compiling ${SHADER_FILE} to ${SPIRV_FILE}\n"
+    OUTPUT ${SPIRV_FILE}
+    COMMAND ${VULKAN_GLSLC} -fshader-stage=${SHADER_STAGE} ${SHADER_FILE} -g -o ${SPIRV_FILE}
+    DEPENDS ${SHADER_FILE}
+    COMMENT "Compiling ${SHADER_FILE} to ${SPIRV_FILE}"
     VERBATIM)
+  list(APPEND SPIRV_FILES ${SPIRV_FILE})
 endforeach()
 
 add_custom_target(compile_shaders DEPENDS ${SPIRV_FILES})
