@@ -4,7 +4,9 @@
 #include <model.hpp>
 #include <string>
 #include <vector>
-#include
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include "glm/gtx/hash.hpp"
 
 namespace Humongous
 {

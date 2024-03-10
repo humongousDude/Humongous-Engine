@@ -16,7 +16,7 @@ SkyboxRenderSystem::SkyboxRenderSystem(LogicalDevice* logicalDevice, const std::
     InitSkybox();
 }
 
-SkyboxRenderSystem::~SkyboxRenderSystem() {}
+SkyboxRenderSystem::~SkyboxRenderSystem() { vkDestroyPipelineLayout(m_logicalDevice->GetVkDevice(), m_pipelineLayout, nullptr); }
 
 void SkyboxRenderSystem::InitDescriptors()
 {

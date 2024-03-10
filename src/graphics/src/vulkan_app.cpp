@@ -3,7 +3,6 @@
 #include "allocator.hpp"
 #include "camera.hpp"
 #include "model.hpp"
-#include "skybox.hpp"
 #include <keyboard_handler.hpp>
 #include <logger.hpp>
 #include <vulkan_app.hpp>
@@ -34,6 +33,7 @@ void VulkanApp::Init()
 
     m_mainDeletionQueue.PushDeletor([&]() {
         m_simpleRenderSystem.reset();
+        m_skyboxRenderSystem.reset();
         m_renderer.reset();
         Allocator::Get().Shutdown();
         m_logicalDevice.reset();
@@ -48,7 +48,6 @@ void VulkanApp::LoadGameObjects()
     HGINFO("Loading game objects...");
 
     std::shared_ptr<Model> model;
-    // model = std::make_shared<Model>(m_logicalDevice.get(), "C:/dev/Coding/Github Repos/glTF-Sample-Assets/Models/ABeautifulGame/glTF/ABeautifulGame.gltf", 1);
     model = std::make_shared<Model>(m_logicalDevice.get(), "models/old_hunter.glb", 1);
 
     GameObject obj = GameObject::CreateGameObject();
@@ -111,10 +110,10 @@ void VulkanApp::Run()
             if(auto cmd = m_renderer->BeginFrame())
             {
                 RenderData data{.commandBuffer = cmd,
-                                .frameIndex = m_renderer->GetFrameIndex(),
                                 .uboSets = {cam.GetDescriptorSet(m_renderer->GetFrameIndex())},
                                 .sceneSets = {cam.GetParamDescriptorSet(m_renderer->GetFrameIndex())},
-                                .gameObjects = m_gameObjects};
+                                .gameObjects = m_gameObjects,
+                                .frameIndex = m_renderer->GetFrameIndex()};
 
                 cam.UpdateUBO(m_renderer->GetFrameIndex(), viewerObject.transform.translation);
 
