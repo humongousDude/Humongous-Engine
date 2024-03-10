@@ -336,7 +336,6 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         width = static_cast<uint32_t>(texCube.extent().x);
         height = static_cast<uint32_t>(texCube.extent().y);
         mipLevels = static_cast<uint32_t>(texCube.levels());
-        mipLevels = 1;
 
         Buffer stagingBuffer{m_logicalDevice,
                              texCube.size(),
@@ -345,7 +344,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                              VMA_MEMORY_USAGE_CPU_TO_GPU};
         stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer((void*)texCube.data());
+        stagingBuffer.WriteToBuffer((u8*)texCube.data());
 
         std::vector<VkBufferImageCopy> bufferCopyRegions;
         size_t                         offset = 0;

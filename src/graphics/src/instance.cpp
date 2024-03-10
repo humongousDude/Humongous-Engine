@@ -5,6 +5,7 @@
 #include <vector>
 #include <vulkan/vk_enum_string_helper.h>
 
+
 namespace Humongous
 {
 // TODO: move this + the rest of the debug related stuff

@@ -11,7 +11,6 @@ SimpleRenderSystem::SimpleRenderSystem(LogicalDevice& logicalDevice, const std::
     CreateModelDescriptorSetLayout();
     CreatePipelineLayout(descriptorSetLayouts);
     CreatePipeline();
-    m_modelSets.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     HGINFO("Created simple render system");
 }
 
@@ -111,6 +110,9 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
     vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, renderData.uboSets.size(),
                             renderData.uboSets.data(), 0, nullptr);
 
+    vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 1, renderData.sceneSets.size(),
+                            renderData.sceneSets.data(), 0, nullptr);
+
     for(auto& [id, obj]: renderData.gameObjects)
     {
         if(!obj.model) { continue; }
@@ -125,7 +127,9 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
 
         obj.model->Init(m_descriptorSetLayouts.material.get(), m_descriptorSetLayouts.node.get(), m_descriptorSetLayouts.materialBuffers.get(),
                         m_imageSamplerPool.get(), m_uniformPool.get(), m_storagePool.get());
+
         obj.model->Draw(renderData.commandBuffer, m_pipelineLayout);
     }
 }
+
 } // namespace Humongous

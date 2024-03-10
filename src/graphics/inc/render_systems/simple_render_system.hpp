@@ -38,14 +38,10 @@ private:
 
     } m_descriptorSetLayouts;
 
+    // TODO: figure out a way to refactor model class to not need all these pools
     std::unique_ptr<DescriptorPoolGrowable> m_imageSamplerPool;
     std::unique_ptr<DescriptorPoolGrowable> m_uniformPool;
     std::unique_ptr<DescriptorPoolGrowable> m_storagePool;
-
-    // this is fucking ugly as sin. but i cant figure out any other way around this issue
-    // 3 maps, for each swapchain image. they're all basically copies, but we write to a different one
-    // to avoid writing a descriptor set thats pending
-    std::vector<std::unordered_map<u32, VkDescriptorSet>> m_modelSets;
 
     void CreateModelDescriptorSetPool();
     void CreateModelDescriptorSetLayout();

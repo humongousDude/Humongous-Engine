@@ -9,6 +9,7 @@ void Allocator::Initialize(LogicalDevice* logicalDevice)
     m_logicalDevice = logicalDevice;
 
     VkBufferCreateInfo bufInfo{};
+    bufInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     VmaAllocationCreateInfo bufAlloc{};
     bufAlloc.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -21,6 +22,7 @@ void Allocator::Initialize(LogicalDevice* logicalDevice)
     vmaCreatePool(m_logicalDevice->GetVmaAllocator(), &vertInfo, &m_vertexBufPool);
 
     VkImageCreateInfo gltfCI{};
+    gltfCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     gltfCI.imageType = VK_IMAGE_TYPE_2D;
     gltfCI.format = VK_FORMAT_R8G8B8A8_UNORM;
     gltfCI.extent.width = 1024;

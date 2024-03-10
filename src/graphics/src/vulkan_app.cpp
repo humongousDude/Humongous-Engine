@@ -2,9 +2,10 @@
 
 #include "allocator.hpp"
 #include "camera.hpp"
+#include "model.hpp"
+#include "skybox.hpp"
 #include <keyboard_handler.hpp>
 #include <logger.hpp>
-#include <thread>
 #include <vulkan_app.hpp>
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
@@ -47,8 +48,7 @@ void VulkanApp::LoadGameObjects()
     HGINFO("Loading game objects...");
 
     std::shared_ptr<Model> model;
-    // model = std::make_shared<Model>(m_logicalDevice.get(),
-    //                                 "C:/dev/Coding/Github Repos/glTF-Sample-Assets/Models/ABeautifulGame/glTF/ABeautifulGame.gltf", 1);
+    // model = std::make_shared<Model>(m_logicalDevice.get(), "C:/dev/Coding/Github Repos/glTF-Sample-Assets/Models/ABeautifulGame/glTF/ABeautifulGame.gltf", 1);
     model = std::make_shared<Model>(m_logicalDevice.get(), "models/old_hunter.glb", 1);
 
     GameObject obj = GameObject::CreateGameObject();
@@ -59,6 +59,17 @@ void VulkanApp::LoadGameObjects()
     obj.model = model;
 
     m_gameObjects.emplace(obj.GetId(), std::move(obj));
+
+    std::shared_ptr<Model> employeeModel = std::make_unique<Model>(m_logicalDevice.get(), "models/employee.glb", 1);
+
+    GameObject obj2 = GameObject::CreateGameObject();
+    obj2.transform.translation = {2.0f, 0.0f, -1.0f};
+    obj2.transform.rotation = {glm::radians(-90.f), 0, 0};
+    obj2.transform.scale = {001.0f, 001.0f, 001.0f};
+
+    obj2.model = employeeModel;
+
+    m_gameObjects.emplace(obj2.GetId(), std::move(obj2));
 
     HGINFO("Loaded game objects");
     m_mainDeletionQueue.PushDeletor([&]() { m_gameObjects.clear(); });
@@ -71,9 +82,11 @@ void VulkanApp::Run()
     float aspect = m_renderer->GetAspectRatio();
     cam.SetViewTarget(glm::vec3(-1.0f, -2.0f, -2.0f), glm::vec3(0.0f, 0.0f, 2.5f));
 
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {cam.GetDescriptorSetLayout(), cam.GetParamDescriptorSetLayout()};
+    std::vector<VkDescriptorSetLayout> simpleLayouts = {cam.GetDescriptorSetLayout(), cam.GetParamDescriptorSetLayout()};
+    std::vector<VkDescriptorSetLayout> skyboxLayouts = {cam.GetDescriptorSetLayout()};
 
-    m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, descriptorSetLayouts);
+    m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, simpleLayouts);
+    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(m_logicalDevice.get(), "textures/papermill.ktx", skyboxLayouts);
 
     GameObject viewerObject = GameObject::CreateGameObject();
     viewerObject.transform.translation.z = -2.5f;
@@ -97,20 +110,20 @@ void VulkanApp::Run()
         {
             if(auto cmd = m_renderer->BeginFrame())
             {
-                RenderData data{cmd,
-                                {cam.GetDescriptorSet(m_renderer->GetFrameIndex()), cam.GetParamDescriptorSet(m_renderer->GetFrameIndex())},
-                                {cam.GetDescriptorSet(m_renderer->GetFrameIndex()), cam.GetParamDescriptorSet(m_renderer->GetFrameIndex())},
-                                m_gameObjects,
-                                m_renderer->GetFrameIndex()};
+                RenderData data{.commandBuffer = cmd,
+                                .frameIndex = m_renderer->GetFrameIndex(),
+                                .uboSets = {cam.GetDescriptorSet(m_renderer->GetFrameIndex())},
+                                .sceneSets = {cam.GetParamDescriptorSet(m_renderer->GetFrameIndex())},
+                                .gameObjects = m_gameObjects};
 
                 cam.UpdateUBO(m_renderer->GetFrameIndex(), viewerObject.transform.translation);
 
                 m_renderer->BeginRendering(cmd);
 
+                m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
                 m_simpleRenderSystem->RenderObjects(data);
 
                 m_renderer->EndRendering(cmd);
-
                 m_renderer->EndFrame();
             }
         }
