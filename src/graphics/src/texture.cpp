@@ -373,7 +373,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = *m_logicalDevice, .allocatedImage = m_textureImage};
         createInfo.layerCount = 6;
         createInfo.mipLevels = mipLevels;
-        createInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+        createInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
