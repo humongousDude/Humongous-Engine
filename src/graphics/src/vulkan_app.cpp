@@ -5,6 +5,7 @@
 #include "model.hpp"
 #include <keyboard_handler.hpp>
 #include <logger.hpp>
+#include <thread>
 #include <vulkan_app.hpp>
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
@@ -16,9 +17,97 @@ VulkanApp::VulkanApp()
 {
     Init();
     LoadGameObjects();
+    InitAudio();
 }
 
 VulkanApp::~VulkanApp() { m_mainDeletionQueue.Flush(); }
+
+void VulkanApp::InitAudio()
+{
+    // OpenAL setup
+    device = alcOpenDevice(nullptr);
+    if(!device)
+    {
+        HGERROR("Failed to open OpenAL device");
+        return;
+    }
+
+    context = alcCreateContext(device, nullptr);
+    alcMakeContextCurrent(context);
+
+    if(!context)
+    {
+        HGERROR("Failed to create OpenAL context");
+        alcCloseDevice(device);
+        return;
+    }
+
+    m_mainDeletionQueue.PushDeletor([&]() {
+        alcMakeContextCurrent(nullptr);
+        alcDestroyContext(context);
+        alcCloseDevice(device);
+    });
+}
+
+void VulkanApp::PlaySoundOnMainThread() { PlaySound(); }
+
+void VulkanApp::PlaySoundOnDifferentThread()
+{
+    m_audioThread = std::thread{&VulkanApp::PlaySound, this};
+    m_audioThread.detach();
+}
+
+void VulkanApp::PlaySound()
+{
+    // Open sound file using libsndfile
+    const char* filename = "sfx/test.wav";
+    SF_INFO     sfInfo;
+    SNDFILE*    sndFile = sf_open(filename, SFM_READ, &sfInfo);
+    if(!sndFile)
+    {
+        HGERROR("Failed to open sound file: %s", filename);
+        return;
+    }
+
+    // Read sound data from file
+    std::vector<ALshort> samples(sfInfo.frames * sfInfo.channels);
+    sf_readf_short(sndFile, samples.data(), sfInfo.frames);
+
+    // Close the file
+    sf_close(sndFile);
+
+    // Generate OpenAL buffer
+    ALuint buffer;
+    alGenBuffers(1, &buffer);
+    checkALError("alGenBuffers");
+
+    // Fill buffer with sound data
+    alBufferData(buffer, (sfInfo.channels == 2) ? AL_FORMAT_STEREO16 : AL_FORMAT_MONO16, samples.data(), samples.size() * sizeof(ALshort),
+                 sfInfo.samplerate);
+    checkALError("alBufferData");
+
+    // Generate OpenAL source
+    ALuint source;
+    alGenSources(1, &source);
+    checkALError("alGenSources");
+
+    // Attach buffer to source
+    alSourcei(source, AL_BUFFER, buffer);
+    checkALError("alSourcei");
+
+    // Play the sound
+    alSourcePlay(source);
+    checkALError("alSourcePlay");
+
+    // Wait for the sound to finish playing
+    ALint sourceState;
+    do {
+        alGetSourcei(source, AL_SOURCE_STATE, &sourceState);
+    } while(sourceState == AL_PLAYING && !m_quit);
+
+    alDeleteSources(1, &source);
+    alDeleteBuffers(1, &buffer);
+}
 
 void VulkanApp::Init()
 {
@@ -48,12 +137,12 @@ void VulkanApp::LoadGameObjects()
     HGINFO("Loading game objects...");
 
     std::shared_ptr<Model> model;
-    model = std::make_shared<Model>(m_logicalDevice.get(), "models/old_hunter.glb", 1);
+    model = std::make_shared<Model>(m_logicalDevice.get(), "models/xeno_raven.glb", 0.1);
 
     GameObject obj = GameObject::CreateGameObject();
     obj.transform.translation = {0.0f, 0.0f, -1.0f};
     obj.transform.rotation = {glm::radians(180.0f), 0, 0};
-    obj.transform.scale = {001.0f, 001.0f, 001.0f};
+    obj.transform.scale = {0.01f, 0.01f, 0.01f};
 
     obj.model = model;
 
@@ -93,6 +182,8 @@ void VulkanApp::Run()
 
     KeyboardHandler handler{};
 
+    PlaySoundOnDifferentThread();
+
     HGINFO("Running...");
     while(!m_window->ShouldWindowClose())
     {
@@ -127,6 +218,7 @@ void VulkanApp::Run()
             }
         }
     }
+    m_quit = true;
     vkDeviceWaitIdle(m_logicalDevice->GetVkDevice());
 
     HGINFO("Quitting...");

@@ -20,14 +20,16 @@ So, I'm sorry in advance about the speed of development.
 * CMake
 * Ninja
 
+
 ## Libraries used:
 * GLFW3
 * GLM
 * VMA
-* ImGui
-* FastGLTF
+* ImGui (not currently used, but plan to)
+* TinyGLTF 
 * GLI 
 * Boost.log
+* OpenAL
 
 
 ## To Build

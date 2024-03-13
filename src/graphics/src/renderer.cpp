@@ -73,7 +73,6 @@ void Renderer::InitImagesAndViews()
 
     VkExtent3D drawImageExtent = {m_window.GetExtent().width, m_window.GetExtent().height, 1};
 
-    // hardcoding the draw format to 32 bit float
     m_drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
     m_drawImage.imageExtent = drawImageExtent;
 

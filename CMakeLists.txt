@@ -28,6 +28,12 @@ target_link_libraries(main PRIVATE glm::glm)
 find_package(fmt CONFIG REQUIRED)
 target_link_libraries(main PRIVATE fmt::fmt)
 
+find_package(OpenAL CONFIG REQUIRED)
+target_link_libraries(main PRIVATE OpenAL::OpenAL)
+
+find_package(SndFile CONFIG REQUIRED)
+target_link_libraries(main PRIVATE SndFile::sndfile)
+
 # find_package(imgui CONFIG REQUIRED) target_link_libraries(main PRIVATE
 # imgui::imgui)
 
@@ -72,7 +78,8 @@ foreach(SHADER_FILE ${SHADER_FILES})
 
   add_custom_command(
     OUTPUT ${SPIRV_FILE}
-    COMMAND ${VULKAN_GLSLC} -fshader-stage=${SHADER_STAGE} ${SHADER_FILE} -g -o ${SPIRV_FILE}
+    COMMAND ${VULKAN_GLSLC} -fshader-stage=${SHADER_STAGE} ${SHADER_FILE} -g -o
+            ${SPIRV_FILE}
     DEPENDS ${SHADER_FILE}
     COMMENT "Compiling ${SHADER_FILE} to ${SPIRV_FILE}"
     VERBATIM)

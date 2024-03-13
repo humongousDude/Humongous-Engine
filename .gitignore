@@ -36,6 +36,7 @@
 build/*
 !build/textures
 !build/models
+!build/sfx
 
 \.cache/*
 compile_commands.json
