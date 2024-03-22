@@ -2,39 +2,56 @@
 
 namespace Humongous
 {
-
-void KeyboardHandler::MoveInPlaneXZ(GLFWwindow* window, float dt, GameObject& gameObject)
+void KeyboardHandler::ProcessInput(const InputData& inputData)
 {
     glm::vec3 rotate{0};
-    if(glfwGetKey(window, keys.lookRight) == GLFW_PRESS) { rotate.y += 1.0f; }
-    if(glfwGetKey(window, keys.lookLeft) == GLFW_PRESS) { rotate.y -= 1.0f; }
-    if(glfwGetKey(window, keys.lookUp) == GLFW_PRESS) { rotate.x += 1.0f; }
-    if(glfwGetKey(window, keys.lookDown) == GLFW_PRESS) { rotate.x -= 1.0f; }
+    glm::vec3 moveDir{0.0f};
+    rotate.x -= (inputData.mouseDeltaY * lookSpeed);
+    rotate.y += (inputData.mouseDeltaX * lookSpeed);
 
     if(glm::dot(rotate, rotate) > std::numeric_limits<float>::epsilon())
     {
-        gameObject.transform.rotation += lookSpeed * dt * glm::normalize(rotate);
+        inputData.gameObject.transform.rotation += inputData.frameTime * rotate;
     }
 
-    gameObject.transform.rotation.x = glm::clamp(gameObject.transform.rotation.x, -1.5f, 1.5f);
-    gameObject.transform.rotation.y = glm::mod(gameObject.transform.rotation.y, glm::two_pi<float>());
+    inputData.gameObject.transform.rotation.x = glm::clamp(inputData.gameObject.transform.rotation.x, -1.5f, 1.5f);
+    inputData.gameObject.transform.rotation.y = glm::mod(inputData.gameObject.transform.rotation.y, glm::two_pi<float>());
 
-    float           yaw = gameObject.transform.rotation.y;
-    const glm::vec3 forwardDir(sin(yaw), 0.0f, cos(yaw));
-    const glm::vec3 rightDir(forwardDir.z, 0.0f, -forwardDir.x);
-    const glm::vec3 upDir{0.0f, -1.0f, 0.0f};
+    float yaw = inputData.gameObject.transform.rotation.y;
+    float pitch = -inputData.gameObject.transform.rotation.x; // Assuming pitch is stored in x
 
-    glm::vec3 moveDir{0.0f};
-    if(glfwGetKey(window, keys.moveForward) == GLFW_PRESS) { moveDir += forwardDir; }
-    if(glfwGetKey(window, keys.moveBackward) == GLFW_PRESS) { moveDir -= forwardDir; }
-    if(glfwGetKey(window, keys.moveLeft) == GLFW_PRESS) { moveDir -= rightDir; }
-    if(glfwGetKey(window, keys.moveRight) == GLFW_PRESS) { moveDir += rightDir; }
-    if(glfwGetKey(window, keys.moveUp) == GLFW_PRESS) { moveDir += upDir; }
-    if(glfwGetKey(window, keys.moveDown) == GLFW_PRESS) { moveDir -= upDir; }
+    const glm::vec3 forwardDir(cos(pitch) * sin(yaw), sin(pitch), cos(pitch) * cos(yaw));
+
+    const glm::vec3 rightDir = glm::normalize(glm::cross(forwardDir, glm::vec3(0.0f, -1.0f, 0.0f)));
+    const glm::vec3 upDir = glm::cross(rightDir, forwardDir);
+
+    switch(inputData.movementType)
+    {
+        case Movements::FORWARD:
+            moveDir += forwardDir;
+            break;
+        case Movements::BACKWARD:
+            moveDir -= forwardDir;
+            break;
+        case Movements::LEFT:
+            moveDir -= rightDir;
+            break;
+        case Movements::RIGHT:
+            moveDir += rightDir;
+            break;
+        case Movements::UP:
+            moveDir += upDir;
+            break;
+        case Movements::DOWN:
+            moveDir -= upDir;
+            break;
+        default:
+            break;
+    }
 
     if(glm::dot(moveDir, moveDir) > std::numeric_limits<float>::epsilon())
     {
-        gameObject.transform.translation += moveSpeed * dt * glm::normalize(moveDir);
+        inputData.gameObject.transform.translation += moveSpeed * inputData.frameTime * glm::normalize(moveDir);
     }
 }
 }; // namespace Humongous

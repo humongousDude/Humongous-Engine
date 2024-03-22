@@ -1,5 +1,6 @@
 #pragma once
 
+#include "abstractions/descriptor_pool.hpp"
 #include "render_systems/simple_render_system.hpp"
 #include "render_systems/skybox_render_system.hpp"
 #include "window.hpp"
@@ -10,12 +11,6 @@
 #include <memory>
 #include <physical_device.hpp>
 #include <swapchain.hpp>
-
-#include "logger.hpp"
-#include <AL/al.h>
-#include <AL/alc.h>
-#include <sndfile.h>
-#include <thread>
 
 namespace Humongous
 {
@@ -50,30 +45,14 @@ private:
     std::unique_ptr<Renderer>           m_renderer;
     std::unique_ptr<SimpleRenderSystem> m_simpleRenderSystem;
     std::unique_ptr<SkyboxRenderSystem> m_skyboxRenderSystem;
-    std::thread                         m_audioThread;
-
-    bool m_quit = false;
+    std::unique_ptr<DescriptorPool>     m_imguiPool;
+    bool                                m_quit = false;
 
     GameObject::Map m_gameObjects;
 
     void Init();
     void LoadGameObjects();
 
-    ALCcontext* context;
-    ALCdevice*  device;
-
-    void InitAudio();
-
-    void PlaySoundOnDifferentThread();
-    void PlaySoundOnMainThread();
-
-    // called from above 2 funcs, 1 with diff thread other on main thread
-    void PlaySound();
-
-    void checkALError(const char* message)
-    {
-        ALenum error = alGetError();
-        if(error != AL_NO_ERROR) { HGERROR("OpenAL error ( %s ): %s", message, alGetString(error)); }
-    }
+    void HandleInput(float frameTime, GameObject& viewerObject);
 };
 } // namespace Humongous

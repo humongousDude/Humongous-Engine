@@ -565,11 +565,42 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         std::vector<Primitive*> empty{};
         materialBatches.emplace(index, empty);
     }
+
     // Push a default material at the end of the list for meshes with no material assigned
     materials.push_back(Material());
 
     std::vector<Primitive*> empt{};
     materialBatches.emplace(materialBatches.size(), empt);
+
+    // doesn't work
+
+    // std::vector<Material>::iterator it;
+    // for(it = materials.begin(); it != materials.end();)
+    // {
+    //     if(it->alphaMode == Material::ALPHAMODE_MASK || it->alphaMode == Material::ALPHAMODE_BLEND)
+    //     {
+    //         auto mov = std::move(*it);
+    //
+    //         // it = materials.erase(it);
+    //         auto nextIt = std::next(it);
+    //         std::rotate(it, nextIt, materials.end());
+    //
+    //         u32 oldIndex = mov.index;
+    //         u32 newIndex = materials.size() - 1;
+    //
+    //         mov.index = newIndex;
+    //
+    //         auto itBatch = materialBatches.find(oldIndex);
+    //         if(itBatch != materialBatches.end())
+    //         {
+    //             materialBatches[newIndex] = std::move(itBatch->second);
+    //             materialBatches.erase(itBatch);
+    //         }
+    //
+    //         it = nextIt;
+    //     }
+    //     else { ++it; }
+    // }
 }
 
 void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue transferQueue, float scale)

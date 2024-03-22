@@ -1,8 +1,7 @@
 #pragma once
 
+#include "logical_device.hpp"
 #include "non_copyable.hpp"
-#include <logical_device.hpp>
-#include <span>
 
 namespace Humongous
 
@@ -26,7 +25,7 @@ public:
 private:
     LogicalDevice&   m_logicalDevice;
     VkDescriptorPool GetPool(LogicalDevice& logicalDevice);
-    VkDescriptorPool CreatePool(LogicalDevice& logicalDevice, u32 setCount, std::span<VkDescriptorType> poolTypes) const;
+    VkDescriptorPool CreatePool(LogicalDevice& logicalDevice, u32 setCount, std::vector<VkDescriptorType> poolTypes) const;
 
     std::vector<VkDescriptorType> m_poolTypes;
     std::vector<VkDescriptorPool> m_fullPools, m_readyPools;

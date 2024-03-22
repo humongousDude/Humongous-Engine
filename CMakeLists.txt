@@ -1,17 +1,21 @@
 cmake_minimum_required(VERSION 3.26)
-project(frfrthistime)
+project(HumongousEngine)
 
 file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS src/*.cpp)
 
 add_compile_definitions(HGASSERTIONS_ENABLED)
+
+set(VCPKG_ROOT $ENV{VCPKG_ROOT})
 
 add_executable(main src/main.cpp ${SRCS})
 
 target_include_directories(main PUBLIC src/core/inc src/gameplay/inc
                                        src/graphics/inc src/utils/inc)
 
-find_package(glfw3 REQUIRED)
-target_link_libraries(main PRIVATE glfw)
+set(VCPKG_TARGET_TRIPLET
+    "x64-windows"
+    CACHE STRING "Vcpkg triplet" FORCE)
+include("${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
 
 find_package(Vulkan)
 target_link_libraries(main PRIVATE Vulkan::Vulkan)
@@ -22,20 +26,16 @@ target_link_libraries(main PRIVATE Vulkan::Headers
 
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 
+set(VCPKG_TARGET_TRIPLET
+    "x64-windows-static"
+    CACHE STRING "Vcpkg triplet" FORCE)
+include("${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+
+find_package(glfw3 REQUIRED)
+target_link_libraries(main PRIVATE glfw)
+
 find_package(glm CONFIG REQUIRED)
 target_link_libraries(main PRIVATE glm::glm)
-
-find_package(fmt CONFIG REQUIRED)
-target_link_libraries(main PRIVATE fmt::fmt)
-
-find_package(OpenAL CONFIG REQUIRED)
-target_link_libraries(main PRIVATE OpenAL::OpenAL)
-
-find_package(SndFile CONFIG REQUIRED)
-target_link_libraries(main PRIVATE SndFile::sndfile)
-
-# find_package(imgui CONFIG REQUIRED) target_link_libraries(main PRIVATE
-# imgui::imgui)
 
 find_path(TINYGLTF_INCLUDE_DIRS "tiny_gltf.h")
 target_include_directories(main PRIVATE ${TINYGLTF_INCLUDE_DIRS})
@@ -45,6 +45,9 @@ target_link_libraries(main PRIVATE gli)
 
 find_package(Boost REQUIRED COMPONENTS log)
 target_link_libraries(main PRIVATE Boost::boost Boost::log)
+
+find_package(imgui CONFIG REQUIRED)
+target_link_libraries(main PRIVATE imgui::imgui)
 
 # Collect shader files
 file(GLOB SHADER_FILES CONFIGURE_DEPENDS shaders/*.glsl)

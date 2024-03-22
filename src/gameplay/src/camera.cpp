@@ -3,7 +3,6 @@
 #include <camera.hpp>
 
 #include <swapchain.hpp>
-#include <vulkan/vk_enum_string_helper.h>
 
 namespace Humongous
 {

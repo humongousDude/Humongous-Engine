@@ -1,13 +1,10 @@
+#include "images.hpp"
 #include "logger.hpp"
-#include <images.hpp>
-#include <vulkan/vk_enum_string_helper.h>
 
 namespace Humongous
 {
 namespace Utils
-
 {
-
 void CreateAllocatedImage(LogicalDevice& logicalDevice, u32 width, u32 height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
                           VkMemoryPropertyFlags properties, AllocatedImage& allocatedImage, VkImageAspectFlags aspectFlags)
 {

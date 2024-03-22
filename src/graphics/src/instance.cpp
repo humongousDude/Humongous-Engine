@@ -1,35 +1,29 @@
-#include <cstring>
-#include <fmt/core.h>
 #include <instance.hpp>
 #include <logger.hpp>
 #include <vector>
 #include <vulkan/vk_enum_string_helper.h>
-
 
 namespace Humongous
 {
 // TODO: move this + the rest of the debug related stuff
 // to a utils file or maybe to core
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
-                                                    VkDebugUtilsMessageTypeFlagsEXT             messageType,
-                                                    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
+                                                    vk::DebugUtilsMessageTypeFlagsEXT             messageType,
+                                                    const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 {
     switch(messageSeverity)
     {
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-            HGERROR("VALIDATION TYPE: %s\n VALIDATION MESSAGE: %s\n", string_VkDebugUtilsMessageTypeFlagsEXT(messageType).c_str(),
-                    pCallbackData->pMessage);
+        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
+            HGERROR("VALIDATION TYPE: %s\n VALIDATION MESSAGE: %s\n", vk::to_string(messageType).c_str(), pCallbackData->pMessage);
             break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-            HGWARN("VALIDATION TYPE: %s\n VALIDATION MESSAGE: %s\n", string_VkDebugUtilsMessageTypeFlagsEXT(messageType).c_str(),
-                   pCallbackData->pMessage);
+        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
+            HGWARN("VALIDATION TYPE: %s\n VALIDATION MESSAGE: %s\n", vk::to_string(messageType).c_str(), pCallbackData->pMessage);
             break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-            HGINFO("VALIDATION TYPE: %s\n VALIDATION MESSAGE: %s\n", string_VkDebugUtilsMessageTypeFlagsEXT(messageType).c_str(),
-                   pCallbackData->pMessage);
+        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo:
+            HGINFO("VALIDATION TYPE: %s\n VALIDATION MESSAGE: %s\n", vk::to_string(messageType).c_str(), pCallbackData->pMessage);
             break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:
         default:
             break;
     }
@@ -37,23 +31,24 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityF
     return VK_FALSE;
 }
 
-VkResult CreateDebugUtilsMessengerEXT(VkInstance m_instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
                                       const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
 {
-    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT");
-    if(func != nullptr) { return func(m_instance, pCreateInfo, pAllocator, pDebugMessenger); }
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    if(func != nullptr) { return func(instance, pCreateInfo, pAllocator, pDebugMessenger); }
     else { return VK_ERROR_EXTENSION_NOT_PRESENT; }
 }
 
-void DestroyDebugUtilsMessengerEXT(VkInstance m_instance, VkDebugUtilsMessengerEXT m_debugMessenger, const VkAllocationCallbacks* pAllocator)
+void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
 {
-    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance, "vkDestroyDebugUtilsMessengerEXT");
-    if(func != nullptr) { func(m_instance, m_debugMessenger, pAllocator); }
+    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    if(func != nullptr) { func(instance, debugMessenger, pAllocator); }
 }
 
 Instance::Instance()
 {
     InitInstance();
+    HGDEBUG("GOT HERE %d, %s", __LINE__, __FILE__);
     SetupDebugMessenger();
 }
 
@@ -71,26 +66,26 @@ void Instance::InitInstance()
 
     HGINFO("Initializing Vulkan Instance!");
 
-    VkApplicationInfo appInfo{};
-    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "VulkanOnMyOwn";
+    vk::ApplicationInfo appInfo{};
+    appInfo.sType = vk::StructureType::eApplicationInfo;
+    appInfo.pApplicationName = "HumongousEngine";
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.pEngineName = "Humongous";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion = VK_API_VERSION_1_3;
 
-    VkInstanceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    vk::InstanceCreateInfo createInfo{};
+    createInfo.sType = vk::StructureType::eInstanceCreateInfo;
     createInfo.pApplicationInfo = &appInfo;
 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-    if(ENABLE_VALIDATION_LAYERS)
+    if(!ENABLE_VALIDATION_LAYERS)
     {
         createInfo.enabledLayerCount = static_cast<u32>(m_validationLayers.size());
         createInfo.ppEnabledLayerNames = m_validationLayers.data();
 
         PopulateDebugMessengerCreateInfo(debugCreateInfo);
-        createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+        createInfo.pNext = static_cast<VkDebugUtilsMessengerCreateInfoEXT*>(&debugCreateInfo);
     }
     else
     {
@@ -98,21 +93,27 @@ void Instance::InitInstance()
         createInfo.pNext = nullptr;
     }
 
+    if(debugCreateInfo.pfnUserCallback != nullptr) { HGDEBUG("me no sad"); }
+
     auto extensions = GetRequiredExtensions();
 
     createInfo.enabledExtensionCount = static_cast<u32>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
 
     u32 extensionCount = 0;
-    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-    std::vector<VkExtensionProperties> extensionProperties(extensionCount);
-    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensionProperties.data());
 
-    fmt::print("Available extensions:\n");
+    vk::Result res = vk::enumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+    if(res != vk::Result::eSuccess) {}
 
-    for(const auto& extension: extensionProperties) { fmt::print("\t{}\n", extension.extensionName); }
+    std::vector<vk::ExtensionProperties> extensionProperties(extensionCount);
 
-    if(vkCreateInstance(&createInfo, nullptr, &m_instance) != VK_SUCCESS)
+    res = vk::enumerateInstanceExtensionProperties(nullptr, &extensionCount, extensionProperties.data());
+
+    HGINFO("Available extensions:\n");
+
+    for(const auto& extension: extensionProperties) { HGINFO("\t%s", extension.extensionName); }
+
+    if(vk::createInstance(&createInfo, nullptr, &m_instance) != vk::Result::eSuccess)
     {
         HGFATAL("Failed to create vulkan instance! \nFile: %s, \nLine: %d", __FILE__, __LINE__);
     }
@@ -147,7 +148,7 @@ bool Instance::CheckValidationLayerSupport()
 std::vector<const char*> Instance::GetRequiredExtensions()
 {
     u32          glfwExtensionCount = 0;
-    const char** glfwExtensions;
+    const char** glfwExtensions = nullptr;
     glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
     std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
@@ -162,12 +163,15 @@ std::vector<const char*> Instance::GetRequiredExtensions()
 void Instance::SetupDebugMessenger()
 {
     if(!ENABLE_VALIDATION_LAYERS) { return; }
-    VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+    HGDEBUG("got here :( %d, %s", __LINE__, __func__);
+
+    VkDebugUtilsMessengerCreateInfoEXT createInfo;
     PopulateDebugMessengerCreateInfo(createInfo);
-    if(CreateDebugUtilsMessengerEXT(m_instance, &createInfo, nullptr, &m_debugMessenger) != VK_SUCCESS)
-    {
-        HGFATAL("Failed to set up debug messenger!");
-    }
+
+    // if(CreateDebugUtilsMessengerEXT(m_instance, &createInfo, nullptr, &m_debugMessenger) != VK_SUCCESS)
+    // {
+    //     HGFATAL("Failed to set up debug messenger!");
+    // }
 }
 
 void Instance::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
@@ -177,7 +181,10 @@ void Instance::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoE
                                  VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
     createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
                              VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-    createInfo.pfnUserCallback = debugCallback;
+    createInfo.flags = 0;
+    createInfo.pNext = nullptr;
+    createInfo.pUserData = nullptr;
+    // createInfo.pfnUserCallback = DebugCallback;
 }
 
 } // namespace Humongous

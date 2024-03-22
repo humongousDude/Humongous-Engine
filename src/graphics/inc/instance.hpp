@@ -6,7 +6,8 @@
 #include <vector>
 
 #include <GLFW/glfw3.h>
-#include <vulkan/vulkan_core.h>
+// #include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.hpp>
 
 namespace Humongous
 {
@@ -17,15 +18,15 @@ public:
     Instance();
     ~Instance();
 
-    VkInstance GetVkInstance() const { return m_instance; };
+    vk::Instance GetVkInstance() const { return m_instance; };
 
     bool                     IsValidationLayerEnabled() const { return ENABLE_VALIDATION_LAYERS; };
     std::vector<const char*> GetValidationLayers() const { return m_validationLayers; };
 
 private:
-    VkInstance m_instance;
+    vk::Instance m_instance;
 
-    VkDebugUtilsMessengerEXT       m_debugMessenger;
+    vk::DebugUtilsMessengerEXT     m_debugMessenger{VK_NULL_HANDLE};
     const std::vector<const char*> m_validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
 #ifndef _DEBUG

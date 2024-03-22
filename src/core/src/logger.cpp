@@ -3,7 +3,6 @@
 
 // TODO: temp
 #include <cstdio>
-#include <fmt/core.h>
 #include <stdarg.h>
 #include <string>
 

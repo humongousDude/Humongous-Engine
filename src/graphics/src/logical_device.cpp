@@ -34,6 +34,8 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     PhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 
     HGASSERT(indices.IsComplete() && "Incomplete queue family indices!");
+    m_graphicsQueueIndex = indices.graphicsFamily.value();
+    m_presentQueueIndex = indices.presentFamily.value();
 
     // vulkan 1.2 features
     VkPhysicalDeviceVulkan12Features vulkan12Features{};
@@ -57,9 +59,9 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
 
     auto queueCreateInfos = CreateQueues(physicalDevice);
 
-    // TODO: make queue creation(specifically the aqcuisition of information required for queue creation and aqcuisiton) not fucking ass
+    // TODO: make queue creation(specifically the acquisition of information required for queue creation and acquisition) not atrocious
     // this also includes the CreateQueues() func, because what it does doesn't match its name
-    // ps. also look at the calls tovkGetDeviceQueue2, maybe it can be made better
+    // ps. also look at the calls to vkGetDeviceQueue2, maybe it can be made better
     //
     // cant be bothered to fix this right now
 

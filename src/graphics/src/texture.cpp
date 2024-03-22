@@ -4,7 +4,6 @@
 #include "defines.hpp"
 #include "images.hpp"
 #include "logger.hpp"
-#include <vulkan/vk_enum_string_helper.h>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <gli/texture.hpp>

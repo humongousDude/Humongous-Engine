@@ -1,7 +1,5 @@
 #include "logger.hpp"
 #include <abstractions/descriptor_pool_growable.hpp>
-#include <span>
-#include <vulkan/vk_enum_string_helper.h>
 
 namespace Humongous
 {
@@ -53,7 +51,6 @@ bool DescriptorPoolGrowable::AllocateDescriptor(const VkDescriptorSetLayout desc
         if(result != VK_SUCCESS)
         {
             HGERROR("Completely failed to allocate a descriptor set, failing");
-            HGERROR("Cause: %s", string_VkResult(result));
             HGERROR("Error Code: %d", result);
             return false;
         }
@@ -99,7 +96,7 @@ VkDescriptorPool DescriptorPoolGrowable::GetPool(LogicalDevice& logicalDevice)
     return newPool;
 }
 
-VkDescriptorPool DescriptorPoolGrowable::CreatePool(LogicalDevice& logicalDevice, u32 setCount, std::span<VkDescriptorType> poolTypes) const
+VkDescriptorPool DescriptorPoolGrowable::CreatePool(LogicalDevice& logicalDevice, u32 setCount, std::vector<VkDescriptorType> poolTypes) const
 {
     std::vector<VkDescriptorPoolSize> poolSizes;
     for(VkDescriptorType type: poolTypes) { poolSizes.push_back({type, setCount}); }

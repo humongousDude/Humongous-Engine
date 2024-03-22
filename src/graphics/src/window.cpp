@@ -12,6 +12,22 @@ Window::~Window()
     HGINFO("Destroyed window and terminated GLFW");
 }
 
+// clang: disable
+
+void Window::HideCursor()
+{
+    glfwSetCursorPos(window, width / 2, height / 2);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    m_cursorHidden = true;
+}
+
+void Window::ShowCursor()
+{
+    glfwSetCursorPos(window, width / 2, height / 2);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    m_cursorHidden = false;
+}
+
 void Window::CreateWindow()
 {
     glfwInit();

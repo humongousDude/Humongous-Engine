@@ -33,10 +33,10 @@ public:
     DescriptorPool& operator=(const DescriptorPool&) = delete;
 
     bool AllocateDescriptor(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptor) const;
-
     void FreeDescriptors(std::vector<VkDescriptorSet>& descriptors) const;
-
     void ResetPool();
+
+    VkDescriptorPool GetRawPoolHandle() const { return m_descriptorPool; }
 
 private:
     LogicalDevice&   m_logicalDevice;

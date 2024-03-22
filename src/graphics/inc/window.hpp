@@ -27,8 +27,14 @@ public:
     bool WasWindowResized() const { return m_wasWindowResizedFlag; }
     void ResetWindowResizedFlag() { m_wasWindowResizedFlag = false; }
 
+    void HideCursor();
+    void ShowCursor();
+
+    bool IsCursorHidden() { return m_cursorHidden; }
+
 private:
-    int width = 800, height = 600;
+    int  width = 800, height = 600;
+    bool m_cursorHidden = false;
 
     GLFWwindow* window = nullptr;
 

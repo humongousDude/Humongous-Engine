@@ -39,6 +39,8 @@ public:
     void BeginRendering(VkCommandBuffer commandBuffer);
     void EndRendering(VkCommandBuffer commandBuffer);
 
+    SwapChain* GetSwapChain() const { return m_swapChain.get(); }
+
 private:
     std::unique_ptr<SwapChain> m_swapChain = nullptr;
     Window&                    m_window;

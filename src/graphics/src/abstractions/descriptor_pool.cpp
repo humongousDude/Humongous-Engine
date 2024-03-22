@@ -1,6 +1,5 @@
 #include "logger.hpp"
 #include <abstractions/descriptor_pool.hpp>
-#include <vulkan/vk_enum_string_helper.h>
 
 namespace Humongous
 {

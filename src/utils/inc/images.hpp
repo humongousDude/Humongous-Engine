@@ -1,7 +1,7 @@
 #pragma once
 
 #include "defines.hpp"
-#include <logical_device.hpp>
+#include "logical_device.hpp"
 
 namespace Humongous
 {

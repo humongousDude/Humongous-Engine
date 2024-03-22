@@ -21,6 +21,9 @@ public:
     VkQueue GetGraphicsQueue() const { return m_graphicsQueue; }
     VkQueue GetPresentQueue() const { return m_presentQueue; }
 
+    u32 GetGraphicsQueueIndex() const {return m_graphicsQueueIndex;}
+    u32 GetPresentQueueIndex() const {return m_presentQueueIndex;}
+
     VmaAllocator GetVmaAllocator() const { return m_allocator; }
 
     VkCommandBuffer BeginSingleTimeCommands();
@@ -34,6 +37,8 @@ private:
 
     VkQueue m_graphicsQueue;
     VkQueue m_presentQueue;
+    u32 m_graphicsQueueIndex;
+    u32 m_presentQueueIndex;
 
     VmaAllocator m_allocator;
     // TODO: figure out a better way to manage VMAPools than this
