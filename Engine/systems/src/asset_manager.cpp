@@ -21,7 +21,7 @@ void AssetManager::Init()
         return;
     }
 
-    for(const auto& entry: fs::directory_iterator(assetDir))
+    for(const auto& entry: fs::recursive_directory_iterator(assetDir))
     {
         if(!entry.is_regular_file()) { continue; }
 
@@ -37,6 +37,10 @@ void AssetManager::Init()
         {
             m_modelMap.emplace(entry.path().stem().string(), entry.path().string());
         }
+        else if(strcmp(entry.path().extension().string().substr(1).c_str(), "ktx") == 0)
+        {
+            m_textureMap.emplace(entry.path().stem().string(), entry.path().string());
+        }
     }
 }
 
@@ -51,6 +55,13 @@ std::string AssetManager::GetAsset(const AssetType type, const std::string_view 
 
         case AssetType::MODEL:
             if(m_modelMap.find(static_cast<std::string>(asset)) != m_modelMap.end()) { return m_modelMap.at(static_cast<std::string>(asset)); }
+            else { return ""; }
+            break;
+        case AssetType::TEXTURE:
+            if(m_textureMap.find(static_cast<std::string>(asset)) != m_textureMap.end())
+            {
+                return m_textureMap.at(static_cast<std::string>(asset));
+            }
             else { return ""; }
             break;
     }

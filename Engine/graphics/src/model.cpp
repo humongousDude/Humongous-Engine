@@ -1,5 +1,6 @@
 #include "abstractions/descriptor_writer.hpp"
 #include "asserts.hpp"
+#include "asset_manager.hpp"
 #include <iostream>
 #include <logger.hpp>
 
@@ -424,7 +425,8 @@ void Model::LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, VkQu
         textures.push_back(texture);
     }
 
-    emptyTexture.CreateFromFile("textures/empty.ktx", device, Texture::ImageType::TEX2D);
+    emptyTexture.CreateFromFile(Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::TEXTURE, "empty"), device,
+                                Texture::ImageType::TEX2D);
 }
 
 void Model::LoadTextureSamplers(tinygltf::Model& gltfModel)

@@ -31,16 +31,12 @@
 *.out
 *.app
 
-.vscode/*
-
-build/*
-!build/textures
-!build/sfx
+.vscode
+Binaries
+Binaries-Release
 
 !*.glb
 *.spv
-
-!src/systems/*
 
 \.cache/*
 compile_commands.json

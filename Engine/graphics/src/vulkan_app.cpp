@@ -139,7 +139,7 @@ void VulkanApp::Run()
     std::vector<VkDescriptorSetLayout> skyboxLayouts = {cam.GetDescriptorSetLayout()};
 
     m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, simpleLayouts);
-    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(m_logicalDevice.get(), "textures/papermill.ktx", skyboxLayouts);
+    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(m_logicalDevice.get(), "papermill", skyboxLayouts);
 
     GameObject viewerObject = GameObject::CreateGameObject();
     viewerObject.transform.translation.z = -2.5f;

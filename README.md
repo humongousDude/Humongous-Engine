@@ -38,20 +38,14 @@ So, I'm sorry in advance about the speed of development.
 
 You need to install the above libraries with vcpkg first before trying to build
 
+**You may need to specify the vcpkg root location manually**
+
 First run
 ``` shell
 cmake . --preset <preset>
 ```
 
-**Available Presets**
-* debug-llvm-dynamic
-* release-llvm-dynamic
-* debug-llvm-static
-* release-llvm-static
-* debug-mingw-dynamic
-* release-mingw-dynamic
-* debug-mingw-static
-* release-mingw-static
+**<preset> is either "release" or "debug"**
 
 **To Install the libraries**
 

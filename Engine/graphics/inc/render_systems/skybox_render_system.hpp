@@ -32,6 +32,6 @@ private:
     void InitDescriptors();
     void CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& globalLayouts);
     void CreatePipeline();
-    void InitSkybox();
+    void InitSkybox(const std::string& skyBoxImgPath);
 };
 } // namespace Humongous

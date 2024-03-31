@@ -1,0 +1,6 @@
+only compiled shaders will be here.
+they will be added automatically.
+their source is the shaders directoy, in the same layer as the Assets directory
+
+if you want to add a custom shader, add it to the shaders directory.
+if you add any shaders in here yourself, they won't be automatically compiled, the asset manager will only detect compiled shaders

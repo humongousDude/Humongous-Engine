@@ -14,7 +14,8 @@ public:
     enum class AssetType
     {
         SHADER,
-        MODEL
+        MODEL,
+        TEXTURE
     };
 
     void Init();
@@ -25,6 +26,7 @@ public:
 private:
     std::unordered_map<std::string, std::string> m_shaderMap;
     std::unordered_map<std::string, std::string> m_modelMap;
+    std::unordered_map<std::string, std::string> m_textureMap;
 };
 
 } // namespace Systems

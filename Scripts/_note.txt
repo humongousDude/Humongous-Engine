@@ -1,0 +1,2 @@
+there are only windows .bat files here.
+I currently don't use Linux, but it shouldn't be too hard to translate them into bash

@@ -14,7 +14,7 @@ SkyboxRenderSystem::SkyboxRenderSystem(LogicalDevice* logicalDevice, const std::
     InitDescriptors();
     CreatePipelineLayout(globalLayouts);
     CreatePipeline();
-    InitSkybox();
+    InitSkybox(skyboxImgPath);
 }
 
 SkyboxRenderSystem::~SkyboxRenderSystem() { vkDestroyPipelineLayout(m_logicalDevice->GetVkDevice(), m_pipelineLayout, nullptr); }
@@ -66,10 +66,10 @@ void SkyboxRenderSystem::CreatePipeline()
     m_renderPipeline = std::make_unique<RenderPipeline>(*m_logicalDevice, ppCI);
 }
 
-void SkyboxRenderSystem::InitSkybox()
+void SkyboxRenderSystem::InitSkybox(const std::string& skyBoxImgPath)
 {
     SkyboxCreateInfo skyboxCI{.logicalDevice = m_logicalDevice,
-                              .cubemapPath = "textures/papermill.ktx",
+                              .cubemapPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::TEXTURE, skyBoxImgPath),
                               .descriptorSetLayout = *m_skyboxSetLayout,
                               .growablePool = *m_skyboxPool};
 
