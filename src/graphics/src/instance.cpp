@@ -8,22 +8,24 @@ namespace Humongous
 // TODO: move this + the rest of the debug related stuff
 // to a utils file or maybe to core
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
-                                                    vk::DebugUtilsMessageTypeFlagsEXT             messageType,
-                                                    const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
+                                                    VkDebugUtilsMessageTypeFlagsEXT             messageType,
+                                                    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 {
     switch(messageSeverity)
     {
-        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
-            HGERROR("VALIDATION TYPE: %s\n VALIDATION MESSAGE: %s\n", vk::to_string(messageType).c_str(), pCallbackData->pMessage);
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+            HGERROR("VALIDATION TYPE: %s\n VALIDATION MESSAGE: %s\n", string_VkDebugUtilsMessageSeverityFlagsEXT(messageType).c_str(),
+                    pCallbackData->pMessage);
             break;
-        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
-            HGWARN("VALIDATION TYPE: %s\n VALIDATION MESSAGE: %s\n", vk::to_string(messageType).c_str(), pCallbackData->pMessage);
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+            HGWARN("VALIDATION TYPE: %s\n VALIDATION MESSAGE: %s\n", string_VkDebugUtilsMessageSeverityFlagsEXT(messageType).c_str(),
+                   pCallbackData->pMessage);
             break;
-        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo:
-            HGINFO("VALIDATION TYPE: %s\n VALIDATION MESSAGE: %s\n", vk::to_string(messageType).c_str(), pCallbackData->pMessage);
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+            HGINFO("VALIDATION TYPE: %s\n VALIDATION MESSAGE: %s\n", string_VkDebugUtilsMessageSeverityFlagsEXT(messageType).c_str(),
+                   pCallbackData->pMessage);
             break;
-        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:
         default:
             break;
     }
@@ -79,7 +81,7 @@ void Instance::InitInstance()
     createInfo.pApplicationInfo = &appInfo;
 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-    if(!ENABLE_VALIDATION_LAYERS)
+    if(ENABLE_VALIDATION_LAYERS)
     {
         createInfo.enabledLayerCount = static_cast<u32>(m_validationLayers.size());
         createInfo.ppEnabledLayerNames = m_validationLayers.data();
@@ -168,10 +170,10 @@ void Instance::SetupDebugMessenger()
     VkDebugUtilsMessengerCreateInfoEXT createInfo;
     PopulateDebugMessengerCreateInfo(createInfo);
 
-    // if(CreateDebugUtilsMessengerEXT(m_instance, &createInfo, nullptr, &m_debugMessenger) != VK_SUCCESS)
-    // {
-    //     HGFATAL("Failed to set up debug messenger!");
-    // }
+    if(CreateDebugUtilsMessengerEXT(m_instance, &createInfo, nullptr, &m_debugMessenger) != VK_SUCCESS)
+    {
+        HGFATAL("Failed to set up debug messenger!");
+    }
 }
 
 void Instance::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
@@ -184,7 +186,7 @@ void Instance::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoE
     createInfo.flags = 0;
     createInfo.pNext = nullptr;
     createInfo.pUserData = nullptr;
-    // createInfo.pfnUserCallback = DebugCallback;
+    createInfo.pfnUserCallback = DebugCallback;
 }
 
 } // namespace Humongous

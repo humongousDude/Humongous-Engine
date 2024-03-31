@@ -21,8 +21,8 @@ public:
     VkQueue GetGraphicsQueue() const { return m_graphicsQueue; }
     VkQueue GetPresentQueue() const { return m_presentQueue; }
 
-    u32 GetGraphicsQueueIndex() const {return m_graphicsQueueIndex;}
-    u32 GetPresentQueueIndex() const {return m_presentQueueIndex;}
+    u32 GetGraphicsQueueIndex() const { return m_graphicsQueueIndex; }
+    u32 GetPresentQueueIndex() const { return m_presentQueueIndex; }
 
     VmaAllocator GetVmaAllocator() const { return m_allocator; }
 
@@ -37,18 +37,15 @@ private:
 
     VkQueue m_graphicsQueue;
     VkQueue m_presentQueue;
-    u32 m_graphicsQueueIndex;
-    u32 m_presentQueueIndex;
+    u32     m_graphicsQueueIndex;
+    u32     m_presentQueueIndex;
 
     VmaAllocator m_allocator;
-    // TODO: figure out a better way to manage VMAPools than this
-    VmaPool m_vmaPool = VK_NULL_HANDLE;
 
     VkCommandPool m_commandPool;
 
     void CreateLogicalDevice(Instance& instance, PhysicalDevice& physicalDevice);
     void CreateVmaAllocator(Instance& instance, PhysicalDevice& physicalDevice);
-    void CreateVmaPool(Instance& instance, PhysicalDevice& physicalDevice);
     void CreateCommandPool(PhysicalDevice& physicalDevice);
 
     std::vector<VkDeviceQueueInfo2> CreateQueues(PhysicalDevice& physicalDevice);

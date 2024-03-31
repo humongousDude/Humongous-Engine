@@ -38,7 +38,6 @@ private:
 
     } m_descriptorSetLayouts;
 
-    // TODO: figure out a way to refactor model class to not need all these pools
     std::unique_ptr<DescriptorPoolGrowable> m_imageSamplerPool;
     std::unique_ptr<DescriptorPoolGrowable> m_uniformPool;
     std::unique_ptr<DescriptorPoolGrowable> m_storagePool;

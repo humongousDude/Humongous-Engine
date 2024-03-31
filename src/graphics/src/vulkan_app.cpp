@@ -1,5 +1,3 @@
-// TIME LOST DUE TO VULKAN BUFFER / PUSH CONSTANT MISALIGNMENT: 10 HOURS
-
 #include "allocator.hpp"
 #include "camera.hpp"
 #include "model.hpp"
@@ -184,7 +182,6 @@ void VulkanApp::Run()
             }
         }
     }
-    m_quit = true;
     vkDeviceWaitIdle(m_logicalDevice->GetVkDevice());
 
     HGINFO("Quitting...");

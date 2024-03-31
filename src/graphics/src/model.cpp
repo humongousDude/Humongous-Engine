@@ -656,7 +656,6 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
     }
     else
     {
-        // TODO: throw
         HGERROR(error.c_str());
         return;
     }

@@ -1,3 +1,5 @@
+#include "allocator.hpp"
+#include "images.hpp"
 #include "logger.hpp"
 #include <array>
 #include <renderer.hpp>
@@ -82,38 +84,54 @@ void Renderer::InitImagesAndViews()
     drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
     drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    VkImageCreateInfo imgInfo{};
-    imgInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imgInfo.imageType = VK_IMAGE_TYPE_2D;
-    imgInfo.format = m_drawImage.imageFormat;
-    imgInfo.extent = m_drawImage.imageExtent;
-    imgInfo.mipLevels = 1;
-    imgInfo.arrayLayers = 1;
-    imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imgInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imgInfo.usage = drawImageUsages;
+    // VkImageCreateInfo imgInfo{};
+    // imgInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    // imgInfo.imageType = VK_IMAGE_TYPE_2D;
+    // imgInfo.format = m_drawImage.imageFormat;
+    // imgInfo.extent = m_drawImage.imageExtent;
+    // imgInfo.mipLevels = 1;
+    // imgInfo.arrayLayers = 1;
+    // imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    // imgInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    // imgInfo.usage = drawImageUsages;
+    //
+    // VmaAllocationCreateInfo imgAllocInfo{};
+    // imgAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    // imgAllocInfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    //
+    // vmaCreateImage(m_allocator, &imgInfo, &imgAllocInfo, &m_drawImage.image, &m_drawImage.allocation, nullptr);
+    //
+    // VkImageViewCreateInfo viewInfo{};
+    // viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    // viewInfo.image = m_drawImage.image;
+    // viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    // viewInfo.format = m_drawImage.imageFormat;
+    // viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    // viewInfo.subresourceRange.baseMipLevel = 0;
+    // viewInfo.subresourceRange.levelCount = 1;
+    // viewInfo.subresourceRange.baseArrayLayer = 0;
+    // viewInfo.subresourceRange.layerCount = 1;
+    //
+    // if(vkCreateImageView(m_logicalDevice.GetVkDevice(), &viewInfo, nullptr, &m_drawImage.imageView) != VK_SUCCESS)
+    // {
+    //     HGERROR("Failed to create image view");
+    // }
 
-    VmaAllocationCreateInfo imgAllocInfo{};
-    imgAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    imgAllocInfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    Utils::AllocatedImageCreateInfo imgCI{.logicalDevice = m_logicalDevice, .allocatedImage = m_drawImage};
+    imgCI.layerCount = 1;
+    imgCI.flags = 0;
+    imgCI.imageViewType = VK_IMAGE_VIEW_TYPE_2D;
+    imgCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imgCI.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    imgCI.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+    imgCI.height = m_drawImage.imageExtent.height;
+    imgCI.width = m_drawImage.imageExtent.width;
+    imgCI.mipLevels = 0;
+    imgCI.usage = drawImageUsages;
+    imgCI.layerCount = 1;
+    imgCI.format = VK_FORMAT_R16G16B16A16_SFLOAT;
 
-    vmaCreateImage(m_allocator, &imgInfo, &imgAllocInfo, &m_drawImage.image, &m_drawImage.allocation, nullptr);
-
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = m_drawImage.image;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = m_drawImage.imageFormat;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-
-    if(vkCreateImageView(m_logicalDevice.GetVkDevice(), &viewInfo, nullptr, &m_drawImage.imageView) != VK_SUCCESS)
-    {
-        HGERROR("Failed to create image view");
-    }
+    Utils::CreateAllocatedImage(imgCI);
 
     HGINFO("Created draw image and view");
 }
@@ -335,7 +353,6 @@ void Renderer::BeginRendering(VkCommandBuffer cmd)
     m_depthImageExtent.width = m_depthImage.imageExtent.width;
     m_depthImageExtent.height = m_depthImage.imageExtent.height;
 
-    // TODO: move image transitions out
     Utils::ImageTransitionInfo transInfo{};
     transInfo.image = m_drawImage.image;
     transInfo.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;

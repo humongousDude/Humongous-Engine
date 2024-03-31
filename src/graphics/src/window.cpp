@@ -12,8 +12,6 @@ Window::~Window()
     HGINFO("Destroyed window and terminated GLFW");
 }
 
-// clang: disable
-
 void Window::HideCursor()
 {
     glfwSetCursorPos(window, width / 2, height / 2);

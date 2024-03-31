@@ -26,7 +26,8 @@ public:
 private:
     vk::Instance m_instance;
 
-    vk::DebugUtilsMessengerEXT     m_debugMessenger{VK_NULL_HANDLE};
+    // dunno how to use the CPP binding for this
+    VkDebugUtilsMessengerEXT       m_debugMessenger{VK_NULL_HANDLE};
     const std::vector<const char*> m_validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
 #ifndef _DEBUG

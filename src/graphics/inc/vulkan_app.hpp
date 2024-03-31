@@ -45,8 +45,6 @@ private:
     std::unique_ptr<Renderer>           m_renderer;
     std::unique_ptr<SimpleRenderSystem> m_simpleRenderSystem;
     std::unique_ptr<SkyboxRenderSystem> m_skyboxRenderSystem;
-    std::unique_ptr<DescriptorPool>     m_imguiPool;
-    bool                                m_quit = false;
 
     GameObject::Map m_gameObjects;
 
