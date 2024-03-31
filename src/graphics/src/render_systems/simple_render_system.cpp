@@ -1,3 +1,4 @@
+#include "asset_manager.hpp"
 #include "logger.hpp"
 #include <render_systems/simple_render_system.hpp>
 
@@ -95,9 +96,12 @@ void SimpleRenderSystem::CreatePipeline()
     HGINFO("Creating pipeline...");
     RenderPipeline::PipelineConfigInfo configInfo = RenderPipeline::DefaultPipelineConfigInfo();
     configInfo.pipelineLayout = m_pipelineLayout;
+    // configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_LINE;
 
-    configInfo.vertShaderPath = "compiledShaders/simple.vert.glsl.spv";
-    configInfo.fragShaderPath = "compiledShaders/unlit.frag.glsl.spv";
+    // configInfo.vertShaderPath = "compiledShaders/simple.vert.glsl.spv";
+    // configInfo.fragShaderPath = "compiledShaders/unlit.frag.glsl.spv";
+    configInfo.vertShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert");
+    configInfo.fragShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "unlit.frag");
 
     m_renderPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
     HGINFO("Created pipeline");

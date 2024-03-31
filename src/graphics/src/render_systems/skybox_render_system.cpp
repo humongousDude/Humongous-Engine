@@ -1,5 +1,6 @@
 #include "render_systems/skybox_render_system.hpp"
 
+#include "asset_manager.hpp"
 #include "logger.hpp"
 #include <vector>
 
@@ -59,8 +60,8 @@ void SkyboxRenderSystem::CreatePipeline()
     ppCI.depthStencilInfo.depthTestEnable = VK_FALSE;
     ppCI.depthStencilInfo.depthWriteEnable = VK_FALSE;
     ppCI.pipelineLayout = m_pipelineLayout;
-    ppCI.vertShaderPath = "compiledShaders/skybox.vert.glsl.spv";
-    ppCI.fragShaderPath = "compiledShaders/skybox.frag.glsl.spv";
+    ppCI.vertShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.vert");
+    ppCI.fragShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.frag");
 
     m_renderPipeline = std::make_unique<RenderPipeline>(*m_logicalDevice, ppCI);
 }

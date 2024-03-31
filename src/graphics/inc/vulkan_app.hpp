@@ -1,6 +1,5 @@
 #pragma once
 
-#include "abstractions/descriptor_pool.hpp"
 #include "render_systems/simple_render_system.hpp"
 #include "render_systems/skybox_render_system.hpp"
 #include "window.hpp"
@@ -43,6 +42,7 @@ private:
     std::unique_ptr<PhysicalDevice>     m_physicalDevice;
     std::unique_ptr<LogicalDevice>      m_logicalDevice;
     std::unique_ptr<Renderer>           m_renderer;
+    std::unique_ptr<Renderer>           m_uiRenderer;
     std::unique_ptr<SimpleRenderSystem> m_simpleRenderSystem;
     std::unique_ptr<SkyboxRenderSystem> m_skyboxRenderSystem;
 

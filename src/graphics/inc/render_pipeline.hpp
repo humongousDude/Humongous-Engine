@@ -15,6 +15,10 @@ public:
     {
         std::string vertShaderPath;
         std::string fragShaderPath;
+        bool        bindless;
+
+        std::vector<VkVertexInputBindingDescription>   inputBindings;
+        std::vector<VkVertexInputAttributeDescription> attribBindings;
 
         VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
         VkPipelineRasterizationStateCreateInfo rasterizationInfo;

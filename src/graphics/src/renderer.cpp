@@ -1,4 +1,3 @@
-#include "allocator.hpp"
 #include "images.hpp"
 #include "logger.hpp"
 #include <array>
@@ -6,9 +5,15 @@
 
 namespace Humongous
 {
-Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator)
+Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator, VkFormat drawFormat,
+                   VkFormat depthFormat)
     : m_window{window}, m_logicalDevice{logicalDevice}, m_physicalDevice{physicalDevice}, m_allocator{allocator}
 {
+    m_drawImage.imageFormat = drawFormat;
+    m_depthImage.imageFormat = depthFormat;
+
+    m_hasDepth = m_depthImage.imageFormat == VK_FORMAT_UNDEFINED ? false : true;
+
     RecreateSwapChain();
     CreateCommandPool();
     AllocateCommandBuffers();
@@ -63,7 +68,7 @@ void Renderer::RecreateSwapChain()
     HGINFO("Recreated swap chain");
 
     InitImagesAndViews();
-    InitDepthImage();
+    if(m_hasDepth) { InitDepthImage(); }
 }
 
 void Renderer::InitImagesAndViews()
@@ -75,7 +80,7 @@ void Renderer::InitImagesAndViews()
 
     VkExtent3D drawImageExtent = {m_window.GetExtent().width, m_window.GetExtent().height, 1};
 
-    m_drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+    // m_drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
     m_drawImage.imageExtent = drawImageExtent;
 
     VkImageUsageFlags drawImageUsages{};
@@ -83,39 +88,6 @@ void Renderer::InitImagesAndViews()
     drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
     drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-    // VkImageCreateInfo imgInfo{};
-    // imgInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    // imgInfo.imageType = VK_IMAGE_TYPE_2D;
-    // imgInfo.format = m_drawImage.imageFormat;
-    // imgInfo.extent = m_drawImage.imageExtent;
-    // imgInfo.mipLevels = 1;
-    // imgInfo.arrayLayers = 1;
-    // imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    // imgInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    // imgInfo.usage = drawImageUsages;
-    //
-    // VmaAllocationCreateInfo imgAllocInfo{};
-    // imgAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    // imgAllocInfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    //
-    // vmaCreateImage(m_allocator, &imgInfo, &imgAllocInfo, &m_drawImage.image, &m_drawImage.allocation, nullptr);
-    //
-    // VkImageViewCreateInfo viewInfo{};
-    // viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    // viewInfo.image = m_drawImage.image;
-    // viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    // viewInfo.format = m_drawImage.imageFormat;
-    // viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    // viewInfo.subresourceRange.baseMipLevel = 0;
-    // viewInfo.subresourceRange.levelCount = 1;
-    // viewInfo.subresourceRange.baseArrayLayer = 0;
-    // viewInfo.subresourceRange.layerCount = 1;
-    //
-    // if(vkCreateImageView(m_logicalDevice.GetVkDevice(), &viewInfo, nullptr, &m_drawImage.imageView) != VK_SUCCESS)
-    // {
-    //     HGERROR("Failed to create image view");
-    // }
 
     Utils::AllocatedImageCreateInfo imgCI{.logicalDevice = m_logicalDevice, .allocatedImage = m_drawImage};
     imgCI.layerCount = 1;
@@ -126,10 +98,11 @@ void Renderer::InitImagesAndViews()
     imgCI.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
     imgCI.height = m_drawImage.imageExtent.height;
     imgCI.width = m_drawImage.imageExtent.width;
-    imgCI.mipLevels = 0;
+    imgCI.mipLevels = 1;
     imgCI.usage = drawImageUsages;
     imgCI.layerCount = 1;
-    imgCI.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    imgCI.format = m_drawImage.imageFormat == VK_FORMAT_UNDEFINED ? VK_FORMAT_R16G16B16A16_SFLOAT : m_drawImage.imageFormat;
+    imgCI.imagePool = VK_NULL_HANDLE;
 
     Utils::CreateAllocatedImage(imgCI);
 
@@ -143,47 +116,31 @@ void Renderer::InitDepthImage()
 
     HGINFO("Creating depth image and view...");
 
-    VkExtent3D drawImageExtent = {m_window.GetExtent().width, m_window.GetExtent().height, 1};
+    VkExtent3D depthImageExtent = {m_window.GetExtent().width, m_window.GetExtent().height, 1};
 
     // hardcoding the draw format to 32 bit float
-    m_depthImage.imageFormat = VK_FORMAT_D32_SFLOAT;
-    m_depthImage.imageExtent = drawImageExtent;
+    // m_depthImage.imageFormat = VK_FORMAT_D32_SFLOAT;
+    m_depthImage.imageExtent = depthImageExtent;
 
     VkImageUsageFlags depthImageUsages{};
     depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-    VkImageCreateInfo imgInfo{};
-    imgInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imgInfo.imageType = VK_IMAGE_TYPE_2D;
-    imgInfo.format = m_depthImage.imageFormat;
-    imgInfo.extent = m_depthImage.imageExtent;
-    imgInfo.mipLevels = 1;
-    imgInfo.arrayLayers = 1;
-    imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imgInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imgInfo.usage = depthImageUsages;
+    Utils::AllocatedImageCreateInfo imgCI{.logicalDevice = m_logicalDevice, .allocatedImage = m_depthImage};
+    imgCI.layerCount = 1;
+    imgCI.flags = 0;
+    imgCI.imageViewType = VK_IMAGE_VIEW_TYPE_2D;
+    imgCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imgCI.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    imgCI.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+    imgCI.height = m_depthImage.imageExtent.height;
+    imgCI.width = m_depthImage.imageExtent.width;
+    imgCI.mipLevels = 1;
+    imgCI.usage = depthImageUsages;
+    imgCI.layerCount = 1;
+    imgCI.format = m_depthImage.imageFormat == VK_FORMAT_UNDEFINED ? VK_FORMAT_D32_SFLOAT : m_depthImage.imageFormat;
+    imgCI.imagePool = VK_NULL_HANDLE;
 
-    VmaAllocationCreateInfo imgAllocInfo{};
-    imgAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    imgAllocInfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    vmaCreateImage(m_allocator, &imgInfo, &imgAllocInfo, &m_depthImage.image, &m_depthImage.allocation, nullptr);
-
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = m_depthImage.image;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = m_depthImage.imageFormat;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-
-    if(vkCreateImageView(m_logicalDevice.GetVkDevice(), &viewInfo, nullptr, &m_depthImage.imageView) != VK_SUCCESS)
-    {
-        HGERROR("Failed to create image view");
-    }
+    Utils::CreateAllocatedImage(imgCI);
 
     HGINFO("Created depth image and view");
 }
@@ -369,25 +326,28 @@ void Renderer::BeginRendering(VkCommandBuffer cmd)
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     colorAttachment.imageView = m_drawImage.imageView;
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.clearValue = clearValues[0];
 
+    VkRenderingInfo           renderingInfo{};
     VkRenderingAttachmentInfo depthAttachment{};
-    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.imageView = m_depthImage.imageView;
-    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.clearValue = clearValues[1];
+    if(m_hasDepth)
+    {
+        depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        depthAttachment.imageView = m_depthImage.imageView;
+        depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depthAttachment.clearValue = clearValues[1];
+        renderingInfo.pDepthAttachment = &depthAttachment;
+    }
 
-    VkRenderingInfo renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderingInfo.renderArea = {0, 0, m_swapChain->GetExtent().width, m_swapChain->GetExtent().height};
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachments = &colorAttachment;
-    renderingInfo.pDepthAttachment = &depthAttachment;
     renderingInfo.pStencilAttachment = nullptr;
     renderingInfo.pNext = nullptr;
     renderingInfo.viewMask = 0;
@@ -413,9 +373,11 @@ void Renderer::BeginRendering(VkCommandBuffer cmd)
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 }
 
-void Renderer::EndRendering(VkCommandBuffer cmd)
+void Renderer::EndRendering(VkCommandBuffer cmd, u32 customIndex)
 {
     vkCmdEndRendering(cmd);
+
+    u32 imgIndex = customIndex == -1 ? m_currentImageIndex : customIndex;
 
     Utils::ImageTransitionInfo drawInfo{};
     drawInfo.image = m_drawImage.image;
@@ -424,7 +386,7 @@ void Renderer::EndRendering(VkCommandBuffer cmd)
     drawInfo.cmd = cmd;
 
     Utils::ImageTransitionInfo swapInfo{};
-    swapInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
+    swapInfo.image = m_swapChain->GetImages()[imgIndex];
     swapInfo.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     swapInfo.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     swapInfo.cmd = cmd;
@@ -432,10 +394,10 @@ void Renderer::EndRendering(VkCommandBuffer cmd)
     Utils::TransitionImageLayout(drawInfo);
     Utils::TransitionImageLayout(swapInfo);
 
-    Utils::CopyImageToImage(cmd, m_drawImage.image, m_swapChain->GetImages()[m_currentImageIndex], m_drawImageExtent, m_swapChain->GetExtent());
+    Utils::CopyImageToImage(cmd, m_drawImage.image, m_swapChain->GetImages()[imgIndex], m_drawImageExtent, m_swapChain->GetExtent());
 
     Utils::ImageTransitionInfo presentInfo{};
-    presentInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
+    presentInfo.image = m_swapChain->GetImages()[imgIndex];
     presentInfo.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     presentInfo.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     presentInfo.cmd = cmd;

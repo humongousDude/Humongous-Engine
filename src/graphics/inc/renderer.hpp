@@ -9,8 +9,6 @@
 
 #include <vk_mem_alloc.h>
 
-// TODO: abstract image creation into a seperate function
-
 namespace Humongous
 {
 class Renderer
@@ -24,7 +22,9 @@ public:
         VkFence         inFlightFence;
     };
 
-    Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator);
+    // Set depthFormat to VK_FORMAT_UNDEFINED to not have depth
+    Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator, VkFormat drawFormat,
+             VkFormat depthFormat);
     ~Renderer();
 
     u32             GetImageIndex() const { return m_currentImageIndex; }
@@ -37,7 +37,7 @@ public:
     f32 GetAspectRatio() const { return static_cast<float>(m_swapChain->GetExtent().width) / static_cast<float>(m_swapChain->GetExtent().height); }
 
     void BeginRendering(VkCommandBuffer commandBuffer);
-    void EndRendering(VkCommandBuffer commandBuffer);
+    void EndRendering(VkCommandBuffer commandBuffer, u32 customIndex = -1);
 
     SwapChain* GetSwapChain() const { return m_swapChain.get(); }
 
@@ -60,6 +60,8 @@ private:
     VkExtent2D     m_drawImageExtent;
     AllocatedImage m_depthImage;
     VkExtent2D     m_depthImageExtent;
+
+    bool m_hasDepth{false};
 
     void InitImagesAndViews();
     void InitDepthImage();

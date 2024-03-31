@@ -6,6 +6,7 @@
 #include <logger.hpp>
 #include <vulkan_app.hpp>
 #define VMA_IMPLEMENTATION
+#include "asset_manager.hpp"
 #include <vk_mem_alloc.h>
 
 namespace Humongous
@@ -16,7 +17,11 @@ VulkanApp::VulkanApp()
     LoadGameObjects();
 }
 
-VulkanApp::~VulkanApp() { m_mainDeletionQueue.Flush(); }
+VulkanApp::~VulkanApp()
+{
+    vkDeviceWaitIdle(m_logicalDevice->GetVkDevice());
+    m_mainDeletionQueue.Flush();
+}
 
 void VulkanApp::Init()
 {
@@ -25,17 +30,16 @@ void VulkanApp::Init()
     m_physicalDevice = std::make_unique<PhysicalDevice>(*m_instance, *m_window);
     m_logicalDevice = std::make_unique<LogicalDevice>(*m_instance, *m_physicalDevice);
 
+    Systems::AssetManager::Get().Init();
+
     Allocator::Get().Initialize(m_logicalDevice.get());
 
-    m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator());
-
-    UI::Get().Init(m_instance.get(), m_logicalDevice.get(), m_window.get(), m_renderer.get());
-
+    m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator(),
+                                            VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_D32_SFLOAT);
     m_mainDeletionQueue.PushDeletor([&]() {
         m_simpleRenderSystem.reset();
         m_skyboxRenderSystem.reset();
         m_renderer.reset();
-        UI::Get().Shutdown();
         Allocator::Get().Shutdown();
         m_logicalDevice.reset();
         m_physicalDevice.reset();
@@ -49,7 +53,8 @@ void VulkanApp::LoadGameObjects()
     HGINFO("Loading game objects...");
 
     std::shared_ptr<Model> model;
-    model = std::make_shared<Model>(m_logicalDevice.get(), "models/employee.glb", 0.1);
+    model = std::make_shared<Model>(m_logicalDevice.get(),
+                                    Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::MODEL, "employee"), 0.1);
 
     GameObject obj = GameObject::CreateGameObject();
     obj.transform.translation = {0.0f, 0.0f, -1.0f};
@@ -152,11 +157,9 @@ void VulkanApp::Run()
 
         aspect = m_renderer->GetAspectRatio();
 
-        HGDEBUG("FrameTime: %f", frameTime);
-
         cam.SetViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 
-        cam.SetPerspectiveProjection(glm::radians(60.0f), aspect, 0.1f, 1000.0f);
+        cam.SetPerspectiveProjection(glm::radians(80.0f), aspect, 0.1f, 1000.0f);
 
         HandleInput(frameTime, viewerObject);
 
@@ -164,6 +167,7 @@ void VulkanApp::Run()
         {
             if(auto cmd = m_renderer->BeginFrame())
             {
+
                 RenderData data{.commandBuffer = cmd,
                                 .uboSets = {cam.GetDescriptorSet(m_renderer->GetFrameIndex())},
                                 .sceneSets = {cam.GetParamDescriptorSet(m_renderer->GetFrameIndex())},
@@ -178,11 +182,11 @@ void VulkanApp::Run()
                 m_simpleRenderSystem->RenderObjects(data);
 
                 m_renderer->EndRendering(cmd);
+
                 m_renderer->EndFrame();
             }
         }
     }
-    vkDeviceWaitIdle(m_logicalDevice->GetVkDevice());
 
     HGINFO("Quitting...");
 }

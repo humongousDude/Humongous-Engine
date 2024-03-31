@@ -58,6 +58,24 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
     vertexInputInfo.flags = 0;
     vertexInputInfo.pNext = nullptr;
 
+    if(!configInfo.bindless)
+    {
+        HGASSERT(configInfo.inputBindings.size() > 0 &&
+                 "Trying to make a non-bindless render pipeline, but no vertex input bindings were specified!");
+        HGASSERT(configInfo.attribBindings.size() > 0 &&
+                 "Trying to make a non-bindless render pipeline, but no vertex attribute bindings were specified!");
+
+        HGDEBUG("input binding size is %d ", configInfo.inputBindings.size());
+        HGDEBUG("attribute binding size is %d ", configInfo.attribBindings.size());
+
+        HGDEBUG("inpt bnd size = %d", configInfo.inputBindings[0].stride);
+
+        vertexInputInfo.vertexBindingDescriptionCount = static_cast<u32>(configInfo.inputBindings.size());
+        vertexInputInfo.pVertexBindingDescriptions = configInfo.inputBindings.data();
+        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<u32>(configInfo.attribBindings.size());
+        vertexInputInfo.pVertexAttributeDescriptions = configInfo.attribBindings.data();
+    }
+
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportState.viewportCount = 1;
@@ -113,7 +131,8 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
 {
 
     PipelineConfigInfo configInfo{.vertShaderPath = "compiledShaders/simple.vert.glsl.spv",
-                                  .fragShaderPath = "compiledShaders/simple.frag.glsl.spv"};
+                                  .fragShaderPath = "compiledShaders/simple.frag.glsl.spv",
+                                  .bindless = true};
 
     configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;

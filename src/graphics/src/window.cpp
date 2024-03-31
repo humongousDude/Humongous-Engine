@@ -1,3 +1,5 @@
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
 #include "logger.hpp"
 #include <window.hpp>
 
@@ -32,7 +34,10 @@ void Window::CreateWindow()
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
-    window = glfwCreateWindow(width, height, "Vulkan", nullptr, nullptr);
+    window = glfwCreateWindow(width, height, "Humongous Engine", nullptr, nullptr);
+
+    ImGui::CreateContext();
+    ImGui_ImplGlfw_InitForVulkan(window, true);
 
     glfwSetWindowUserPointer(window, this);
     glfwSetWindowSizeCallback(window, HandleWindowResized);

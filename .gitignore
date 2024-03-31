@@ -35,8 +35,12 @@
 
 build/*
 !build/textures
-!build/models
 !build/sfx
+
+!*.glb
+*.spv
+
+!src/systems/*
 
 \.cache/*
 compile_commands.json

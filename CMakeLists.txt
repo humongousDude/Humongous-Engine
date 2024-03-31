@@ -5,12 +5,16 @@ file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS src/*.cpp)
 
 add_compile_definitions(HGASSERTIONS_ENABLED)
 
+# add_compile_definitions(HGASSETDIRPATH "Assets/")
+add_definitions(-DHGASSETDIRPATH="${CMAKE_CURRENT_LIST_DIR}/Assets/")
+
 set(VCPKG_ROOT $ENV{VCPKG_ROOT})
 
 add_executable(main src/main.cpp ${SRCS})
 
-target_include_directories(main PUBLIC src/core/inc src/gameplay/inc
-                                       src/graphics/inc src/utils/inc)
+target_include_directories(
+  main PUBLIC src/core/inc src/gameplay/inc src/graphics/inc src/utils/inc
+              src/systems/inc)
 
 set(VCPKG_TARGET_TRIPLET
     "x64-windows"

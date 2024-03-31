@@ -18,7 +18,7 @@
             }
         },
         {
-            "name": "debug-llvm-dynamic",
+            "name": "debug-llvm",
             "binaryDir": "${sourceDir}/build",
             "generator": "Ninja",
             "toolchainFile": "$env{vcpkg_root}/scripts/buildsystems/vcpkg.cmake",
