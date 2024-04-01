@@ -4,6 +4,9 @@
 
 #include <swapchain.hpp>
 
+#include <glm/gtc/matrix_access.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 namespace Humongous
 {
 
@@ -137,6 +140,51 @@ void Camera::SetViewYXZ(glm::vec3 position, glm::vec3 rotation)
     m_viewMatrix[3][0] = -glm::dot(u, position);
     m_viewMatrix[3][1] = -glm::dot(v, position);
     m_viewMatrix[3][2] = -glm::dot(w, position);
+}
+
+std::vector<glm::vec4> Camera::CalculateFrustumPlanes()
+{
+    std::vector<glm::vec4> planes(6);
+
+    auto viewProjectionMatrix = m_projectionMatrix * m_viewMatrix;
+
+    // Extract the frustum planes from the view-projection matrix
+    planes[0] = glm::row(viewProjectionMatrix, 3) + glm::row(viewProjectionMatrix, 0); // Left plane
+    planes[1] = glm::row(viewProjectionMatrix, 3) - glm::row(viewProjectionMatrix, 0); // Right plane
+    planes[2] = glm::row(viewProjectionMatrix, 3) + glm::row(viewProjectionMatrix, 1); // Bottom plane
+    planes[3] = glm::row(viewProjectionMatrix, 3) - glm::row(viewProjectionMatrix, 1); // Top plane
+    planes[4] = glm::row(viewProjectionMatrix, 3) + glm::row(viewProjectionMatrix, 2); // Near plane
+    planes[5] = glm::row(viewProjectionMatrix, 3) - glm::row(viewProjectionMatrix, 2); // Far plane
+
+    // Normalize the planes
+    for(auto& plane: planes)
+    {
+        float length = glm::length(glm::vec3(plane));
+        plane /= length;
+    }
+
+    return planes;
+}
+
+bool Camera::IsAABBInFrustum(const glm::mat4& AABB, const std::vector<glm::vec4>& frustumPlanes)
+{
+    for(const auto& plane: frustumPlanes)
+    {
+        glm::vec3 normal(plane);
+        glm::vec3 center(AABB[3]);                             // Assuming the center of AABB is in the fourth column of the matrix
+        glm::vec3 extents(AABB[0][0], AABB[1][1], AABB[2][2]); // Assuming the extents are in the diagonal
+
+        // Calculate the distance between the AABB center and the plane
+        float distance = glm::dot(normal, center) + plane.w;
+
+        // Calculate the projected extent along the normal direction
+        float projectedExtent = glm::dot(glm::abs(normal), extents);
+
+        // If the AABB is entirely on one side of the plane, it's outside the frustum
+        if(distance < -projectedExtent) { return false; }
+    }
+
+    return true; // AABB intersects all frustum planes
 }
 
 }; // namespace Humongous

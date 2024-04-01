@@ -55,6 +55,9 @@ public:
 
     void UpdateUBO(u32 index, const glm::vec3& camPos);
 
+    static bool            IsAABBInFrustum(const glm::mat4& AABB, const std::vector<glm::vec4>& frustumPlanes);
+    std::vector<glm::vec4> CalculateFrustumPlanes();
+
 private:
     std::vector<std::unique_ptr<Buffer>> m_projectionBuffers;
     std::vector<std::unique_ptr<Buffer>> m_paramBuffers;

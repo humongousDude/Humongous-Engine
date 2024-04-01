@@ -82,7 +82,8 @@ public:
         alignas(8) glm::vec2 uv1;       // 8 bytes
         alignas(16) glm::vec4 color;    // 16 bytes
 
-        bool operator==(const Vertex& other) const{
+        bool operator==(const Vertex& other) const
+        {
             return position == other.position && normal == other.normal && uv0 == other.uv0 && uv1 == other.uv1 && color == other.color;
         }
     };
@@ -96,6 +97,8 @@ public:
               DescriptorPoolGrowable* imagePool, DescriptorPoolGrowable* uniformPool, DescriptorPoolGrowable* storagePool);
 
     void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout);
+
+    glm::mat4 GetAABB() const { return aabb; }
 
 private:
     Buffer vertices;

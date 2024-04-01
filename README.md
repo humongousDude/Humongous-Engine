@@ -7,7 +7,7 @@ This uses Vulkan and C++, and only targets windows currently
 **About the Speed of updates**
 
 As this is also my first ever real project, and basically my first time trying to
-use Vulkan in a non tutorial environment, There will sometimes be a large number of days between updates.
+use Vulkan in a non-tutorial environment, There will sometimes be a large number of days between updates.
 
 So, I'm sorry in advance about the speed of development.
 
@@ -25,11 +25,10 @@ So, I'm sorry in advance about the speed of development.
 * GLFW3
 * GLM
 * VMA
-* ImGui (not currently used, but plan to)
+* ImGui (trying to use it, but failing miserably)
 * TinyGLTF 
 * GLI 
 * Boost.log
-* OpenAL
 
 
 ## To Build
@@ -40,12 +39,15 @@ You need to install the above libraries with vcpkg first before trying to build
 
 **You may need to specify the vcpkg root location manually**
 
-First run
+I don't know how to automatically find vcpkg, so you may need to manually specify
+the location of the root by using `-DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg>/scripts/buildsystems/vcpkg.cmake`
+
+First, in the outermost CMakeLists.txt directory, run
 ``` shell
 cmake . --preset <preset>
 ```
 
-**<preset> is either "release" or "debug"**
+**\<preset> is either "release" or "debug"**
 
 **To Install the libraries**
 

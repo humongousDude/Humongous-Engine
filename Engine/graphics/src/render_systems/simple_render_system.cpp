@@ -1,11 +1,12 @@
 #include "asset_manager.hpp"
+#include "camera.hpp"
 #include "logger.hpp"
 #include <render_systems/simple_render_system.hpp>
 
 namespace Humongous
 {
 SimpleRenderSystem::SimpleRenderSystem(LogicalDevice& logicalDevice, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts)
-    : m_logicalDevice(logicalDevice)
+    : m_logicalDevice{logicalDevice}, m_pipelineLayout{VK_NULL_HANDLE}
 {
     HGINFO("Creating simple render system...");
     CreateModelDescriptorSetPool();
@@ -52,8 +53,6 @@ void SimpleRenderSystem::CreateModelDescriptorSetLayout()
     m_descriptorSetLayouts.material = materialBuilder.build();
 }
 
-void SimpleRenderSystem::AllocateDescriptorSet(u32 identifier, u32 index) {}
-
 void SimpleRenderSystem::CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& layouts)
 {
     HGINFO("Creating pipeline layout...");
@@ -96,10 +95,7 @@ void SimpleRenderSystem::CreatePipeline()
     HGINFO("Creating pipeline...");
     RenderPipeline::PipelineConfigInfo configInfo = RenderPipeline::DefaultPipelineConfigInfo();
     configInfo.pipelineLayout = m_pipelineLayout;
-    // configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_LINE;
 
-    // configInfo.vertShaderPath = "compiledShaders/simple.vert.glsl.spv";
-    // configInfo.fragShaderPath = "compiledShaders/unlit.frag.glsl.spv";
     configInfo.vertShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert");
     configInfo.fragShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "unlit.frag");
 
@@ -117,11 +113,12 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
     vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 1, renderData.sceneSets.size(),
                             renderData.sceneSets.data(), 0, nullptr);
 
+    u64 draws{0};
+
     for(auto& [id, obj]: renderData.gameObjects)
     {
         if(!obj.model) { continue; }
-
-        auto objId = obj.GetId();
+        if(!Camera::IsAABBInFrustum(obj.model->GetAABB(), renderData.cameraFrustumPlanes)) { continue; }
 
         Model::PushConstantData data{};
         data.model = obj.transform.Mat4();
@@ -131,9 +128,12 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
 
         obj.model->Init(m_descriptorSetLayouts.material.get(), m_descriptorSetLayouts.node.get(), m_descriptorSetLayouts.materialBuffers.get(),
                         m_imageSamplerPool.get(), m_uniformPool.get(), m_storagePool.get());
-
         obj.model->Draw(renderData.commandBuffer, m_pipelineLayout);
+
+        draws++;
     }
+
+    HGINFO("%d drawCalls", draws);
 }
 
 } // namespace Humongous

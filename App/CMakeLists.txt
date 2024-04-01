@@ -1,3 +1,3 @@
-add_executable(app main.cpp)
+add_executable(App main.cpp)
 
-target_link_libraries(app PRIVATE Engine)
+target_link_libraries(App PRIVATE Engine)

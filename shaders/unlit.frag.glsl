@@ -50,11 +50,16 @@ void main()
 
     vec4 baseColor;
 
-    if (material.baseColorTextureSet > -1) {
-        baseColor = SRGBtoLINEAR(textureLod(colorMap, material.baseColorTextureSet == 0 ? inUV0 : inUV1, 0)) * material.baseColorFactor;
-    } else {
-        baseColor = material.baseColorFactor;
-    }
+  		if (material.baseColorTextureSet > -1) {
+			baseColor = SRGBtoLINEAR(texture(colorMap, material.baseColorTextureSet == 0 ? inUV0 : inUV1)) * material.baseColorFactor;
+		} else {
+			baseColor = material.baseColorFactor;
+		}
+		if (baseColor.a < material.alphaMaskCutoff) {
+			discard;
+		}
+
+
 
     outColor = baseColor;
 }
