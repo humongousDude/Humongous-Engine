@@ -13,7 +13,9 @@ So, I'm sorry in advance about the speed of development.
 
 **You can view the projects Trello Here: https://trello.com/b/lc23IYtF/humongous-engine**
 
-###### also i'm like 14 so i have school lol.
+### Tiny Note
+Sorry about the lack of updates, I'm really struggling with adding frustum culling. Any help would be appreciated!
+
 
 ## Dependencies
 * Vulkan SDK
