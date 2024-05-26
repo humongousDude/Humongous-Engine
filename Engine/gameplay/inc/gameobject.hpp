@@ -1,5 +1,6 @@
 #pragma once
 
+#include "logger.hpp"
 #include <defines.hpp>
 
 #include <model.hpp>
@@ -20,7 +21,7 @@ struct TransformComponent
     glm::vec3 scale{1.0f, 1.0f, 1.0f};
     glm::vec3 rotation{};
 
-    glm::mat4 Mat4();
+    glm::mat4 Mat4() const;
     glm::mat3 NormalMatrix();
 };
 

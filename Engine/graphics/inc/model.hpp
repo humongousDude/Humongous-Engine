@@ -100,6 +100,14 @@ public:
 
     glm::mat4 GetAABB() const { return aabb; }
 
+    struct Dimensions
+    {
+        glm::vec3 min = glm::vec3(FLT_MAX);
+        glm::vec3 max = glm::vec3(-FLT_MAX);
+    };
+
+    Dimensions GetDimensions() const { return dimensions; }
+
 private:
     Buffer vertices;
     Buffer indices;
@@ -144,11 +152,7 @@ private:
     };
     Buffer shaderMaterialBuffer;
 
-    struct Dimensions
-    {
-        glm::vec3 min = glm::vec3(FLT_MAX);
-        glm::vec3 max = glm::vec3(-FLT_MAX);
-    } dimensions;
+    Dimensions dimensions;
 
     struct LoaderInfo
     {

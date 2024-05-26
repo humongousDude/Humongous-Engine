@@ -5,8 +5,8 @@
 
 #include <vulkan_app.hpp>
 
-int main()
+int main(int argc, char* argv[])
 {
-    Humongous::VulkanApp app{};
-    app.Run();
+    Humongous::VulkanApp* app = new Humongous::VulkanApp();
+    app->Run();
 }

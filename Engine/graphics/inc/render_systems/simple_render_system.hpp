@@ -2,6 +2,7 @@
 
 #include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool_growable.hpp"
+#include "camera.hpp"
 #include <gameobject.hpp>
 #include <memory>
 #include <render_pipeline.hpp>
@@ -10,12 +11,12 @@ namespace Humongous
 {
 struct RenderData
 {
-    VkCommandBuffer               commandBuffer;
-    std::vector<VkDescriptorSet>  uboSets;
-    std::vector<VkDescriptorSet>  sceneSets;
-    GameObject::Map&              gameObjects;
-    const std::vector<glm::vec4>& cameraFrustumPlanes;
-    u32                           frameIndex;
+    VkCommandBuffer              commandBuffer;
+    std::vector<VkDescriptorSet> uboSets;
+    std::vector<VkDescriptorSet> sceneSets;
+    GameObject::Map&             gameObjects;
+    u32                          frameIndex;
+    Camera&                      cam;
 };
 
 class SimpleRenderSystem

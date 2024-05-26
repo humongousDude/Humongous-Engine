@@ -60,15 +60,14 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
 
     if(!configInfo.bindless)
     {
-        HGASSERT(configInfo.inputBindings.size() > 0 &&
-                 "Trying to make a non-bindless render pipeline, but no vertex input bindings were specified!");
-        HGASSERT(configInfo.attribBindings.size() > 0 &&
-                 "Trying to make a non-bindless render pipeline, but no vertex attribute bindings were specified!");
-
-        HGDEBUG("input binding size is %d ", configInfo.inputBindings.size());
-        HGDEBUG("attribute binding size is %d ", configInfo.attribBindings.size());
-
-        HGDEBUG("inpt bnd size = %d", configInfo.inputBindings[0].stride);
+        if(configInfo.inputBindings.size() == 0)
+        {
+            HGERROR("Trying to make a non-bindless render pipeline, but no vertex input bindings were specified!");
+        }
+        if(configInfo.attribBindings.size() == 0)
+        {
+            HGERROR("Trying to make a non-bindless render pipeline, but no vertex attribute bindings were specified!");
+        }
 
         vertexInputInfo.vertexBindingDescriptionCount = static_cast<u32>(configInfo.inputBindings.size());
         vertexInputInfo.pVertexBindingDescriptions = configInfo.inputBindings.data();

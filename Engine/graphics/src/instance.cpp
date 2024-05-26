@@ -50,7 +50,6 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 Instance::Instance()
 {
     InitInstance();
-    HGDEBUG("GOT HERE %d, %s", __LINE__, __FILE__);
     SetupDebugMessenger();
 }
 
@@ -94,8 +93,6 @@ void Instance::InitInstance()
         createInfo.enabledLayerCount = 0;
         createInfo.pNext = nullptr;
     }
-
-    if(debugCreateInfo.pfnUserCallback != nullptr) { HGDEBUG("me no sad"); }
 
     auto extensions = GetRequiredExtensions();
 
@@ -165,7 +162,6 @@ std::vector<const char*> Instance::GetRequiredExtensions()
 void Instance::SetupDebugMessenger()
 {
     if(!ENABLE_VALIDATION_LAYERS) { return; }
-    HGDEBUG("got here :( %d, %s", __LINE__, __func__);
 
     VkDebugUtilsMessengerCreateInfoEXT createInfo;
     PopulateDebugMessengerCreateInfo(createInfo);

@@ -9,7 +9,9 @@
 #include <memory>
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
+#include <glm/gtx/norm.hpp> // For glm::length2
 
 namespace Humongous
 {
@@ -26,6 +28,13 @@ struct UboParams
     glm::vec4 lightDir = glm::vec4(1.0f, 2.0f, 0.0f, 1.0f);
 
     float exposure = 100.0f, gamma = 100.0f, prefilteredCubeMipLevels = 100.f, scaleIBLAmbient = 100.0f, debugViewInputs = 0, debugViewEquation = 0;
+};
+
+// Define a plane struct representing a plane in 3D space
+struct Plane
+{
+    glm::vec3 normal;
+    float     distance;
 };
 
 class Camera
@@ -55,8 +64,7 @@ public:
 
     void UpdateUBO(u32 index, const glm::vec3& camPos);
 
-    static bool            IsAABBInFrustum(const glm::mat4& AABB, const std::vector<glm::vec4>& frustumPlanes);
-    std::vector<glm::vec4> CalculateFrustumPlanes();
+    glm::mat4 GetVPM() const { return m_viewMatrix * m_projectionMatrix; }
 
 private:
     std::vector<std::unique_ptr<Buffer>> m_projectionBuffers;

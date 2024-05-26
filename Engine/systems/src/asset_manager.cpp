@@ -2,7 +2,6 @@
 #include "logger.hpp"
 #include <cstring>
 #include <filesystem>
-#include <iostream>
 
 namespace Humongous::Systems
 {
@@ -13,11 +12,11 @@ void AssetManager::Init()
 {
     const fs::path assetDir = HGASSETDIRPATH;
 
-    std::cout << HGASSETDIRPATH << '\n';
+    HGINFO("Asset directory is: %s", HGASSETDIRPATH);
 
     if(!fs::exists(assetDir) || !std::filesystem::is_directory(assetDir))
     {
-        HGFATAL("Unable to access asset directory????????????????????????????");
+        HGFATAL("Unable to access asset directory!");
         return;
     }
 

@@ -1,7 +1,6 @@
 #include "allocator.hpp"
 #include "camera.hpp"
 #include "model.hpp"
-#include "ui.hpp"
 #include <keyboard_handler.hpp>
 #include <logger.hpp>
 #include <vulkan_app.hpp>
@@ -54,14 +53,14 @@ void VulkanApp::LoadGameObjects()
 
     std::shared_ptr<Model> model;
     model = std::make_shared<Model>(m_logicalDevice.get(),
-                                    Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::MODEL, "employee"), 0.06);
+                                    Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::MODEL, "employee"), 1.00);
 
     // model = std::make_shared<Model>(m_logicalDevice.get(), "C:/dev/Coding/Github Repos/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf", 1);
 
     GameObject obj = GameObject::CreateGameObject();
-    obj.transform.translation = {0.0f, 0.0f, -1.0f};
-    obj.transform.rotation = {glm::radians(180.0f), 0, 0};
-    obj.transform.scale = {1.00f, 1.01f, 1.01f};
+    obj.transform.translation = {0.0f, 0.0f, 0.0f};
+    obj.transform.rotation = {glm::radians(00.0f), 0, 0};
+    obj.transform.scale = {1.00f, 1.00f, 1.00f};
 
     obj.model = model;
 
@@ -174,8 +173,8 @@ void VulkanApp::Run()
                                 .uboSets = {cam.GetDescriptorSet(m_renderer->GetFrameIndex())},
                                 .sceneSets = {cam.GetParamDescriptorSet(m_renderer->GetFrameIndex())},
                                 .gameObjects = m_gameObjects,
-                                .cameraFrustumPlanes = cam.CalculateFrustumPlanes(),
-                                .frameIndex = m_renderer->GetFrameIndex()};
+                                .frameIndex = m_renderer->GetFrameIndex(),
+                                .cam = cam};
 
                 cam.UpdateUBO(m_renderer->GetFrameIndex(), viewerObject.transform.translation);
 

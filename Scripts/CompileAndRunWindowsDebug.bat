@@ -1,8 +1,7 @@
 @echo off
 if not exist ../Binaries/ (
     echo Binary directory does not exist, running setup script!
-    start "" "./SetupWindowsDebug.bat"
-
+    ./SetupWindowsDebug.bat
 )
 
 SET BUILD_DIR="../Binaries/"
@@ -15,7 +14,7 @@ ninja
 if %errorlevel%==0 (
     echo Ninja build successful
 
-    start "" "%EXE_DIR%App.exe"
+    %EXE_DIR%App.exe
 ) else (
     echo Ninja build failed!
 )

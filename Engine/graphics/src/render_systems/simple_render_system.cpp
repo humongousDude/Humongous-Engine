@@ -118,8 +118,6 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
     for(auto& [id, obj]: renderData.gameObjects)
     {
         if(!obj.model) { continue; }
-        if(!Camera::IsAABBInFrustum(obj.model->GetAABB(), renderData.cameraFrustumPlanes)) { continue; }
-
         Model::PushConstantData data{};
         data.model = obj.transform.Mat4();
         data.vertexAddress = obj.model->GetVertexBuffer().GetDeviceAddress();
@@ -133,7 +131,8 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
         draws++;
     }
 
-    HGINFO("%d drawCalls", draws);
+    // Uncomment if you want to know the number of objects drawn
+    // HGINFO("%d drawCalls", draws);
 }
 
 } // namespace Humongous

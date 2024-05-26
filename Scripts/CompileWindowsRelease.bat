@@ -1,5 +1,4 @@
-
-@echo 0
+@echo off
 
 cd ../
 cd ./Binaries-Release
