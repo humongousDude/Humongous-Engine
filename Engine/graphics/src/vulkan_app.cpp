@@ -82,8 +82,8 @@ void VulkanApp::HandleInput(float frameTime, GameObject& viewerObject)
     glfwGetCursorPos(m_window->GetWindow(), &newX, &newY);
     if(!m_window->IsCursorHidden())
     {
-        newX = oldX = m_window->GetExtent().width / 2;
-        newY = oldY = m_window->GetExtent().height / 2;
+        newX = oldX = m_window->GetExtent().width / 2.f;
+        newY = oldY = m_window->GetExtent().height / 2.f;
         return;
     }
 
@@ -188,6 +188,8 @@ void VulkanApp::Run()
                 m_renderer->EndFrame();
             }
         }
+
+        HGINFO("FrameTime: %f", frameTime);
     }
 
     HGINFO("Quitting...");
