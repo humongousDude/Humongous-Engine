@@ -67,7 +67,7 @@ void VulkanApp::LoadGameObjects()
 
     GameObject obj = GameObject::CreateGameObject();
     obj.transform.translation = {0.0f, 0.0f, 0.0f};
-    obj.transform.rotation = {glm::radians(00.0f), 0, 0};
+    obj.transform.rotation = {glm::radians(180.0f), 0, 0};
     obj.transform.scale = {1.00f, 1.00f, 1.00f};
 
     obj.model = model;
@@ -84,8 +84,16 @@ void VulkanApp::HandleInput(float frameTime, GameObject& viewerObject)
 
     KeyboardHandler handler;
 
-    if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_I) == GLFW_PRESS) { m_window->HideCursor(); }
-    if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_O) == GLFW_PRESS) { m_window->ShowCursor(); }
+    if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_I) == GLFW_PRESS ||
+       glfwGetMouseButton(m_window->GetWindow(), GLFW_MOUSE_BUTTON_1) == GLFW_PRESS && !m_window->IsCursorHidden())
+    {
+        m_window->HideCursor();
+    }
+    if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_O) == GLFW_PRESS ||
+       glfwGetKey(m_window->GetWindow(), GLFW_KEY_ESCAPE) == GLFW_PRESS && m_window->IsCursorHidden())
+    {
+        m_window->ShowCursor();
+    }
 
     glfwGetCursorPos(m_window->GetWindow(), &newX, &newY);
     if(!m_window->IsCursorHidden())
