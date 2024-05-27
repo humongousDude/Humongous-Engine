@@ -4,22 +4,6 @@ The repo for my game-engine, Humongous Engine
 
 This uses Vulkan and C++, and only targets windows currently
 
-**About the Speed of updates**
-
-As this is also my first ever real project, and basically my first time trying to
-use Vulkan in a non-tutorial environment, There will sometimes be a large number of days between updates.
-
-So, I'm sorry in advance about the speed of development.
-
-**You can view the projects Trello Here: https://trello.com/b/lc23IYtF/humongous-engine**
-
-### Tiny Note
-Sorry about the lack of updates, I'm really struggling with adding frustum culling. Any help would be appreciated!
-
-### Frustum Culling Note
-I've decided to give up on Frustum Culling for now. Its been the main reason for the large break, its demotivated me entirely.
-All lines related to Frustum culling will be removed for now. I'll return to it when I'm ready
-
 
 ## Dependencies
 * Vulkan SDK
