@@ -6,10 +6,9 @@
 namespace Humongous::Systems
 {
 
-namespace fs = std::filesystem;
-
-void AssetManager::Init()
+void AssetManager::Init(const std::vector<std::string>* paths)
 {
+    namespace fs = std::filesystem;
     const fs::path assetDir = HGASSETDIRPATH;
 
     HGINFO("Asset directory is: %s", HGASSETDIRPATH);
@@ -39,6 +38,47 @@ void AssetManager::Init()
         else if(strcmp(entry.path().extension().string().substr(1).c_str(), "ktx") == 0)
         {
             m_textureMap.emplace(entry.path().stem().string(), entry.path().string());
+        }
+    }
+
+    if(!paths) { return; }
+
+    for(const std::string& p: *paths)
+    {
+        fs::path path = static_cast<fs::path>(p);
+
+        if(!fs::exists(path) || !std::filesystem::is_directory(path))
+        {
+            HGFATAL("Unable to access given asset directory: %s", p.c_str());
+            continue;
+        }
+        HGINFO("Looking for models in directoy: %s", p.c_str());
+
+        for(const auto& entry: fs::recursive_directory_iterator(path))
+        {
+            if(!entry.is_regular_file()) { continue; }
+
+            if(strcmp(entry.path().extension().string().substr(1).c_str(), "spv") == 0)
+            {
+                std::string fileNameWithExtension = entry.path().filename().string();
+                size_t      dotPos = fileNameWithExtension.find('.', fileNameWithExtension.find('.') + 1);
+                std::string fileName = entry.path().stem().string().substr(0, dotPos);
+
+                m_shaderMap.emplace(fileName, entry.path().string());
+            }
+            else if(strcmp(entry.path().extension().string().substr(1).c_str(), "glb") == 0)
+            {
+                m_modelMap.emplace(entry.path().stem().string(), entry.path().string());
+                HGDEBUG("Found model with name: %s", entry.path().stem().string().c_str());
+            }
+            else if(strcmp(entry.path().extension().string().substr(1).c_str(), "gltf") == 0)
+            {
+                m_modelMap.emplace(entry.path().stem().string(), entry.path().string());
+            }
+            else if(strcmp(entry.path().extension().string().substr(1).c_str(), "ktx") == 0)
+            {
+                m_textureMap.emplace(entry.path().stem().string(), entry.path().string());
+            }
         }
     }
 }

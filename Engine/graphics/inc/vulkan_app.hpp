@@ -29,7 +29,7 @@ struct DeletionQueue
 class VulkanApp
 {
 public:
-    VulkanApp();
+    VulkanApp(int argc, char* argv[]);
     ~VulkanApp();
 
     void Run();
@@ -48,7 +48,7 @@ private:
 
     GameObject::Map m_gameObjects;
 
-    void Init();
+    void Init(int argc, char* argv[]);
     void LoadGameObjects();
 
     void HandleInput(float frameTime, GameObject& viewerObject);

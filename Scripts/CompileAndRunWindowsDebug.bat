@@ -14,7 +14,7 @@ ninja
 if %errorlevel%==0 (
     echo Ninja build successful
 
-    %EXE_DIR%App.exe
+    %EXE_DIR%App.exe %*
 ) else (
     echo Ninja build failed!
 )

@@ -10,9 +10,9 @@
 
 namespace Humongous
 {
-VulkanApp::VulkanApp()
+VulkanApp::VulkanApp(int argc, char* argv[])
 {
-    Init();
+    Init(argc, argv);
     LoadGameObjects();
 }
 
@@ -22,14 +22,24 @@ VulkanApp::~VulkanApp()
     m_mainDeletionQueue.Flush();
 }
 
-void VulkanApp::Init()
+void VulkanApp::Init(int argc, char* argv[])
 {
     m_window = std::make_unique<Window>();
     m_instance = std::make_unique<Instance>();
     m_physicalDevice = std::make_unique<PhysicalDevice>(*m_instance, *m_window);
     m_logicalDevice = std::make_unique<LogicalDevice>(*m_instance, *m_physicalDevice);
 
-    Systems::AssetManager::Get().Init();
+    if(argc > 1)
+    {
+        std::vector<std::string> paths;
+        for(int i = 1; i < argc; ++i) { paths.push_back(argv[i]); }
+        Systems::AssetManager::Get().Init(&paths);
+    }
+    else
+    {
+        HGINFO("Launch the engine with absolute paths to extra directories for the asset manager to look for models in");
+        Systems::AssetManager::Get().Init();
+    }
 
     Allocator::Get().Initialize(m_logicalDevice.get());
 
@@ -52,10 +62,8 @@ void VulkanApp::LoadGameObjects()
     HGINFO("Loading game objects...");
 
     std::shared_ptr<Model> model;
-    model = std::make_shared<Model>(m_logicalDevice.get(),
-                                    Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::MODEL, "employee"), 1.00);
-
-    // model = std::make_shared<Model>(m_logicalDevice.get(), "C:/dev/Coding/Github Repos/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf", 1);
+    model = std::make_shared<Model>(m_logicalDevice.get(), Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::MODEL, "Sponza"),
+                                    1.00);
 
     GameObject obj = GameObject::CreateGameObject();
     obj.transform.translation = {0.0f, 0.0f, 0.0f};
