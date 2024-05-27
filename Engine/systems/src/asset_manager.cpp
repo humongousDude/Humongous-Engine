@@ -94,14 +94,22 @@ std::string AssetManager::GetAsset(const AssetType type, const std::string_view 
 
         case AssetType::MODEL:
             if(m_modelMap.find(static_cast<std::string>(asset)) != m_modelMap.end()) { return m_modelMap.at(static_cast<std::string>(asset)); }
-            else { return ""; }
+            else
+            {
+                // return "../../../Assets/models/employee.glb";
+                return GetAsset(AssetType::MODEL, "employee");
+            }
             break;
         case AssetType::TEXTURE:
             if(m_textureMap.find(static_cast<std::string>(asset)) != m_textureMap.end())
             {
                 return m_textureMap.at(static_cast<std::string>(asset));
             }
-            else { return ""; }
+            else
+            {
+                // return "../../../Assets/textures/empty.ktx";
+                return GetAsset(AssetType::TEXTURE, "empty");
+            }
             break;
     }
 }

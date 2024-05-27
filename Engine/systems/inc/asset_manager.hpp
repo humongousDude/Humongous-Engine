@@ -23,7 +23,12 @@ public:
     // paths must not contain any directorys or files with unicode characters.
     void Init(const std::vector<std::string>* paths = nullptr);
 
-    // returns a std::string path to the requested asset. returns "" if it doesn't exist
+    /***
+     * returns a std::string path to the requested asset.
+     * if it doesn't find a model, it returns the path to a default model
+     * if it doesn't find a texture, it returns a path to an empty texture
+     * if it doesn't find a shader, it return ""
+     * */
     std::string GetAsset(const AssetType type, const std::string_view asset);
 
 private:
