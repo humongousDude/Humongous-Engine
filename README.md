@@ -18,7 +18,7 @@ This uses Vulkan and C++, and only targets windows currently
 * ImGui (trying to use it, but failing miserably)
 * TinyGLTF 
 * GLI 
-* Boost.log
+* Spdlog
 
 
 ## To Build
