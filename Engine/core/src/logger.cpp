@@ -5,9 +5,8 @@
 #include <string>
 
 // TODO: create log file
-// TODO: Actually setup Boost.log, or maybe switch to a custom logging system
 
-#include <boost/log/trivial.hpp>
+#include "spdlog/spdlog.h"
 
 void ReportAssertionFaliure(const char* expression, const char* message, const char* file, i32 line)
 {
@@ -37,27 +36,27 @@ void LogOutput(LogLevel level, const char* message, ...)
     switch(level)
     {
         case LOG_LEVEL_FATAL:
-            BOOST_LOG_TRIVIAL(fatal) << outMessage;
+            spdlog::critical(outMessage);
             break;
 
         case LOG_LEVEL_ERROR:
-            BOOST_LOG_TRIVIAL(error) << outMessage;
+            spdlog::error(outMessage);
             break;
 
         case LOG_LEVEL_WARN:
-            BOOST_LOG_TRIVIAL(warning) << outMessage;
+            spdlog::warn(outMessage);
             break;
 
         case LOG_LEVEL_INFO:
-            BOOST_LOG_TRIVIAL(info) << outMessage;
+            spdlog::info(outMessage);
             break;
 
         case LOG_LEVEL_DEBUG:
-            BOOST_LOG_TRIVIAL(debug) << outMessage;
+            spdlog::debug(outMessage);
             break;
 
         case LOG_LEVEL_TRACE:
-            BOOST_LOG_TRIVIAL(trace) << outMessage;
+            spdlog::trace(outMessage);
             break;
     }
 

@@ -303,7 +303,7 @@ void Renderer::EndFrame()
     m_currentFrameIndex = (m_currentFrameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
 }
 
-void Renderer::BeginRendering(VkCommandBuffer cmd, bool useDepth)
+void Renderer::BeginRendering(VkCommandBuffer cmd)
 {
     m_drawImageExtent.width = m_drawImage.imageExtent.width;
     m_drawImageExtent.height = m_drawImage.imageExtent.height;
@@ -332,16 +332,13 @@ void Renderer::BeginRendering(VkCommandBuffer cmd, bool useDepth)
 
     VkRenderingInfo           renderingInfo{};
     VkRenderingAttachmentInfo depthAttachment{};
-    if(useDepth)
-    {
-        depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-        depthAttachment.imageView = m_depthImage.imageView;
-        depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        depthAttachment.clearValue = clearValues[1];
-        renderingInfo.pDepthAttachment = &depthAttachment;
-    }
+    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depthAttachment.imageView = m_depthImage.imageView;
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.clearValue = clearValues[1];
+    renderingInfo.pDepthAttachment = &depthAttachment;
 
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderingInfo.renderArea = {0, 0, m_swapChain->GetExtent().width, m_swapChain->GetExtent().height};

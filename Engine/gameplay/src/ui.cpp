@@ -40,18 +40,21 @@ void UI::Init(class Instance* instance, LogicalDevice* logicalDevice, Window* wi
                               .QuerySwapChainSupport(m_logicalDevice->GetPhysicalDevice().GetVkPhysicalDevice())
                               .capabilities.surfaceCapabilities.maxImageCount;
 
+    renderingInfo = RenderPipeline::DefaultPipelineConfigInfo().renderingInfo;
+    renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
+
     initInfo.Queue = m_logicalDevice->GetGraphicsQueue();
     initInfo.QueueFamily = m_logicalDevice->GetGraphicsQueueIndex();
     initInfo.PhysicalDevice = m_logicalDevice->GetPhysicalDevice().GetVkPhysicalDevice();
     initInfo.DescriptorPool = m_pool->GetRawPoolHandle();
     initInfo.UseDynamicRendering = true;
-    initInfo.ColorAttachmentFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
     initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     initInfo.PipelineCache = VK_NULL_HANDLE;
     initInfo.CheckVkResultFn = nullptr;
     initInfo.Subpass = 0;
     initInfo.Allocator = nullptr;
-    ImGui_ImplVulkan_Init(&initInfo, VK_NULL_HANDLE);
+    initInfo.PipelineRenderingCreateInfo = renderingInfo;
+    ImGui_ImplVulkan_Init(&initInfo);
 
     InitPipeline();
 }
@@ -106,7 +109,7 @@ void UI::InitPipeline()
 
     RenderPipeline::PipelineConfigInfo pipelineCI = RenderPipeline::DefaultPipelineConfigInfo();
     pipelineCI.colorAttachmentFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
-    pipelineCI.renderingInfo.depthAttachmentFormat = VK_FORMAT_UNDEFINED;
+    pipelineCI.renderingInfo = renderingInfo;
     pipelineCI.depthStencilInfo.depthTestEnable = VK_FALSE;
     pipelineCI.depthStencilInfo.depthWriteEnable = VK_FALSE;
     pipelineCI.pipelineLayout = m_pipelineLayout;
@@ -127,6 +130,7 @@ void UI::Draw(VkCommandBuffer cmd)
     ImGui::ShowDemoWindow();
 
     ImGui::Render();
+    ImGui::EndFrame();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 }
 

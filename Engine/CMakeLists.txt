@@ -35,8 +35,8 @@ target_include_directories(Engine PUBLIC ${TINYGLTF_INCLUDE_DIRS})
 find_package(gli CONFIG REQUIRED)
 target_link_libraries(Engine PUBLIC gli)
 
-find_package(Boost REQUIRED COMPONENTS log)
-target_link_libraries(Engine PUBLIC Boost::boost Boost::log)
+find_package(spdlog CONFIG REQUIRED)
+target_link_libraries(Engine PRIVATE spdlog::spdlog)
 
 find_package(imgui CONFIG REQUIRED)
 target_link_libraries(Engine PUBLIC imgui::imgui)

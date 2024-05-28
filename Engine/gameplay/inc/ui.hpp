@@ -37,6 +37,8 @@ private:
     std::unique_ptr<DescriptorPool>      m_pool;
     std::unique_ptr<DescriptorSetLayout> m_setLayout;
 
+    VkPipelineRenderingCreateInfo renderingInfo;
+
     // "Things" because i have no idea what a good group for descriptors is
     void InitDescriptorThings();
     void InitPipeline();

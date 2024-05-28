@@ -199,10 +199,6 @@ void VulkanApp::Run()
 
                 m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
                 m_simpleRenderSystem->RenderObjects(data);
-                m_renderer->EndRendering(cmd);
-
-                // this doesn't work when rendering first for some reason
-                m_renderer->BeginRendering(cmd, false);
 
                 UI::Get().Draw(cmd);
 

@@ -49,10 +49,9 @@ public:
      * Begin listening for draw commands.
      *
      * commandBuffer: the command buffer we'll write the commands to
-     * useDepth: wether or not to attach a depth attachment
      *
      */
-    void BeginRendering(VkCommandBuffer commandBuffer, bool useDepth = true);
+    void BeginRendering(VkCommandBuffer commandBuffer);
 
     /***
      *  Stop listening for draw commands and copy the outputs to the final swapchain image
