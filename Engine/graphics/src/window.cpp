@@ -36,9 +36,6 @@ void Window::CreateWindow()
 
     window = glfwCreateWindow(width, height, "Humongous Engine", nullptr, nullptr);
 
-    ImGui::CreateContext();
-    ImGui_ImplGlfw_InitForVulkan(window, true);
-
     glfwSetWindowUserPointer(window, this);
     glfwSetWindowSizeCallback(window, HandleWindowResized);
 }

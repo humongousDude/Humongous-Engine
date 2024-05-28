@@ -27,17 +27,37 @@ public:
              VkFormat depthFormat);
     ~Renderer();
 
-    u32             GetImageIndex() const { return m_currentImageIndex; }
-    u32             GetFrameIndex() const { return m_currentFrameIndex; }
+    // Get the swapchain image index we're currently using
+    u32 GetImageIndex() const { return m_currentImageIndex; }
+
+    // Get the frame index we're currently using
+    u32 GetFrameIndex() const { return m_currentFrameIndex; }
+
+    // Get the command buffer we're currently using
     VkCommandBuffer GetCommandBuffer() { return GetCurrentFrame().commandBuffer; }
 
+    // Begin a frame, acquire the next swapchain image and prep command buffers
     VkCommandBuffer BeginFrame();
-    void            EndFrame();
 
+    // End a frame and submit command buffers
+    void EndFrame();
+
+    // Get the swapchain's aspect ratio
     f32 GetAspectRatio() const { return static_cast<float>(m_swapChain->GetExtent().width) / static_cast<float>(m_swapChain->GetExtent().height); }
 
-    void BeginRendering(VkCommandBuffer commandBuffer);
-    void EndRendering(VkCommandBuffer commandBuffer, u32 customIndex = -1);
+    /***
+     * Begin listening for draw commands.
+     *
+     * commandBuffer: the command buffer we'll write the commands to
+     * useDepth: wether or not to attach a depth attachment
+     *
+     */
+    void BeginRendering(VkCommandBuffer commandBuffer, bool useDepth = true);
+
+    /***
+     *  Stop listening for draw commands and copy the outputs to the final swapchain image
+     */
+    void EndRendering(VkCommandBuffer commandBuffer);
 
     SwapChain* GetSwapChain() const { return m_swapChain.get(); }
 
@@ -60,8 +80,6 @@ private:
     VkExtent2D     m_drawImageExtent;
     AllocatedImage m_depthImage;
     VkExtent2D     m_depthImageExtent;
-
-    bool m_hasDepth{false};
 
     void InitImagesAndViews();
     void InitDepthImage();

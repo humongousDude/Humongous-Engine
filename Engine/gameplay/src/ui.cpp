@@ -1,13 +1,10 @@
 #include "ui.hpp"
+#include "asset_manager.hpp"
 #include "logger.hpp"
 
 // lib
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
-
-// std
-#include <algorithm>
-#include <iterator>
 
 #include "glm/glm.hpp"
 
@@ -22,6 +19,8 @@ struct UIPushConstantBlock
 
 void UI::Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window, Renderer* renderer)
 {
+    ImGui::CreateContext();
+    ImGui_ImplGlfw_InitForVulkan(window->GetWindow(), true);
     m_logicalDevice = logicalDevice;
 
     InitDescriptorThings();
@@ -42,7 +41,7 @@ void UI::Init(class Instance* instance, LogicalDevice* logicalDevice, Window* wi
                               .capabilities.surfaceCapabilities.maxImageCount;
 
     initInfo.Queue = m_logicalDevice->GetGraphicsQueue();
-    // initInfo.QueueFamily = m_logicalDevice->GetGraphicsQueueIndex();
+    initInfo.QueueFamily = m_logicalDevice->GetGraphicsQueueIndex();
     initInfo.PhysicalDevice = m_logicalDevice->GetPhysicalDevice().GetVkPhysicalDevice();
     initInfo.DescriptorPool = m_pool->GetRawPoolHandle();
     initInfo.UseDynamicRendering = true;
@@ -63,11 +62,7 @@ void UI::Shutdown()
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
-    m_pool.reset();
-    m_setLayout.reset();
-
     vkDestroyPipelineLayout(m_logicalDevice->GetVkDevice(), m_pipelineLayout, nullptr);
-    m_renderPipeline.reset();
 }
 
 void UI::InitDescriptorThings()
@@ -101,17 +96,8 @@ void UI::InitPipeline()
 {
     VkDescriptorSetLayout layout[] = {m_setLayout->GetDescriptorSetLayout()};
 
-    VkPushConstantRange pcRange{};
-    pcRange.offset = 0;
-    pcRange.size = sizeof(UIPushConstantBlock);
-    pcRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
     VkPipelineLayoutCreateInfo layoutCI{};
     layoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    // layoutCI.setLayoutCount = 1;
-    // layoutCI.pSetLayouts = layout;
-    // layoutCI.pushConstantRangeCount = 1;
-    // layoutCI.pPushConstantRanges = &pcRange;
 
     if(vkCreatePipelineLayout(m_logicalDevice->GetVkDevice(), &layoutCI, nullptr, &m_pipelineLayout) != VK_SUCCESS)
     {
@@ -124,35 +110,8 @@ void UI::InitPipeline()
     pipelineCI.depthStencilInfo.depthTestEnable = VK_FALSE;
     pipelineCI.depthStencilInfo.depthWriteEnable = VK_FALSE;
     pipelineCI.pipelineLayout = m_pipelineLayout;
-    pipelineCI.vertShaderPath = "compiledShaders/nothing.vert.glsl.spv";
-    pipelineCI.fragShaderPath = "compiledShaders/nothing.frag.glsl.spv";
-
-    std::vector<VkVertexInputBindingDescription> inptBindings(1);
-    inptBindings[0].binding = 0;
-    inptBindings[0].stride = sizeof(ImDrawVert);
-    inptBindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    std::copy(inptBindings.begin(), inptBindings.end(), std::back_inserter(pipelineCI.inputBindings));
-
-    std::vector<VkVertexInputAttributeDescription> attribBindings(3);
-    attribBindings[0].binding = 0;
-    attribBindings[0].location = 0;
-    attribBindings[0].offset = offsetof(ImDrawVert, pos);
-    attribBindings[0].format = VK_FORMAT_R32G32_SFLOAT;
-
-    attribBindings[1].binding = 0;
-    attribBindings[1].location = 1;
-    attribBindings[1].offset = offsetof(ImDrawVert, uv);
-    attribBindings[1].format = VK_FORMAT_R32G32_SFLOAT;
-
-    attribBindings[2].binding = 0;
-    attribBindings[2].location = 2;
-    attribBindings[2].offset = offsetof(ImDrawVert, col);
-    attribBindings[2].format = VK_FORMAT_R8G8B8A8_UNORM;
-
-    std::copy(attribBindings.begin(), attribBindings.end(), std::back_inserter(pipelineCI.attribBindings));
-
-    pipelineCI.bindless = false;
+    pipelineCI.vertShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "nothing.vert");
+    pipelineCI.fragShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "nothing.frag");
 
     m_renderPipeline = std::make_unique<RenderPipeline>(*m_logicalDevice, pipelineCI);
 }
@@ -160,11 +119,6 @@ void UI::InitPipeline()
 void UI::Draw(VkCommandBuffer cmd)
 {
     m_renderPipeline->Bind(cmd);
-
-    // UIPushConstantBlock pushConstBlock;
-    // pushConstBlock.scale = glm::vec2(.5f);
-    // pushConstBlock.translate = glm::vec2(-1.0f);
-    // vkCmdPushConstants(cmd, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UIPushConstantBlock), &pushConstBlock);
 
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();

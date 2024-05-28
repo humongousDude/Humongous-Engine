@@ -1,12 +1,13 @@
 #pragma once
 
+#include "non_copyable.hpp"
 #include "singleton.hpp"
 namespace Humongous
 {
 namespace Globals
 {
 
-class Time : Singleton<Time>
+class Time : public Singleton<Time>, NonCopyable
 {
 public:
     static float DeltaTime() { return Get().Internal_DeltaTime(); }

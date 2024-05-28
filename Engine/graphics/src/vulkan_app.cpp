@@ -2,6 +2,7 @@
 #include "camera.hpp"
 #include "globals.hpp"
 #include "model.hpp"
+#include "ui.hpp"
 #include <keyboard_handler.hpp>
 #include <logger.hpp>
 #include <vulkan_app.hpp>
@@ -44,6 +45,8 @@ void VulkanApp::Init(int argc, char* argv[])
 
     Allocator::Get().Initialize(m_logicalDevice.get());
 
+    UI::Get().Init(m_instance.get(), m_logicalDevice.get(), m_window.get(), m_renderer.get());
+
     m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator(),
                                             VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_D32_SFLOAT);
     m_mainDeletionQueue.PushDeletor([&]() {
@@ -51,6 +54,7 @@ void VulkanApp::Init(int argc, char* argv[])
         m_skyboxRenderSystem.reset();
         m_renderer.reset();
         Allocator::Get().Shutdown();
+        UI::Get().Shutdown();
         m_logicalDevice.reset();
         m_physicalDevice.reset();
         m_window.reset();
@@ -85,11 +89,7 @@ void VulkanApp::HandleInput(float frameTime, GameObject& viewerObject)
 
     KeyboardHandler handler;
 
-    if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_I) == GLFW_PRESS ||
-       glfwGetMouseButton(m_window->GetWindow(), GLFW_MOUSE_BUTTON_1) == GLFW_PRESS && !m_window->IsCursorHidden())
-    {
-        m_window->HideCursor();
-    }
+    if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_I) == GLFW_PRESS && !m_window->IsCursorHidden()) { m_window->HideCursor(); }
     if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_O) == GLFW_PRESS ||
        glfwGetKey(m_window->GetWindow(), GLFW_KEY_ESCAPE) == GLFW_PRESS && m_window->IsCursorHidden())
     {
@@ -199,9 +199,14 @@ void VulkanApp::Run()
 
                 m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
                 m_simpleRenderSystem->RenderObjects(data);
-
                 m_renderer->EndRendering(cmd);
 
+                // this doesn't work when rendering first for some reason
+                m_renderer->BeginRendering(cmd, false);
+
+                UI::Get().Draw(cmd);
+
+                m_renderer->EndRendering(cmd);
                 m_renderer->EndFrame();
             }
         }

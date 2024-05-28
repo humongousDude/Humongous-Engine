@@ -12,8 +12,6 @@ Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice&
     m_drawImage.imageFormat = drawFormat;
     m_depthImage.imageFormat = depthFormat;
 
-    m_hasDepth = m_depthImage.imageFormat == VK_FORMAT_UNDEFINED ? false : true;
-
     RecreateSwapChain();
     CreateCommandPool();
     AllocateCommandBuffers();
@@ -68,7 +66,7 @@ void Renderer::RecreateSwapChain()
     HGINFO("Recreated swap chain");
 
     InitImagesAndViews();
-    if(m_hasDepth) { InitDepthImage(); }
+    InitDepthImage();
 }
 
 void Renderer::InitImagesAndViews()
@@ -305,7 +303,7 @@ void Renderer::EndFrame()
     m_currentFrameIndex = (m_currentFrameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
 }
 
-void Renderer::BeginRendering(VkCommandBuffer cmd)
+void Renderer::BeginRendering(VkCommandBuffer cmd, bool useDepth)
 {
     m_drawImageExtent.width = m_drawImage.imageExtent.width;
     m_drawImageExtent.height = m_drawImage.imageExtent.height;
@@ -334,7 +332,7 @@ void Renderer::BeginRendering(VkCommandBuffer cmd)
 
     VkRenderingInfo           renderingInfo{};
     VkRenderingAttachmentInfo depthAttachment{};
-    if(m_hasDepth)
+    if(useDepth)
     {
         depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
         depthAttachment.imageView = m_depthImage.imageView;
@@ -375,11 +373,9 @@ void Renderer::BeginRendering(VkCommandBuffer cmd)
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 }
 
-void Renderer::EndRendering(VkCommandBuffer cmd, u32 customIndex)
+void Renderer::EndRendering(VkCommandBuffer cmd)
 {
     vkCmdEndRendering(cmd);
-
-    u32 imgIndex = customIndex == -1 ? m_currentImageIndex : customIndex;
 
     Utils::ImageTransitionInfo drawInfo{};
     drawInfo.image = m_drawImage.image;
@@ -388,7 +384,7 @@ void Renderer::EndRendering(VkCommandBuffer cmd, u32 customIndex)
     drawInfo.cmd = cmd;
 
     Utils::ImageTransitionInfo swapInfo{};
-    swapInfo.image = m_swapChain->GetImages()[imgIndex];
+    swapInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
     swapInfo.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     swapInfo.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     swapInfo.cmd = cmd;
@@ -396,10 +392,10 @@ void Renderer::EndRendering(VkCommandBuffer cmd, u32 customIndex)
     Utils::TransitionImageLayout(drawInfo);
     Utils::TransitionImageLayout(swapInfo);
 
-    Utils::CopyImageToImage(cmd, m_drawImage.image, m_swapChain->GetImages()[imgIndex], m_drawImageExtent, m_swapChain->GetExtent());
+    Utils::CopyImageToImage(cmd, m_drawImage.image, m_swapChain->GetImages()[m_currentImageIndex], m_drawImageExtent, m_swapChain->GetExtent());
 
     Utils::ImageTransitionInfo presentInfo{};
-    presentInfo.image = m_swapChain->GetImages()[imgIndex];
+    presentInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
     presentInfo.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     presentInfo.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     presentInfo.cmd = cmd;

@@ -60,7 +60,7 @@ void SkyboxRenderSystem::CreatePipeline()
     ppCI.depthStencilInfo.depthTestEnable = VK_FALSE;
     ppCI.depthStencilInfo.depthWriteEnable = VK_FALSE;
     ppCI.multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    ppCI.multisampleInfo.sampleShadingEnable = VK_TRUE;
+    ppCI.multisampleInfo.sampleShadingEnable = VK_FALSE;
     ppCI.multisampleInfo.minSampleShading = 1.0;
     ppCI.pipelineLayout = m_pipelineLayout;
     ppCI.vertShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.vert");
