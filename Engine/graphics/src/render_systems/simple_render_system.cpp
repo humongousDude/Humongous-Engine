@@ -99,6 +99,11 @@ void SimpleRenderSystem::CreatePipeline()
     configInfo.vertShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert");
     configInfo.fragShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "unlit.frag");
 
+    // configInfo.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    configInfo.multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    configInfo.multisampleInfo.sampleShadingEnable = VK_TRUE;
+    configInfo.multisampleInfo.minSampleShading = 1.0;
+
     m_renderPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
     HGINFO("Created pipeline");
 }

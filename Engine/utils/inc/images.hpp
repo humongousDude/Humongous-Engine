@@ -32,6 +32,7 @@ struct AllocatedImageCreateInfo
     VkImageCreateFlags    flags = 0;
     VkImageViewType       imageViewType = VK_IMAGE_VIEW_TYPE_2D;
     VmaPool               imagePool{VK_NULL_HANDLE};
+    VkSampleCountFlagBits samples{VK_SAMPLE_COUNT_1_BIT};
 };
 
 struct ImageTransitionInfo

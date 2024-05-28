@@ -35,6 +35,6 @@ public:
     void ProcessInput(const InputData& inputData);
 
     float moveSpeed{3.0f};
-    float lookSpeed{.1f};
+    float lookSpeed{5.0f};
 };
 } // namespace Humongous

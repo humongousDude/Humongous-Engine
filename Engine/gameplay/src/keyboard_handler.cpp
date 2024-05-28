@@ -1,3 +1,4 @@
+#include "globals.hpp"
 #include <keyboard_handler.hpp>
 
 namespace Humongous
@@ -6,8 +7,8 @@ void KeyboardHandler::ProcessInput(const InputData& inputData)
 {
     glm::vec3 rotate{0};
     glm::vec3 moveDir{0.0f};
-    rotate.x -= (inputData.mouseDeltaY * lookSpeed);
-    rotate.y += (inputData.mouseDeltaX * lookSpeed);
+    rotate.x -= (inputData.mouseDeltaY * lookSpeed * Globals::Time::DeltaTime());
+    rotate.y += (inputData.mouseDeltaX * lookSpeed * Globals::Time::DeltaTime());
 
     if(glm::dot(rotate, rotate) > std::numeric_limits<float>::epsilon())
     {

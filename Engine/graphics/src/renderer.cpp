@@ -103,6 +103,7 @@ void Renderer::InitImagesAndViews()
     imgCI.layerCount = 1;
     imgCI.format = m_drawImage.imageFormat == VK_FORMAT_UNDEFINED ? VK_FORMAT_R16G16B16A16_SFLOAT : m_drawImage.imageFormat;
     imgCI.imagePool = VK_NULL_HANDLE;
+    imgCI.samples = VK_SAMPLE_COUNT_1_BIT;
 
     Utils::CreateAllocatedImage(imgCI);
 
@@ -139,6 +140,7 @@ void Renderer::InitDepthImage()
     imgCI.layerCount = 1;
     imgCI.format = m_depthImage.imageFormat == VK_FORMAT_UNDEFINED ? VK_FORMAT_D32_SFLOAT : m_depthImage.imageFormat;
     imgCI.imagePool = VK_NULL_HANDLE;
+    imgCI.samples = VK_SAMPLE_COUNT_1_BIT;
 
     Utils::CreateAllocatedImage(imgCI);
 

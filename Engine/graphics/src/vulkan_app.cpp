@@ -1,5 +1,6 @@
 #include "allocator.hpp"
 #include "camera.hpp"
+#include "globals.hpp"
 #include "model.hpp"
 #include <keyboard_handler.hpp>
 #include <logger.hpp>
@@ -204,6 +205,7 @@ void VulkanApp::Run()
                 m_renderer->EndFrame();
             }
         }
+        Globals::Time::Update(frameTime);
 
         HGINFO("FrameTime: %f", frameTime);
     }
