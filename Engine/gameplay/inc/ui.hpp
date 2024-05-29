@@ -39,7 +39,6 @@ private:
 
     VkPipelineRenderingCreateInfo renderingInfo;
 
-    // "Things" because i have no idea what a good group for descriptors is
     void InitDescriptorThings();
     void InitPipeline();
 };

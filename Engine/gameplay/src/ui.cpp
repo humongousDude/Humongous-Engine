@@ -1,21 +1,16 @@
 #include "ui.hpp"
 #include "asset_manager.hpp"
+#include "globals.hpp"
 #include "logger.hpp"
 
 // lib
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
-#include "glm/glm.hpp"
+#include "cmath"
 
 namespace Humongous
 {
-
-struct UIPushConstantBlock
-{
-    glm::vec2 scale;
-    glm::vec2 translate;
-};
 
 void UI::Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window, Renderer* renderer)
 {
@@ -128,6 +123,13 @@ void UI::Draw(VkCommandBuffer cmd)
     ImGui::NewFrame();
 
     ImGui::ShowDemoWindow();
+
+    ImGui::Begin("Metrics");
+
+    ImGui::Text("FPS: %i", static_cast<int>(std::round((1 / Globals::Time::AverageDeltaTime()))));
+    ImGui::Text("FrameTime: %f", Globals::Time::AverageDeltaTime());
+
+    ImGui::End();
 
     ImGui::Render();
     ImGui::EndFrame();
