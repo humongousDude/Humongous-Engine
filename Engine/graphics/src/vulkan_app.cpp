@@ -1,14 +1,14 @@
+#include "vulkan_app.hpp"
 #include "allocator.hpp"
 #include "camera.hpp"
 #include "globals.hpp"
+#include "keyboard_handler.hpp"
+#include "logger.hpp"
 #include "model.hpp"
 #include "ui.hpp"
-#include <keyboard_handler.hpp>
-#include <logger.hpp>
-#include <vulkan_app.hpp>
 #define VMA_IMPLEMENTATION
 #include "asset_manager.hpp"
-#include <vk_mem_alloc.h>
+#include "vk_mem_alloc.h"
 
 namespace Humongous
 {
@@ -207,8 +207,6 @@ void VulkanApp::Run()
             }
         }
         Globals::Time::Update(frameTime);
-
-        HGINFO("FrameTime: %f", frameTime);
     }
 
     HGINFO("Quitting...");
