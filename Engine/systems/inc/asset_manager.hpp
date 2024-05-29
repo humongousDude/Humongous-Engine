@@ -29,9 +29,11 @@ public:
      * if it doesn't find a texture, it returns a path to an empty texture
      * if it doesn't find a shader, it return ""
      * */
-    std::string GetAsset(const AssetType type, const std::string_view asset);
+    static std::string GetAsset(const AssetType type, const std::string_view asset) { return Get().Internal_GetAsset(type, asset); }
 
 private:
+    std::string Internal_GetAsset(const AssetType type, const std::string_view asset);
+
     std::unordered_map<std::string, std::string> m_shaderMap;
     std::unordered_map<std::string, std::string> m_modelMap;
     std::unordered_map<std::string, std::string> m_textureMap;
