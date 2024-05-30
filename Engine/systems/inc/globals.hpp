@@ -2,6 +2,9 @@
 
 #include "non_copyable.hpp"
 #include "singleton.hpp"
+
+#include "type_traits"
+
 namespace Humongous
 {
 namespace Globals

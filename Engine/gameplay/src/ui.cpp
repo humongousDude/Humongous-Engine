@@ -124,17 +124,20 @@ void UI::Draw(VkCommandBuffer cmd)
 {
     if(!m_hasInited) { return; }
     m_renderPipeline->Bind(cmd);
+    bool show = false;
 
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::ShowDemoWindow();
+    const ImGuiIO& io = ImGui::GetIO();
+    ImVec2         windowPos = {0, 0};
 
-    ImGui::Begin("Metrics");
+    ImGui::SetNextWindowPos(windowPos);
+    ImGui::Begin("Metrics", &show, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
     ImGui::BulletText("FPS: %i", static_cast<int>(std::round((1 / Globals::Time::AverageDeltaTime()))));
-    ImGui::BulletText("FrameTime: %f", Globals::Time::AverageDeltaTime());
+    ImGui::BulletText("FrameTime(ms): %f", Globals::Time::AverageDeltaTime() * 1000);
 
     ImGui::End();
 
