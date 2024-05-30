@@ -15,7 +15,7 @@ namespace Humongous
 void UI::Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window, Renderer* renderer)
 {
     ImGui::CreateContext();
-    ImGui_ImplGlfw_InitForVulkan(window->GetWindow(), true);
+    ImGui_ImplGlfw_InitForVulkan(window->GetWindow(), false);
     m_logicalDevice = logicalDevice;
 
     InitDescriptorThings();
@@ -61,6 +61,10 @@ void UI::Shutdown()
     ImGui::DestroyContext();
 
     vkDestroyPipelineLayout(m_logicalDevice->GetVkDevice(), m_pipelineLayout, nullptr);
+
+    m_pool->ResetPool();
+    m_pool.reset();
+    m_renderPipeline.reset();
 }
 
 void UI::InitDescriptorThings()
@@ -126,8 +130,8 @@ void UI::Draw(VkCommandBuffer cmd)
 
     ImGui::Begin("Metrics");
 
-    ImGui::Text("FPS: %i", static_cast<int>(std::round((1 / Globals::Time::AverageDeltaTime()))));
-    ImGui::Text("FrameTime: %f", Globals::Time::AverageDeltaTime());
+    ImGui::BulletText("FPS: %i", static_cast<int>(std::round((1 / Globals::Time::AverageDeltaTime()))));
+    ImGui::BulletText("FrameTime: %f", Globals::Time::AverageDeltaTime());
 
     ImGui::End();
 
