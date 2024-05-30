@@ -6,7 +6,7 @@
 namespace Humongous
 {
 LogicalDevice::LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice)
-    : m_logicalDevice(VK_NULL_HANDLE), m_instance(instance), m_physicalDevice(&physicalDevice)
+    : m_logicalDevice{VK_NULL_HANDLE}, m_instance{instance}, m_physicalDevice{&physicalDevice}
 {
     HGINFO("Creating logical device...");
     CreateLogicalDevice(instance, physicalDevice);
@@ -37,23 +37,20 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     m_presentQueueIndex = indices.presentFamily.value();
 
     // vulkan 1.2 features
-    VkPhysicalDeviceVulkan12Features vulkan12Features{};
-    vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    vk::PhysicalDeviceVulkan12Features vulkan12Features{};
     vulkan12Features.descriptorIndexing = VK_TRUE;
     vulkan12Features.bufferDeviceAddress = VK_TRUE;
 
     // vulkan 1.3 features
-    VkPhysicalDeviceVulkan13Features vulkan13Features{};
-    vulkan13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    vk::PhysicalDeviceVulkan13Features vulkan13Features{};
     vulkan13Features.synchronization2 = VK_TRUE;
     vulkan13Features.dynamicRendering = VK_TRUE;
     vulkan13Features.pNext = &vulkan12Features;
 
-    VkPhysicalDeviceFeatures2 deviceFeatures2{};
-    deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    vk::PhysicalDeviceFeatures2 deviceFeatures2{};
     deviceFeatures2.pNext = &vulkan13Features;
 
-    VkPhysicalDeviceFeatures deviceFeatures{};
+    vk::PhysicalDeviceFeatures deviceFeatures{};
     deviceFeatures.samplerAnisotropy = VK_TRUE;
 
     auto queueCreateInfos = CreateQueues(physicalDevice);
@@ -64,23 +61,20 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     //
     // cant be bothered to fix this right now
 
-    std::vector<VkDeviceQueueCreateInfo> queueInfos(2);
-    float                                p = 1.0f;
+    std::vector<vk::DeviceQueueCreateInfo> queueInfos(2);
+    float                                  p = 1.0f;
 
-    queueInfos[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queueInfos[0].queueFamilyIndex = indices.graphicsFamily.value();
     queueInfos[0].queueCount = 1;
     queueInfos[0].pQueuePriorities = &p;
 
-    queueInfos[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queueInfos[1].queueFamilyIndex = indices.presentFamily.value();
     queueInfos[1].queueCount = 1;
     queueInfos[1].pQueuePriorities = &p;
 
     auto extensions = physicalDevice.GetDeviceExtensions();
 
-    VkDeviceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    vk::DeviceCreateInfo createInfo{};
     createInfo.queueCreateInfoCount = static_cast<u32>(queueInfos.size()); // queueCreateInfos.size();
     createInfo.pQueueCreateInfos = queueInfos.data();
     createInfo.enabledLayerCount = 0;
@@ -91,15 +85,16 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     createInfo.pNext = &vulkan13Features;
     createInfo.pEnabledFeatures = &deviceFeatures;
 
-    if(vkCreateDevice(physicalDevice.GetVkPhysicalDevice(), &createInfo, nullptr, &m_logicalDevice) != VK_SUCCESS)
+    if(physicalDevice.GetVkPhysicalDevice().createDevice(&createInfo, nullptr, &m_logicalDevice) != vk::Result::eSuccess)
     {
         HGFATAL("Failed to create logical device!");
     }
 
     HGINFO("logical device created");
 
-    vkGetDeviceQueue2(m_logicalDevice, &queueCreateInfos[0], &m_graphicsQueue);
-    vkGetDeviceQueue2(m_logicalDevice, &queueCreateInfos[1], &m_presentQueue);
+    m_logicalDevice.getQueue2(&queueCreateInfos[0], &m_graphicsQueue);
+    m_logicalDevice.getQueue2(&queueCreateInfos[1], &m_presentQueue);
+
     HGINFO("logical device queues acquired");
 }
 
@@ -114,20 +109,19 @@ void LogicalDevice::CreateVmaAllocator(Instance& instance, PhysicalDevice& physi
     vmaCreateAllocator(&allocatorInfo, &m_allocator);
 }
 
-std::vector<VkDeviceQueueInfo2> LogicalDevice::CreateQueues(PhysicalDevice& physicalDevice)
+std::vector<vk::DeviceQueueInfo2> LogicalDevice::CreateQueues(PhysicalDevice& physicalDevice)
 {
     HGINFO("acquiring queue handles...");
 
     PhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 
-    std::vector<VkDeviceQueueInfo2> queueCreateInfos;
-    std::set<u32>                   uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+    std::vector<vk::DeviceQueueInfo2> queueCreateInfos;
+    std::set<u32>                     uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
     float queuePriority = 1.0f;
     for(u32 queueFamily: uniqueQueueFamilies)
     {
-        VkDeviceQueueInfo2 queueCreateInfo{};
-        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2;
+        vk::DeviceQueueInfo2 queueCreateInfo{};
         queueCreateInfo.queueFamilyIndex = queueFamily;
         queueCreateInfo.queueIndex = 0;
         queueCreateInfos.push_back(queueCreateInfo);
@@ -138,55 +132,49 @@ std::vector<VkDeviceQueueInfo2> LogicalDevice::CreateQueues(PhysicalDevice& phys
 
 void LogicalDevice::CreateCommandPool(PhysicalDevice& physicalDevice)
 {
-    VkCommandPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    vk::CommandPoolCreateInfo poolInfo{};
+    poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
     poolInfo.queueFamilyIndex = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice()).graphicsFamily.value();
-    if(vkCreateCommandPool(m_logicalDevice, &poolInfo, nullptr, &m_commandPool) != VK_SUCCESS) { HGFATAL("Failed to create command pool!"); }
+
+    if(m_logicalDevice.createCommandPool(&poolInfo, nullptr, &m_commandPool) != vk::Result::eSuccess) { HGFATAL("Failed to create command pool!"); }
 }
 
-VkCommandBuffer LogicalDevice::BeginSingleTimeCommands()
+vk::CommandBuffer LogicalDevice::BeginSingleTimeCommands()
 {
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    vk::CommandBufferAllocateInfo allocInfo{};
+    allocInfo.level = vk::CommandBufferLevel::ePrimary;
     allocInfo.commandPool = m_commandPool;
     allocInfo.commandBufferCount = 1;
 
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(m_logicalDevice, &allocInfo, &commandBuffer);
+    vk::CommandBuffer commandBuffer{};
+    m_logicalDevice.allocateCommandBuffers(&allocInfo, &commandBuffer);
 
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vk::CommandBufferBeginInfo beginInfo{};
+    beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
 
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    commandBuffer.begin(&beginInfo);
     return commandBuffer;
 }
 
-void LogicalDevice::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
+void LogicalDevice::EndSingleTimeCommands(vk::CommandBuffer commandBuffer)
 {
     vkEndCommandBuffer(commandBuffer);
 
-    VkCommandBufferSubmitInfo commandBufferInfo{};
-    commandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
-    commandBufferInfo.commandBuffer = commandBuffer;
+    vk::CommandBufferSubmitInfo commandBufferInfo{};
+    commandBufferInfo.setCommandBuffer(commandBuffer);
     commandBufferInfo.deviceMask = 0;
 
-    VkSubmitInfo2 submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+    vk::SubmitInfo2 submitInfo{};
     submitInfo.commandBufferInfoCount = 1;
     submitInfo.pCommandBufferInfos = &commandBufferInfo;
     submitInfo.signalSemaphoreInfoCount = 0;
     submitInfo.pSignalSemaphoreInfos = nullptr;
     submitInfo.waitSemaphoreInfoCount = 0;
     submitInfo.pWaitSemaphoreInfos = nullptr;
-    submitInfo.pNext = nullptr;
+    m_graphicsQueue.submit2(1, &submitInfo, VK_NULL_HANDLE);
 
-    vkQueueSubmit2(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(m_graphicsQueue);
-
-    vkFreeCommandBuffers(m_logicalDevice, m_commandPool, 1, &commandBuffer);
+    m_graphicsQueue.waitIdle();
+    m_logicalDevice.freeCommandBuffers(m_commandPool, 1, &commandBuffer);
 }
 
 } // namespace Humongous

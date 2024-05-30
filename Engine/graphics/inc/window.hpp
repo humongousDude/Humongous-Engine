@@ -2,7 +2,7 @@
 
 #include <non_copyable.hpp>
 
-#define GLFW_INCLUDE_VULKAN
+#include "vulkan/vulkan.hpp"
 #include <GLFW/glfw3.h>
 
 namespace Humongous
@@ -17,12 +17,12 @@ public:
 
     bool ShouldWindowClose() const { return glfwWindowShouldClose(window); }
 
-    void CreateWindowSurface(VkInstance instance, VkSurfaceKHR* surface);
+    vk::SurfaceKHR CreateWindowSurface(vk::Instance instance);
 
     bool IsFocused() const { return glfwGetWindowAttrib(window, GLFW_FOCUSED); }
     bool IsMinimized() const { return glfwGetWindowAttrib(window, GLFW_ICONIFIED); }
 
-    VkExtent2D GetExtent() const { return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}; }
+    vk::Extent2D GetExtent() const { return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}; }
 
     bool WasWindowResized() const { return m_wasWindowResizedFlag; }
     void ResetWindowResizedFlag() { m_wasWindowResizedFlag = false; }

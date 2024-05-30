@@ -6,7 +6,8 @@
 #include <asserts.hpp>
 #include <optional>
 
-#include <vulkan/vulkan_core.h>
+#include "vulkan/vulkan_handles.hpp"
+#include <vulkan/vulkan.hpp>
 
 namespace Humongous
 {
@@ -24,28 +25,30 @@ public:
 
     struct SwapChainSupportDetails
     {
-        VkSurfaceCapabilities2KHR        capabilities;
-        std::vector<VkSurfaceFormat2KHR> formats;
-        std::vector<VkPresentModeKHR>    presentModes;
+        vk::SurfaceCapabilities2KHR        capabilities{};
+        std::vector<vk::SurfaceFormat2KHR> formats{};
+        std::vector<vk::PresentModeKHR>    presentModes{};
     };
 
     PhysicalDevice(Instance& instance, Window& window);
     ~PhysicalDevice();
 
-    VkPhysicalDevice GetVkPhysicalDevice() const { return m_physicalDevice; }
+    vk::PhysicalDevice GetVkPhysicalDevice() const { return m_physicalDevice; }
 
-    QueueFamilyData FindQueueFamilies(VkPhysicalDevice physicalDevice);
+    QueueFamilyData FindQueueFamilies(vk::PhysicalDevice physicalDevice);
 
     std::vector<const char*> GetDeviceExtensions() { return deviceExtensions; }
 
-    SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice physicalDevice);
+    SwapChainSupportDetails QuerySwapChainSupport(vk::PhysicalDevice physicalDevice);
 
-    VkSurfaceKHR GetSurface() const { return m_surface; }
+    vk::SurfaceKHR GetSurface() const { return m_surface; }
 
-    VkPhysicalDeviceProperties2 GetProperties() const
+    vk::PhysicalDeviceProperties2 GetProperties() const
     {
-        VkPhysicalDeviceProperties2 properties{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
-        vkGetPhysicalDeviceProperties2(m_physicalDevice, &properties);
+        vk::PhysicalDeviceProperties2 properties;
+        properties.sType = vk::StructureType::ePhysicalDeviceProperties2;
+        m_physicalDevice.getProperties2(&properties);
+
         return properties;
     }
 
@@ -57,14 +60,14 @@ public:
     }
 
 private:
-    Instance&        m_instance;
-    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
-    VkSurfaceKHR     m_surface = VK_NULL_HANDLE;
+    Instance&          m_instance;
+    vk::PhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
+    vk::SurfaceKHR     m_surface = VK_NULL_HANDLE;
 
     void PickPhysicalDevice();
 
-    bool IsDeviceSuitable(VkPhysicalDevice physicalDevice);
-    bool CheckDeviceExtensionSupport(VkPhysicalDevice physicalDevice);
+    bool IsDeviceSuitable(vk::PhysicalDevice physicalDevice);
+    bool CheckDeviceExtensionSupport(vk::PhysicalDevice physicalDevice);
 
     const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 };

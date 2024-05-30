@@ -51,7 +51,7 @@ void Renderer::RecreateSwapChain()
 
         if(m_window.ShouldWindowClose()) { return; }
     }
-    vkDeviceWaitIdle(m_logicalDevice.GetVkDevice());
+    m_logicalDevice.GetVkDevice().waitIdle();
 
     if(m_swapChain == nullptr) { m_swapChain = std::make_unique<SwapChain>(m_window, m_physicalDevice, m_logicalDevice); }
     else
@@ -148,12 +148,11 @@ void Renderer::InitDepthImage()
 void Renderer::CreateCommandPool()
 {
     HGINFO("Creating command pool...");
-    VkCommandPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    vk::CommandPoolCreateInfo poolInfo{};
+    poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
     poolInfo.queueFamilyIndex = m_physicalDevice.FindQueueFamilies(m_physicalDevice.GetVkPhysicalDevice()).graphicsFamily.value();
 
-    if(vkCreateCommandPool(m_logicalDevice.GetVkDevice(), &poolInfo, nullptr, &m_commandPool) != VK_SUCCESS)
+    if(m_logicalDevice.GetVkDevice().createCommandPool(&poolInfo, nullptr, &m_commandPool) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create command pool");
     }
@@ -167,15 +166,14 @@ void Renderer::AllocateCommandBuffers()
 
     m_frames.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    vk::CommandBufferAllocateInfo allocInfo{};
     allocInfo.commandPool = m_commandPool;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.level = vk::CommandBufferLevel::ePrimary;
     allocInfo.commandBufferCount = static_cast<u32>(m_frames.size());
 
     for(Frame& frame: m_frames)
     {
-        if(vkAllocateCommandBuffers(m_logicalDevice.GetVkDevice(), &allocInfo, &frame.commandBuffer) != VK_SUCCESS)
+        if(m_logicalDevice.GetVkDevice().allocateCommandBuffers(&allocInfo, &frame.commandBuffer) != vk::Result::eSuccess)
         {
             HGERROR("Failed to allocate command buffers");
         }
@@ -190,27 +188,27 @@ void Renderer::InitSyncStructures()
 
     // one fence to control when the gpu has finished rendering the frame
     // and 2 semaphores to synchronize rendering with swapchain
-    VkFenceCreateInfo fenceCreateInfo{};
-    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    vk::FenceCreateInfo fenceCreateInfo{};
+    fenceCreateInfo.flags = vk::FenceCreateFlagBits::eSignaled;
 
-    VkSemaphoreCreateInfo semaphoreCreateInfo{};
-    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    semaphoreCreateInfo.flags = 0;
+    vk::SemaphoreCreateInfo semaphoreCreateInfo{};
 
     for(int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
     {
-        if(vkCreateFence(m_logicalDevice.GetVkDevice(), &fenceCreateInfo, nullptr, &m_frames[i].inFlightFence) != VK_SUCCESS)
+
+        if(m_logicalDevice.GetVkDevice().createFence(&fenceCreateInfo, nullptr, &m_frames[i].inFlightFence) != vk::Result::eSuccess)
         {
             HGERROR("Failed to create fence");
         }
 
-        if(vkCreateSemaphore(m_logicalDevice.GetVkDevice(), &semaphoreCreateInfo, nullptr, &m_frames[i].imageAvailableSemaphore) != VK_SUCCESS)
+        if(m_logicalDevice.GetVkDevice().createSemaphore(&semaphoreCreateInfo, nullptr, &m_frames[i].imageAvailableSemaphore) !=
+           vk::Result::eSuccess)
         {
             HGERROR("Failed to create image available semaphore");
         }
 
-        if(vkCreateSemaphore(m_logicalDevice.GetVkDevice(), &semaphoreCreateInfo, nullptr, &m_frames[i].renderFinishedSemaphore) != VK_SUCCESS)
+        if(m_logicalDevice.GetVkDevice().createSemaphore(&semaphoreCreateInfo, nullptr, &m_frames[i].renderFinishedSemaphore) !=
+           vk::Result::eSuccess)
         {
             HGERROR("Failed to render finished semaphore");
         }
@@ -221,27 +219,26 @@ void Renderer::InitSyncStructures()
 
 VkCommandBuffer Renderer::BeginFrame()
 {
-    vkWaitForFences(m_logicalDevice.GetVkDevice(), 1, &GetCurrentFrame().inFlightFence, VK_TRUE, std::numeric_limits<u64>::max());
-    vkResetFences(m_logicalDevice.GetVkDevice(), 1, &GetCurrentFrame().inFlightFence);
+    m_logicalDevice.GetVkDevice().waitForFences(1, &GetCurrentFrame().inFlightFence, vk::True, std::numeric_limits<u64>::max());
+    m_logicalDevice.GetVkDevice().resetFences(1, &GetCurrentFrame().inFlightFence);
 
-    VkResult result = vkAcquireNextImageKHR(m_logicalDevice.GetVkDevice(), m_swapChain->GetSwapChain(), 1000000000,
-                                            GetCurrentFrame().imageAvailableSemaphore, VK_NULL_HANDLE, &m_currentImageIndex);
+    vk::Result result = m_logicalDevice.GetVkDevice().acquireNextImageKHR(
+        m_swapChain->GetSwapChain(), 1000000000, GetCurrentFrame().imageAvailableSemaphore, VK_NULL_HANDLE, &m_currentImageIndex);
 
-    if(result == VK_ERROR_OUT_OF_DATE_KHR)
+    if(result == vk::Result::eErrorOutOfDateKHR)
     {
         RecreateSwapChain();
         return nullptr;
     }
 
-    if(result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) { HGERROR("failed to acquire swap chain image!"); }
+    if(result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) { HGERROR("failed to acquire swap chain image!"); }
 
-    VkCommandBuffer cmd = GetCurrentFrame().commandBuffer;
-    if(vkResetCommandBuffer(cmd, 0) != VK_SUCCESS) { HGERROR("Failed to reset command buffer"); }
+    vk::CommandBuffer cmd = GetCurrentFrame().commandBuffer;
+    cmd.reset();
 
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    vk::CommandBufferBeginInfo beginInfo{};
 
-    if(vkBeginCommandBuffer(cmd, &beginInfo) != VK_SUCCESS) { HGERROR("Failed to begin recording command buffer"); }
+    if(cmd.begin(&beginInfo) != vk::Result::eSuccess) { HGERROR("Failed to begin recording command buffer"); }
 
     return cmd;
 }
@@ -250,24 +247,19 @@ void Renderer::EndFrame()
 {
     if(vkEndCommandBuffer(GetCurrentFrame().commandBuffer) != VK_SUCCESS) { HGERROR("Failed to record command buffer"); }
 
-    VkCommandBufferSubmitInfo cmdInfo{};
-    cmdInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
-    cmdInfo.commandBuffer = GetCurrentFrame().commandBuffer;
+    vk::CommandBufferSubmitInfo cmdInfo{};
     cmdInfo.deviceMask = 0;
+    cmdInfo.setCommandBuffer(GetCurrentFrame().commandBuffer);
 
-    VkSemaphoreSubmitInfo waitInfo{};
-    waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+    vk::SemaphoreSubmitInfo waitInfo{};
     waitInfo.semaphore = GetCurrentFrame().imageAvailableSemaphore;
-    waitInfo.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR;
+    waitInfo.stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
 
-    VkSemaphoreSubmitInfo signalInfo{};
-    signalInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+    vk::SemaphoreSubmitInfo signalInfo{};
     signalInfo.semaphore = GetCurrentFrame().renderFinishedSemaphore;
-    signalInfo.stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
+    signalInfo.stageMask = vk::PipelineStageFlagBits2::eAllGraphics;
 
-    VkSubmitInfo2 submit{};
-    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-    submit.pNext = nullptr;
+    vk::SubmitInfo2 submit{};
     submit.waitSemaphoreInfoCount = 1;
     submit.pWaitSemaphoreInfos = &waitInfo;
     submit.commandBufferInfoCount = 1;
@@ -275,15 +267,14 @@ void Renderer::EndFrame()
     submit.signalSemaphoreInfoCount = 1;
     submit.pSignalSemaphoreInfos = &signalInfo;
 
-    if(vkQueueSubmit2(m_logicalDevice.GetGraphicsQueue(), 1, &submit, GetCurrentFrame().inFlightFence) != VK_SUCCESS)
+    if(m_logicalDevice.GetGraphicsQueue().submit2(1, &submit, GetCurrentFrame().inFlightFence) != vk::Result::eSuccess)
     {
         HGERROR("Failed to submit command buffer");
     }
 
     auto s = m_swapChain->GetSwapChain();
 
-    VkPresentInfoKHR presentInfo{};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    vk::PresentInfoKHR presentInfo{};
     presentInfo.pNext = nullptr;
     presentInfo.pSwapchains = &s;
     presentInfo.swapchainCount = 1;
@@ -291,14 +282,14 @@ void Renderer::EndFrame()
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pImageIndices = &m_currentImageIndex;
 
-    auto result = vkQueuePresentKHR(m_logicalDevice.GetPresentQueue(), &presentInfo);
-    if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_window.WasWindowResized())
+    auto result = m_logicalDevice.GetPresentQueue().presentKHR(&presentInfo);
+    if(result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || m_window.WasWindowResized())
     {
         m_window.ResetWindowResizedFlag();
         RecreateSwapChain();
     }
 
-    else if(result != VK_SUCCESS) { HGERROR("failed to present swap chain image"); }
+    else if(result != vk::Result::eSuccess) { HGERROR("failed to present swap chain image"); }
 
     m_currentFrameIndex = (m_currentFrameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
 }

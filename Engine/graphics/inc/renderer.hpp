@@ -16,10 +16,10 @@ class Renderer
 public:
     struct Frame
     {
-        VkCommandBuffer commandBuffer;
-        VkSemaphore     imageAvailableSemaphore;
-        VkSemaphore     renderFinishedSemaphore;
-        VkFence         inFlightFence;
+        vk::CommandBuffer commandBuffer;
+        vk::Semaphore     imageAvailableSemaphore;
+        vk::Semaphore     renderFinishedSemaphore;
+        vk::Fence         inFlightFence;
     };
 
     // Set depthFormat to VK_FORMAT_UNDEFINED to not have depth
@@ -68,7 +68,7 @@ private:
 
     VmaAllocator m_allocator;
 
-    VkCommandPool      m_commandPool;
+    vk::CommandPool    m_commandPool;
     std::vector<Frame> m_frames;
 
     u32    m_currentImageIndex;
@@ -76,9 +76,9 @@ private:
     Frame& GetCurrentFrame() { return m_frames[m_currentFrameIndex]; }
 
     AllocatedImage m_drawImage;
-    VkExtent2D     m_drawImageExtent;
+    vk::Extent2D   m_drawImageExtent;
     AllocatedImage m_depthImage;
-    VkExtent2D     m_depthImageExtent;
+    vk::Extent2D   m_depthImageExtent;
 
     void InitImagesAndViews();
     void InitDepthImage();

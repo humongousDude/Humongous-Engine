@@ -18,40 +18,38 @@ public:
     SwapChain(Window& window, PhysicalDevice& physicalDevice, LogicalDevice& logicalDevice, std::shared_ptr<SwapChain> oldSwap = nullptr);
     ~SwapChain();
 
-    VkExtent2D       GetExtent() const { return m_extent; }
-    VkFormat         GetSurfaceFormat() const { return m_surfaceFormat; }
-    VkPresentModeKHR GetPresentMode() const { return m_presentMode; }
+    vk::Extent2D       GetExtent() const { return m_extent; }
+    vk::Format         GetSurfaceFormat() const { return m_surfaceFormat; }
+    vk::PresentModeKHR GetPresentMode() const { return m_presentMode; }
 
-    VkResult AcquireNextImage(uint32_t* imageIndex);
+    vk::Result AcquireNextImage(uint32_t* imageIndex);
 
-    VkSwapchainKHR GetSwapChain() const { return m_swapChain; }
+    vk::SwapchainKHR GetSwapChain() const { return m_swapChain; }
 
     const bool CompareSwapFormats(const SwapChain& swapChain)
     {
         return swapChain.GetSurfaceFormat() == m_surfaceFormat && swapChain.GetPresentMode() == m_presentMode;
     }
 
-    std::vector<VkImageView> GetImageViews() const { return m_imageViews; }
-    std::vector<VkImage>     GetImages() const { return m_images; }
+    std::vector<vk::ImageView> GetImageViews() const { return m_imageViews; }
+    std::vector<vk::Image>     GetImages() const { return m_images; }
 
 private:
-    LogicalDevice& m_logicalDevice;
-    VkSwapchainKHR m_swapChain;
-    // maybe unused?
-    // VkSwapchainKHR* m_oldSwap = nullptr;
+    LogicalDevice&   m_logicalDevice;
+    vk::SwapchainKHR m_swapChain;
 
-    VkFormat         m_surfaceFormat;
-    VkPresentModeKHR m_presentMode;
-    VkExtent2D       m_extent;
+    vk::Format         m_surfaceFormat;
+    vk::PresentModeKHR m_presentMode;
+    vk::Extent2D       m_extent;
 
-    std::vector<VkImage>     m_images;
-    std::vector<VkImageView> m_imageViews;
+    std::vector<vk::Image>     m_images;
+    std::vector<vk::ImageView> m_imageViews;
 
-    void CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, VkSwapchainKHR* oldSwap);
+    void CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, vk::SwapchainKHR* oldSwap = nullptr);
     void CreateImageViews();
 
-    VkSurfaceFormat2KHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormat2KHR>& formats);
-    VkPresentModeKHR    ChoosePresentMode(const std::vector<VkPresentModeKHR>& presentModes);
-    VkExtent2D          ChooseExtent(const VkSurfaceCapabilities2KHR& capabilities, Window& window);
+    vk::SurfaceFormat2KHR ChooseSurfaceFormat(const std::vector<vk::SurfaceFormat2KHR>& formats);
+    vk::PresentModeKHR    ChoosePresentMode(const std::vector<vk::PresentModeKHR>& presentModes);
+    vk::Extent2D          ChooseExtent(const vk::SurfaceCapabilities2KHR& capabilities, Window& window);
 };
 } // namespace Humongous

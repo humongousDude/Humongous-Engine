@@ -2,6 +2,7 @@
 #include <defines.hpp>
 #include <non_copyable.hpp>
 
+#include "vulkan/vulkan.hpp"
 #include <instance.hpp>
 #include <physical_device.hpp>
 
@@ -15,39 +16,39 @@ public:
     LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice);
     ~LogicalDevice();
 
-    VkDevice        GetVkDevice() const { return m_logicalDevice; }
+    vk::Device      GetVkDevice() const { return m_logicalDevice; }
     PhysicalDevice& GetPhysicalDevice() const { return *m_physicalDevice; }
 
-    VkQueue GetGraphicsQueue() const { return m_graphicsQueue; }
-    VkQueue GetPresentQueue() const { return m_presentQueue; }
+    vk::Queue GetGraphicsQueue() const { return m_graphicsQueue; }
+    vk::Queue GetPresentQueue() const { return m_presentQueue; }
 
     u32 GetGraphicsQueueIndex() const { return m_graphicsQueueIndex; }
     u32 GetPresentQueueIndex() const { return m_presentQueueIndex; }
 
     VmaAllocator GetVmaAllocator() const { return m_allocator; }
 
-    VkCommandBuffer BeginSingleTimeCommands();
-    void            EndSingleTimeCommands(VkCommandBuffer cmd);
+    vk::CommandBuffer BeginSingleTimeCommands();
+    void              EndSingleTimeCommands(vk::CommandBuffer cmd);
 
 private:
     Instance& m_instance;
 
-    VkDevice        m_logicalDevice = VK_NULL_HANDLE;
+    vk::Device      m_logicalDevice = VK_NULL_HANDLE;
     PhysicalDevice* m_physicalDevice;
 
-    VkQueue m_graphicsQueue;
-    VkQueue m_presentQueue;
-    u32     m_graphicsQueueIndex;
-    u32     m_presentQueueIndex;
+    vk::Queue m_graphicsQueue;
+    vk::Queue m_presentQueue;
+    u32       m_graphicsQueueIndex;
+    u32       m_presentQueueIndex;
 
     VmaAllocator m_allocator;
 
-    VkCommandPool m_commandPool;
+    vk::CommandPool m_commandPool;
 
     void CreateLogicalDevice(Instance& instance, PhysicalDevice& physicalDevice);
     void CreateVmaAllocator(Instance& instance, PhysicalDevice& physicalDevice);
     void CreateCommandPool(PhysicalDevice& physicalDevice);
 
-    std::vector<VkDeviceQueueInfo2> CreateQueues(PhysicalDevice& physicalDevice);
+    std::vector<vk::DeviceQueueInfo2> CreateQueues(PhysicalDevice& physicalDevice);
 };
 } // namespace Humongous

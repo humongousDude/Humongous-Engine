@@ -16,14 +16,14 @@ Window::~Window()
 
 void Window::HideCursor()
 {
-    glfwSetCursorPos(window, width / 2, height / 2);
+    glfwSetCursorPos(window, width / 2.f, height / 2.f);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     m_cursorHidden = true;
 }
 
 void Window::ShowCursor()
 {
-    glfwSetCursorPos(window, width / 2, height / 2);
+    glfwSetCursorPos(window, width / 2.f, height / 2.f);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     m_cursorHidden = false;
 }
@@ -40,10 +40,12 @@ void Window::CreateWindow()
     glfwSetWindowSizeCallback(window, HandleWindowResized);
 }
 
-void Window::CreateWindowSurface(VkInstance instance, VkSurfaceKHR* surface)
+vk::SurfaceKHR Window::CreateWindowSurface(vk::Instance instance)
 {
-    if(glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS) { HGFATAL("Failed to create window surface"); }
+    VkSurfaceKHR a;
+    if(glfwCreateWindowSurface(instance, window, nullptr, &a) != VK_SUCCESS) { HGFATAL("Failed to create window surface"); }
     HGINFO("Created window surface");
+    return a;
 }
 
 void Window::HandleWindowResized(GLFWwindow* window, int width, int height)

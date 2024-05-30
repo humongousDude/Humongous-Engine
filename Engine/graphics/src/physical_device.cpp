@@ -1,14 +1,16 @@
 #include "logger.hpp"
+#include "set"
+#include "string"
+#include "vector"
 #include <physical_device.hpp>
-#include <set>
-#include <string>
-#include <vector>
+#include <vulkan/vk_enum_string_helper.h>
+#include <vulkan/vulkan_to_string.hpp>
 
 namespace Humongous
 {
 PhysicalDevice::PhysicalDevice(Instance& instance, Window& window) : m_instance{instance}
 {
-    window.CreateWindowSurface(m_instance.GetVkInstance(), &m_surface);
+    m_surface = window.CreateWindowSurface(m_instance.GetVkInstance());
     PickPhysicalDevice();
 }
 
@@ -21,12 +23,12 @@ PhysicalDevice::~PhysicalDevice()
 void PhysicalDevice::PickPhysicalDevice()
 {
     HGINFO("looking for a physical device...");
-    uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(m_instance.GetVkInstance(), &deviceCount, nullptr);
+    u32 deviceCount = 0;
+    m_instance.GetVkInstance().enumeratePhysicalDevices(&deviceCount, nullptr);
     if(deviceCount == 0) { HGFATAL("Failed to find GPUs with Vulkan support!"); }
     HGINFO("found %d devices", deviceCount);
-    std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(m_instance.GetVkInstance(), &deviceCount, devices.data());
+    std::vector<vk::PhysicalDevice> devices(deviceCount);
+    m_instance.GetVkInstance().enumeratePhysicalDevices(&deviceCount, devices.data());
 
     for(const auto& device: devices)
     {
@@ -43,49 +45,48 @@ void PhysicalDevice::PickPhysicalDevice()
     HGASSERT(m_physicalDevice != VK_NULL_HANDLE && "Failed to find a suitable GPU!");
 }
 
-PhysicalDevice::SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(VkPhysicalDevice physicalDevice)
+PhysicalDevice::SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(vk::PhysicalDevice physicalDevice)
 {
-    VkPhysicalDeviceSurfaceInfo2KHR surfaceInfo{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR};
+    vk::PhysicalDeviceSurfaceInfo2KHR surfaceInfo{};
     surfaceInfo.surface = m_surface;
     surfaceInfo.pNext = nullptr;
 
     SwapChainSupportDetails details{};
-    details.capabilities.sType = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR;
-    vkGetPhysicalDeviceSurfaceCapabilities2KHR(physicalDevice, &surfaceInfo, &details.capabilities);
+    physicalDevice.getSurfaceCapabilities2KHR(&surfaceInfo, &details.capabilities);
 
     u32 formatCount;
-    vkGetPhysicalDeviceSurfaceFormats2KHR(physicalDevice, &surfaceInfo, &formatCount, nullptr);
+    physicalDevice.getSurfaceFormats2KHR(&surfaceInfo, &formatCount, nullptr);
 
     if(formatCount != 0)
     {
         details.formats.resize(formatCount);
         // FIXME: this is probably not a good way to set the sType, but I can't figure out another way
-        for(int i = 0; i < formatCount; i++) { details.formats[i].sType = VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR; }
+        for(int i = 0; i < formatCount; i++) { details.formats[i].sType = vk::StructureType::eSurfaceFormat2KHR; }
 
-        vkGetPhysicalDeviceSurfaceFormats2KHR(physicalDevice, &surfaceInfo, &formatCount, details.formats.data());
+        physicalDevice.getSurfaceFormats2KHR(&surfaceInfo, &formatCount, details.formats.data());
     }
 
     u32 presentModeCount;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, m_surface, &presentModeCount, nullptr);
+    physicalDevice.getSurfacePresentModesKHR(m_surface, &presentModeCount, nullptr);
 
     if(presentModeCount != 0)
     {
         details.presentModes.resize(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, m_surface, &presentModeCount, details.presentModes.data());
+        physicalDevice.getSurfacePresentModesKHR(m_surface, &presentModeCount, details.presentModes.data());
     }
 
     return details;
 }
 
-bool PhysicalDevice::IsDeviceSuitable(VkPhysicalDevice physicalDevice)
+bool PhysicalDevice::IsDeviceSuitable(vk::PhysicalDevice physicalDevice)
 {
-    VkPhysicalDeviceProperties2 deviceProperties{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
-    vkGetPhysicalDeviceProperties2(physicalDevice, &deviceProperties);
-    VkPhysicalDeviceFeatures2 deviceFeatures{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-    vkGetPhysicalDeviceFeatures2(physicalDevice, &deviceFeatures);
+    vk::PhysicalDeviceProperties2 deviceProperties{};
+    physicalDevice.getProperties2(&deviceProperties);
+    vk::PhysicalDeviceFeatures2 deviceFeatures{};
+    physicalDevice.getFeatures2(&deviceFeatures);
 
-    bool deviceHasFeatures = (deviceProperties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ||
-                              deviceProperties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) &&
+    bool deviceHasFeatures = (deviceProperties.properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu ||
+                              deviceProperties.properties.deviceType == vk::PhysicalDeviceType::eIntegratedGpu) &&
                              deviceFeatures.features.geometryShader;
 
     bool haveAllRequiredIndices = FindQueueFamilies(physicalDevice).IsComplete();
@@ -103,14 +104,16 @@ bool PhysicalDevice::IsDeviceSuitable(VkPhysicalDevice physicalDevice)
     return deviceHasFeatures && haveAllRequiredIndices && deviceHasExtensions && swapChainAdequate;
 }
 
-bool PhysicalDevice::CheckDeviceExtensionSupport(VkPhysicalDevice physicalDevice)
+bool PhysicalDevice::CheckDeviceExtensionSupport(vk::PhysicalDevice physicalDevice)
 {
     u32 extensionCount;
-    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
-    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, availableExtensions.data());
+    physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr);
+    std::vector<vk::ExtensionProperties> availableExtensions(extensionCount);
+    physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions.data());
 
     std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+
+    HGDEBUG("%d extensions avablialbi", extensionCount);
 
     for(const auto& extension: availableExtensions) { requiredExtensions.erase(extension.extensionName); }
 
@@ -119,25 +122,25 @@ bool PhysicalDevice::CheckDeviceExtensionSupport(VkPhysicalDevice physicalDevice
     return requiredExtensions.empty();
 }
 
-PhysicalDevice::QueueFamilyData PhysicalDevice::FindQueueFamilies(VkPhysicalDevice physicalDevice)
+PhysicalDevice::QueueFamilyData PhysicalDevice::FindQueueFamilies(vk::PhysicalDevice physicalDevice)
 {
     QueueFamilyData indices;
     u32             queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties2(physicalDevice, &queueFamilyCount, nullptr);
-    std::vector<VkQueueFamilyProperties2> queueFamilyProperties(queueFamilyCount);
-    for(auto& queueFamilyProperty: queueFamilyProperties) { queueFamilyProperty.sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2; }
-    vkGetPhysicalDeviceQueueFamilyProperties2(physicalDevice, &queueFamilyCount, queueFamilyProperties.data());
-
-    VkBool32 presentSupport = false;
+    physicalDevice.getQueueFamilyProperties2(&queueFamilyCount, nullptr);
+    std::vector<vk::QueueFamilyProperties2> queueFamilyProperties(queueFamilyCount);
+    for(auto& queueFamilyProperty: queueFamilyProperties) { queueFamilyProperty.sType = vk::StructureType::eQueueFamilyProperties2; }
+    physicalDevice.getQueueFamilyProperties2(&queueFamilyCount, queueFamilyProperties.data());
+    vk::Bool32 presentSupport = false;
 
     int i = 0;
     for(const auto& queueFamily: queueFamilyProperties)
     {
-        if(queueFamily.queueFamilyProperties.queueFlags & VK_QUEUE_GRAPHICS_BIT) { indices.graphicsFamily = i; }
-        vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, m_surface, &presentSupport);
+        if(queueFamily.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics) { indices.graphicsFamily = i; }
+        physicalDevice.getSurfaceSupportKHR(i, m_surface, &presentSupport);
         if(presentSupport) { indices.presentFamily = i; }
         i++;
     }
+    HGINFO("Indices graphics: %d, present: %d", indices.graphicsFamily.value(), indices.presentFamily.value());
 
     return indices;
 }
