@@ -16,8 +16,8 @@ This uses Vulkan and C++, and only targets windows currently
 * GLM
 * VMA
 * ImGui
-* TinyGLTF 
-* GLI 
+* TinyGLTF
+* GLI
 * Spdlog
 
 
