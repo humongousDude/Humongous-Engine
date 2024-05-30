@@ -24,20 +24,23 @@ public:
         Renderer*            renderer;
     };
 
-    void Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window, Renderer* renderer);
+    void Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window);
     void Shutdown();
 
     void Draw(VkCommandBuffer cmd);
 
 private:
-    LogicalDevice*                  m_logicalDevice{nullptr};
-    VkPipelineLayout                m_pipelineLayout{VK_NULL_HANDLE};
+    bool m_hasInited{false};
+
+    LogicalDevice* m_logicalDevice{nullptr};
+    // std::unique_ptr<vk::PipelineLayout> m_pipelineLayout{VK_NULL_HANDLE};
+    vk::PipelineLayout              m_pipelineLayout{VK_NULL_HANDLE};
     std::unique_ptr<RenderPipeline> m_renderPipeline{nullptr};
 
     std::unique_ptr<DescriptorPool>      m_pool;
     std::unique_ptr<DescriptorSetLayout> m_setLayout;
 
-    VkPipelineRenderingCreateInfo renderingInfo;
+    VkPipelineRenderingCreateInfo m_renderingInfo;
 
     void InitDescriptorThings();
     void InitPipeline();

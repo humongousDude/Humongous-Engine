@@ -6,6 +6,8 @@
 #include "logger.hpp"
 #include "model.hpp"
 #include "ui.hpp"
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_vulkan.h>
 #define VMA_IMPLEMENTATION
 #include "asset_manager.hpp"
 #include "vk_mem_alloc.h"
@@ -18,11 +20,7 @@ VulkanApp::VulkanApp(int argc, char* argv[])
     LoadGameObjects();
 }
 
-VulkanApp::~VulkanApp()
-{
-    vkDeviceWaitIdle(m_logicalDevice->GetVkDevice());
-    m_mainDeletionQueue.Flush();
-}
+VulkanApp::~VulkanApp() { m_mainDeletionQueue.Flush(); }
 
 void VulkanApp::Init(int argc, char* argv[])
 {
@@ -45,16 +43,17 @@ void VulkanApp::Init(int argc, char* argv[])
 
     Allocator::Get().Initialize(m_logicalDevice.get());
 
-    UI::Get().Init(m_instance.get(), m_logicalDevice.get(), m_window.get(), m_renderer.get());
+    UI::Get().Init(m_instance.get(), m_logicalDevice.get(), m_window.get());
 
     m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator(),
                                             VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_D32_SFLOAT);
+
     m_mainDeletionQueue.PushDeletor([&]() {
         m_simpleRenderSystem.reset();
         m_skyboxRenderSystem.reset();
         m_renderer.reset();
-        Allocator::Get().Shutdown();
         UI::Get().Shutdown();
+        Allocator::Get().Shutdown();
         m_logicalDevice.reset();
         m_physicalDevice.reset();
         m_window.reset();
@@ -208,6 +207,7 @@ void VulkanApp::Run()
         }
         Globals::Time::Update(frameTime);
     }
+    m_logicalDevice->GetVkDevice().waitIdle();
 
     HGINFO("Quitting...");
 }
