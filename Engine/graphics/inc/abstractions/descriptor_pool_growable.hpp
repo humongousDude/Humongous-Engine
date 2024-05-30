@@ -1,8 +1,10 @@
+// Taken from vkguide.dev
 #pragma once
 
 #include "logical_device.hpp"
 #include "non_copyable.hpp"
 
+// TODO: Change this to use vulkan.hpp
 namespace Humongous
 
 {

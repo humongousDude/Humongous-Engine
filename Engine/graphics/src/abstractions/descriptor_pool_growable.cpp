@@ -1,6 +1,8 @@
+// Taken from vkguide.dev
 #include "logger.hpp"
 #include <abstractions/descriptor_pool_growable.hpp>
 
+// TODO: Change this to use vulkan.hpp
 namespace Humongous
 {
 DescriptorPoolGrowable::DescriptorPoolGrowable(LogicalDevice& logicalDevice, u32 maxSets, VkDescriptorPoolCreateFlags m_poolFlags,

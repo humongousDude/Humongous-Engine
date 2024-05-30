@@ -1,6 +1,8 @@
+// Original from Brendan Galea's vulkan tutorial, adapted to use VMA
 #include "logger.hpp"
 #include <abstractions/descriptor_pool.hpp>
 
+// TODO: Change this to use vulkan.hpp
 namespace Humongous
 {
 // *************** Descriptor Pool Builder *********************

@@ -1,8 +1,11 @@
+// Original from Brendan Galea's vulkan tutorial, adapted to use VMA
 #pragma once
 
 #include "logical_device.hpp"
 #include <memory>
 #include <unordered_map>
+
+// TODO: Change this to use vulkan.hpp
 namespace Humongous
 {
 class DescriptorSetLayout

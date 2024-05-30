@@ -1,3 +1,4 @@
+// Original from Brendan Galea's vulkan tutorial, adapted to use VMA
 #pragma once
 
 #include "abstractions/descriptor_pool_growable.hpp"
@@ -7,6 +8,7 @@
 #include <abstractions/descriptor_layout.hpp>
 #include <abstractions/descriptor_pool.hpp>
 
+// TODO: Change this to use vulkan.hpp
 namespace Humongous
 {
 class DescriptorWriter : NonCopyable

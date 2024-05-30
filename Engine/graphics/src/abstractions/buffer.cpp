@@ -1,3 +1,5 @@
+// Original from Brendan Galea's vulkan tutorial, adapted to use VMA
+
 /*
  * Encapsulates a vulkan buffer
  *
@@ -10,6 +12,8 @@
 // std
 #include <cassert>
 #include <cstring>
+
+// TODO: Change this to use vulkan.hpp
 
 namespace Humongous
 {

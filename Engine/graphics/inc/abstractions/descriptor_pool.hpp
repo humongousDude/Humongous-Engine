@@ -1,8 +1,11 @@
+// Original from Brendan Galea's vulkan tutorial, adapted to use VMA
 #pragma once
 
 #include <logical_device.hpp>
 
 #include <memory>
+
+// TODO: Change this to use vulkan.hpp
 
 namespace Humongous
 {
