@@ -1,4 +1,4 @@
-#include "ui.hpp"
+#include "ui/ui.hpp"
 #include "asset_manager.hpp"
 #include "globals.hpp"
 #include "logger.hpp"
@@ -8,6 +8,7 @@
 #include "imgui_impl_vulkan.h"
 
 #include "cmath"
+#include "ui/widget.hpp"
 #include <vulkan/vk_enum_string_helper.h>
 
 namespace Humongous
@@ -131,15 +132,13 @@ void UI::Draw(VkCommandBuffer cmd)
     ImGui::NewFrame();
 
     const ImGuiIO& io = ImGui::GetIO();
-    ImVec2         windowPos = {0, 0};
 
-    ImGui::SetNextWindowPos(windowPos);
-    ImGui::Begin("Metrics", &show, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+    static bool txt = true;
+    UiWidget    widg{"Metrics", true, {00, 0}, {225, 075}, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize};
+    widg.AddBullet("FPS: %i", static_cast<int>(std::round((1 / Globals::Time::AverageDeltaTime()))));
+    widg.AddBullet("FrameTime(ms): %f", Globals::Time::AverageDeltaTime() * 1000);
 
-    ImGui::BulletText("FPS: %i", static_cast<int>(std::round((1 / Globals::Time::AverageDeltaTime()))));
-    ImGui::BulletText("FrameTime(ms): %f", Globals::Time::AverageDeltaTime() * 1000);
-
-    ImGui::End();
+    widg.Draw();
 
     ImGui::Render();
     ImGui::EndFrame();

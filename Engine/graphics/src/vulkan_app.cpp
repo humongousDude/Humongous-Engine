@@ -5,9 +5,7 @@
 #include "keyboard_handler.hpp"
 #include "logger.hpp"
 #include "model.hpp"
-#include "ui.hpp"
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_vulkan.h>
+#include "ui/ui.hpp"
 #define VMA_IMPLEMENTATION
 #include "asset_manager.hpp"
 #include "vk_mem_alloc.h"
