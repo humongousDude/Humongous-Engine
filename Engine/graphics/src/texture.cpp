@@ -100,7 +100,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     createInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
     createInfo.flags = 0;
     createInfo.imageViewType = VK_IMAGE_VIEW_TYPE_2D;
-    createInfo.imagePool = Allocator::Get().GetglTFImagePool();
+    createInfo.imagePool = Allocator::GetglTFImagePool();
 
     Utils::CreateAllocatedImage(createInfo);
 

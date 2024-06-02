@@ -96,8 +96,8 @@ void SimpleRenderSystem::CreatePipeline()
     RenderPipeline::PipelineConfigInfo configInfo = RenderPipeline::DefaultPipelineConfigInfo();
     configInfo.pipelineLayout = m_pipelineLayout;
 
-    configInfo.vertShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert");
-    configInfo.fragShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "unlit.frag");
+    configInfo.vertShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert");
+    configInfo.fragShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "unlit.frag");
 
     // configInfo.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
     configInfo.multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;

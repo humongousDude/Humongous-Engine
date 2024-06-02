@@ -21,7 +21,7 @@ public:
     };
 
     // paths must not contain any directorys or files with unicode characters.
-    void Init(const std::vector<std::string>* paths = nullptr);
+    static void Init(const std::vector<std::string>* paths = nullptr) { Get().Internal_Init(paths); }
 
     /***
      * returns a std::string path to the requested asset.
@@ -33,6 +33,7 @@ public:
 
 private:
     std::string Internal_GetAsset(const AssetType type, const std::string_view asset);
+    void        Internal_Init(const std::vector<std::string>* paths = nullptr);
 
     std::unordered_map<std::string, std::string> m_shaderMap;
     std::unordered_map<std::string, std::string> m_modelMap;

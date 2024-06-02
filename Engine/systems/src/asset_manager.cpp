@@ -6,7 +6,7 @@
 namespace Humongous::Systems
 {
 
-void AssetManager::Init(const std::vector<std::string>* paths)
+void AssetManager::Internal_Init(const std::vector<std::string>* paths)
 {
     namespace fs = std::filesystem;
     const fs::path assetDir = HGASSETDIRPATH;

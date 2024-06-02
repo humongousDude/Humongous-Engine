@@ -14,7 +14,7 @@
 namespace Humongous
 {
 
-void UI::Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window)
+void UI::Internal_Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window)
 {
     if(m_hasInited) { return; }
 
@@ -71,7 +71,7 @@ void UI::Init(class Instance* instance, LogicalDevice* logicalDevice, Window* wi
     m_hasInited = true;
 }
 
-void UI::Shutdown()
+void UI::Internal_Shutdown()
 {
     if(!m_hasInited) { return; }
     HGINFO("Shutting UI down");
@@ -115,13 +115,13 @@ void UI::InitPipeline()
     pipelineCI.depthStencilInfo.depthTestEnable = VK_FALSE;
     pipelineCI.depthStencilInfo.depthWriteEnable = VK_FALSE;
     pipelineCI.pipelineLayout = m_pipelineLayout;
-    pipelineCI.vertShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "nothing.vert");
-    pipelineCI.fragShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "nothing.frag");
+    pipelineCI.vertShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "nothing.vert");
+    pipelineCI.fragShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "nothing.frag");
 
     m_renderPipeline = std::make_unique<RenderPipeline>(*m_logicalDevice, pipelineCI);
 }
 
-void UI::BeginUIFrame(vk::CommandBuffer cmd)
+void UI::Internal_BeginUIFrame(vk::CommandBuffer cmd)
 {
     if(!m_hasInited) { return; }
     if(m_initedFrame) { return; }
@@ -134,7 +134,7 @@ void UI::BeginUIFrame(vk::CommandBuffer cmd)
     ImGui::NewFrame();
 }
 
-void UI::EndUIFRame(vk::CommandBuffer cmd)
+void UI::Internal_EndUIFRame(vk::CommandBuffer cmd)
 {
     if(!m_initedFrame) { return; }
 
@@ -144,7 +144,7 @@ void UI::EndUIFRame(vk::CommandBuffer cmd)
     m_initedFrame = false;
 }
 
-void UI::Debug_DrawMetrics()
+void UI::Internal_Debug_DrawMetrics()
 {
     UiWidget widg{"Metrics", true, {00, 0}, {225, 075}, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize};
     widg.AddBullet("FPS: %i", static_cast<int>(std::round((1 / Globals::Time::AverageDeltaTime()))));

@@ -24,13 +24,15 @@ public:
         Renderer*            renderer;
     };
 
-    void Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window);
-    void Shutdown();
+    static void Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window)
+    {
+        Get().Internal_Init(instance, logicalDevice, window);
+    }
+    static void Shutdown() { Get().Internal_Shutdown(); }
 
-    void BeginUIFrame(vk::CommandBuffer cmd);
-    void EndUIFRame(vk::CommandBuffer cmd);
-
-    void Debug_DrawMetrics();
+    static void BeginUIFrame(vk::CommandBuffer cmd) { Get().Internal_BeginUIFrame(cmd); }
+    static void EndUIFRame(vk::CommandBuffer cmd) { Get().Internal_EndUIFRame(cmd); }
+    static void Debug_DrawMetrics() { Get().Internal_Debug_DrawMetrics(); }
 
 private:
     bool m_hasInited{false};
@@ -47,5 +49,11 @@ private:
 
     void InitDescriptorThings();
     void InitPipeline();
+
+    void Internal_Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window);
+    void Internal_Shutdown();
+    void Internal_BeginUIFrame(vk::CommandBuffer cmd);
+    void Internal_EndUIFRame(vk::CommandBuffer cmd);
+    void Internal_Debug_DrawMetrics();
 };
 }; // namespace Humongous

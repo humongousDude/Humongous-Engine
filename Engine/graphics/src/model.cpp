@@ -425,7 +425,7 @@ void Model::LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, VkQu
         textures.push_back(texture);
     }
 
-    emptyTexture.CreateFromFile(Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::TEXTURE, "empty"), device,
+    emptyTexture.CreateFromFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::TEXTURE, "empty"), device,
                                 Texture::ImageType::TEX2D);
 }
 

@@ -6,7 +6,6 @@
 #include "logger.hpp"
 #include "model.hpp"
 #include "ui/ui.hpp"
-#include "ui/widget.hpp"
 #define VMA_IMPLEMENTATION
 #include "asset_manager.hpp"
 #include "vk_mem_alloc.h"
@@ -32,17 +31,17 @@ void VulkanApp::Init(int argc, char* argv[])
     {
         std::vector<std::string> paths;
         for(int i = 1; i < argc; ++i) { paths.push_back(argv[i]); }
-        Systems::AssetManager::Get().Init(&paths);
+        Systems::AssetManager::Init(&paths);
     }
     else
     {
         HGINFO("Launch the engine with absolute paths to extra directories for the asset manager to look for models in");
-        Systems::AssetManager::Get().Init();
+        Systems::AssetManager::Init();
     }
 
-    Allocator::Get().Initialize(m_logicalDevice.get());
+    Allocator::Initialize(m_logicalDevice.get());
 
-    UI::Get().Init(m_instance.get(), m_logicalDevice.get(), m_window.get());
+    UI::Init(m_instance.get(), m_logicalDevice.get(), m_window.get());
 
     m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator(),
                                             VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_D32_SFLOAT);
@@ -51,8 +50,8 @@ void VulkanApp::Init(int argc, char* argv[])
         m_simpleRenderSystem.reset();
         m_skyboxRenderSystem.reset();
         m_renderer.reset();
-        UI::Get().Shutdown();
-        Allocator::Get().Shutdown();
+        UI::Shutdown();
+        Allocator::Shutdown();
         m_logicalDevice.reset();
         m_physicalDevice.reset();
         m_window.reset();
@@ -65,8 +64,8 @@ void VulkanApp::LoadGameObjects()
     HGINFO("Loading game objects...");
 
     std::shared_ptr<Model> model;
-    model = std::make_shared<Model>(m_logicalDevice.get(), Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::MODEL, "Sponza"),
-                                    1.00);
+    model =
+        std::make_shared<Model>(m_logicalDevice.get(), Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, "Sponza"), 1.00);
 
     GameObject obj = GameObject::CreateGameObject();
     obj.transform.translation = {0.0f, 0.0f, 0.0f};
@@ -197,11 +196,13 @@ void VulkanApp::Run()
                 m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
                 m_simpleRenderSystem->RenderObjects(data);
 
-                UI::Get().BeginUIFrame(cmd);
+                // dont move this up
+                // i dunno why, but ui poops the bed whenever its draw first
+                UI::BeginUIFrame(cmd);
 
-                UI::Get().Debug_DrawMetrics();
+                UI::Debug_DrawMetrics();
 
-                UI::Get().EndUIFRame(cmd);
+                UI::EndUIFRame(cmd);
 
                 m_renderer->EndRendering(cmd);
                 m_renderer->EndFrame();

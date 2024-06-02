@@ -2,7 +2,7 @@
 
 namespace Humongous
 {
-void Allocator::Initialize(LogicalDevice* logicalDevice)
+void Allocator::Internal_Initialize(LogicalDevice* logicalDevice)
 {
     if(m_initialized) { return; }
 
@@ -45,7 +45,7 @@ void Allocator::Initialize(LogicalDevice* logicalDevice)
     m_initialized = true;
 }
 
-void Allocator::Shutdown()
+void Allocator::Internal_Shutdown()
 {
     if(!m_initialized) { return; }
 

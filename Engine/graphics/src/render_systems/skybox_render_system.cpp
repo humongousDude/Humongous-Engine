@@ -63,8 +63,8 @@ void SkyboxRenderSystem::CreatePipeline()
     ppCI.multisampleInfo.sampleShadingEnable = VK_FALSE;
     ppCI.multisampleInfo.minSampleShading = 1.0;
     ppCI.pipelineLayout = m_pipelineLayout;
-    ppCI.vertShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.vert");
-    ppCI.fragShaderPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.frag");
+    ppCI.vertShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.vert");
+    ppCI.fragShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.frag");
 
     m_renderPipeline = std::make_unique<RenderPipeline>(*m_logicalDevice, ppCI);
 }
@@ -72,7 +72,7 @@ void SkyboxRenderSystem::CreatePipeline()
 void SkyboxRenderSystem::InitSkybox(const std::string& skyBoxImgPath)
 {
     SkyboxCreateInfo skyboxCI{.logicalDevice = m_logicalDevice,
-                              .cubemapPath = Systems::AssetManager::Get().GetAsset(Systems::AssetManager::AssetType::TEXTURE, skyBoxImgPath),
+                              .cubemapPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::TEXTURE, skyBoxImgPath),
                               .descriptorSetLayout = *m_skyboxSetLayout,
                               .growablePool = *m_skyboxPool};
 
