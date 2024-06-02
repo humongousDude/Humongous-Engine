@@ -169,14 +169,13 @@ void VulkanApp::Run()
         auto  newTime = std::chrono::high_resolution_clock::now();
         float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
         currentTime = newTime;
+        HandleInput(frameTime, viewerObject);
 
         aspect = m_renderer->GetAspectRatio();
 
         cam.SetViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 
         cam.SetPerspectiveProjection(glm::radians(80.0f), aspect, 0.1f, 1000.0f);
-
-        HandleInput(frameTime, viewerObject);
 
         if(!m_window->IsMinimized() && m_window->IsFocused())
         {
