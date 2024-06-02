@@ -121,28 +121,35 @@ void UI::InitPipeline()
     m_renderPipeline = std::make_unique<RenderPipeline>(*m_logicalDevice, pipelineCI);
 }
 
-void UI::Draw(VkCommandBuffer cmd)
+void UI::BeginUIFrame(vk::CommandBuffer cmd)
 {
     if(!m_hasInited) { return; }
+    if(m_initedFrame) { return; }
+    m_initedFrame = true;
     m_renderPipeline->Bind(cmd);
-    bool show = false;
 
+    const ImGuiIO& io = ImGui::GetIO();
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+}
 
-    const ImGuiIO& io = ImGui::GetIO();
-
-    static bool txt = true;
-    UiWidget    widg{"Metrics", true, {00, 0}, {225, 075}, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize};
-    widg.AddBullet("FPS: %i", static_cast<int>(std::round((1 / Globals::Time::AverageDeltaTime()))));
-    widg.AddBullet("FrameTime(ms): %f", Globals::Time::AverageDeltaTime() * 1000);
-
-    widg.Draw();
+void UI::EndUIFRame(vk::CommandBuffer cmd)
+{
+    if(!m_initedFrame) { return; }
 
     ImGui::Render();
     ImGui::EndFrame();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+    m_initedFrame = false;
+}
+
+void UI::Debug_DrawMetrics()
+{
+    UiWidget widg{"Metrics", true, {00, 0}, {225, 075}, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize};
+    widg.AddBullet("FPS: %i", static_cast<int>(std::round((1 / Globals::Time::AverageDeltaTime()))));
+    widg.AddBullet("FrameTime(ms): %f", Globals::Time::AverageDeltaTime() * 1000);
+    widg.Draw();
 }
 
 }; // namespace Humongous

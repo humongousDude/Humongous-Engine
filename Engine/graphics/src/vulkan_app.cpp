@@ -6,6 +6,7 @@
 #include "logger.hpp"
 #include "model.hpp"
 #include "ui/ui.hpp"
+#include "ui/widget.hpp"
 #define VMA_IMPLEMENTATION
 #include "asset_manager.hpp"
 #include "vk_mem_alloc.h"
@@ -196,7 +197,11 @@ void VulkanApp::Run()
                 m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
                 m_simpleRenderSystem->RenderObjects(data);
 
-                UI::Get().Draw(cmd);
+                UI::Get().BeginUIFrame(cmd);
+
+                UI::Get().Debug_DrawMetrics();
+
+                UI::Get().EndUIFRame(cmd);
 
                 m_renderer->EndRendering(cmd);
                 m_renderer->EndFrame();

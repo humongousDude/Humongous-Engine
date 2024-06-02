@@ -27,13 +27,16 @@ public:
     void Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window);
     void Shutdown();
 
-    void Draw(VkCommandBuffer cmd);
+    void BeginUIFrame(vk::CommandBuffer cmd);
+    void EndUIFRame(vk::CommandBuffer cmd);
+
+    void Debug_DrawMetrics();
 
 private:
     bool m_hasInited{false};
+    bool m_initedFrame{false};
 
-    LogicalDevice* m_logicalDevice{nullptr};
-    // std::unique_ptr<vk::PipelineLayout> m_pipelineLayout{VK_NULL_HANDLE};
+    LogicalDevice*                  m_logicalDevice{nullptr};
     vk::PipelineLayout              m_pipelineLayout{VK_NULL_HANDLE};
     std::unique_ptr<RenderPipeline> m_renderPipeline{nullptr};
 
