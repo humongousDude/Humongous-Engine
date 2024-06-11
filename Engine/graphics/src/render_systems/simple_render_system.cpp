@@ -126,6 +126,7 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
         Model::PushConstantData data{};
         data.model = obj.transform.Mat4();
         data.vertexAddress = obj.model->GetVertexBuffer().GetDeviceAddress();
+        data.dist = glm::distance(renderData.camPos, obj.transform.translation);
 
         vkCmdPushConstants(renderData.commandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Model::PushConstantData), &data);
 

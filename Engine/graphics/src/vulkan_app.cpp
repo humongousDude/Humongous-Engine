@@ -18,7 +18,11 @@ VulkanApp::VulkanApp(int argc, char* argv[])
     LoadGameObjects();
 }
 
-VulkanApp::~VulkanApp() { m_mainDeletionQueue.Flush(); }
+VulkanApp::~VulkanApp()
+{
+    m_logicalDevice->GetVkDevice().waitIdle();
+    m_mainDeletionQueue.Flush();
+}
 
 void VulkanApp::Init(int argc, char* argv[])
 {
@@ -46,10 +50,13 @@ void VulkanApp::Init(int argc, char* argv[])
     m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator(),
                                             VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_D32_SFLOAT);
 
+    m_cam = std::make_unique<Camera>(m_logicalDevice.get());
+
     m_mainDeletionQueue.PushDeletor([&]() {
         m_simpleRenderSystem.reset();
         m_skyboxRenderSystem.reset();
         m_renderer.reset();
+        m_cam.reset();
         UI::Shutdown();
         Allocator::Shutdown();
         m_logicalDevice.reset();
@@ -145,20 +152,18 @@ void VulkanApp::HandleInput(float frameTime, GameObject& viewerObject)
 
 void VulkanApp::Run()
 {
-    Camera cam{m_logicalDevice.get()};
-
     float aspect = m_renderer->GetAspectRatio();
-    cam.SetViewTarget(glm::vec3(-1.0f, -2.0f, -2.0f), glm::vec3(0.0f, 0.0f, 2.5f));
+    m_cam->SetViewTarget(glm::vec3(-1.0f, -2.0f, -2.0f), glm::vec3(0.0f, 0.0f, 2.5f));
 
-    std::vector<VkDescriptorSetLayout> simpleLayouts = {cam.GetDescriptorSetLayout(), cam.GetParamDescriptorSetLayout()};
-    std::vector<VkDescriptorSetLayout> skyboxLayouts = {cam.GetDescriptorSetLayout()};
+    std::vector<VkDescriptorSetLayout> simpleLayouts = {m_cam->GetDescriptorSetLayout(), m_cam->GetParamDescriptorSetLayout()};
+    std::vector<VkDescriptorSetLayout> skyboxLayouts = {m_cam->GetDescriptorSetLayout()};
 
     m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, simpleLayouts);
     m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(m_logicalDevice.get(), "papermill", skyboxLayouts);
 
     GameObject viewerObject = GameObject::CreateGameObject();
     viewerObject.transform.translation.z = -2.5f;
-    cam.SetViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+    m_cam->SetViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 
     auto currentTime = std::chrono::high_resolution_clock::now();
 
@@ -173,9 +178,9 @@ void VulkanApp::Run()
 
         aspect = m_renderer->GetAspectRatio();
 
-        cam.SetViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+        m_cam->SetViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 
-        cam.SetPerspectiveProjection(glm::radians(80.0f), aspect, 0.1f, 1000.0f);
+        m_cam->SetPerspectiveProjection(glm::radians(80.0f), aspect, 0.1f, 1000.0f);
 
         if(!m_window->IsMinimized() && m_window->IsFocused())
         {
@@ -183,21 +188,20 @@ void VulkanApp::Run()
             {
 
                 RenderData data{.commandBuffer = cmd,
-                                .uboSets = {cam.GetDescriptorSet(m_renderer->GetFrameIndex())},
-                                .sceneSets = {cam.GetParamDescriptorSet(m_renderer->GetFrameIndex())},
+                                .uboSets = {m_cam->GetDescriptorSet(m_renderer->GetFrameIndex())},
+                                .sceneSets = {m_cam->GetParamDescriptorSet(m_renderer->GetFrameIndex())},
                                 .gameObjects = m_gameObjects,
                                 .frameIndex = m_renderer->GetFrameIndex(),
-                                .cam = cam};
+                                .cam = *m_cam,
+                                .camPos = viewerObject.transform.translation};
 
-                cam.UpdateUBO(m_renderer->GetFrameIndex(), viewerObject.transform.translation);
+                m_cam->UpdateUBO(m_renderer->GetFrameIndex(), viewerObject.transform.translation);
 
                 m_renderer->BeginRendering(cmd);
 
                 m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
                 m_simpleRenderSystem->RenderObjects(data);
 
-                // dont move this up
-                // i dunno why, but ui poops the bed whenever its draw first
                 UI::BeginUIFrame(cmd);
 
                 UI::Debug_DrawMetrics();
@@ -210,7 +214,6 @@ void VulkanApp::Run()
         }
         Globals::Time::Update(frameTime);
     }
-    m_logicalDevice->GetVkDevice().waitIdle();
 
     HGINFO("Quitting...");
 }

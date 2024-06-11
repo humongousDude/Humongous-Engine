@@ -28,6 +28,7 @@ layout(push_constant) uniform MNV
 {
     mat4 modelMatrix;
     VertexBuffer vertexBuffer;
+    float dist;
 } mnv;
 
 layout(set = 0, binding = 0) uniform UBO
@@ -37,7 +38,7 @@ layout(set = 0, binding = 0) uniform UBO
     vec3 camPos;
 } ubo;
 
-layout (set = 4, binding = 0) uniform UBONode {
+layout(set = 4, binding = 0) uniform UBONode {
     mat4 matrix;
     // mat4 jointMatrix[MAX_NUM_JOINTS];
     // float jointCount;
@@ -54,5 +55,8 @@ void main()
     worldPosition = (mnv.modelMatrix * vec4(v.position, 1.0)).xyz;
     outNormal = normalize(transpose(inverse(mat3(mnv.modelMatrix * node.matrix))) * v.normal);
 
-    outUV0 = v.uv1; outUV1 = v.uv2; outColor = v.color; camPos = ubo.camPos;
+    outUV0 = v.uv1;
+    outUV1 = v.uv2;
+    outColor = v.color;
+    camPos = ubo.camPos;
 }

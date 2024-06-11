@@ -17,6 +17,7 @@ struct RenderData
     GameObject::Map&             gameObjects;
     u32                          frameIndex;
     Camera&                      cam;
+    const glm::vec3              camPos;
 };
 
 class SimpleRenderSystem

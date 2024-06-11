@@ -45,6 +45,7 @@ layout(set = 1, binding = 0) uniform UBOParams {
 void main()
 {
     ShaderMaterial material = materials[push.materialIndex];
+    float lod = sqrt(pow(inWorldPos.x - inCamPos.x, 2) + pow(inWorldPos.y - inCamPos.y, 2) + pow(inWorldPos.z - inCamPos.z, 2));
 
-    outColor = texture(aoMap, inUV0);
+    outColor = textureLod(aoMap, inUV0, lod + 20);
 }

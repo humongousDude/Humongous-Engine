@@ -45,6 +45,7 @@ private:
     std::unique_ptr<Renderer>           m_uiRenderer;
     std::unique_ptr<SimpleRenderSystem> m_simpleRenderSystem;
     std::unique_ptr<SkyboxRenderSystem> m_skyboxRenderSystem;
+    std::unique_ptr<Camera>             m_cam;
 
     GameObject::Map m_gameObjects;
 
