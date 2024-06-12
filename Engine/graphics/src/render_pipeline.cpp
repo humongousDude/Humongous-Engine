@@ -1,3 +1,4 @@
+#include "asset_manager.hpp"
 #include "defines.hpp"
 #include "extra.hpp"
 #include "logger.hpp"
@@ -128,9 +129,10 @@ void RenderPipeline::CreateShaderModule(const std::vector<char>& code, VkShaderM
 
 RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
 {
+    using namespace Systems;
 
-    PipelineConfigInfo configInfo{.vertShaderPath = "compiledShaders/simple.vert.glsl.spv",
-                                  .fragShaderPath = "compiledShaders/simple.frag.glsl.spv",
+    PipelineConfigInfo configInfo{.vertShaderPath = AssetManager::GetAsset(AssetManager::AssetType::SHADER, "simple.vert"),
+                                  .fragShaderPath = AssetManager::GetAsset(AssetManager::AssetType::SHADER, "unlit.frag"),
                                   .bindless = true};
 
     configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
