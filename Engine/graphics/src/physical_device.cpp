@@ -6,6 +6,8 @@
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_to_string.hpp>
 
+// FIXME: No discard warnings
+
 namespace Humongous
 {
 PhysicalDevice::PhysicalDevice(Instance& instance, Window& window) : m_instance{instance}

@@ -3,6 +3,8 @@
 #include <logical_device.hpp>
 #include <set>
 
+// FIXME: No discard warnings
+
 namespace Humongous
 {
 LogicalDevice::LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice)
