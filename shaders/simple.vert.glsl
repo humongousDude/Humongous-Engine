@@ -28,7 +28,6 @@ layout(push_constant) uniform MNV
 {
     mat4 modelMatrix;
     VertexBuffer vertexBuffer;
-    float dist;
 } mnv;
 
 layout(set = 0, binding = 0) uniform UBO
@@ -49,7 +48,6 @@ void main()
     Vertex v = mnv.vertexBuffer.vertices[gl_VertexIndex];
 
     vec4 locPos = ubo.projection * ubo.view * mnv.modelMatrix * node.matrix * vec4(v.position, 1.0);
-
     gl_Position = locPos;
 
     worldPosition = (mnv.modelMatrix * vec4(v.position, 1.0)).xyz;
