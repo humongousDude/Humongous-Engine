@@ -72,7 +72,6 @@ public:
     {
         glm::mat4       model{1.f};    // 16 bytes (4x4 matrix)
         VkDeviceAddress vertexAddress; // 8 bytes (assuming 64-bit)
-        float           dist;
     };
 
     struct alignas(16) Vertex
