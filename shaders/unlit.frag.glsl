@@ -49,16 +49,17 @@ void main()
     ShaderMaterial material = materials[push.materialIndex];
     vec4 baseColor;
 
-    if (baseColor.a < material.alphaMaskCutoff) {
-        discard;
-    }
     vec2 uv = material.baseColorTextureSet == 0 ? inUV0 : inUV1;
     float lod = textureQueryLod(colorMap, uv).x;
 
     if (material.baseColorTextureSet > -1) {
-        baseColor = SRGBtoLINEAR(textureLod(colorMap, uv, pow(lod, 0.9))) * material.baseColorFactor;
+        baseColor = SRGBtoLINEAR(textureLod(colorMap, uv, pow(lod, 0.5))) * material.baseColorFactor;
     } else {
         baseColor = material.baseColorFactor;
+    }
+
+    if (baseColor.a < material.alphaMaskCutoff) {
+        discard;
     }
 
     outColor = baseColor;
