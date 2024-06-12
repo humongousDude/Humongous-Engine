@@ -17,7 +17,7 @@ struct Node
 {
     ~Node();
     Node*              parent;
-    uint32_t           index;
+    u32           index;
     std::vector<Node*> children;
     glm::mat4          matrix;
     std::string        name;

@@ -22,7 +22,7 @@ public:
     vk::Format         GetSurfaceFormat() const { return m_surfaceFormat; }
     vk::PresentModeKHR GetPresentMode() const { return m_presentMode; }
 
-    vk::Result AcquireNextImage(uint32_t* imageIndex);
+    vk::Result AcquireNextImage(u32* imageIndex);
 
     vk::SwapchainKHR GetSwapChain() const { return m_swapChain; }
 

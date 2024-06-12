@@ -32,13 +32,13 @@ namespace Humongous
 struct Primitive
 {
     Node*       owner;
-    uint32_t    firstIndex;
-    uint32_t    indexCount;
-    uint32_t    vertexCount;
+    u32         firstIndex;
+    u32         indexCount;
+    u32         vertexCount;
     Material&   material;
     bool        hasIndices;
     BoundingBox bb;
-    Primitive(uint32_t firstIndex, uint32_t indexCount, uint32_t vertexCount, Material& material);
+    Primitive(u32 firstIndex, u32 indexCount, u32 vertexCount, Material& material);
     void SetBoundingBox(glm::vec3 min, glm::vec3 max);
 };
 
@@ -156,10 +156,10 @@ private:
 
     struct LoaderInfo
     {
-        uint32_t* indexBuffer;
-        Vertex*   vertexBuffer;
-        size_t    indexPos = 0;
-        size_t    vertexPos = 0;
+        u32*    indexBuffer;
+        Vertex* vertexBuffer;
+        size_t  indexPos = 0;
+        size_t  vertexPos = 0;
     };
 
     bool initialized{false};
@@ -171,20 +171,19 @@ private:
     void UpdateMaterialBatches(Node* node);
 
     void Destroy(VkDevice device);
-    void LoadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo,
-                  float globalscale);
+    void LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, float globalscale);
     void GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& model, size_t& vertexCount, size_t& indexCount);
     void LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, VkQueue transferQueue);
-    VkSamplerAddressMode GetVkWrapMode(int32_t wrapMode);
-    VkFilter             GetVkFilterMode(int32_t filterMode);
+    VkSamplerAddressMode GetVkWrapMode(i32 wrapMode);
+    VkFilter             GetVkFilterMode(i32 filterMode);
     void                 LoadTextureSamplers(tinygltf::Model& gltfModel);
     void                 LoadMaterials(tinygltf::Model& gltfModel);
     void                 LoadFromFile(std::string filename, LogicalDevice* device, VkQueue transferQueue, float scale = 1.0f);
     void                 DrawNode(Node* node, VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout);
     void                 CalculateBoundingBox(Node* node, Node* parent);
     void                 GetSceneDimensions();
-    Node*                FindNode(Node* parent, uint32_t index);
-    Node*                NodeFromIndex(uint32_t index);
+    Node*                FindNode(Node* parent, u32 index);
+    Node*                NodeFromIndex(u32 index);
     void                 SetupDescriptorSet(Node* node);
     void                 SetupNodeDescriptorSet(Node* node, DescriptorPoolGrowable* descriptorPool, DescriptorSetLayout* layout);
 };

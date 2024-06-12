@@ -2,6 +2,7 @@
 #pragma once
 
 #include "abstractions/descriptor_pool_growable.hpp"
+#include "defines.hpp"
 #include <logical_device.hpp>
 #include <non_copyable.hpp>
 
@@ -17,8 +18,8 @@ public:
     DescriptorWriter(DescriptorSetLayout& setLayout, DescriptorPool* pool);
     DescriptorWriter(DescriptorSetLayout& setLayout, DescriptorPoolGrowable* pool);
 
-    DescriptorWriter& WriteBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo);
-    DescriptorWriter& WriteImage(uint32_t binding, VkDescriptorImageInfo* imageInfo);
+    DescriptorWriter& WriteBuffer(u32 binding, VkDescriptorBufferInfo* bufferInfo);
+    DescriptorWriter& WriteImage(u32 binding, VkDescriptorImageInfo* imageInfo);
 
     bool Build(VkDescriptorSet& set);
     void Overwrite(VkDescriptorSet& set);

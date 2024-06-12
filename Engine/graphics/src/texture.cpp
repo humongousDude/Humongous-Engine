@@ -54,9 +54,9 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
         buffer = new unsigned char[bufferSize];
         unsigned char* rgba = buffer;
         unsigned char* rgb = &gltfimage.image[0];
-        for(int32_t i = 0; i < gltfimage.width * gltfimage.height; ++i)
+        for(i32 i = 0; i < gltfimage.width * gltfimage.height; ++i)
         {
-            for(int32_t j = 0; j < 3; ++j) { rgba[j] = rgb[j]; }
+            for(i32 j = 0; j < 3; ++j) { rgba[j] = rgb[j]; }
             rgba += 4;
             rgb += 3;
         }
@@ -332,9 +332,9 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
     {
         gli::texture_cube texCube(gli::load(imagePath));
         HGASSERT(!texCube.empty() && "Failed to load texture!");
-        width = static_cast<uint32_t>(texCube.extent().x);
-        height = static_cast<uint32_t>(texCube.extent().y);
-        mipLevels = static_cast<uint32_t>(texCube.levels());
+        width = static_cast<u32>(texCube.extent().x);
+        height = static_cast<u32>(texCube.extent().y);
+        mipLevels = static_cast<u32>(texCube.levels());
 
         Buffer stagingBuffer{m_logicalDevice,
                              texCube.size(),
@@ -357,8 +357,8 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
                 bufferCopyRegion.imageSubresource.mipLevel = level;
                 bufferCopyRegion.imageSubresource.baseArrayLayer = face;
                 bufferCopyRegion.imageSubresource.layerCount = 1;
-                bufferCopyRegion.imageExtent.width = static_cast<uint32_t>(texCube[face][level].extent().x);
-                bufferCopyRegion.imageExtent.height = static_cast<uint32_t>(texCube[face][level].extent().y);
+                bufferCopyRegion.imageExtent.width = static_cast<u32>(texCube[face][level].extent().x);
+                bufferCopyRegion.imageExtent.height = static_cast<u32>(texCube[face][level].extent().y);
                 bufferCopyRegion.imageExtent.depth = 1;
                 bufferCopyRegion.bufferOffset = offset;
 

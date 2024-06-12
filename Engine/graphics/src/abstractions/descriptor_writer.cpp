@@ -13,7 +13,7 @@ DescriptorWriter::DescriptorWriter(DescriptorSetLayout& m_setLayout, DescriptorP
 {
 }
 
-DescriptorWriter& DescriptorWriter::WriteBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo)
+DescriptorWriter& DescriptorWriter::WriteBuffer(u32 binding, VkDescriptorBufferInfo* bufferInfo)
 {
     HGASSERT(m_setLayout.m_bindings.count(binding) == 1 && "Layout does not contain specified binding")
 
@@ -32,7 +32,7 @@ DescriptorWriter& DescriptorWriter::WriteBuffer(uint32_t binding, VkDescriptorBu
     return *this;
 }
 
-DescriptorWriter& DescriptorWriter::WriteImage(uint32_t binding, VkDescriptorImageInfo* imageInfo)
+DescriptorWriter& DescriptorWriter::WriteImage(u32 binding, VkDescriptorImageInfo* imageInfo)
 {
     HGASSERT(m_setLayout.m_bindings.count(binding) == 1 && "Layout does not contain specified binding")
 

@@ -20,8 +20,8 @@ public:
         std::unique_ptr<DescriptorSetLayout> build() const;
 
     private:
-        LogicalDevice&                                             m_device;
-        std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> m_bindings{};
+        LogicalDevice&                                        m_device;
+        std::unordered_map<u32, VkDescriptorSetLayoutBinding> m_bindings{};
     };
 
     DescriptorSetLayout(LogicalDevice& device, std::unordered_map<u32, VkDescriptorSetLayoutBinding> bindings);

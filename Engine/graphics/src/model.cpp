@@ -1,6 +1,7 @@
 #include "abstractions/descriptor_writer.hpp"
 #include "asserts.hpp"
 #include "asset_manager.hpp"
+#include "defines.hpp"
 #include <iostream>
 #include <logger.hpp>
 
@@ -11,7 +12,7 @@
 
 namespace Humongous
 {
-Primitive::Primitive(uint32_t firstIndex, uint32_t indexCount, uint32_t vertexCount, Material& material)
+Primitive::Primitive(u32 firstIndex, u32 indexCount, u32 vertexCount, Material& material)
     : firstIndex(firstIndex), indexCount(indexCount), vertexCount(vertexCount), material(material)
 {
     hasIndices = indexCount > 0;
@@ -79,7 +80,7 @@ void Model::UpdateUBO(Node* node, glm::mat4 matrix)
 
 void Model::UpdateShaderMaterialBuffer(Node* node) {}
 
-void Model::LoadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo,
+void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo,
                      float globalscale)
 {
     Node* newNode = new Node{};
@@ -127,10 +128,10 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeInde
         for(size_t j = 0; j < mesh.primitives.size(); j++)
         {
             const tinygltf::Primitive& primitive = mesh.primitives[j];
-            uint32_t                   vertexStart = static_cast<uint32_t>(loaderInfo.vertexPos);
-            uint32_t                   indexStart = static_cast<uint32_t>(loaderInfo.indexPos);
-            uint32_t                   indexCount = 0;
-            uint32_t                   vertexCount = 0;
+            u32                        vertexStart = static_cast<u32>(loaderInfo.vertexPos);
+            u32                        indexStart = static_cast<u32>(loaderInfo.indexPos);
+            u32                        indexCount = 0;
+            u32                        vertexCount = 0;
             glm::vec3                  posMin{};
             glm::vec3                  posMax{};
             bool                       hasSkin = false;
@@ -163,7 +164,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeInde
                 bufferPos = reinterpret_cast<const float*>(&(model.buffers[posView.buffer].data[posAccessor.byteOffset + posView.byteOffset]));
                 posMin = glm::vec3(posAccessor.minValues[0], posAccessor.minValues[1], posAccessor.minValues[2]);
                 posMax = glm::vec3(posAccessor.maxValues[0], posAccessor.maxValues[1], posAccessor.maxValues[2]);
-                vertexCount = static_cast<uint32_t>(posAccessor.count);
+                vertexCount = static_cast<u32>(posAccessor.count);
                 posByteStride = posAccessor.ByteStride(posView) ? (posAccessor.ByteStride(posView) / sizeof(float))
                                                                 : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3);
 
@@ -282,14 +283,14 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeInde
                 const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
                 const tinygltf::Buffer&     buffer = model.buffers[bufferView.buffer];
 
-                indexCount = static_cast<uint32_t>(accessor.count);
+                indexCount = static_cast<u32>(accessor.count);
                 const void* dataPtr = &(buffer.data[accessor.byteOffset + bufferView.byteOffset]);
 
                 switch(accessor.componentType)
                 {
                     case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT:
                         {
-                            const uint32_t* buf = static_cast<const uint32_t*>(dataPtr);
+                            const u32* buf = static_cast<const u32*>(dataPtr);
                             for(size_t index = 0; index < accessor.count; index++)
                             {
                                 loaderInfo.indexBuffer[loaderInfo.indexPos] = buf[index] + vertexStart;
@@ -364,7 +365,7 @@ void Model::GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& mode
     }
 }
 
-VkSamplerAddressMode Model::GetVkWrapMode(int32_t wrapMode)
+VkSamplerAddressMode Model::GetVkWrapMode(i32 wrapMode)
 {
     switch(wrapMode)
     {
@@ -381,7 +382,7 @@ VkSamplerAddressMode Model::GetVkWrapMode(int32_t wrapMode)
     return VK_SAMPLER_ADDRESS_MODE_REPEAT;
 }
 
-VkFilter Model::GetVkFilterMode(int32_t filterMode)
+VkFilter Model::GetVkFilterMode(i32 filterMode)
 {
     switch(filterMode)
     {
@@ -529,7 +530,7 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             if(ext->second.Has("diffuseFactor"))
             {
                 auto factor = ext->second.Get("diffuseFactor");
-                for(uint32_t i = 0; i < factor.ArrayLen(); i++)
+                for(u32 i = 0; i < factor.ArrayLen(); i++)
                 {
                     auto val = factor.Get(i);
                     material.extension.diffuseFactor[i] = val.IsNumber() ? (float)val.Get<double>() : (float)val.Get<int>();
@@ -538,7 +539,7 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             if(ext->second.Has("specularFactor"))
             {
                 auto factor = ext->second.Get("specularFactor");
-                for(uint32_t i = 0; i < factor.ArrayLen(); i++)
+                for(u32 i = 0; i < factor.ArrayLen(); i++)
                 {
                     auto val = factor.Get(i);
                     material.extension.specularFactor[i] = val.IsNumber() ? (float)val.Get<double>() : (float)val.Get<int>();
@@ -637,7 +638,7 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
         // Get vertex and index buffer sizes up-front
         for(size_t i = 0; i < scene.nodes.size(); i++) { GetNodeProps(gltfModel.nodes[scene.nodes[i]], gltfModel, vertexCount, indexCount); }
         loaderInfo.vertexBuffer = new Vertex[vertexCount];
-        loaderInfo.indexBuffer = new uint32_t[indexCount];
+        loaderInfo.indexBuffer = new u32[indexCount];
 
         // TODO: scene handling with no default scene
         for(size_t i = 0; i < scene.nodes.size(); i++)
@@ -665,7 +666,7 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
     // extensions = gltfModel.extensionsUsed;
 
     size_t vertexBufferSize = vertexCount * sizeof(Vertex);
-    size_t indexBufferSize = indexCount * sizeof(uint32_t);
+    size_t indexBufferSize = indexCount * sizeof(u32);
 
     HGASSERT(vertexBufferSize > 0);
 
@@ -723,7 +724,7 @@ void Model::DrawNode(Node* node, VkCommandBuffer commandBuffer, VkPipelineLayout
         {
             std::vector<VkDescriptorSet> descriptorSets{primitive->material.descriptorSet, descriptorSetMaterials};
 
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, static_cast<uint32_t>(descriptorSets.size()),
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, static_cast<u32>(descriptorSets.size()),
                                     descriptorSets.data(), 0, nullptr);
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Model::PushConstantData), sizeof(u32),
                                &primitive->material.index);
@@ -786,7 +787,7 @@ void Model::GetSceneDimensions()
     aabb[3][2] = dimensions.min[2];
 }
 
-Node* Model::FindNode(Node* parent, uint32_t index)
+Node* Model::FindNode(Node* parent, u32 index)
 {
     Node* nodeFound = nullptr;
     if(parent->index == index) { return parent; }
@@ -798,7 +799,7 @@ Node* Model::FindNode(Node* parent, uint32_t index)
     return nodeFound;
 }
 
-Node* Model::NodeFromIndex(uint32_t index)
+Node* Model::NodeFromIndex(u32 index)
 {
     Node* nodeFound = nullptr;
     for(auto& node: nodes)
@@ -830,7 +831,7 @@ void Model::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout
 
             if(primitive->owner->mesh) { descriptorSets.push_back(primitive->owner->mesh->uniformBuffer.descriptorSet); }
 
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, static_cast<uint32_t>(descriptorSets.size()),
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, static_cast<u32>(descriptorSets.size()),
                                     descriptorSets.data(), 0, nullptr);
 
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Model::PushConstantData), sizeof(u32),
@@ -889,13 +890,13 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
             writeDescriptorSets[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             writeDescriptorSets[i].descriptorCount = 1;
             writeDescriptorSets[i].dstSet = material->descriptorSet;
-            writeDescriptorSets[i].dstBinding = static_cast<uint32_t>(i);
+            writeDescriptorSets[i].dstBinding = static_cast<u32>(i);
             writeDescriptorSets[i].pImageInfo = &imageDescriptors[i];
 
             DescriptorWriter(*materialLayout, imagePool).WriteImage(static_cast<u32>(i), &imageDescriptors[i]).Overwrite(material->descriptorSet);
         }
 
-        // vkUpdateDescriptorSets(device->GetVkDevice(), static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, NULL);
+        // vkUpdateDescriptorSets(device->GetVkDevice(), static_cast<u32>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, NULL);
     }
 
     for(auto& node: nodes)
