@@ -1,4 +1,3 @@
-#include "asset_manager.hpp"
 #include "logger.hpp"
 #include <render_systems/simple_render_system.hpp>
 
@@ -95,10 +94,6 @@ void SimpleRenderSystem::CreatePipeline()
     RenderPipeline::PipelineConfigInfo configInfo = RenderPipeline::DefaultPipelineConfigInfo();
     configInfo.pipelineLayout = m_pipelineLayout;
 
-    configInfo.vertShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert");
-    configInfo.fragShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "unlit.frag");
-
-    // configInfo.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
     configInfo.multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     configInfo.multisampleInfo.sampleShadingEnable = VK_FALSE;
     configInfo.multisampleInfo.minSampleShading = 1.0;
