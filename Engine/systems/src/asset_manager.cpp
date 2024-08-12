@@ -49,7 +49,7 @@ void AssetManager::Internal_Init(const std::vector<std::string>* paths)
 
         if(!fs::exists(path) || !std::filesystem::is_directory(path))
         {
-            HGFATAL("Unable to access given asset directory: %s", p.c_str());
+            HGFATAL("Unable to access required asset directory: %s", p.c_str());
             continue;
         }
         HGINFO("Looking for models in directoy: %s", p.c_str());
@@ -85,23 +85,37 @@ void AssetManager::Internal_Init(const std::vector<std::string>* paths)
 
 std::string AssetManager::Internal_GetAsset(const AssetType type, const std::string_view asset)
 {
+
     switch(type)
     {
         case AssetType::SHADER:
             if(m_shaderMap.find(static_cast<std::string>(asset)) != m_shaderMap.end()) { return m_shaderMap.at(static_cast<std::string>(asset)); }
-            else { return ""; }
+            else
+            {
+                HGWARN("Unable to find required shader! returning empty string!");
+                return "";
+            }
             break;
 
         case AssetType::MODEL:
             if(m_modelMap.find(static_cast<std::string>(asset)) != m_modelMap.end()) { return m_modelMap.at(static_cast<std::string>(asset)); }
-            else { return GetAsset(AssetType::MODEL, "employee"); }
+            else
+            {
+                HGWARN("Unable to find required model! returning default model!");
+                return GetAsset(AssetType::MODEL, "employee");
+            }
             break;
+
         case AssetType::TEXTURE:
             if(m_textureMap.find(static_cast<std::string>(asset)) != m_textureMap.end())
             {
                 return m_textureMap.at(static_cast<std::string>(asset));
             }
-            else { return GetAsset(AssetType::TEXTURE, "empty"); }
+            else
+            {
+                HGWARN("Unable to find required texture! returning empty texture! ");
+                return GetAsset(AssetType::TEXTURE, "empty");
+            }
             break;
     }
 }
