@@ -1,9 +1,10 @@
 # **Humongous Engine**
 
+UPDATE: sorry for large delays between updates, currently learning linear algebra
+
 The repo for my game-engine, Humongous Engine
 
 This uses Vulkan and C++, and only targets windows currently
-
 
 ## Dependencies
 * Vulkan SDK
