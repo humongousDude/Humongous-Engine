@@ -49,7 +49,7 @@ void AssetManager::Internal_Init(const std::vector<std::string>* paths)
 
         if(!fs::exists(path) || !std::filesystem::is_directory(path))
         {
-            HGFATAL("Unable to access required asset directory: %s", p.c_str());
+            HGERROR("Unable to access required asset directory: %s", p.c_str());
             continue;
         }
         HGINFO("Looking for models in directoy: %s", p.c_str());
