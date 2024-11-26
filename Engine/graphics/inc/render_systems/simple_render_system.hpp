@@ -27,11 +27,13 @@ public:
     ~SimpleRenderSystem();
 
     void RenderObjects(RenderData& renderData);
+    i16  GetObjectsDrawn() { return m_objectsDrawn; }
 
 private:
     LogicalDevice&                  m_logicalDevice;
     std::unique_ptr<RenderPipeline> m_renderPipeline;
     VkPipelineLayout                m_pipelineLayout{};
+    i16                             m_objectsDrawn{0};
 
     struct DescriptorLayouts
     {

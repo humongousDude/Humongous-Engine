@@ -144,9 +144,10 @@ void UI::Internal_EndUIFRame(vk::CommandBuffer cmd)
     m_initedFrame = false;
 }
 
-void UI::Internal_Debug_DrawMetrics()
+void UI::Internal_Debug_DrawMetrics(const i16& draws)
 {
-    UiWidget widg{"Metrics", true, {00, 0}, {225, 075}, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize};
+    UiWidget widg{"Metrics", true, {00, 0}, {225, 100}, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize};
+    widg.AddBullet("Drawn Objects: %i", draws);
     widg.AddBullet("FPS: %i", static_cast<int>(std::round((1 / Globals::Time::AverageDeltaTime()))));
     widg.AddBullet("FrameTime(ms): %f", Globals::Time::AverageDeltaTime() * 1000);
     widg.Draw();

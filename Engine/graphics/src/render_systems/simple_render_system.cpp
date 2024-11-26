@@ -112,7 +112,7 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
     vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 1, renderData.sceneSets.size(),
                             renderData.sceneSets.data(), 0, nullptr);
 
-    u64 draws{0};
+    m_objectsDrawn = 0;
 
     for(auto& [id, obj]: renderData.gameObjects)
     {
@@ -129,11 +129,11 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
         if(!renderData.cam.IsAABBInsideFrustum(obj.aabb.min, obj.aabb.max)) { continue; }
         obj.model->Draw(renderData.commandBuffer, m_pipelineLayout);
 
-        draws++;
+        m_objectsDrawn++;
     }
 
     // Uncomment if you want to know the number of objects drawn
-    HGINFO("%d objects drawn", draws);
+    // HGINFO("%d objects drawn", draws);
 }
 
 } // namespace Humongous

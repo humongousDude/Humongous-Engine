@@ -10,6 +10,10 @@
 #include "asset_manager.hpp"
 #include "vk_mem_alloc.h"
 
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
+#include "ui/widget.hpp"
+
 namespace Humongous
 {
 VulkanApp::VulkanApp(int argc, char* argv[])
@@ -226,7 +230,7 @@ void VulkanApp::Run()
 
                 UI::BeginUIFrame(cmd);
 
-                UI::Debug_DrawMetrics();
+                UI::Debug_DrawMetrics(m_simpleRenderSystem->GetObjectsDrawn());
 
                 UI::EndUIFRame(cmd);
 
