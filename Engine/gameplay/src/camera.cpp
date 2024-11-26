@@ -142,4 +142,98 @@ void Camera::SetViewYXZ(glm::vec3 position, glm::vec3 rotation)
     m_viewMatrix[3][2] = -glm::dot(w, position);
 }
 
+void Camera::ExtractFrustumPlanes(const glm::mat4& projectionViewMatrix, std::array<Plane, 6>& frustumPlanes)
+{
+    // Extract rows from the matrix
+    glm::vec4 row0 = glm::row(projectionViewMatrix, 0); // First row
+    glm::vec4 row1 = glm::row(projectionViewMatrix, 1); // Second row
+    glm::vec4 row2 = glm::row(projectionViewMatrix, 2); // Third row
+    glm::vec4 row3 = glm::row(projectionViewMatrix, 3); // Fourth row
+
+    // Left plane
+    glm::vec4 left = row3 + row0;
+    frustumPlanes[0].normal = glm::vec3(left.x, left.y, left.z);
+    frustumPlanes[0].distance = left.w;
+
+    // Right plane
+    glm::vec4 right = row3 - row0;
+    frustumPlanes[1].normal = glm::vec3(right.x, right.y, right.z);
+    frustumPlanes[1].distance = right.w;
+
+    // Bottom plane
+    glm::vec4 bottom = row3 + row1;
+    frustumPlanes[2].normal = glm::vec3(bottom.x, bottom.y, bottom.z);
+    frustumPlanes[2].distance = bottom.w;
+
+    // Top plane
+    glm::vec4 top = row3 - row1;
+    frustumPlanes[3].normal = glm::vec3(top.x, top.y, top.z);
+    frustumPlanes[3].distance = top.w;
+
+    // Near plane
+    glm::vec4 nearPlane = row3 + row2;
+    frustumPlanes[4].normal = glm::vec3(nearPlane.x, nearPlane.y, nearPlane.z);
+    frustumPlanes[4].distance = nearPlane.w;
+
+    // Far plane
+    glm::vec4 farPlane = row3 - row2;
+    frustumPlanes[5].normal = glm::vec3(farPlane.x, farPlane.y, farPlane.z);
+    frustumPlanes[5].distance = farPlane.w;
+
+    // Normalize planes
+    for(int i = 0; i < 6; ++i)
+    {
+        float length = glm::length(frustumPlanes[i].normal);
+        frustumPlanes[i].normal /= length;
+        frustumPlanes[i].distance /= length;
+    }
+}
+
+// Check if an AABB is outside a single frustum plane
+bool Camera::IsAABBOutsidePlane(const Plane& plane, const glm::vec3& aabbMin, const glm::vec3& aabbMax)
+{
+    // Calculate the positive and negative vertices relative to the plane
+    glm::vec3 positiveVertex = aabbMin;
+    glm::vec3 negativeVertex = aabbMax;
+
+    if(plane.normal.x >= 0)
+    {
+        positiveVertex.x = aabbMax.x;
+        negativeVertex.x = aabbMin.x;
+    }
+    if(plane.normal.y >= 0)
+    {
+        positiveVertex.y = aabbMax.y;
+        negativeVertex.y = aabbMin.y;
+    }
+    if(plane.normal.z >= 0)
+    {
+        positiveVertex.z = aabbMax.z;
+        negativeVertex.z = aabbMin.z;
+    }
+    if(glm::dot(plane.normal, positiveVertex) + plane.distance < 0)
+    {
+        return true; // AABB is outside
+    }
+
+    return false; // AABB is at least partially inside
+}
+
+// Check if an AABB is inside the frustum
+bool Camera::IsAABBInsideFrustum(const glm::vec3& aabbMin, const glm::vec3& aabbMax)
+{
+    std::array<Plane, 6> frustumPlanes;
+    Camera::ExtractFrustumPlanes(GetVPM(), frustumPlanes);
+
+    for(int i = 0; i < 6; i++)
+    {
+        if(IsAABBOutsidePlane(frustumPlanes[i], aabbMin, aabbMax))
+        {
+            return false; // AABB is outside the frustum
+        }
+    }
+
+    return true; // AABB is inside or intersecting the frustum
+}
+
 }; // namespace Humongous

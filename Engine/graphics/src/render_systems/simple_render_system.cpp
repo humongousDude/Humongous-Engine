@@ -125,13 +125,15 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
 
         obj.model->Init(m_descriptorSetLayouts.material.get(), m_descriptorSetLayouts.node.get(), m_descriptorSetLayouts.materialBuffers.get(),
                         m_imageSamplerPool.get(), m_uniformPool.get(), m_storagePool.get());
+
+        if(!renderData.cam.IsAABBInsideFrustum(obj.aabb.min, obj.aabb.max)) { continue; }
         obj.model->Draw(renderData.commandBuffer, m_pipelineLayout);
 
         draws++;
     }
 
     // Uncomment if you want to know the number of objects drawn
-    // HGINFO("%d drawCalls", draws);
+    HGINFO("%d objects drawn", draws);
 }
 
 } // namespace Humongous

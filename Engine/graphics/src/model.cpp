@@ -13,41 +13,41 @@
 namespace Humongous
 {
 Primitive::Primitive(u32 firstIndex, u32 indexCount, u32 vertexCount, Material& material)
-    : firstIndex(firstIndex), indexCount(indexCount), vertexCount(vertexCount), material(material)
+    : m_firstIndex(firstIndex), m_indexCount(indexCount), m_vertexCount(vertexCount), m_material(material)
 {
-    hasIndices = indexCount > 0;
+    m_hasIndices = indexCount > 0;
 };
 
 void Primitive::SetBoundingBox(glm::vec3 min, glm::vec3 max)
 {
-    bb.min = min;
-    bb.max = max;
-    bb.valid = true;
+    m_bb.min = min;
+    m_bb.max = max;
+    m_bb.valid = true;
 }
 
 // Mesh
 Mesh::Mesh(LogicalDevice* device, glm::mat4 matrix)
 {
-    this->device = device;
-    this->uniformBlock.matrix = matrix;
+    this->m_device = device;
+    this->m_uniformBlock.matrix = matrix;
 
-    uniformBuffer.uniformBuffer.Init(device, sizeof(UniformBlock), 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    uniformBuffer.uniformBuffer.Map();
+    m_uniformBuffer.uniformBuffer.Init(device, sizeof(UniformBlock), 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    m_uniformBuffer.uniformBuffer.Map();
 
-    uniformBuffer.descriptorInfo = uniformBuffer.uniformBuffer.DescriptorInfo();
+    m_uniformBuffer.descriptorInfo = m_uniformBuffer.uniformBuffer.DescriptorInfo();
 };
 
 Mesh::~Mesh()
 {
-    for(Primitive* p: primitives) { delete p; }
+    for(Primitive* p: m_primitives) { delete p; }
 }
 
 void Mesh::SetBoundingBox(glm::vec3 min, glm::vec3 max)
 {
-    bb.min = min;
-    bb.max = max;
-    bb.valid = true;
+    m_bb.min = min;
+    m_bb.max = max;
+    m_bb.valid = true;
 }
 
 Model::Model(LogicalDevice* device, const std::string& modelPath, float scale)
@@ -57,24 +57,24 @@ Model::Model(LogicalDevice* device, const std::string& modelPath, float scale)
     HGINFO("Created model");
 }
 
-Model::~Model() { Destroy(device->GetVkDevice()); }
+Model::~Model() { Destroy(m_device->GetVkDevice()); }
 
 void Model::Destroy(VkDevice device)
 {
-    for(auto& t: textures) { t.Destroy(); }
-    emptyTexture.Destroy();
+    for(auto& t: m_textures) { t.Destroy(); }
+    m_emptyTexture.Destroy();
 
-    for(auto node: nodes) { delete node; }
-    nodes.resize(0);
-    linearNodes.resize(0);
+    for(auto node: m_nodes) { delete node; }
+    m_nodes.resize(0);
+    m_linearNodes.resize(0);
 };
 
 void Model::UpdateUBO(Node* node, glm::mat4 matrix)
 {
-    if(node->mesh)
+    if(node->m_mesh)
     {
-        node->mesh->uniformBlock.matrix = matrix;
-        node->mesh->uniformBuffer.uniformBuffer.WriteToBuffer((void*)&node->mesh->uniformBlock, sizeof(node->mesh->uniformBlock));
+        node->m_mesh->m_uniformBlock.matrix = matrix;
+        node->m_mesh->m_uniformBuffer.uniformBuffer.WriteToBuffer((void*)&node->m_mesh->m_uniformBlock, sizeof(node->m_mesh->m_uniformBlock));
     }
 }
 
@@ -84,32 +84,32 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
                      float globalscale)
 {
     Node* newNode = new Node{};
-    newNode->index = nodeIndex;
-    newNode->parent = parent;
-    newNode->name = node.name;
+    newNode->m_index = nodeIndex;
+    newNode->m_parent = parent;
+    newNode->m_name = node.name;
     // newNode->skinIndex = node.skin;
-    newNode->matrix = glm::mat4(1.0f);
+    newNode->m_matrix = glm::mat4(1.0f);
 
     // Generate local node matrix
     glm::vec3 translation = glm::vec3(0.0f);
     if(node.translation.size() == 3)
     {
         translation = glm::make_vec3(node.translation.data());
-        newNode->translation = translation;
+        newNode->m_translation = translation;
     }
     glm::mat4 rotation = glm::mat4(1.0f);
     if(node.rotation.size() == 4)
     {
         glm::quat q = glm::make_quat(node.rotation.data());
-        newNode->rotation = glm::mat4(q);
+        newNode->m_rotation = glm::mat4(q);
     }
     glm::vec3 scale = glm::vec3(1.0f);
     if(node.scale.size() == 3)
     {
         scale = glm::make_vec3(node.scale.data());
-        newNode->scale = scale;
+        newNode->m_scale = scale;
     }
-    if(node.matrix.size() == 16) { newNode->matrix = glm::make_mat4x4(node.matrix.data()); };
+    if(node.matrix.size() == 16) { newNode->m_matrix = glm::make_mat4x4(node.matrix.data()); };
 
     // Node with children
     if(node.children.size() > 0)
@@ -124,7 +124,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
     if(node.mesh > -1)
     {
         const tinygltf::Mesh mesh = model.meshes[node.mesh];
-        Mesh*                newMesh = new Mesh(device, newNode->matrix);
+        Mesh*                newMesh = new Mesh(m_device, newNode->m_matrix);
         for(size_t j = 0; j < mesh.primitives.size(); j++)
         {
             const tinygltf::Primitive& primitive = mesh.primitives[j];
@@ -324,27 +324,27 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
                 }
             }
             Primitive* newPrimitive =
-                new Primitive(indexStart, indexCount, vertexCount, primitive.material > -1 ? materials[primitive.material] : materials.back());
+                new Primitive(indexStart, indexCount, vertexCount, primitive.material > -1 ? m_materials[primitive.material] : m_materials.back());
             newPrimitive->SetBoundingBox(posMin, posMax);
-            newPrimitive->owner = newNode;
-            newMesh->primitives.push_back(newPrimitive);
+            newPrimitive->m_owner = newNode;
+            newMesh->m_primitives.push_back(newPrimitive);
         }
         // Mesh BB from BBs of primitives
-        for(auto p: newMesh->primitives)
+        for(auto p: newMesh->m_primitives)
         {
-            if(p->bb.valid && !newMesh->bb.valid)
+            if(p->m_bb.valid && !newMesh->m_bb.valid)
             {
-                newMesh->bb = p->bb;
-                newMesh->bb.valid = true;
+                newMesh->m_bb = p->m_bb;
+                newMesh->m_bb.valid = true;
             }
-            newMesh->bb.min = glm::min(newMesh->bb.min, p->bb.min);
-            newMesh->bb.max = glm::max(newMesh->bb.max, p->bb.max);
+            newMesh->m_bb.min = glm::min(newMesh->m_bb.min, p->m_bb.min);
+            newMesh->m_bb.max = glm::max(newMesh->m_bb.max, p->m_bb.max);
         }
-        newNode->mesh = newMesh;
+        newNode->m_mesh = newMesh;
     }
-    if(parent) { parent->children.push_back(newNode); }
-    else { nodes.push_back(newNode); }
-    linearNodes.push_back(newNode);
+    if(parent) { parent->m_children.push_back(newNode); }
+    else { m_nodes.push_back(newNode); }
+    m_linearNodes.push_back(newNode);
 }
 
 void Model::GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& model, size_t& vertexCount, size_t& indexCount)
@@ -420,14 +420,14 @@ void Model::LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, VkQu
             textureSampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
             textureSampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         }
-        else { textureSampler = textureSamplers[tex.sampler]; }
+        else { textureSampler = m_textureSamplers[tex.sampler]; }
         Texture texture;
         texture.CreateFromGLTFImage(image, textureSampler, device, transferQueue);
-        textures.push_back(texture);
+        m_textures.push_back(texture);
     }
 
-    emptyTexture.CreateFromFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::TEXTURE, "empty"), device,
-                                Texture::ImageType::TEX2D);
+    m_emptyTexture.CreateFromFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::TEXTURE, "empty"), device,
+                                  Texture::ImageType::TEX2D);
 }
 
 void Model::LoadTextureSamplers(tinygltf::Model& gltfModel)
@@ -440,7 +440,7 @@ void Model::LoadTextureSamplers(tinygltf::Model& gltfModel)
         sampler.addressModeU = GetVkWrapMode(smpl.wrapS);
         sampler.addressModeV = GetVkWrapMode(smpl.wrapT);
         sampler.addressModeW = sampler.addressModeV;
-        textureSamplers.push_back(sampler);
+        m_textureSamplers.push_back(sampler);
     }
 }
 
@@ -455,12 +455,12 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
 
         if(mat.values.find("baseColorTexture") != mat.values.end())
         {
-            material.baseColorTexture = &textures[mat.values["baseColorTexture"].TextureIndex()];
+            material.baseColorTexture = &m_textures[mat.values["baseColorTexture"].TextureIndex()];
             material.texCoordSets.baseColor = mat.values["baseColorTexture"].TextureTexCoord();
         }
         if(mat.values.find("metallicRoughnessTexture") != mat.values.end())
         {
-            material.metallicRoughnessTexture = &textures[mat.values["metallicRoughnessTexture"].TextureIndex()];
+            material.metallicRoughnessTexture = &m_textures[mat.values["metallicRoughnessTexture"].TextureIndex()];
             material.texCoordSets.metallicRoughness = mat.values["metallicRoughnessTexture"].TextureTexCoord();
         }
         if(mat.values.find("roughnessFactor") != mat.values.end())
@@ -477,17 +477,17 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         }
         if(mat.additionalValues.find("normalTexture") != mat.additionalValues.end())
         {
-            material.normalTexture = &textures[mat.additionalValues["normalTexture"].TextureIndex()];
+            material.normalTexture = &m_textures[mat.additionalValues["normalTexture"].TextureIndex()];
             material.texCoordSets.normal = mat.additionalValues["normalTexture"].TextureTexCoord();
         }
         if(mat.additionalValues.find("emissiveTexture") != mat.additionalValues.end())
         {
-            material.emissiveTexture = &textures[mat.additionalValues["emissiveTexture"].TextureIndex()];
+            material.emissiveTexture = &m_textures[mat.additionalValues["emissiveTexture"].TextureIndex()];
             material.texCoordSets.emissive = mat.additionalValues["emissiveTexture"].TextureTexCoord();
         }
         if(mat.additionalValues.find("occlusionTexture") != mat.additionalValues.end())
         {
-            material.occlusionTexture = &textures[mat.additionalValues["occlusionTexture"].TextureIndex()];
+            material.occlusionTexture = &m_textures[mat.additionalValues["occlusionTexture"].TextureIndex()];
             material.texCoordSets.occlusion = mat.additionalValues["occlusionTexture"].TextureTexCoord();
         }
         if(mat.additionalValues.find("alphaMode") != mat.additionalValues.end())
@@ -517,7 +517,7 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             if(ext->second.Has("specularGlossinessTexture"))
             {
                 auto index = ext->second.Get("specularGlossinessTexture").Get("index");
-                material.extension.specularGlossinessTexture = &textures[index.Get<int>()];
+                material.extension.specularGlossinessTexture = &m_textures[index.Get<int>()];
                 auto texCoordSet = ext->second.Get("specularGlossinessTexture").Get("texCoord");
                 material.texCoordSets.specularGlossiness = texCoordSet.Get<int>();
                 material.pbrWorkflows.specularGlossiness = true;
@@ -525,7 +525,7 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             if(ext->second.Has("diffuseTexture"))
             {
                 auto index = ext->second.Get("diffuseTexture").Get("index");
-                material.extension.diffuseTexture = &textures[index.Get<int>()];
+                material.extension.diffuseTexture = &m_textures[index.Get<int>()];
             }
             if(ext->second.Has("diffuseFactor"))
             {
@@ -559,21 +559,21 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             }
         }
 
-        u32 index = static_cast<u32>(materials.size());
+        u32 index = static_cast<u32>(m_materials.size());
 
         material.index = index;
         material.name = mat.name;
-        materials.push_back(material);
+        m_materials.push_back(material);
 
         std::vector<Primitive*> empty{};
-        materialBatches.emplace(index, empty);
+        m_materialBatches.emplace(index, empty);
     }
 
     // Push a default material at the end of the list for meshes with no material assigned
-    materials.push_back(Material());
+    m_materials.push_back(Material());
 
     std::vector<Primitive*> empt{};
-    materialBatches.emplace(materialBatches.size(), empt);
+    m_materialBatches.emplace(m_materialBatches.size(), empt);
 
     // doesn't work
 
@@ -614,7 +614,7 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
     std::string error;
     std::string warning;
 
-    this->device = device;
+    this->m_device = device;
 
     bool   binary = false;
     size_t extpos = filename.rfind('.', filename.length());
@@ -649,12 +649,12 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
         /* if(gltfModel.animations.size() > 0) { loadAnimations(gltfModel); }
         loadSkins(gltfModel); */
 
-        for(auto node: linearNodes)
+        for(auto node: m_linearNodes)
         {
             // // Assign skins
-            // if(node->skinIndex > -1) { node->skin = skins[node->skinIndex]; }
+            // if(node->m_skinIndex > -1) { node->m_skin = skins[node->m_skinIndex]; }
             // Initial pose
-            if(node->mesh) { node->Update(); }
+            if(node->m_mesh) { node->Update(); }
         }
     }
     else
@@ -693,19 +693,19 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
 
     // Create device local buffers
     // Vertex buffer
-    vertices.Init(device, vertexBufferSize, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    m_vertices.Init(device, vertexBufferSize, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Index buffer
     if(indexBufferSize > 0)
     {
-        indices.Init(device, indexBufferSize, 1, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+        m_indices.Init(device, indexBufferSize, 1, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     }
 
     // Copy from staging buffers
-    Buffer::CopyBuffer(*device, indexStaging, indices, indexBufferSize);
-    Buffer::CopyBuffer(*device, vertexStaging, vertices, vertexBufferSize);
+    Buffer::CopyBuffer(*device, indexStaging, m_indices, indexBufferSize);
+    Buffer::CopyBuffer(*device, vertexStaging, m_vertices, vertexBufferSize);
 
     delete[] loaderInfo.vertexBuffer;
     delete[] loaderInfo.indexBuffer;
@@ -718,80 +718,80 @@ void Model::DrawNode(Node* node, VkCommandBuffer commandBuffer, VkPipelineLayout
     UpdateUBO(node, node->GetMatrix());
     UpdateShaderMaterialBuffer(node);
 
-    if(node->mesh)
+    if(node->m_mesh)
     {
-        for(Primitive* primitive: node->mesh->primitives)
+        for(Primitive* primitive: node->m_mesh->m_primitives)
         {
-            std::vector<VkDescriptorSet> descriptorSets{primitive->material.descriptorSet, descriptorSetMaterials};
+            std::vector<VkDescriptorSet> descriptorSets{primitive->m_material.descriptorSet, descriptorSetMaterials};
 
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, static_cast<u32>(descriptorSets.size()),
                                     descriptorSets.data(), 0, nullptr);
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Model::PushConstantData), sizeof(u32),
-                               &primitive->material.index);
+                               &primitive->m_material.index);
 
-            vkCmdDrawIndexed(commandBuffer, primitive->indexCount, 1, primitive->firstIndex, 0, 0);
+            vkCmdDrawIndexed(commandBuffer, primitive->m_indexCount, 1, primitive->m_firstIndex, 0, 0);
         }
     }
-    for(auto& child: node->children) { DrawNode(child, commandBuffer, pipelineLayout); }
+    for(auto& child: node->m_children) { DrawNode(child, commandBuffer, pipelineLayout); }
 }
 
 void Model::CalculateBoundingBox(Node* node, Node* parent)
 {
-    BoundingBox* parentBvh = parent ? &parent->bvh : nullptr;
+    BoundingBox* parentBvh = parent ? &parent->m_bvh : nullptr;
 
-    if(node->mesh)
+    if(node->m_mesh)
     {
-        if(node->mesh->bb.valid)
+        if(node->m_mesh->m_bb.valid)
         {
-            node->aabb = node->mesh->bb.GetAABB(node->GetMatrix());
-            if(node->children.size() == 0)
+            node->m_aabb = node->m_mesh->m_bb.GetAABB(node->GetMatrix());
+            if(node->m_children.size() == 0)
             {
-                node->bvh.min = node->aabb.min;
-                node->bvh.max = node->aabb.max;
-                node->bvh.valid = true;
+                node->m_bvh.min = node->m_aabb.min;
+                node->m_bvh.max = node->m_aabb.max;
+                node->m_bvh.valid = true;
             }
         }
     }
 
     if(parentBvh)
     {
-        parentBvh->min = glm::min(parentBvh->min, node->bvh.min);
-        parentBvh->max = glm::min(parentBvh->max, node->bvh.max);
+        parentBvh->min = glm::min(parentBvh->min, node->m_bvh.min);
+        parentBvh->max = glm::max(parentBvh->max, node->m_bvh.max);
     }
 
-    for(auto& child: node->children) { CalculateBoundingBox(child, node); }
+    for(auto& child: node->m_children) { CalculateBoundingBox(child, node); }
 }
 
 void Model::GetSceneDimensions()
 {
     // Calculate binary volume hierarchy for all nodes in the scene
-    for(auto node: linearNodes) { CalculateBoundingBox(node, nullptr); }
+    for(auto node: m_linearNodes) { CalculateBoundingBox(node, nullptr); }
 
-    dimensions.min = glm::vec3(FLT_MAX);
-    dimensions.max = glm::vec3(-FLT_MAX);
+    m_dimensions.min = glm::vec3(FLT_MAX);
+    m_dimensions.max = glm::vec3(-FLT_MAX);
 
-    for(auto node: linearNodes)
+    for(auto node: m_linearNodes)
     {
-        if(node->bvh.valid)
+        if(node->m_bvh.valid)
         {
-            dimensions.min = glm::min(dimensions.min, node->bvh.min);
-            dimensions.max = glm::max(dimensions.max, node->bvh.max);
+            m_dimensions.min = glm::min(m_dimensions.min, node->m_bvh.min);
+            m_dimensions.max = glm::max(m_dimensions.max, node->m_bvh.max);
         }
     }
 
     // Calculate scene aabb
-    aabb = glm::scale(glm::mat4(1.0f), glm::vec3(dimensions.max[0] - dimensions.min[0], dimensions.max[1] - dimensions.min[1],
-                                                 dimensions.max[2] - dimensions.min[2]));
-    aabb[3][0] = dimensions.min[0];
-    aabb[3][1] = dimensions.min[1];
-    aabb[3][2] = dimensions.min[2];
+    m_aabb = glm::scale(glm::mat4(1.0f), glm::vec3(m_dimensions.max[0] - m_dimensions.min[0], m_dimensions.max[1] - m_dimensions.min[1],
+                                                   m_dimensions.max[2] - m_dimensions.min[2]));
+    m_aabb[3][0] = m_dimensions.min[0];
+    m_aabb[3][1] = m_dimensions.min[1];
+    m_aabb[3][2] = m_dimensions.min[2];
 }
 
 Node* Model::FindNode(Node* parent, u32 index)
 {
     Node* nodeFound = nullptr;
-    if(parent->index == index) { return parent; }
-    for(auto& child: parent->children)
+    if(parent->m_index == index) { return parent; }
+    for(auto& child: parent->m_children)
     {
         nodeFound = FindNode(child, index);
         if(nodeFound) { break; }
@@ -802,7 +802,7 @@ Node* Model::FindNode(Node* parent, u32 index)
 Node* Model::NodeFromIndex(u32 index)
 {
     Node* nodeFound = nullptr;
-    for(auto& node: nodes)
+    for(auto& node: m_nodes)
     {
         nodeFound = FindNode(node, index);
         if(nodeFound) { break; }
@@ -813,11 +813,11 @@ Node* Model::NodeFromIndex(u32 index)
 void Model::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout)
 {
     const VkDeviceSize offsets[] = {0};
-    vkCmdBindIndexBuffer(commandBuffer, this->indices.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(commandBuffer, this->m_indices.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    for(auto& [id, prim]: materialBatches)
+    for(auto& [id, prim]: m_materialBatches)
     {
-        auto mat = &materials[id];
+        auto mat = &m_materials[id];
 
         if(mat->descriptorSet == VK_NULL_HANDLE)
         {
@@ -829,7 +829,7 @@ void Model::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout
         {
             std::vector<VkDescriptorSet> descriptorSets{mat->descriptorSet, descriptorSetMaterials};
 
-            if(primitive->owner->mesh) { descriptorSets.push_back(primitive->owner->mesh->uniformBuffer.descriptorSet); }
+            if(primitive->m_owner->m_mesh) { descriptorSets.push_back(primitive->m_owner->m_mesh->m_uniformBuffer.descriptorSet); }
 
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, static_cast<u32>(descriptorSets.size()),
                                     descriptorSets.data(), 0, nullptr);
@@ -837,7 +837,7 @@ void Model::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Model::PushConstantData), sizeof(u32),
                                &mat->index);
 
-            vkCmdDrawIndexed(commandBuffer, primitive->indexCount, 1, primitive->firstIndex, 0, 0);
+            vkCmdDrawIndexed(commandBuffer, primitive->m_indexCount, 1, primitive->m_firstIndex, 0, 0);
         }
     }
 
@@ -847,12 +847,12 @@ void Model::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout
 void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeLayout, DescriptorSetLayout* materialBufferLayout,
                  DescriptorPoolGrowable* imagePool, DescriptorPoolGrowable* uniformPool, DescriptorPoolGrowable* storagePool)
 {
-    if(initialized) { return; }
+    if(m_initialized) { return; }
     HGINFO("Initializing model...");
 
-    for(auto& [id, vec]: materialBatches)
+    for(auto& [id, vec]: m_materialBatches)
     {
-        auto material = &materials[id];
+        auto material = &m_materials[id];
 
         if(material->descriptorSet == VK_NULL_HANDLE)
         {
@@ -860,10 +860,10 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
         }
 
         std::vector<VkDescriptorImageInfo> imageDescriptors = {
-            emptyTexture.GetDescriptorInfo(), emptyTexture.GetDescriptorInfo(),
-            material->normalTexture ? material->normalTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo(),
-            material->occlusionTexture ? material->occlusionTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo(),
-            material->emissiveTexture ? material->emissiveTexture->GetDescriptorInfo() : emptyTexture.GetDescriptorInfo()};
+            m_emptyTexture.GetDescriptorInfo(), m_emptyTexture.GetDescriptorInfo(),
+            material->normalTexture ? material->normalTexture->GetDescriptorInfo() : m_emptyTexture.GetDescriptorInfo(),
+            material->occlusionTexture ? material->occlusionTexture->GetDescriptorInfo() : m_emptyTexture.GetDescriptorInfo(),
+            material->emissiveTexture ? material->emissiveTexture->GetDescriptorInfo() : m_emptyTexture.GetDescriptorInfo()};
 
         // TODO: glTF specs states that metallic roughness should be preferred, even if specular glosiness is present
 
@@ -899,7 +899,7 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
         // vkUpdateDescriptorSets(device->GetVkDevice(), static_cast<u32>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, NULL);
     }
 
-    for(auto& node: nodes)
+    for(auto& node: m_nodes)
     {
         SetupNodeDescriptorSet(node, uniformPool, nodeLayout);
         UpdateMaterialBatches(node);
@@ -912,42 +912,42 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
 
     CreateMaterialBuffer();
 
-    auto bufInfo = shaderMaterialBuffer.DescriptorInfo();
+    auto bufInfo = m_shaderMaterialBuffer.DescriptorInfo();
     DescriptorWriter(*materialBufferLayout, storagePool).WriteBuffer(0, &bufInfo).Overwrite(descriptorSetMaterials);
 
-    initialized = true;
+    m_initialized = true;
 }
 
 void Model::UpdateMaterialBatches(Node* node)
 {
-    if(node->mesh)
+    if(node->m_mesh)
     {
-        for(auto* prim: node->mesh->primitives) { materialBatches[prim->material.index].push_back(prim); }
+        for(auto* prim: node->m_mesh->m_primitives) { m_materialBatches[prim->m_material.index].push_back(prim); }
     }
 
-    for(auto& c: node->children) { UpdateMaterialBatches(c); }
+    for(auto& c: node->m_children) { UpdateMaterialBatches(c); }
 }
 
 void Model::SetupNodeDescriptorSet(Node* node, DescriptorPoolGrowable* descriptorPool, DescriptorSetLayout* layout)
 {
-    if(node->mesh)
+    if(node->m_mesh)
     {
-        if(node->mesh->uniformBuffer.descriptorSet == VK_NULL_HANDLE)
+        if(node->m_mesh->m_uniformBuffer.descriptorSet == VK_NULL_HANDLE)
         {
-            node->mesh->uniformBuffer.descriptorSet = descriptorPool->AllocateDescriptor(layout->GetDescriptorSetLayout());
+            node->m_mesh->m_uniformBuffer.descriptorSet = descriptorPool->AllocateDescriptor(layout->GetDescriptorSetLayout());
         }
 
-        auto bufInfo = node->mesh->uniformBuffer.uniformBuffer.DescriptorInfo();
-        DescriptorWriter(*layout, descriptorPool).WriteBuffer(0, &bufInfo).Overwrite(node->mesh->uniformBuffer.descriptorSet);
+        auto bufInfo = node->m_mesh->m_uniformBuffer.uniformBuffer.DescriptorInfo();
+        DescriptorWriter(*layout, descriptorPool).WriteBuffer(0, &bufInfo).Overwrite(node->m_mesh->m_uniformBuffer.descriptorSet);
     }
 
-    for(auto& c: node->children) { SetupNodeDescriptorSet(c, descriptorPool, layout); }
+    for(auto& c: node->m_children) { SetupNodeDescriptorSet(c, descriptorPool, layout); }
 }
 
 void Model::CreateMaterialBuffer()
 {
     std::vector<ShaderMaterial> shaderMaterials{};
-    for(auto& material: materials)
+    for(auto& material: m_materials)
     {
         ShaderMaterial shaderMaterial{};
 
@@ -991,7 +991,7 @@ void Model::CreateMaterialBuffer()
     }
 
     VkDeviceSize bufferSize = shaderMaterials.size() * sizeof(ShaderMaterial);
-    Buffer       stagingBuffer{device,
+    Buffer       stagingBuffer{m_device,
                          bufferSize,
                          3,
                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -1000,10 +1000,10 @@ void Model::CreateMaterialBuffer()
     stagingBuffer.Map();
     stagingBuffer.WriteToBuffer((void*)shaderMaterials.data(), bufferSize);
 
-    shaderMaterialBuffer.Init(device, bufferSize, 3, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    m_shaderMaterialBuffer.Init(m_device, bufferSize, 3, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    Buffer::CopyBuffer(*device, stagingBuffer, shaderMaterialBuffer, bufferSize);
+    Buffer::CopyBuffer(*m_device, stagingBuffer, m_shaderMaterialBuffer, bufferSize);
 }
 
 } // namespace Humongous

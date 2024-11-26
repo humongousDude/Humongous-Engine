@@ -1,6 +1,7 @@
 #pragma once
 
 #include "logger.hpp"
+#include "material.hpp"
 #include <defines.hpp>
 
 #include <model.hpp>
@@ -50,10 +51,18 @@ public:
 
     const id_t GetId() { return id; };
 
+    glm::vec3          color{};
+    TransformComponent transform{};
+    RigidBodyComponent rigidBody{};
+
+    BoundingBox aabb;
+
+    void SetModel(std::shared_ptr<Model> model);
+
+    static std::vector<glm::vec3> TransformAABBToWorldSpace(const Model::Dimensions& modelBB, const glm::mat4& modelMatrix);
+    static BoundingBox            ComputeWorldAABB(const std::vector<glm::vec3>& worldCorners);
+
     std::shared_ptr<Model> model{};
-    glm::vec3              color{};
-    TransformComponent     transform{};
-    RigidBodyComponent     rigidBody{};
 
 private:
     id_t id;

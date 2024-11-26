@@ -6,6 +6,7 @@ namespace Humongous
 {
 BoundingBox BoundingBox::GetAABB(glm::mat4 m)
 {
+    // HGINFO("PRE:::: Min: %f, %f, %f\n Max: %f, %f, %f\n", this->min.x, this->min.y, this->min.z, this->max.x, this->max.y, this->max.z);
     glm::vec3 min = glm::vec3(m[3]);
     glm::vec3 max = min;
     glm::vec3 v0, v1;
@@ -28,6 +29,7 @@ BoundingBox BoundingBox::GetAABB(glm::mat4 m)
     min += glm::min(v0, v1);
     max += glm::max(v0, v1);
 
+    // HGINFO("POST:::: Min: %f, %f, %f\n Max: %f, %f, %f\n", this->min.x, this->min.y, this->min.z, this->max.x, this->max.y, this->max.z);
     return BoundingBox(min, max);
 }
 } // namespace Humongous

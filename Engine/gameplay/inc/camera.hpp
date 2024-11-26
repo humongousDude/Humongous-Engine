@@ -6,6 +6,7 @@
 #include <abstractions/descriptor_pool.hpp>
 #include <abstractions/descriptor_writer.hpp>
 
+#include <array>
 #include <memory>
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -64,7 +65,11 @@ public:
 
     void UpdateUBO(u32 index, const glm::vec3& camPos);
 
-    glm::mat4 GetVPM() const { return m_viewMatrix * m_projectionMatrix; }
+    glm::mat4 GetVPM() const { return m_projectionMatrix * m_viewMatrix; }
+
+    static void ExtractFrustumPlanes(const glm::mat4& viewProjectionMatrix, std::array<Plane, 6>& planes);
+    bool        IsAABBOutsidePlane(const Plane& plane, const glm::vec3& aabbMin, const glm::vec3& aabbMax);
+    bool        IsAABBInsideFrustum(const glm::vec3& aabbMin, const glm::vec3& aabbMax);
 
 private:
     std::vector<std::unique_ptr<Buffer>> m_projectionBuffers;

@@ -76,12 +76,34 @@ void VulkanApp::LoadGameObjects()
 
     GameObject obj = GameObject::CreateGameObject();
     obj.transform.translation = {0.0f, 0.0f, 0.0f};
-    obj.transform.rotation = {glm::radians(180.0f), 0, 0};
-    obj.transform.scale = {1.00f, 1.00f, 1.00f};
-
-    obj.model = model;
+    obj.transform.rotation = {glm::radians(-90.0f), 0, 0};
+    obj.transform.scale = {0.50f, 0.50f, 0.50f};
+    obj.SetModel(model);
 
     m_gameObjects.emplace(obj.GetId(), std::move(obj));
+
+    std::shared_ptr<Model> model2;
+    model2 = std::make_shared<Model>(m_logicalDevice.get(),
+                                     Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, "DamagedHelmet"), 1.00);
+
+    GameObject obj2 = GameObject::CreateGameObject();
+    obj2.transform.translation = {1.0f, 0.0f, 0.0f};
+    obj2.transform.rotation = {glm::radians(180.0f), 0, 0};
+    obj2.transform.scale = {0.50f, 0.50f, 0.50f};
+    obj2.SetModel(model2);
+
+    m_gameObjects.emplace(obj2.GetId(), std::move(obj2));
+
+    std::shared_ptr<Model> model3;
+    model3 = std::make_shared<Model>(m_logicalDevice.get(), Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, "old_hunter"),
+                                     1.00);
+    GameObject obj3 = GameObject::CreateGameObject();
+    obj3.transform.translation = {-1.0f, 0.0f, 0.0f};
+    obj3.transform.rotation = {glm::radians(180.0f), 0, 0};
+    obj3.transform.scale = {0.50f, 0.50f, 0.50f};
+    obj3.SetModel(model3);
+
+    m_gameObjects.emplace(obj3.GetId(), std::move(obj3));
 
     HGINFO("Loaded game objects");
     m_mainDeletionQueue.PushDeletor([&]() { m_gameObjects.clear(); });

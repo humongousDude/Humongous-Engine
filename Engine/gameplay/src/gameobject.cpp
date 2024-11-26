@@ -60,4 +60,40 @@ glm::mat3 TransformComponent::NormalMatrix()
                      }};
 }
 
+std::vector<glm::vec3> GameObject::TransformAABBToWorldSpace(const Model::Dimensions& modelBB, const glm::mat4& modelMatrix)
+{
+    // AABB corners in local space
+    std::vector<glm::vec3> corners = {
+        {modelBB.min.x, modelBB.min.y, modelBB.min.z}, // Min corner
+        {modelBB.max.x, modelBB.min.y, modelBB.min.z}, {modelBB.min.x, modelBB.max.y, modelBB.min.z}, {modelBB.max.x, modelBB.max.y, modelBB.min.z},
+        {modelBB.min.x, modelBB.min.y, modelBB.max.z}, {modelBB.max.x, modelBB.min.y, modelBB.max.z}, {modelBB.min.x, modelBB.max.y, modelBB.max.z},
+        {modelBB.max.x, modelBB.max.y, modelBB.max.z} // Max corner
+    };
+
+    // Transform each corner to world space
+    for(glm::vec3& corner: corners) { corner = glm::vec3(modelMatrix * glm::vec4(corner, 1.0f)); }
+
+    return corners;
+}
+BoundingBox GameObject::ComputeWorldAABB(const std::vector<glm::vec3>& worldCorners)
+{
+    BoundingBox world{};
+    world.min = worldCorners[0];
+    world.max = worldCorners[0];
+    for(const glm::vec3& corner: worldCorners)
+    {
+        world.min = glm::min(world.min, corner);
+        world.max = glm::max(world.max, corner);
+    }
+
+    return world;
+}
+
+void GameObject::SetModel(std::shared_ptr<Model> model)
+{
+    this->model = model;
+    auto corners = TransformAABBToWorldSpace(model->GetDimensions(), transform.Mat4());
+    aabb = ComputeWorldAABB(corners);
+}
+
 } // namespace Humongous
