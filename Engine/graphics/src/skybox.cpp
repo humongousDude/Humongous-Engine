@@ -62,6 +62,9 @@ void Skybox::LoadCube()
         {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
     };
 
+    // makes the skybox very far away
+    for(auto& vert: vertices) { vert.position *= 1000; }
+
     m_vertexCount = static_cast<u32>(vertices.size());
     m_indexCount = static_cast<u32>(indices.size());
 

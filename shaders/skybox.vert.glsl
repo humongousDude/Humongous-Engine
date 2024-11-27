@@ -41,7 +41,7 @@ void main()
     viewRotOnly[3][2] = 0.0;
 
     gl_Position = ubo.projection * viewRotOnly * vec4(v.position, 1.0);
-    ;
+
     // Use the vertex position as the texture coordinate for the skybox.
     outUV = v.position;
 }
