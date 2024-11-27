@@ -96,4 +96,15 @@ void GameObject::SetModel(std::shared_ptr<Model> model)
     aabb = ComputeWorldAABB(corners);
 }
 
+void GameObject::Update()
+{
+    if(m_prevFrameTransform != transform)
+    {
+        auto corners = TransformAABBToWorldSpace(model->GetDimensions(), transform.Mat4());
+        aabb = ComputeWorldAABB(corners);
+    }
+
+    m_prevFrameTransform = transform;
+}
+
 } // namespace Humongous

@@ -14,6 +14,8 @@
 #include "imgui_impl_vulkan.h"
 #include "ui/widget.hpp"
 
+#include "glm/ext/vector_float3_precision.hpp"
+
 namespace Humongous
 {
 VulkanApp::VulkanApp(int argc, char* argv[])
@@ -192,6 +194,7 @@ void VulkanApp::Run()
     m_cam->SetViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 
     auto currentTime = std::chrono::high_resolution_clock::now();
+    bool neg{false};
 
     HGINFO("Running...");
     while(!m_window->ShouldWindowClose())
@@ -210,6 +213,14 @@ void VulkanApp::Run()
 
         if(!m_window->IsMinimized() && m_window->IsFocused())
         {
+            GameObject* obj = &m_gameObjects.at(0);
+            i8          target = neg ? -1 : 1;
+            if(abs(obj->transform.translation.z - target) <= .1f) { neg = !neg; }
+            obj->transform.translation =
+                glm::mix(obj->transform.translation, {obj->transform.translation.x, 0, target}, Globals::Time::AverageDeltaTime() * 2);
+
+            for(auto& [k, v]: m_gameObjects) { v.Update(); }
+
             if(auto cmd = m_renderer->BeginFrame())
             {
 

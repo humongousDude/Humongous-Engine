@@ -24,6 +24,11 @@ struct TransformComponent
 
     glm::mat4 Mat4() const;
     glm::mat3 NormalMatrix();
+
+    bool operator==(const TransformComponent& other)
+    {
+        return translation == other.translation && scale == other.scale && rotation == other.rotation;
+    }
 };
 
 struct RigidBodyComponent
@@ -58,6 +63,7 @@ public:
     BoundingBox aabb;
 
     void SetModel(std::shared_ptr<Model> model);
+    void Update();
 
     static std::vector<glm::vec3> TransformAABBToWorldSpace(const Model::Dimensions& modelBB, const glm::mat4& modelMatrix);
     static BoundingBox            ComputeWorldAABB(const std::vector<glm::vec3>& worldCorners);
@@ -68,6 +74,8 @@ private:
     id_t id;
 
     GameObject(id_t objId) : id{objId} {};
+
+    TransformComponent m_prevFrameTransform{};
 };
 
 } // namespace Humongous
