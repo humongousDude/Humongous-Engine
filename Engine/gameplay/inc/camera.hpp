@@ -26,7 +26,7 @@ struct ProjectionUBO
 
 struct UboParams
 {
-    glm::vec4 lightDir = glm::vec4(1.0f, 2.0f, 0.0f, 1.0f);
+    glm::vec4 lightDir = glm::vec4(1.0f, 4.0f, 0.0f, 1.0f);
 
     float exposure = 100.0f, gamma = 100.0f, prefilteredCubeMipLevels = 100.f, scaleIBLAmbient = 100.0f, debugViewInputs = 0, debugViewEquation = 0;
 };

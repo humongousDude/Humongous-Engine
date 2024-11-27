@@ -574,36 +574,6 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
 
     std::vector<Primitive*> empt{};
     m_materialBatches.emplace(m_materialBatches.size(), empt);
-
-    // doesn't work
-
-    // std::vector<Material>::iterator it;
-    // for(it = materials.begin(); it != materials.end();)
-    // {
-    //     if(it->alphaMode == Material::ALPHAMODE_MASK || it->alphaMode == Material::ALPHAMODE_BLEND)
-    //     {
-    //         auto mov = std::move(*it);
-    //
-    //         // it = materials.erase(it);
-    //         auto nextIt = std::next(it);
-    //         std::rotate(it, nextIt, materials.end());
-    //
-    //         u32 oldIndex = mov.index;
-    //         u32 newIndex = materials.size() - 1;
-    //
-    //         mov.index = newIndex;
-    //
-    //         auto itBatch = materialBatches.find(oldIndex);
-    //         if(itBatch != materialBatches.end())
-    //         {
-    //             materialBatches[newIndex] = std::move(itBatch->second);
-    //             materialBatches.erase(itBatch);
-    //         }
-    //
-    //         it = nextIt;
-    //     }
-    //     else { ++it; }
-    // }
 }
 
 void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue transferQueue, float scale)
@@ -895,8 +865,6 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
 
             DescriptorWriter(*materialLayout, imagePool).WriteImage(static_cast<u32>(i), &imageDescriptors[i]).Overwrite(material->descriptorSet);
         }
-
-        // vkUpdateDescriptorSets(device->GetVkDevice(), static_cast<u32>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, NULL);
     }
 
     for(auto& node: m_nodes)

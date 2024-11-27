@@ -20,10 +20,16 @@ struct RenderData
     const glm::vec3              camPos;
 };
 
+struct ShaderSet
+{
+    std::string vertShaderPath;
+    std::string fragShaderPath;
+};
+
 class SimpleRenderSystem
 {
 public:
-    SimpleRenderSystem(LogicalDevice& logicalDevice, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts);
+    SimpleRenderSystem(LogicalDevice& logicalDevice, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts, const ShaderSet& shaderSet);
     ~SimpleRenderSystem();
 
     void RenderObjects(RenderData& renderData);
@@ -51,6 +57,6 @@ private:
     void CreateModelDescriptorSetLayout();
     void AllocateDescriptorSet(u32 identifier, u32 index);
     void CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts);
-    void CreatePipeline();
+    void CreatePipeline(const ShaderSet& shaderSet);
 };
 } // namespace Humongous

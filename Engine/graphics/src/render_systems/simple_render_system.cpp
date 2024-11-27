@@ -3,14 +3,15 @@
 
 namespace Humongous
 {
-SimpleRenderSystem::SimpleRenderSystem(LogicalDevice& logicalDevice, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts)
+SimpleRenderSystem::SimpleRenderSystem(LogicalDevice& logicalDevice, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts,
+                                       const ShaderSet& shaderSet)
     : m_logicalDevice{logicalDevice}, m_pipelineLayout{VK_NULL_HANDLE}
 {
     HGINFO("Creating simple render system...");
     CreateModelDescriptorSetPool();
     CreateModelDescriptorSetLayout();
     CreatePipelineLayout(descriptorSetLayouts);
-    CreatePipeline();
+    CreatePipeline(shaderSet);
     HGINFO("Created simple render system");
 }
 
@@ -88,7 +89,7 @@ void SimpleRenderSystem::CreatePipelineLayout(const std::vector<VkDescriptorSetL
     HGINFO("Created pipeline layout");
 }
 
-void SimpleRenderSystem::CreatePipeline()
+void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 {
     HGINFO("Creating pipeline...");
     RenderPipeline::PipelineConfigInfo configInfo = RenderPipeline::DefaultPipelineConfigInfo();
@@ -97,6 +98,9 @@ void SimpleRenderSystem::CreatePipeline()
     configInfo.multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     configInfo.multisampleInfo.sampleShadingEnable = VK_FALSE;
     configInfo.multisampleInfo.minSampleShading = 1.0;
+
+    configInfo.vertShaderPath = shaderSet.vertShaderPath;
+    configInfo.fragShaderPath = shaderSet.fragShaderPath;
 
     m_renderPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
     HGINFO("Created pipeline");
