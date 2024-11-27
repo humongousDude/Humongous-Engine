@@ -22,7 +22,7 @@ layout(set = 2, binding = 4) uniform sampler2D emissiveMap;
 
 #include "includes/shadermaterial.glsl"
 
-layout(std430, set = 3, binding = 0) buffer SSBO
+layout(std430, set = 3, binding = 0) readonly buffer SSBO
 {
     ShaderMaterial materials[];
 };
