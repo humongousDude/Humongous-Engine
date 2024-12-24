@@ -1,45 +1,39 @@
+set(BUILD_SHARED_LIBS OFF)
 file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS *.cpp)
+file(GLOB IMGUI CONFIGURE_DEPENDS ../lib/imgui/*.cpp)
 
 set(cur_path ${CMAKE_CURRENT_LIST_DIR})
 cmake_path(GET cur_path PARENT_PATH CMAKE_PARENT_LIST_DIR)
 
-message(STATUS "parent list dir: ${CMAKE_PARENT_LIST_DIR}")
-
 add_compile_definitions(HGASSERTIONS_ENABLED)
 add_definitions(-DHGASSETDIRPATH="${CMAKE_PARENT_LIST_DIR}/Assets/")
-set(VCPKG_ROOT $ENV{VCPKG_ROOT})
 
-add_library(Engine STATIC ${SRCS})
+add_library(Engine STATIC ${SRCS} ${IMGUI}
+    ../lib/imgui/backends/imgui_impl_vulkan.cpp
+    ../lib/imgui/backends/imgui_impl_sdl3.cpp   
+    )
 
-target_include_directories(Engine PUBLIC core/inc gameplay/inc graphics/inc
-                                         utils/inc systems/inc)
+target_include_directories(
+  Engine
+  PUBLIC core/inc
+         gameplay/inc
+         graphics/inc
+         utils/inc
+         systems/inc
+         ../lib/imgui/
+         ../lib/imgui/backends/
+        )
+
 
 find_package(Vulkan)
-target_link_libraries(Engine PUBLIC Vulkan::Vulkan)
-
-find_package(VulkanMemoryAllocator CONFIG REQUIRED)
-target_link_libraries(Engine PUBLIC Vulkan::Headers
-                                    GPUOpen::VulkanMemoryAllocator)
-
-find_package(VulkanMemoryAllocator CONFIG REQUIRED)
-
-find_package(glfw3 REQUIRED)
-target_link_libraries(Engine PUBLIC glfw)
-
+find_package(SDL3 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
-target_link_libraries(Engine PUBLIC glm::glm)
-
-find_path(TINYGLTF_INCLUDE_DIRS "tiny_gltf.h")
-target_include_directories(Engine PUBLIC ${TINYGLTF_INCLUDE_DIRS})
-
 find_package(gli CONFIG REQUIRED)
-target_link_libraries(Engine PUBLIC gli)
-
 find_package(spdlog CONFIG REQUIRED)
-target_link_libraries(Engine PRIVATE spdlog::spdlog)
-
-find_package(imgui CONFIG REQUIRED)
-target_link_libraries(Engine PUBLIC imgui::imgui)
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
+find_path(TINYGLTF_INCLUDE_DIRS "tiny_gltf.h")
+target_link_libraries(Engine PUBLIC SDL3::SDL3 glm::glm gli spdlog::spdlog Vulkan::Vulkan Vulkan::Headers GPUOpen::VulkanMemoryAllocator)
+target_include_directories(Engine PUBLIC ${TINYGLTF_INCLUDE_DIRS})
 
 # Collect shader files
 file(GLOB SHADER_FILES CONFIGURE_DEPENDS

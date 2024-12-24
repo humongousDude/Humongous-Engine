@@ -28,8 +28,8 @@ public:
         float       frameTime;
         GameObject& gameObject;
         Movements   movementType;
-        double&     mouseDeltaX;
-        double&     mouseDeltaY;
+        float&      mouseDeltaX;
+        float&      mouseDeltaY;
     };
 
     void ProcessInput(const InputData& inputData);

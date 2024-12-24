@@ -7,7 +7,7 @@ namespace Humongous
 {
 // *************** Descriptor Pool Builder *********************
 
-DescriptorPool::Builder& DescriptorPool::Builder::AddPoolSize(VkDescriptorType descriptorType, u32 count)
+DescriptorPool::Builder& DescriptorPool::Builder::AddPoolSize(VkDescriptorType descriptorType, n32 count)
 {
     m_poolSizes.push_back({descriptorType, count});
     return *this;
@@ -18,7 +18,7 @@ DescriptorPool::Builder& DescriptorPool::Builder::SetPoolFlags(VkDescriptorPoolC
     m_poolFlags = flags;
     return *this;
 }
-DescriptorPool::Builder& DescriptorPool::Builder::SetMaxSets(u32 count)
+DescriptorPool::Builder& DescriptorPool::Builder::SetMaxSets(n32 count)
 {
     m_maxSets = count;
     return *this;
@@ -31,13 +31,13 @@ std::unique_ptr<DescriptorPool> DescriptorPool::Builder::Build() const
 
 // *************** Descriptor Pool *********************
 
-DescriptorPool::DescriptorPool(LogicalDevice& logicalDevice, u32 m_maxSets, VkDescriptorPoolCreateFlags m_poolFlags,
+DescriptorPool::DescriptorPool(LogicalDevice& logicalDevice, n32 m_maxSets, VkDescriptorPoolCreateFlags m_poolFlags,
                                const std::vector<VkDescriptorPoolSize>& m_poolSizes)
     : m_logicalDevice{logicalDevice}
 {
     VkDescriptorPoolCreateInfo descriptorPoolInfo{};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    descriptorPoolInfo.poolSizeCount = static_cast<u32>(m_poolSizes.size());
+    descriptorPoolInfo.poolSizeCount = static_cast<n32>(m_poolSizes.size());
     descriptorPoolInfo.pPoolSizes = m_poolSizes.data();
     descriptorPoolInfo.maxSets = m_maxSets;
     descriptorPoolInfo.flags = m_poolFlags;
@@ -69,7 +69,7 @@ bool DescriptorPool::AllocateDescriptor(const VkDescriptorSetLayout descriptorSe
 
 void DescriptorPool::FreeDescriptors(std::vector<VkDescriptorSet>& descriptors) const
 {
-    vkFreeDescriptorSets(m_logicalDevice.GetVkDevice(), m_descriptorPool, static_cast<u32>(descriptors.size()), descriptors.data());
+    vkFreeDescriptorSets(m_logicalDevice.GetVkDevice(), m_descriptorPool, static_cast<n32>(descriptors.size()), descriptors.data());
 }
 
 void DescriptorPool::ResetPool() { vkResetDescriptorPool(m_logicalDevice.GetVkDevice(), m_descriptorPool, 0); }

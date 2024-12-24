@@ -34,13 +34,13 @@ namespace Humongous
 struct Primitive
 {
     Node*       m_owner;
-    u32         m_firstIndex;
-    u32         m_indexCount;
-    u32         m_vertexCount;
+    n32         m_firstIndex;
+    n32         m_indexCount;
+    n32         m_vertexCount;
     Material&   m_material;
     bool        m_hasIndices;
     BoundingBox m_bb;
-    Primitive(u32 firstIndex, u32 indexCount, u32 vertexCount, Material& material);
+    Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, Material& material);
     void SetBoundingBox(glm::vec3 min, glm::vec3 max);
 };
 
@@ -125,7 +125,7 @@ private:
     std::vector<Texture>                             m_textures;
     std::vector<Texture::TexSamplerInfo>             m_textureSamplers;
     std::vector<Material>                            m_materials;
-    std::unordered_map<u32, std::vector<Primitive*>> m_materialBatches;
+    std::unordered_map<n32, std::vector<Primitive*>> m_materialBatches;
 
     VkDescriptorSet descriptorSetMaterials{VK_NULL_HANDLE};
     enum PBRWorkflows
@@ -158,7 +158,7 @@ private:
 
     struct LoaderInfo
     {
-        u32*    indexBuffer;
+        n32*    indexBuffer;
         Vertex* vertexBuffer;
         size_t  indexPos = 0;
         size_t  vertexPos = 0;
@@ -173,19 +173,19 @@ private:
     void UpdateMaterialBatches(Node* node);
 
     void Destroy(VkDevice m_device);
-    void LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, float globalscale);
+    void LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, float globalscale);
     void GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& model, size_t& vertexCount, size_t& indexCount);
     void LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* m_device, VkQueue transferQueue);
-    VkSamplerAddressMode GetVkWrapMode(i32 wrapMode);
-    VkFilter             GetVkFilterMode(i32 filterMode);
+    VkSamplerAddressMode GetVkWrapMode(s32 wrapMode);
+    VkFilter             GetVkFilterMode(s32 filterMode);
     void                 LoadTextureSamplers(tinygltf::Model& gltfModel);
     void                 LoadMaterials(tinygltf::Model& gltfModel);
     void                 LoadFromFile(std::string filename, LogicalDevice* device, VkQueue transferQueue, float scale = 1.0f);
     void                 DrawNode(Node* node, VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout);
     void                 CalculateBoundingBox(Node* node, Node* parent);
     void                 GetSceneDimensions();
-    Node*                FindNode(Node* parent, u32 index);
-    Node*                NodeFromIndex(u32 index);
+    Node*                FindNode(Node* parent, n32 index);
+    Node*                NodeFromIndex(n32 index);
     void                 SetupDescriptorSet(Node* node);
     void                 SetupNodeDescriptorSet(Node* node, DescriptorPoolGrowable* descriptorPool, DescriptorSetLayout* layout);
 };

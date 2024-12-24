@@ -47,9 +47,8 @@ void Renderer::RecreateSwapChain()
     while(extent.width == 0 || extent.height == 0)
     {
         extent = m_window.GetExtent();
-        glfwWaitEvents();
 
-        if(m_window.ShouldWindowClose()) { return; }
+        // if(m_window.ShouldWindowClose()) { return; }
     }
     m_logicalDevice.GetVkDevice().waitIdle();
 
@@ -169,7 +168,7 @@ void Renderer::AllocateCommandBuffers()
     vk::CommandBufferAllocateInfo allocInfo{};
     allocInfo.commandPool = m_commandPool;
     allocInfo.level = vk::CommandBufferLevel::ePrimary;
-    allocInfo.commandBufferCount = static_cast<u32>(m_frames.size());
+    allocInfo.commandBufferCount = static_cast<n32>(m_frames.size());
 
     for(Frame& frame: m_frames)
     {
@@ -219,7 +218,7 @@ void Renderer::InitSyncStructures()
 
 VkCommandBuffer Renderer::BeginFrame()
 {
-    m_logicalDevice.GetVkDevice().waitForFences(1, &GetCurrentFrame().inFlightFence, vk::True, std::numeric_limits<u64>::max());
+    m_logicalDevice.GetVkDevice().waitForFences(1, &GetCurrentFrame().inFlightFence, vk::True, std::numeric_limits<n64>::max());
     m_logicalDevice.GetVkDevice().resetFences(1, &GetCurrentFrame().inFlightFence);
 
     vk::Result result = m_logicalDevice.GetVkDevice().acquireNextImageKHR(

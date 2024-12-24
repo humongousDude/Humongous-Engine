@@ -5,7 +5,7 @@ namespace Humongous
 {
 namespace Utils
 {
-void CreateAllocatedImage(LogicalDevice& logicalDevice, u32 width, u32 height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
+void CreateAllocatedImage(LogicalDevice& logicalDevice, n32 width, n32 height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
                           VkMemoryPropertyFlags properties, AllocatedImage& allocatedImage, VkImageAspectFlags aspectFlags)
 {
     VkImageCreateInfo imageInfo{};
@@ -201,7 +201,7 @@ void CopyImageToImage(VkCommandBuffer cmd, VkImage src, VkImage dst, VkExtent2D 
     vkCmdBlitImage2(cmd, &blitInfo);
 }
 
-void CopyBufferToImage(LogicalDevice& logicalDevice, VkBuffer buffer, VkImage image, u32 width, u32 height)
+void CopyBufferToImage(LogicalDevice& logicalDevice, VkBuffer buffer, VkImage image, n32 width, n32 height)
 {
     VkCommandBuffer   commandBuffer = logicalDevice.BeginSingleTimeCommands();
     VkBufferImageCopy region{};
@@ -224,7 +224,7 @@ void CopyBufferToImage(LogicalDevice& logicalDevice, VkBuffer buffer, VkImage im
 
     // vkCmdCopyBufferToImage2(commandBuffer, );
 
-    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, static_cast<u32>(bufferCopyRegions.size()),
+    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, static_cast<n32>(bufferCopyRegions.size()),
                            bufferCopyRegions.data());
 
     logicalDevice.EndSingleTimeCommands(commandBuffer);

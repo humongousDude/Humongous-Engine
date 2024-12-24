@@ -31,7 +31,6 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     HGASSERT(m_logicalDevice == VK_NULL_HANDLE && "Logical device has already been made!");
     HGASSERT(physicalDevice.GetVkPhysicalDevice() != VK_NULL_HANDLE && "Can't create a logical device with a null physical device!");
 
-    HGINFO("Creating logical device...");
     PhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 
     HGASSERT(indices.IsComplete() && "Incomplete queue family indices!");
@@ -77,10 +76,10 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     auto extensions = physicalDevice.GetDeviceExtensions();
 
     vk::DeviceCreateInfo createInfo{};
-    createInfo.queueCreateInfoCount = static_cast<u32>(queueInfos.size()); // queueCreateInfos.size();
+    createInfo.queueCreateInfoCount = static_cast<n32>(queueInfos.size()); // queueCreateInfos.size();
     createInfo.pQueueCreateInfos = queueInfos.data();
     createInfo.enabledLayerCount = 0;
-    createInfo.enabledExtensionCount = static_cast<u32>(extensions.size());
+    createInfo.enabledExtensionCount = static_cast<n32>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
     createInfo.enabledLayerCount = 0;
     createInfo.ppEnabledLayerNames = nullptr;
@@ -118,10 +117,10 @@ std::vector<vk::DeviceQueueInfo2> LogicalDevice::CreateQueues(PhysicalDevice& ph
     PhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 
     std::vector<vk::DeviceQueueInfo2> queueCreateInfos;
-    std::set<u32>                     uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+    std::set<n32>                     uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
     float queuePriority = 1.0f;
-    for(u32 queueFamily: uniqueQueueFamilies)
+    for(n32 queueFamily: uniqueQueueFamilies)
     {
         vk::DeviceQueueInfo2 queueCreateInfo{};
         queueCreateInfo.queueFamilyIndex = queueFamily;

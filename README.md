@@ -13,7 +13,7 @@ This uses Vulkan and C++, and only targets windows currently
 
 
 ## Libraries used:
-* GLFW3
+* SDL3
 * GLM
 * VMA
 * ImGui

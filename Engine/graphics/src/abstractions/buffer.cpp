@@ -33,7 +33,7 @@ VkDeviceSize Buffer::GetAlignment(VkDeviceSize m_instanceSize, VkDeviceSize minO
     return m_instanceSize;
 }
 
-Buffer::Buffer(LogicalDevice* device, VkDeviceSize instanceSize, u32 instanceCount, VkBufferUsageFlags usageFlags,
+Buffer::Buffer(LogicalDevice* device, VkDeviceSize instanceSize, n32 instanceCount, VkBufferUsageFlags usageFlags,
                VkMemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, VkDeviceSize minOffsetAlignment)
     : m_logicalDevice{device}, m_instanceSize{instanceSize}, m_instanceCount{instanceCount}, m_usageFlags{usageFlags},
       m_memoryPropertyFlags{memoryPropertyFlags}
@@ -43,7 +43,7 @@ Buffer::Buffer(LogicalDevice* device, VkDeviceSize instanceSize, u32 instanceCou
 
 Buffer::Buffer() : m_logicalDevice{nullptr}, m_instanceSize{0}, m_instanceCount{0}, m_usageFlags{0}, m_memoryPropertyFlags{0} {}
 
-void Buffer::Init(LogicalDevice* device, VkDeviceSize instanceSize, u32 instanceCount, VkBufferUsageFlags usageFlags,
+void Buffer::Init(LogicalDevice* device, VkDeviceSize instanceSize, n32 instanceCount, VkBufferUsageFlags usageFlags,
                   VkMemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, VkDeviceSize minOffsetAlignment)
 {
     m_logicalDevice = device;

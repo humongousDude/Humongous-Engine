@@ -52,6 +52,6 @@ private:
     void Init(int argc, char* argv[]);
     void LoadGameObjects();
 
-    void HandleInput(float frameTime, GameObject& viewerObject);
+    void HandleInput(float frameTime, GameObject& viewerObject, SDL_Event* event);
 };
 } // namespace Humongous

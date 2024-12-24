@@ -31,7 +31,7 @@ void SwapChain::CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, 
     vk::PresentModeKHR    presentMode = ChoosePresentMode(details.presentModes);
     vk::Extent2D          extent = ChooseExtent(details.capabilities, window);
 
-    u32 imageCount = details.capabilities.surfaceCapabilities.minImageCount + 1;
+    n32 imageCount = details.capabilities.surfaceCapabilities.minImageCount + 1;
     if(details.capabilities.surfaceCapabilities.maxImageCount > 0 && imageCount > details.capabilities.surfaceCapabilities.maxImageCount)
     {
         imageCount = details.capabilities.surfaceCapabilities.maxImageCount;
@@ -48,7 +48,7 @@ void SwapChain::CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, 
     createInfo.imageSharingMode = vk::SharingMode::eExclusive;
 
     PhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
-    u32                             queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+    n32                             queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
     if(indices.graphicsFamily != indices.presentFamily)
     {
@@ -140,23 +140,24 @@ vk::PresentModeKHR SwapChain::ChoosePresentMode(const std::vector<vk::PresentMod
 {
     for(const auto& mode: presentModes)
     {
-        if(mode == vk::PresentModeKHR::eMailbox) { return mode; }
+        if(mode == vk::PresentModeKHR::eFifo) { return mode; }
     }
     return vk::PresentModeKHR::eFifo;
 }
 
 vk::Extent2D SwapChain::ChooseExtent(const vk::SurfaceCapabilities2KHR& capabilities, Window& window)
 {
-    if(capabilities.surfaceCapabilities.currentExtent.width != std::numeric_limits<u32>::max())
+    if(capabilities.surfaceCapabilities.currentExtent.width != std::numeric_limits<n32>::max())
     {
         return capabilities.surfaceCapabilities.currentExtent;
     }
     else
     {
         int width, height;
-        glfwGetFramebufferSize(window.GetWindow(), &width, &height);
+        SDL_GetWindowSize(window.GetWindow(), &width, &height);
+        HGINFO("Window Size: %i, %i", width, height);
 
-        vk::Extent2D actualExtent = {static_cast<u32>(width), static_cast<u32>(height)};
+        vk::Extent2D actualExtent = {static_cast<n32>(width), static_cast<n32>(height)};
 
         actualExtent.width = std::clamp(actualExtent.width, capabilities.surfaceCapabilities.minImageExtent.width,
                                         capabilities.surfaceCapabilities.maxImageExtent.width);

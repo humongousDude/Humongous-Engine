@@ -70,9 +70,9 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
             HGERROR("Trying to make a non-bindless render pipeline, but no vertex attribute bindings were specified!");
         }
 
-        vertexInputInfo.vertexBindingDescriptionCount = static_cast<u32>(configInfo.inputBindings.size());
+        vertexInputInfo.vertexBindingDescriptionCount = static_cast<n32>(configInfo.inputBindings.size());
         vertexInputInfo.pVertexBindingDescriptions = configInfo.inputBindings.data();
-        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<u32>(configInfo.attribBindings.size());
+        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<n32>(configInfo.attribBindings.size());
         vertexInputInfo.pVertexAttributeDescriptions = configInfo.attribBindings.data();
     }
 
@@ -119,7 +119,7 @@ void RenderPipeline::CreateShaderModule(const std::vector<char>& code, VkShaderM
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = code.size();
-    createInfo.pCode = reinterpret_cast<const u32*>(code.data());
+    createInfo.pCode = reinterpret_cast<const n32*>(code.data());
 
     if(vkCreateShaderModule(m_logicalDevice.GetVkDevice(), &createInfo, nullptr, shaderModule) != VK_SUCCESS)
     {
@@ -193,7 +193,7 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
     configInfo.dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
     configInfo.dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();
-    configInfo.dynamicStateInfo.dynamicStateCount = static_cast<u32>(configInfo.dynamicStateEnables.size());
+    configInfo.dynamicStateInfo.dynamicStateCount = static_cast<n32>(configInfo.dynamicStateEnables.size());
     configInfo.dynamicStateInfo.flags = 0;
 
     configInfo.renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;

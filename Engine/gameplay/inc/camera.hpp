@@ -52,18 +52,18 @@ public:
     void SetViewTarget(glm::vec3 position, glm::vec3 target, glm::vec3 up = glm::vec3{0.0f, -1.0f, 0.0f});
     void SetViewYXZ(glm::vec3 position, glm::vec3 rotation);
 
-    VkDescriptorSet GetDescriptorSet(u32 index) const { return m_projectionMatrixSet[index]; };
-    VkDescriptorSet GetParamDescriptorSet(u32 index) const { return m_uboParamSet[index]; };
+    VkDescriptorSet GetDescriptorSet(n32 index) const { return m_projectionMatrixSet[index]; };
+    VkDescriptorSet GetParamDescriptorSet(n32 index) const { return m_uboParamSet[index]; };
 
     VkDescriptorSetLayout              GetParamDescriptorSetLayout() const { return m_paramLayout->GetDescriptorSetLayout(); };
-    const std::vector<VkDescriptorSet> GetCombinedSets(u32 index) const { return {m_projectionMatrixSet[index], m_uboParamSet[index]}; };
+    const std::vector<VkDescriptorSet> GetCombinedSets(n32 index) const { return {m_projectionMatrixSet[index], m_uboParamSet[index]}; };
     VkDescriptorSetLayout              GetDescriptorSetLayout() const { return m_projectionLayout->GetDescriptorSetLayout(); };
-    VkBuffer                           GetProjectionBuffer(u32 index) const { return m_projectionBuffers[index]->GetBuffer(); };
+    VkBuffer                           GetProjectionBuffer(n32 index) const { return m_projectionBuffers[index]->GetBuffer(); };
 
     const glm::mat4& GetProjection() const { return m_projectionMatrix; };
     const glm::mat4& GetView() const { return m_viewMatrix; };
 
-    void UpdateUBO(u32 index, const glm::vec3& camPos);
+    void UpdateUBO(n32 index, const glm::vec3& camPos);
 
     glm::mat4 GetVPM() const { return m_projectionMatrix * m_viewMatrix; }
 

@@ -3,8 +3,9 @@
 #include "globals.hpp"
 #include "logger.hpp"
 
+
 // lib
-#include "imgui_impl_glfw.h"
+#include "imgui_impl_sdl3.h"
 #include "imgui_impl_vulkan.h"
 
 #include "cmath"
@@ -17,6 +18,8 @@ namespace Humongous
 void UI::Internal_Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window)
 {
     if(m_hasInited) { return; }
+
+    IMGUI_CHECKVERSION();
 
     m_logicalDevice = logicalDevice;
 
@@ -32,7 +35,7 @@ void UI::Internal_Init(class Instance* instance, LogicalDevice* logicalDevice, W
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
     io.ConfigFlags |= ImGuiConfigFlags_NavNoCaptureKeyboard;
 
-    ImGui_ImplGlfw_InitForVulkan(window->GetWindow(), true);
+    ImGui_ImplSDL3_InitForVulkan(window->GetWindow());
 
     ImGui::StyleColorsDark();
 
@@ -43,11 +46,11 @@ void UI::Internal_Init(class Instance* instance, LogicalDevice* logicalDevice, W
     // this is silly
     initInfo.MinImageCount = m_logicalDevice->GetPhysicalDevice()
                                  .QuerySwapChainSupport(m_logicalDevice->GetPhysicalDevice().GetVkPhysicalDevice())
-                                 .capabilities.surfaceCapabilities.minImageCount +
-                             1;
+                                 .capabilities.surfaceCapabilities.minImageCount;
     initInfo.ImageCount = m_logicalDevice->GetPhysicalDevice()
                               .QuerySwapChainSupport(m_logicalDevice->GetPhysicalDevice().GetVkPhysicalDevice())
-                              .capabilities.surfaceCapabilities.maxImageCount;
+                              .capabilities.surfaceCapabilities.minImageCount +
+                          1;
 
     m_renderingInfo = RenderPipeline::DefaultPipelineConfigInfo().renderingInfo;
     m_renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
@@ -76,7 +79,7 @@ void UI::Internal_Shutdown()
     if(!m_hasInited) { return; }
     HGINFO("Shutting UI down");
     ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 
     m_logicalDevice->GetVkDevice().destroyPipelineLayout(m_pipelineLayout);
@@ -130,7 +133,7 @@ void UI::Internal_BeginUIFrame(vk::CommandBuffer cmd)
 
     const ImGuiIO& io = ImGui::GetIO();
     ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
 }
 
@@ -144,7 +147,7 @@ void UI::Internal_EndUIFRame(vk::CommandBuffer cmd)
     m_initedFrame = false;
 }
 
-void UI::Internal_Debug_DrawMetrics(const i16& draws)
+void UI::Internal_Debug_DrawMetrics(const s16& draws)
 {
     UiWidget widg{"Metrics", true, {00, 0}, {225, 100}, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize};
     widg.AddBullet("Drawn Objects: %i", draws);

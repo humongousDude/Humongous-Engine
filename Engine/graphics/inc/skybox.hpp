@@ -36,8 +36,8 @@ private:
     LogicalDevice* m_logicalDevice = nullptr;
 
     std::unique_ptr<Texture> m_skybox;
-    u32                      m_vertexCount;
-    u32                      m_indexCount;
+    n32                      m_vertexCount;
+    n32                      m_indexCount;
     std::unique_ptr<Buffer>  m_vertexBuffer;
     std::unique_ptr<Buffer>  m_indexBuffer;
     VkDescriptorSet          m_cubeMapSet;

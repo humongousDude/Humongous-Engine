@@ -10,7 +10,7 @@
 #define BreakDebug() __builtin_trap()
 #endif
 
-void ReportAssertionFaliure(const char* expression, const char* message, const char* file, i32 line);
+void ReportAssertionFaliure(const char* expression, const char* message, const char* file, s32 line);
 
 #define HGASSERT(expr)                                                                                                                             \
     {                                                                                                                                              \

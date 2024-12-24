@@ -10,8 +10,8 @@ namespace Humongous
 
 // *************** Descriptor Set Layout Builder *********************
 
-DescriptorSetLayout::Builder& DescriptorSetLayout::Builder::addBinding(u32 binding, VkDescriptorType descriptorType, VkShaderStageFlags stageFlags,
-                                                                       u32 count)
+DescriptorSetLayout::Builder& DescriptorSetLayout::Builder::addBinding(n32 binding, VkDescriptorType descriptorType, VkShaderStageFlags stageFlags,
+                                                                       n32 count)
 {
     HGASSERT(m_bindings.count(binding) == 0 && "Binding already in use")
     VkDescriptorSetLayoutBinding layoutBinding{};
@@ -30,7 +30,7 @@ std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::Builder::build() const
 
 // *************** Descriptor Set Layout *********************
 
-DescriptorSetLayout::DescriptorSetLayout(LogicalDevice& m_device, std::unordered_map<u32, VkDescriptorSetLayoutBinding> m_bindings)
+DescriptorSetLayout::DescriptorSetLayout(LogicalDevice& m_device, std::unordered_map<n32, VkDescriptorSetLayoutBinding> m_bindings)
     : m_device{m_device}, m_bindings{m_bindings}
 {
     std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings{};
@@ -38,7 +38,7 @@ DescriptorSetLayout::DescriptorSetLayout(LogicalDevice& m_device, std::unordered
 
     VkDescriptorSetLayoutCreateInfo descriptorSetLayoutInfo{};
     descriptorSetLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descriptorSetLayoutInfo.bindingCount = static_cast<u32>(setLayoutBindings.size());
+    descriptorSetLayoutInfo.bindingCount = static_cast<n32>(setLayoutBindings.size());
     descriptorSetLayoutInfo.pBindings = setLayoutBindings.data();
 
     if(vkCreateDescriptorSetLayout(m_device.GetVkDevice(), &descriptorSetLayoutInfo, nullptr, &m_descriptorSetLayout) != VK_SUCCESS)

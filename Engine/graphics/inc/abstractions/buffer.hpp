@@ -13,7 +13,7 @@ namespace Humongous
 class Buffer : NonCopyable
 {
 public:
-    Buffer(LogicalDevice* device, VkDeviceSize m_instanceSize, u32 m_instanceCount, VkBufferUsageFlags usageFlags,
+    Buffer(LogicalDevice* device, VkDeviceSize m_instanceSize, n32 m_instanceCount, VkBufferUsageFlags usageFlags,
            VkMemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, VkDeviceSize minOffsetAlignment = 1);
     Buffer();
     ~Buffer();
@@ -21,7 +21,7 @@ public:
     VkResult Map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
     void     UnMap();
 
-    void Init(LogicalDevice* device, VkDeviceSize m_instanceSize, u32 m_instanceCount, VkBufferUsageFlags usageFlags,
+    void Init(LogicalDevice* device, VkDeviceSize m_instanceSize, n32 m_instanceCount, VkBufferUsageFlags usageFlags,
               VkMemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, VkDeviceSize minOffsetAlignment = 1);
 
     void                   WriteToBuffer(void* data, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
@@ -38,7 +38,7 @@ public:
 
     VkBuffer              GetBuffer() const { return m_buffer; }
     void*                 GetMappedMemory() const { return m_allocationInfo.pMappedData; }
-    u32                   GetInstanceCount() const { return m_instanceCount; }
+    n32                   GetInstanceCount() const { return m_instanceCount; }
     VkDeviceSize          GetInstanceSize() const { return m_instanceSize; }
     VkDeviceSize          GetAlignmentSize() const { return m_instanceSize; }
     VkBufferUsageFlags    GetUsageFlags() const { return m_usageFlags; }
@@ -76,7 +76,7 @@ private:
     VkDeviceAddress   m_deviceAddress;
 
     VkDeviceSize          m_bufferSize;
-    u32                   m_instanceCount;
+    n32                   m_instanceCount;
     VkDeviceSize          m_instanceSize;
     VkDeviceSize          m_alignmentSize;
     VkBufferUsageFlags    m_usageFlags;

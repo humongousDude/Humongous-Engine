@@ -57,7 +57,7 @@ void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
     }
 }
 
-void Camera::UpdateUBO(u32 index, const glm::vec3& camPos)
+void Camera::UpdateUBO(n32 index, const glm::vec3& camPos)
 {
     ProjectionUBO ubo{};
     ubo.projection = m_projectionMatrix;

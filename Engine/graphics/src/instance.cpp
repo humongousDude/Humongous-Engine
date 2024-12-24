@@ -1,3 +1,5 @@
+#include "SDL3/SDL.h"
+#include "SDL3/SDL_vulkan.h"
 #include <instance.hpp>
 #include <logger.hpp>
 #include <vector>
@@ -63,6 +65,7 @@ Instance::~Instance()
 
 void Instance::InitInstance()
 {
+
     if(ENABLE_VALIDATION_LAYERS && !CheckValidationLayerSupport()) { HGERROR("Validation layers requested, but not available!"); }
 
     HGINFO("Initializing Vulkan Instance!");
@@ -82,7 +85,7 @@ void Instance::InitInstance()
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
     if(ENABLE_VALIDATION_LAYERS)
     {
-        createInfo.enabledLayerCount = static_cast<u32>(m_validationLayers.size());
+        createInfo.enabledLayerCount = static_cast<n32>(m_validationLayers.size());
         createInfo.ppEnabledLayerNames = m_validationLayers.data();
 
         PopulateDebugMessengerCreateInfo(debugCreateInfo);
@@ -93,13 +96,12 @@ void Instance::InitInstance()
         createInfo.enabledLayerCount = 0;
         createInfo.pNext = nullptr;
     }
-
     auto extensions = GetRequiredExtensions();
 
-    createInfo.enabledExtensionCount = static_cast<u32>(extensions.size());
+    createInfo.enabledExtensionCount = static_cast<n32>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
 
-    u32 extensionCount = 0;
+    n32 extensionCount = 0;
 
     vk::Result res = vk::enumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
     if(res != vk::Result::eSuccess) {}
@@ -108,9 +110,10 @@ void Instance::InitInstance()
 
     res = vk::enumerateInstanceExtensionProperties(nullptr, &extensionCount, extensionProperties.data());
 
-    HGINFO("Available extensions:\n");
-
-    for(const auto& extension: extensionProperties) { HGINFO("\t%s", extension.extensionName); }
+    // FIXME: Printing extensions fails with a segfault
+    // HGINFO("Available extensions:\n");
+    //
+    // for(const auto& extension: extensionProperties) { HGINFO("\t%s", extension.extensionName); }
 
     if(vk::createInstance(&createInfo, nullptr, &m_instance) != vk::Result::eSuccess)
     {
@@ -120,7 +123,7 @@ void Instance::InitInstance()
 
 bool Instance::CheckValidationLayerSupport()
 {
-    u32 layerCount;
+    n32 layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
     std::vector<VkLayerProperties> availableLayers(layerCount);
     vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
@@ -146,9 +149,9 @@ bool Instance::CheckValidationLayerSupport()
 
 std::vector<const char*> Instance::GetRequiredExtensions()
 {
-    u32          glfwExtensionCount = 0;
-    const char** glfwExtensions = nullptr;
-    glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+    n32                glfwExtensionCount = 0;
+    const char* const* glfwExtensions;
+    glfwExtensions = SDL_Vulkan_GetInstanceExtensions(&glfwExtensionCount);
 
     std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 

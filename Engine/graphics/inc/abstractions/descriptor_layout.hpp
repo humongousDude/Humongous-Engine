@@ -16,15 +16,15 @@ public:
     public:
         Builder(LogicalDevice& device) : m_device{device} {}
 
-        Builder&                             addBinding(u32 binding, VkDescriptorType descriptorType, VkShaderStageFlags stageFlags, u32 count = 1);
+        Builder&                             addBinding(n32 binding, VkDescriptorType descriptorType, VkShaderStageFlags stageFlags, n32 count = 1);
         std::unique_ptr<DescriptorSetLayout> build() const;
 
     private:
         LogicalDevice&                                        m_device;
-        std::unordered_map<u32, VkDescriptorSetLayoutBinding> m_bindings{};
+        std::unordered_map<n32, VkDescriptorSetLayoutBinding> m_bindings{};
     };
 
-    DescriptorSetLayout(LogicalDevice& device, std::unordered_map<u32, VkDescriptorSetLayoutBinding> bindings);
+    DescriptorSetLayout(LogicalDevice& device, std::unordered_map<n32, VkDescriptorSetLayoutBinding> bindings);
     ~DescriptorSetLayout();
     DescriptorSetLayout(const DescriptorSetLayout&) = delete;
     DescriptorSetLayout& operator=(const DescriptorSetLayout&) = delete;
@@ -34,7 +34,7 @@ public:
 private:
     LogicalDevice&                                        m_device;
     VkDescriptorSetLayout                                 m_descriptorSetLayout;
-    std::unordered_map<u32, VkDescriptorSetLayoutBinding> m_bindings;
+    std::unordered_map<n32, VkDescriptorSetLayoutBinding> m_bindings;
 
     friend class DescriptorWriter;
 };

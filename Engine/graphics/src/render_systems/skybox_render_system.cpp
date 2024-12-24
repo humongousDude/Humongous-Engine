@@ -79,7 +79,7 @@ void SkyboxRenderSystem::InitSkybox(const std::string& skyBoxImgPath)
     m_skybox = std::make_unique<Skybox>(skyboxCI);
 }
 
-void SkyboxRenderSystem::RenderSkybox(const u32& frameIndex, std::vector<VkDescriptorSet>& globalSets, VkCommandBuffer cmd)
+void SkyboxRenderSystem::RenderSkybox(const n32& frameIndex, std::vector<VkDescriptorSet>& globalSets, VkCommandBuffer cmd)
 {
     m_renderPipeline->Bind(cmd);
 

@@ -18,8 +18,8 @@ public:
     DescriptorWriter(DescriptorSetLayout& setLayout, DescriptorPool* pool);
     DescriptorWriter(DescriptorSetLayout& setLayout, DescriptorPoolGrowable* pool);
 
-    DescriptorWriter& WriteBuffer(u32 binding, VkDescriptorBufferInfo* bufferInfo);
-    DescriptorWriter& WriteImage(u32 binding, VkDescriptorImageInfo* imageInfo);
+    DescriptorWriter& WriteBuffer(n32 binding, VkDescriptorBufferInfo* bufferInfo);
+    DescriptorWriter& WriteImage(n32 binding, VkDescriptorImageInfo* imageInfo);
 
     bool Build(VkDescriptorSet& set);
     void Overwrite(VkDescriptorSet& set);

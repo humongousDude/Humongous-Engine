@@ -15,7 +15,7 @@ struct RenderData
     std::vector<VkDescriptorSet> uboSets;
     std::vector<VkDescriptorSet> sceneSets;
     GameObject::Map&             gameObjects;
-    u32                          frameIndex;
+    n32                          frameIndex;
     Camera&                      cam;
     const glm::vec3              camPos;
 };
@@ -33,13 +33,13 @@ public:
     ~SimpleRenderSystem();
 
     void RenderObjects(RenderData& renderData);
-    i16  GetObjectsDrawn() { return m_objectsDrawn; }
+    s16  GetObjectsDrawn() { return m_objectsDrawn; }
 
 private:
     LogicalDevice&                  m_logicalDevice;
     std::unique_ptr<RenderPipeline> m_renderPipeline;
     VkPipelineLayout                m_pipelineLayout{};
-    i16                             m_objectsDrawn{0};
+    s16                             m_objectsDrawn{0};
 
     struct DescriptorLayouts
     {
@@ -55,7 +55,7 @@ private:
 
     void CreateModelDescriptorSetPool();
     void CreateModelDescriptorSetLayout();
-    void AllocateDescriptorSet(u32 identifier, u32 index);
+    void AllocateDescriptorSet(n32 identifier, n32 index);
     void CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts);
     void CreatePipeline(const ShaderSet& shaderSet);
 };

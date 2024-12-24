@@ -64,7 +64,7 @@ void SimpleRenderSystem::CreatePipelineLayout(const std::vector<VkDescriptorSetL
     VkPushConstantRange indexRange{};
     indexRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     indexRange.offset = sizeof(Model::PushConstantData);
-    indexRange.size = sizeof(u32);
+    indexRange.size = sizeof(n32);
 
     std::vector<VkPushConstantRange> ranges = {pushConstantRange, indexRange};
 
@@ -76,7 +76,7 @@ void SimpleRenderSystem::CreatePipelineLayout(const std::vector<VkDescriptorSetL
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = static_cast<u32>(descriptorSetLayouts.size());
+    pipelineLayoutInfo.setLayoutCount = static_cast<n32>(descriptorSetLayouts.size());
     pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
     pipelineLayoutInfo.pushConstantRangeCount = ranges.size();
     pipelineLayoutInfo.pPushConstantRanges = ranges.data();

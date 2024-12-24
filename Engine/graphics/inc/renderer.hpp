@@ -28,10 +28,10 @@ public:
     ~Renderer();
 
     // Get the swapchain image index we're currently using
-    u32 GetImageIndex() const { return m_currentImageIndex; }
+    n32 GetImageIndex() const { return m_currentImageIndex; }
 
     // Get the frame index we're currently using
-    u32 GetFrameIndex() const { return m_currentFrameIndex; }
+    n32 GetFrameIndex() const { return m_currentFrameIndex; }
 
     // Get the command buffer we're currently using
     VkCommandBuffer GetCommandBuffer() { return GetCurrentFrame().commandBuffer; }
@@ -71,7 +71,7 @@ private:
     vk::CommandPool    m_commandPool;
     std::vector<Frame> m_frames;
 
-    u32    m_currentImageIndex;
+    n32    m_currentImageIndex;
     int    m_currentFrameIndex{0};
     Frame& GetCurrentFrame() { return m_frames[m_currentFrameIndex]; }
 

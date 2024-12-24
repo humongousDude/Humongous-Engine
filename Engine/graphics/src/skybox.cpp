@@ -21,7 +21,7 @@ void Skybox::LoadCube()
     // These are hardcoded, as we will always create a cube
 
     // source: https://pastebin.com/4T10MFgb
-    std::vector<u32> indices = {0,  1,  2,  0,  3,  1,  4,  5,  6,  4,  7,  5,  8,  9,  10, 8,  11, 9,
+    std::vector<n32> indices = {0,  1,  2,  0,  3,  1,  4,  5,  6,  4,  7,  5,  8,  9,  10, 8,  11, 9,
                                 12, 13, 14, 12, 15, 13, 16, 17, 18, 16, 19, 17, 20, 21, 22, 20, 23, 21};
 
     std::vector<Model::Vertex> vertices = {
@@ -65,8 +65,8 @@ void Skybox::LoadCube()
     // makes the skybox very far away
     for(auto& vert: vertices) { vert.position *= 1000; }
 
-    m_vertexCount = static_cast<u32>(vertices.size());
-    m_indexCount = static_cast<u32>(indices.size());
+    m_vertexCount = static_cast<n32>(vertices.size());
+    m_indexCount = static_cast<n32>(indices.size());
 
     // Vertex buffer
     {
@@ -90,7 +90,7 @@ void Skybox::LoadCube()
 
     // Index Buffer
     {
-        VkDeviceSize bufferSize = sizeof(u32) * m_indexCount;
+        VkDeviceSize bufferSize = sizeof(n32) * m_indexCount;
 
         Buffer stagingBuffer{m_logicalDevice,
                              bufferSize,

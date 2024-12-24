@@ -22,7 +22,7 @@ namespace Utils
 struct AllocatedImageCreateInfo
 {
     LogicalDevice&        logicalDevice;
-    u32                   width, height, mipLevels, layerCount;
+    n32                   width, height, mipLevels, layerCount;
     VkFormat              format;
     VkImageTiling         tiling;
     VkImageUsageFlags     usage;
@@ -42,13 +42,13 @@ struct ImageTransitionInfo
     VkImageLayout   newLayout;
     LogicalDevice*  logicalDevice;
     VkImage         image;
-    u32             baseMipLevel = 0;
-    u32             levelCount = 1;
-    u32             baseArrayLayer = 0;
-    u32             layerCount = 1;
+    n32             baseMipLevel = 0;
+    n32             levelCount = 1;
+    n32             baseArrayLayer = 0;
+    n32             layerCount = 1;
 };
 
-void CreateAllocatedImage(LogicalDevice& logicalDevice, u32 width, u32 height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
+void CreateAllocatedImage(LogicalDevice& logicalDevice, n32 width, n32 height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
                           VkMemoryPropertyFlags properties, AllocatedImage& allocatedImage,
                           VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -60,7 +60,7 @@ void TransitionImageLayout(ImageTransitionInfo& info);
 void CopyImageToImage(VkCommandBuffer cmd, VkImage src, VkImage dst, VkExtent2D srcSize, VkExtent2D dstSize);
 void CopyImageToImage(VkCommandBuffer cmd, AllocatedImage& src, AllocatedImage& dst, std::vector<VkImageBlit>& blits);
 
-void CopyBufferToImage(LogicalDevice& logicalDevice, VkBuffer buffer, VkImage image, u32 width, u32 height);
+void CopyBufferToImage(LogicalDevice& logicalDevice, VkBuffer buffer, VkImage image, n32 width, n32 height);
 void CopyBufferToImage(LogicalDevice& logicalDevice, VkBuffer buffer, VkImage image, const std::vector<VkBufferImageCopy>& bufferCopyRegions);
 
 } // namespace Utils

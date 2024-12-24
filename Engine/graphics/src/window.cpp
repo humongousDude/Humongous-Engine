@@ -1,3 +1,4 @@
+#include "SDL3/SDL_vulkan.h"
 #include "logger.hpp"
 #include <window.hpp>
 
@@ -7,51 +8,56 @@ Window::Window() { CreateWindow(); }
 
 Window::~Window()
 {
-    glfwDestroyWindow(window);
-    glfwTerminate();
+    SDL_DestroyWindow(window);
+    SDL_Vulkan_UnloadLibrary();
+    SDL_Quit();
     HGINFO("Destroyed window and terminated GLFW");
 }
 
 void Window::HideCursor()
 {
-    glfwSetCursorPos(window, width / 2.f, height / 2.f);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    SDL_SetWindowRelativeMouseMode(window, true);
     m_cursorHidden = true;
 }
 
 void Window::ShowCursor()
 {
-    glfwSetCursorPos(window, width / 2.f, height / 2.f);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    SDL_SetWindowRelativeMouseMode(window, false);
     m_cursorHidden = false;
 }
 
 void Window::CreateWindow()
 {
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+    if(SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD) != true)
+    {
+        HGFATAL("Failed to initalize SDL3! Error: %s", SDL_GetError());
+    };
+    if(!SDL_Vulkan_LoadLibrary(NULL)) { HGFATAL("Failed to load vulkan! Error: %s", SDL_GetError()); };
+    if(!(window = SDL_CreateWindow("Humongous Window", width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE)))
+    {
+        HGFATAL("Failed to create SDL3 Window! Error: %s", SDL_GetError());
+    };
 
-    window = glfwCreateWindow(width, height, "Humongous Engine", nullptr, nullptr);
-
-    glfwSetWindowUserPointer(window, this);
-    glfwSetWindowSizeCallback(window, HandleWindowResized);
+    SDL_AddEventWatch(HandleWindowResized, this);
 }
 
 vk::SurfaceKHR Window::CreateWindowSurface(vk::Instance instance)
 {
     VkSurfaceKHR a;
-    if(glfwCreateWindowSurface(instance, window, nullptr, &a) != VK_SUCCESS) { HGFATAL("Failed to create window surface"); }
+    if(!SDL_Vulkan_CreateSurface(window, instance, nullptr, &a)) { HGFATAL("Failed to create window surface"); }
     HGINFO("Created window surface");
     return a;
 }
 
-void Window::HandleWindowResized(GLFWwindow* window, int width, int height)
+bool Window::HandleWindowResized(void* userdata, SDL_Event* event)
 {
-    auto self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+    if(event->type != SDL_EVENT_WINDOW_RESIZED) { return false; }
+    auto self = reinterpret_cast<Window*>(userdata);
     self->m_wasWindowResizedFlag = true;
-    self->width = width;
-    self->height = height;
+    self->width = event->window.data1;
+    self->height = event->window.data2;
+    HGINFO("Window Resized");
+    return true;
 }
 
 } // namespace Humongous

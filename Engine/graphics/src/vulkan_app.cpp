@@ -10,7 +10,6 @@
 #include "asset_manager.hpp"
 #include "vk_mem_alloc.h"
 
-#include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 #include "ui/widget.hpp"
 
@@ -36,6 +35,11 @@ void VulkanApp::Init(int argc, char* argv[])
     m_instance = std::make_unique<Instance>();
     m_physicalDevice = std::make_unique<PhysicalDevice>(*m_instance, *m_window);
     m_logicalDevice = std::make_unique<LogicalDevice>(*m_instance, *m_physicalDevice);
+
+    HGINFO("Device has %i images", static_cast<s8>(m_logicalDevice->GetPhysicalDevice()
+                                                       .QuerySwapChainSupport(m_logicalDevice->GetPhysicalDevice().GetVkPhysicalDevice())
+                                                       .capabilities.surfaceCapabilities.maxImageCount));
+    ;
 
     if(argc > 1)
     {
@@ -111,71 +115,87 @@ void VulkanApp::LoadGameObjects()
 
     m_gameObjects.emplace(obj3.GetId(), std::move(obj3));
 
+    std::shared_ptr<Model> m = std::make_shared<Model>(
+        m_logicalDevice.get(), Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, "high_res_car"), 1.0f);
+
+    int x = 0, y = 0, z = 0;
+    for(int i = 0; i < 1000; i++)
+    {
+        x++;
+        if(x >= 10)
+        {
+            x = 0;
+            z++;
+        }
+        if(z >= 10)
+        {
+            y++;
+            x = 0;
+            z = 0;
+        }
+
+        GameObject o = GameObject::CreateGameObject();
+        o.transform.translation = {x, y, z};
+        o.transform.rotation = {glm::radians(180.f), 0, 0};
+        o.SetModel(m);
+
+        m_gameObjects.emplace(o.GetId(), std::move(o));
+    }
+
     HGINFO("Loaded game objects");
     m_mainDeletionQueue.PushDeletor([&]() { m_gameObjects.clear(); });
 }
 
-void VulkanApp::HandleInput(float frameTime, GameObject& viewerObject)
+void VulkanApp::HandleInput(float frameTime, GameObject& viewerObject, SDL_Event* event)
 {
-    static double oldX, oldY, newX, newY = 0;
+    float deltaX, deltaY;
 
     KeyboardHandler handler;
 
-    if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_I) == GLFW_PRESS && !m_window->IsCursorHidden()) { m_window->HideCursor(); }
-    if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_O) == GLFW_PRESS ||
-       glfwGetKey(m_window->GetWindow(), GLFW_KEY_ESCAPE) == GLFW_PRESS && m_window->IsCursorHidden())
-    {
-        m_window->ShowCursor();
-    }
+    // Handle cursor visibility
+    const bool* keyboardState = SDL_GetKeyboardState(nullptr);
+    if(keyboardState[SDL_SCANCODE_I] && !m_window->IsCursorHidden()) { m_window->HideCursor(); }
 
-    glfwGetCursorPos(m_window->GetWindow(), &newX, &newY);
-    if(!m_window->IsCursorHidden())
-    {
-        newX = oldX = m_window->GetExtent().width / 2.f;
-        newY = oldY = m_window->GetExtent().height / 2.f;
-        return;
-    }
+    if((keyboardState[SDL_SCANCODE_O] || keyboardState[SDL_SCANCODE_ESCAPE]) && m_window->IsCursorHidden()) { m_window->ShowCursor(); }
 
-    double deltaX = newX - oldX;
-    double deltaY = newY - oldY;
+    // Get the current mouse position
+    if(!m_window->IsCursorHidden()) { return; }
+    SDL_GetRelativeMouseState(&deltaX, &deltaY);
 
     KeyboardHandler::InputData data{frameTime, viewerObject, KeyboardHandler::Movements::NONE, deltaX, deltaY};
-
     handler.ProcessInput(data);
 
-    if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_W) == GLFW_PRESS)
+    // Handle movement inputs (W, A, S, D, Q, E)
+    if(keyboardState[SDL_SCANCODE_W])
     {
         data.movementType = KeyboardHandler::Movements::FORWARD;
         handler.ProcessInput(data);
     }
-    if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_S) == GLFW_PRESS)
+    if(keyboardState[SDL_SCANCODE_S])
     {
         data.movementType = KeyboardHandler::Movements::BACKWARD;
         handler.ProcessInput(data);
     }
-    if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_A) == GLFW_PRESS)
+    if(keyboardState[SDL_SCANCODE_A])
     {
         data.movementType = KeyboardHandler::Movements::LEFT;
         handler.ProcessInput(data);
     }
-    if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_D) == GLFW_PRESS)
+    if(keyboardState[SDL_SCANCODE_D])
     {
         data.movementType = KeyboardHandler::Movements::RIGHT;
         handler.ProcessInput(data);
     }
-    if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_Q) == GLFW_PRESS)
+    if(keyboardState[SDL_SCANCODE_Q])
     {
         data.movementType = KeyboardHandler::Movements::DOWN;
         handler.ProcessInput(data);
     }
-    if(glfwGetKey(m_window->GetWindow(), GLFW_KEY_E) == GLFW_PRESS)
+    if(keyboardState[SDL_SCANCODE_E])
     {
         data.movementType = KeyboardHandler::Movements::UP;
         handler.ProcessInput(data);
     }
-
-    oldX = newX;
-    oldY = newY;
 }
 
 void VulkanApp::Run()
@@ -200,13 +220,42 @@ void VulkanApp::Run()
     bool neg{false};
 
     HGINFO("Running...");
-    while(!m_window->ShouldWindowClose())
+    bool      quit = false;
+    bool      focused = false;
+    bool      minimized = false;
+    SDL_Event e;
+    while(!quit)
     {
-        glfwPollEvents();
         auto  newTime = std::chrono::high_resolution_clock::now();
         float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
         currentTime = newTime;
-        HandleInput(frameTime, viewerObject);
+
+        while(SDL_PollEvent(&e))
+        {
+            if(e.type == SDL_EVENT_QUIT) { quit = true; }
+
+            switch(e.type)
+            {
+                case SDL_EVENT_WINDOW_MINIMIZED:
+                    minimized = true;
+                    HGINFO("Window is minimized");
+                    break;
+                case SDL_EVENT_WINDOW_RESTORED:
+                    minimized = false;
+                    HGINFO("Window is restored");
+                    break;
+                case SDL_EVENT_WINDOW_FOCUS_LOST:
+                    focused = false;
+                    HGINFO("Window lost focus");
+                    break;
+                case SDL_EVENT_WINDOW_FOCUS_GAINED:
+                    focused = true;
+                    HGINFO("Window gained focus");
+                    break;
+            }
+        }
+
+        HandleInput(frameTime, viewerObject, &e);
 
         aspect = m_renderer->GetAspectRatio();
 
@@ -214,13 +263,13 @@ void VulkanApp::Run()
 
         m_cam->SetPerspectiveProjection(glm::radians(80.0f), aspect, 0.1f, 1000.0f);
 
-        if(!m_window->IsMinimized() && m_window->IsFocused())
+        if(!minimized && focused)
         {
             GameObject* obj = &m_gameObjects.at(0);
-            i8          target = neg ? -1 : 1;
+            s8          target = neg ? -1 : 1;
             if(abs(obj->transform.translation.z - target) <= .1f) { neg = !neg; }
             obj->transform.translation =
-                glm::mix(obj->transform.translation, {obj->transform.translation.x, 0, target}, Globals::Time::AverageDeltaTime() * 2);
+                glm::mix(obj->transform.translation, {obj->transform.translation.x, 0, target}, Globals::Time::AverageDeltaTime());
 
             for(auto& [k, v]: m_gameObjects) { v.Update(); }
 
@@ -253,7 +302,9 @@ void VulkanApp::Run()
             }
         }
         Globals::Time::Update(frameTime);
+        HGINFO("FPS: %i", static_cast<int>(std::round((1 / Globals::Time::AverageDeltaTime()))));
     }
+    m_logicalDevice->GetVkDevice().waitIdle();
 
     HGINFO("Quitting...");
 }

@@ -7,8 +7,6 @@
 
 int main(int argc, char* argv[])
 {
-    Humongous::VulkanApp* app = new Humongous::VulkanApp(argc, argv);
-    app->Run();
-
-    delete app;
+    Humongous::VulkanApp app(argc, argv);
+    app.Run();
 }

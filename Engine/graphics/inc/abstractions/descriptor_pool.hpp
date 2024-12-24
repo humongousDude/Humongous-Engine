@@ -17,19 +17,19 @@ public:
     public:
         Builder(LogicalDevice& logicalDevice) : m_logicalDevice{logicalDevice} {}
 
-        Builder&                        AddPoolSize(VkDescriptorType descriptorType, u32 count);
+        Builder&                        AddPoolSize(VkDescriptorType descriptorType, n32 count);
         Builder&                        SetPoolFlags(VkDescriptorPoolCreateFlags flags);
-        Builder&                        SetMaxSets(u32 count);
+        Builder&                        SetMaxSets(n32 count);
         std::unique_ptr<DescriptorPool> Build() const;
 
     private:
         LogicalDevice&                    m_logicalDevice;
         std::vector<VkDescriptorPoolSize> m_poolSizes{};
-        u32                               m_maxSets = 1000;
+        n32                               m_maxSets = 1000;
         VkDescriptorPoolCreateFlags       m_poolFlags = 0;
     };
 
-    DescriptorPool(LogicalDevice& logicalDevice, u32 maxSets, VkDescriptorPoolCreateFlags poolFlags,
+    DescriptorPool(LogicalDevice& logicalDevice, n32 maxSets, VkDescriptorPoolCreateFlags poolFlags,
                    const std::vector<VkDescriptorPoolSize>& poolSizes);
     ~DescriptorPool();
     DescriptorPool(const DescriptorPool&) = delete;

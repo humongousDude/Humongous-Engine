@@ -17,7 +17,7 @@ public:
     SkyboxRenderSystem(LogicalDevice* logicalDevice, const std::string& skyboxImgPath, const std::vector<VkDescriptorSetLayout>& globalLayouts);
     ~SkyboxRenderSystem();
 
-    void RenderSkybox(const u32& frameIndex, std::vector<VkDescriptorSet>& globalSets, VkCommandBuffer commandBuffer);
+    void RenderSkybox(const n32& frameIndex, std::vector<VkDescriptorSet>& globalSets, VkCommandBuffer commandBuffer);
 
 private:
     LogicalDevice*                  m_logicalDevice;

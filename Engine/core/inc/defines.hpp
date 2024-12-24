@@ -9,16 +9,16 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 // unsigned ints
-typedef unsigned char      u8;
-typedef unsigned short     u16;
-typedef unsigned int       u32;
-typedef unsigned long long u64;
+typedef unsigned char      n8;
+typedef unsigned short     n16;
+typedef unsigned int       n32;
+typedef unsigned long long n64;
 
 // signed ints
-typedef signed char      i8;
-typedef signed short     i16;
-typedef signed int       i32;
-typedef signed long long i64;
+typedef signed char      s8;
+typedef signed short     s16;
+typedef signed int       s32;
+typedef signed long long s64;
 
 // floats
 typedef float  f32;
@@ -34,15 +34,15 @@ typedef char b8;
 #define STATIC_ASSERT static_assert
 #endif
 
-STATIC_ASSERT(sizeof(u8) == 1, "Expectex u8 to be 1 byte.");
-STATIC_ASSERT(sizeof(u16) == 2, "Expectex u16 to be 2 bytes.");
-STATIC_ASSERT(sizeof(u32) == 4, "Expectex u32 to be 4 bytes.");
-STATIC_ASSERT(sizeof(u64) == 8, "Expectex u64 to be 8 bytes.");
+STATIC_ASSERT(sizeof(n8) == 1, "Expectex u8 to be 1 byte.");
+STATIC_ASSERT(sizeof(n16) == 2, "Expectex u16 to be 2 bytes.");
+STATIC_ASSERT(sizeof(n32) == 4, "Expectex u32 to be 4 bytes.");
+STATIC_ASSERT(sizeof(n64) == 8, "Expectex u64 to be 8 bytes.");
 
-STATIC_ASSERT(sizeof(i8) == 1, "Expectex i8 to be 1 byte.");
-STATIC_ASSERT(sizeof(i16) == 2, "Expectex i16 to be 2 bytes.");
-STATIC_ASSERT(sizeof(i32) == 4, "Expectex i32 to be 4 bytes.");
-STATIC_ASSERT(sizeof(i64) == 8, "Expectex i64 to be 8 bytes.");
+STATIC_ASSERT(sizeof(s8) == 1, "Expectex i8 to be 1 byte.");
+STATIC_ASSERT(sizeof(s16) == 2, "Expectex i16 to be 2 bytes.");
+STATIC_ASSERT(sizeof(s32) == 4, "Expectex i32 to be 4 bytes.");
+STATIC_ASSERT(sizeof(s64) == 8, "Expectex i64 to be 8 bytes.");
 
 STATIC_ASSERT(sizeof(f32) == 4, "Expectex f32 to be 4 bytes.");
 STATIC_ASSERT(sizeof(f64) == 8, "Expectex f64 to be 8 bytes.");
