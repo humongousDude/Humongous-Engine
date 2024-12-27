@@ -2,7 +2,7 @@
 
 // TODO: Cleanup
 
-// based of off Sascha Willems tinyGltf vulkan example
+// based on Sascha Willems' tinyGltf vulkan example
 
 #include "abstractions/descriptor_layout.hpp"
 
@@ -127,7 +127,7 @@ private:
     std::vector<Material>                            m_materials;
     std::unordered_map<n32, std::vector<Primitive*>> m_materialBatches;
 
-    VkDescriptorSet descriptorSetMaterials{VK_NULL_HANDLE};
+    VkDescriptorSet m_descriptorSetMaterials{VK_NULL_HANDLE};
     enum PBRWorkflows
     {
         PBR_WORKFLOW_METALLIC_ROUGHNESS = 0,

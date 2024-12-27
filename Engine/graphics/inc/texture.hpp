@@ -60,7 +60,7 @@ private:
     AllocatedImage m_textureImage;
     VkSampler      m_textureSampler;
 
-    n32 width, height, mipLevels, layerCount;
+    n32 m_width, m_height, m_miplevels, m_layerCount;
 
     void CreateTextureImage(const std::string& imagePath, const ImageType& imageType = ImageType::TEX2D);
     void CreateTextureImageSampler(const SamplerCreateInfo& samplerInfo, const ImageType& imageType = ImageType::TEX2D);

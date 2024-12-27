@@ -1,9 +1,8 @@
 #pragma once
 
+#include "defines.hpp"
 #include "non_copyable.hpp"
 #include "singleton.hpp"
-
-#include "type_traits"
 
 namespace Humongous
 {
@@ -13,16 +12,19 @@ namespace Globals
 class Time : public Singleton<Time>, NonCopyable
 {
 public:
-    static float DeltaTime() { return Get().Internal_DeltaTime(); }
-    static float AverageDeltaTime() { return Get().Internal_AverageDeltaTime(); }
-    static void  Update(float deltaTime) { Get().UpdateDeltaTime(deltaTime); }
+    static f32  DeltaTime() { return Get().Internal_DeltaTime(); }
+    static f32  AverageDeltaTime() { return Get().Internal_AverageDeltaTime(); }
+    static f32  TimeSinceStart() { return Get().Internal_TimeSinceStart(); }
+    static void Update(f32 deltaTime) { Get().Internal_Update(deltaTime); }
 
 private:
-    float Internal_DeltaTime() { return deltaTime; }
-    float Internal_AverageDeltaTime();
-    void  UpdateDeltaTime(float newDeltaTime) { deltaTime = newDeltaTime; }
+    f32  Internal_DeltaTime() { return deltaTime; }
+    f32  Internal_AverageDeltaTime();
+    void Internal_Update(f32 newDeltaTime);
+    f32  Internal_TimeSinceStart() { return totalTime; };
 
-    float deltaTime;
+    f32 deltaTime{0};
+    f32 totalTime{0};
 };
 
 } // namespace Globals

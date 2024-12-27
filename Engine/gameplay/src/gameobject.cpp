@@ -93,7 +93,7 @@ void GameObject::SetModel(std::shared_ptr<Model> model)
 {
     this->model = model;
     auto corners = TransformAABBToWorldSpace(model->GetDimensions(), transform.Mat4());
-    aabb = ComputeWorldAABB(corners);
+    m_aabb = ComputeWorldAABB(corners);
 }
 
 void GameObject::Update()
@@ -101,7 +101,7 @@ void GameObject::Update()
     if(m_prevFrameTransform != transform)
     {
         auto corners = TransformAABBToWorldSpace(model->GetDimensions(), transform.Mat4());
-        aabb = ComputeWorldAABB(corners);
+        m_aabb = ComputeWorldAABB(corners);
     }
 
     m_prevFrameTransform = transform;

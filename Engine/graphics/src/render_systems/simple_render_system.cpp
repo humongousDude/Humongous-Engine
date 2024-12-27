@@ -130,7 +130,7 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
         obj.model->Init(m_descriptorSetLayouts.material.get(), m_descriptorSetLayouts.node.get(), m_descriptorSetLayouts.materialBuffers.get(),
                         m_imageSamplerPool.get(), m_uniformPool.get(), m_storagePool.get());
 
-        if(!renderData.cam.IsAABBInsideFrustum(obj.aabb.min, obj.aabb.max)) { continue; }
+        if(!renderData.cam.IsAABBInsideFrustum(obj.GetBoundingBox().min, obj.GetBoundingBox().max)) { continue; }
         obj.model->Draw(renderData.commandBuffer, m_pipelineLayout);
 
         m_objectsDrawn++;

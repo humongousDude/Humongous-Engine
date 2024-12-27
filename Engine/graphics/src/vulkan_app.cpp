@@ -8,12 +8,8 @@
 #include "ui/ui.hpp"
 #define VMA_IMPLEMENTATION
 #include "asset_manager.hpp"
-#include "vk_mem_alloc.h"
-
-#include "imgui_impl_vulkan.h"
 #include "ui/widget.hpp"
-
-#include "glm/ext/vector_float3_precision.hpp"
+#include "vk_mem_alloc.h"
 
 namespace Humongous
 {
@@ -39,7 +35,6 @@ void VulkanApp::Init(int argc, char* argv[])
     HGINFO("Device has %i images", static_cast<s8>(m_logicalDevice->GetPhysicalDevice()
                                                        .QuerySwapChainSupport(m_logicalDevice->GetPhysicalDevice().GetVkPhysicalDevice())
                                                        .capabilities.surfaceCapabilities.maxImageCount));
-    ;
 
     if(argc > 1)
     {
@@ -115,32 +110,32 @@ void VulkanApp::LoadGameObjects()
 
     m_gameObjects.emplace(obj3.GetId(), std::move(obj3));
 
-    std::shared_ptr<Model> m = std::make_shared<Model>(
-        m_logicalDevice.get(), Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, "high_res_car"), 1.0f);
+    // std::shared_ptr<Model> m = std::make_shared<Model>(
+    //     m_logicalDevice.get(), Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, "high_res_car"), 1.0f);
 
-    int x = 0, y = 0, z = 0;
-    for(int i = 0; i < 1000; i++)
-    {
-        x++;
-        if(x >= 10)
-        {
-            x = 0;
-            z++;
-        }
-        if(z >= 10)
-        {
-            y++;
-            x = 0;
-            z = 0;
-        }
-
-        GameObject o = GameObject::CreateGameObject();
-        o.transform.translation = {x, y, z};
-        o.transform.rotation = {glm::radians(180.f), 0, 0};
-        o.SetModel(m);
-
-        m_gameObjects.emplace(o.GetId(), std::move(o));
-    }
+    // int x = 0, y = 0, z = 0;
+    // for(int i = 0; i < 1000; i++)
+    // {
+    //     x+=5;
+    //     if(x >= 50)
+    //     {
+    //         x = 0;
+    //         z+=5;
+    //     }
+    //     if(z >= 50)
+    //     {
+    //         y+= 5;
+    //         x = 0;
+    //         z = 0;
+    //     }
+    //
+    //     GameObject o = GameObject::CreateGameObject();
+    //     o.transform.translation = {x, y, z};
+    //     o.transform.rotation = {glm::radians(180.f), 0, 0};
+    //     o.SetModel(m);
+    //
+    //     m_gameObjects.emplace(o.GetId(), std::move(o));
+    // }
 
     HGINFO("Loaded game objects");
     m_mainDeletionQueue.PushDeletor([&]() { m_gameObjects.clear(); });
@@ -219,6 +214,9 @@ void VulkanApp::Run()
     auto currentTime = std::chrono::high_resolution_clock::now();
     bool neg{false};
 
+    UiWidget objectWidget{"Objects", true, {200, 400}, {100, 100}, 0};
+    objectWidget.AddText("Object count: %i", m_gameObjects.size());
+
     HGINFO("Running...");
     bool      quit = false;
     bool      focused = false;
@@ -226,9 +224,10 @@ void VulkanApp::Run()
     SDL_Event e;
     while(!quit)
     {
-        auto  newTime = std::chrono::high_resolution_clock::now();
-        float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
+        auto newTime = std::chrono::high_resolution_clock::now();
+        auto frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
         currentTime = newTime;
+        Globals::Time::Update(frameTime);
 
         while(SDL_PollEvent(&e))
         {
@@ -265,13 +264,24 @@ void VulkanApp::Run()
 
         if(!minimized && focused)
         {
-            GameObject* obj = &m_gameObjects.at(0);
-            s8          target = neg ? -1 : 1;
-            if(abs(obj->transform.translation.z - target) <= .1f) { neg = !neg; }
-            obj->transform.translation =
-                glm::mix(obj->transform.translation, {obj->transform.translation.x, 0, target}, Globals::Time::AverageDeltaTime());
-
-            for(auto& [k, v]: m_gameObjects) { v.Update(); }
+            for(auto& [k, v]: m_gameObjects)
+            {
+                // if(k % 2 == 0)
+                // {
+                //     s8 target = neg ? -2 : 2;
+                //     if(glm::abs(v.transform.translation.z - target) <= .1f) { neg = !neg; }
+                //     v.transform.translation = glm::mix(v.transform.translation, {v.transform.translation.x, 0, target},
+                //                                        static_cast<float>(Globals::Time::AverageDeltaTime()));
+                // }
+                // else
+                // {
+                //     v.transform.translation = glm::mix(
+                //         v.transform.translation,
+                //         {v.transform.translation.x, glm::sin(static_cast<float>(Globals::Time::TimeSinceStart())), v.transform.translation.z},
+                //         static_cast<float>(Globals::Time::AverageDeltaTime()) * 4);
+                // }
+                v.Update();
+            }
 
             if(auto cmd = m_renderer->BeginFrame())
             {
@@ -292,6 +302,7 @@ void VulkanApp::Run()
                 m_simpleRenderSystem->RenderObjects(data);
 
                 UI::BeginUIFrame(cmd);
+                objectWidget.Draw();
 
                 UI::Debug_DrawMetrics(m_simpleRenderSystem->GetObjectsDrawn());
 
@@ -301,8 +312,6 @@ void VulkanApp::Run()
                 m_renderer->EndFrame();
             }
         }
-        Globals::Time::Update(frameTime);
-        HGINFO("FPS: %i", static_cast<int>(std::round((1 / Globals::Time::AverageDeltaTime()))));
     }
     m_logicalDevice->GetVkDevice().waitIdle();
 

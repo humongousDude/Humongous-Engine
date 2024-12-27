@@ -71,9 +71,9 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     VkFormat           format = VK_FORMAT_R8G8B8A8_UNORM;
     VkFormatProperties formatProperties;
 
-    width = gltfimage.width;
-    height = gltfimage.height;
-    mipLevels = static_cast<n32>(floor(log2(std::max(width, height))) + 1.0);
+    m_width = gltfimage.width;
+    m_height = gltfimage.height;
+    m_miplevels = static_cast<n32>(floor(log2(std::max(m_width, m_height))) + 1.0);
 
     vkGetPhysicalDeviceFormatProperties(m_logicalDevice->GetPhysicalDevice().GetVkPhysicalDevice(), format, &formatProperties);
     HGASSERT(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT);
@@ -89,9 +89,9 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     stagingBuffer.WriteToBuffer((void*)buffer, bufferSize);
 
     Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = *m_logicalDevice, .allocatedImage = m_textureImage};
-    createInfo.width = width;
-    createInfo.height = height;
-    createInfo.mipLevels = mipLevels;
+    createInfo.width = m_width;
+    createInfo.height = m_height;
+    createInfo.mipLevels = m_miplevels;
     createInfo.layerCount = 1;
     createInfo.format = format;
     createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
@@ -112,8 +112,8 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     bufferCopyRegion.imageSubresource.mipLevel = 0;
     bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
     bufferCopyRegion.imageSubresource.layerCount = 1;
-    bufferCopyRegion.imageExtent.width = width;
-    bufferCopyRegion.imageExtent.height = height;
+    bufferCopyRegion.imageExtent.width = m_width;
+    bufferCopyRegion.imageExtent.height = m_height;
     bufferCopyRegion.imageExtent.depth = 1;
 
     std::vector<VkBufferImageCopy> bufferCopyRegions{bufferCopyRegion};
@@ -130,22 +130,22 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     subresourceRange.levelCount = 1;
     subresourceRange.layerCount = 1;
 
-    for(n32 i = 1; i < mipLevels; i++)
+    for(n32 i = 1; i < m_miplevels; i++)
     {
         VkImageBlit2 imageBlit{.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2};
 
         imageBlit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         imageBlit.srcSubresource.layerCount = 1;
         imageBlit.srcSubresource.mipLevel = i - 1;
-        imageBlit.srcOffsets[1].x = s32(width >> (i - 1));
-        imageBlit.srcOffsets[1].y = s32(height >> (i - 1));
+        imageBlit.srcOffsets[1].x = s32(m_width >> (i - 1));
+        imageBlit.srcOffsets[1].y = s32(m_height >> (i - 1));
         imageBlit.srcOffsets[1].z = 1;
 
         imageBlit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         imageBlit.dstSubresource.layerCount = 1;
         imageBlit.dstSubresource.mipLevel = i;
-        imageBlit.dstOffsets[1].x = s32(width >> i);
-        imageBlit.dstOffsets[1].y = s32(height >> i);
+        imageBlit.dstOffsets[1].x = s32(m_width >> i);
+        imageBlit.dstOffsets[1].y = s32(m_height >> i);
         imageBlit.dstOffsets[1].z = 1;
 
         VkImageSubresourceRange mipSubRange = {};
@@ -197,7 +197,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
         }
     }
 
-    subresourceRange.levelCount = mipLevels;
+    subresourceRange.levelCount = m_miplevels;
     {
         Utils::ImageTransitionInfo info{};
         info.image = m_textureImage.image;
@@ -236,9 +236,9 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
 
         HGASSERT(!tex2D.empty() && "Failed to load texture image");
 
-        width = static_cast<n32>(tex2D[0].extent().x);
-        height = static_cast<n32>(tex2D[0].extent().y);
-        mipLevels = static_cast<n32>(tex2D.levels());
+        m_width = static_cast<n32>(tex2D[0].extent().x);
+        m_height = static_cast<n32>(tex2D[0].extent().y);
+        m_miplevels = static_cast<n32>(tex2D.levels());
 
         Buffer stagingBuffer{m_logicalDevice,
                              tex2D.size(),
@@ -252,7 +252,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         std::vector<VkBufferImageCopy> bufferCopyRegions;
         size_t                         offset = 0;
 
-        for(n32 i = 0; i < mipLevels; i++)
+        for(n32 i = 0; i < m_miplevels; i++)
         {
             VkBufferImageCopy bufferCopyRegion = {};
             bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -270,11 +270,11 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         }
 
         Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = *m_logicalDevice, .allocatedImage = m_textureImage};
-        createInfo.width = width;
-        createInfo.height = height;
-        createInfo.mipLevels = mipLevels;
+        createInfo.width = m_width;
+        createInfo.height = m_height;
+        createInfo.mipLevels = m_miplevels;
         createInfo.layerCount = 1;
-        createInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+        createInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -291,7 +291,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         first.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         first.logicalDevice = m_logicalDevice;
         first.baseMipLevel = 0;
-        first.levelCount = mipLevels;
+        first.levelCount = m_miplevels;
         first.baseArrayLayer = 0;
         first.layerCount = 1;
 
@@ -311,7 +311,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         second.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         second.logicalDevice = m_logicalDevice;
         second.baseMipLevel = 0;
-        second.levelCount = mipLevels;
+        second.levelCount = m_miplevels;
         second.baseArrayLayer = 0;
         second.layerCount = 1;
 
@@ -332,9 +332,9 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
     {
         gli::texture_cube texCube(gli::load(imagePath));
         HGASSERT(!texCube.empty() && "Failed to load texture!");
-        width = static_cast<n32>(texCube.extent().x);
-        height = static_cast<n32>(texCube.extent().y);
-        mipLevels = static_cast<n32>(texCube.levels());
+        m_width = static_cast<n32>(texCube.extent().x);
+        m_height = static_cast<n32>(texCube.extent().y);
+        m_miplevels = static_cast<n32>(texCube.levels());
 
         Buffer stagingBuffer{m_logicalDevice,
                              texCube.size(),
@@ -350,7 +350,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
 
         for(n32 face = 0; face < 6; face++)
         {
-            for(n32 level = 0; level < mipLevels; level++)
+            for(n32 level = 0; level < m_miplevels; level++)
             {
                 VkBufferImageCopy bufferCopyRegion = {};
                 bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -371,15 +371,14 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
 
         Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = *m_logicalDevice, .allocatedImage = m_textureImage};
         createInfo.layerCount = 6;
-        createInfo.mipLevels = mipLevels;
+        createInfo.mipLevels = m_miplevels;
         createInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-        // createInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
         createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         createInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-        createInfo.width = static_cast<n32>(width);
-        createInfo.height = static_cast<n32>(height);
+        createInfo.width = static_cast<n32>(m_width);
+        createInfo.height = static_cast<n32>(m_height);
         createInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
         createInfo.imageViewType = VK_IMAGE_VIEW_TYPE_CUBE;
 
@@ -394,7 +393,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         first.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         first.logicalDevice = m_logicalDevice;
         first.baseMipLevel = 0;
-        first.levelCount = mipLevels;
+        first.levelCount = m_miplevels;
         first.baseArrayLayer = 0;
         first.layerCount = 6;
 
@@ -414,7 +413,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         second.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         second.logicalDevice = m_logicalDevice;
         second.baseMipLevel = 0;
-        second.levelCount = mipLevels;
+        second.levelCount = m_miplevels;
         second.baseArrayLayer = 0;
         second.layerCount = 6;
 
@@ -452,7 +451,7 @@ void Texture::CreateTextureImageSampler(const SamplerCreateInfo& info, const Ima
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = static_cast<float>(mipLevels);
+    samplerInfo.maxLod = static_cast<float>(m_miplevels);
     if(vkCreateSampler(m_logicalDevice->GetVkDevice(), &samplerInfo, nullptr, &m_textureSampler) != VK_SUCCESS)
     {
         HGERROR("Failed to create texture sampler");

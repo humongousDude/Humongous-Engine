@@ -54,16 +54,15 @@ public:
     GameObject(GameObject&&) = default;
     GameObject& operator=(GameObject&&) = default;
 
-    const id_t GetId() { return id; };
+    const id_t GetId() { return m_id; };
 
     glm::vec3          color{};
     TransformComponent transform{};
     RigidBodyComponent rigidBody{};
 
-    BoundingBox aabb;
-
-    void SetModel(std::shared_ptr<Model> model);
-    void Update();
+    void        SetModel(std::shared_ptr<Model> model);
+    void        Update();
+    BoundingBox GetBoundingBox() const { return m_aabb; }
 
     static std::vector<glm::vec3> TransformAABBToWorldSpace(const Model::Dimensions& modelBB, const glm::mat4& modelMatrix);
     static BoundingBox            ComputeWorldAABB(const std::vector<glm::vec3>& worldCorners);
@@ -71,9 +70,10 @@ public:
     std::shared_ptr<Model> model{};
 
 private:
-    id_t id;
+    id_t m_id;
 
-    GameObject(id_t objId) : id{objId} {};
+    GameObject(id_t objId) : m_id{objId} {};
+    BoundingBox m_aabb;
 
     TransformComponent m_prevFrameTransform{};
 };

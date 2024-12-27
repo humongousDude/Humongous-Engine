@@ -7,8 +7,8 @@ void KeyboardHandler::ProcessInput(const InputData& inputData)
 {
     glm::vec3 rotate{0};
     glm::vec3 moveDir{0.0f};
-    rotate.x -= (inputData.mouseDeltaY * lookSpeed * Globals::Time::AverageDeltaTime());
-    rotate.y += (inputData.mouseDeltaX * lookSpeed * Globals::Time::AverageDeltaTime());
+    rotate.x -= (inputData.mouseDeltaY * lookSpeed * static_cast<float>(Globals::Time::AverageDeltaTime()));
+    rotate.y += (inputData.mouseDeltaX * lookSpeed * static_cast<float>(Globals::Time::AverageDeltaTime()));
 
     if(glm::dot(rotate, rotate) > std::numeric_limits<float>::epsilon())
     {

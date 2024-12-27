@@ -3,7 +3,6 @@
 #include "globals.hpp"
 #include "logger.hpp"
 
-
 // lib
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_vulkan.h"
@@ -19,22 +18,12 @@ void UI::Internal_Init(class Instance* instance, LogicalDevice* logicalDevice, W
 {
     if(m_hasInited) { return; }
 
-    IMGUI_CHECKVERSION();
-
     m_logicalDevice = logicalDevice;
 
     InitDescriptorThings();
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    // (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavNoCaptureKeyboard;
-
     ImGui_ImplSDL3_InitForVulkan(window->GetWindow());
 
     ImGui::StyleColorsDark();
@@ -43,7 +32,6 @@ void UI::Internal_Init(class Instance* instance, LogicalDevice* logicalDevice, W
     initInfo.Instance = instance->GetVkInstance();
     initInfo.Device = m_logicalDevice->GetVkDevice();
 
-    // this is silly
     initInfo.MinImageCount = m_logicalDevice->GetPhysicalDevice()
                                  .QuerySwapChainSupport(m_logicalDevice->GetPhysicalDevice().GetVkPhysicalDevice())
                                  .capabilities.surfaceCapabilities.minImageCount;
@@ -131,7 +119,6 @@ void UI::Internal_BeginUIFrame(vk::CommandBuffer cmd)
     m_initedFrame = true;
     m_renderPipeline->Bind(cmd);
 
-    const ImGuiIO& io = ImGui::GetIO();
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
@@ -152,7 +139,7 @@ void UI::Internal_Debug_DrawMetrics(const s16& draws)
     UiWidget widg{"Metrics", true, {00, 0}, {225, 100}, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize};
     widg.AddBullet("Drawn Objects: %i", draws);
     widg.AddBullet("FPS: %i", static_cast<int>(std::round((1 / Globals::Time::AverageDeltaTime()))));
-    widg.AddBullet("FrameTime(ms): %f", Globals::Time::AverageDeltaTime() * 1000);
+    widg.AddBullet("FrameTime(ms): %f", static_cast<float>(Globals::Time::AverageDeltaTime()) * 1000);
     widg.Draw();
 }
 

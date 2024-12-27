@@ -692,7 +692,7 @@ void Model::DrawNode(Node* node, VkCommandBuffer commandBuffer, VkPipelineLayout
     {
         for(Primitive* primitive: node->m_mesh->m_primitives)
         {
-            std::vector<VkDescriptorSet> descriptorSets{primitive->m_material.descriptorSet, descriptorSetMaterials};
+            std::vector<VkDescriptorSet> descriptorSets{primitive->m_material.descriptorSet, m_descriptorSetMaterials};
 
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, static_cast<n32>(descriptorSets.size()),
                                     descriptorSets.data(), 0, nullptr);
@@ -797,7 +797,7 @@ void Model::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout
 
         for(auto& primitive: prim)
         {
-            std::vector<VkDescriptorSet> descriptorSets{mat->descriptorSet, descriptorSetMaterials};
+            std::vector<VkDescriptorSet> descriptorSets{mat->descriptorSet, m_descriptorSetMaterials};
 
             if(primitive->m_owner->m_mesh) { descriptorSets.push_back(primitive->m_owner->m_mesh->m_uniformBuffer.descriptorSet); }
 
@@ -873,15 +873,15 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
         UpdateMaterialBatches(node);
     }
 
-    if(descriptorSetMaterials == VK_NULL_HANDLE)
+    if(m_descriptorSetMaterials == VK_NULL_HANDLE)
     {
-        descriptorSetMaterials = storagePool->AllocateDescriptor(materialBufferLayout->GetDescriptorSetLayout());
+        m_descriptorSetMaterials = storagePool->AllocateDescriptor(materialBufferLayout->GetDescriptorSetLayout());
     }
 
     CreateMaterialBuffer();
 
     auto bufInfo = m_shaderMaterialBuffer.DescriptorInfo();
-    DescriptorWriter(*materialBufferLayout, storagePool).WriteBuffer(0, &bufInfo).Overwrite(descriptorSetMaterials);
+    DescriptorWriter(*materialBufferLayout, storagePool).WriteBuffer(0, &bufInfo).Overwrite(m_descriptorSetMaterials);
 
     m_initialized = true;
 }
