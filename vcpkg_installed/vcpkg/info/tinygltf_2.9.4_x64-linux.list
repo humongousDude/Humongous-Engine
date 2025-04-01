@@ -1,8 +1,0 @@
-x64-linux/
-x64-linux/include/
-x64-linux/include/tiny_gltf.h
-x64-linux/share/
-x64-linux/share/tinygltf/
-x64-linux/share/tinygltf/copyright
-x64-linux/share/tinygltf/vcpkg.spdx.json
-x64-linux/share/tinygltf/vcpkg_abi_info.txt
