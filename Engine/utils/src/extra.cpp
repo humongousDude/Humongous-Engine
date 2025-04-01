@@ -1,3 +1,5 @@
+#include "gameobject.hpp"
+#include <algorithm>
 #include <extra.hpp>
 #include <fstream>
 #include <logger.hpp>
@@ -20,5 +22,29 @@ std::vector<char> ReadFile(const std::string& filePath)
     file.close();
     return buffer;
 }
+
+std::vector<std::pair<GameObject::id_t, GameObject*>> SortAndCullGameObjects(Camera& camera, GameObject::Map& unsortedObjects)
+{
+    std::vector<std::pair<GameObject::id_t, GameObject*>> sortedObjects;
+    sortedObjects.clear();
+    sortedObjects.reserve(unsortedObjects.size());
+
+    // Store key-pointer pairs
+    for(auto& [key, gameObject]: unsortedObjects)
+    {
+        if(!gameObject.model) { continue; }
+        if(!camera.IsAABBInsideFrustum(gameObject.GetBoundingBox().min, gameObject.GetBoundingBox().max)) { continue; }
+        sortedObjects.push_back({key, &gameObject});
+    }
+
+    // Sort based on distance
+    std::sort(sortedObjects.begin(), sortedObjects.end(), [&camera](const auto& a, const auto& b) {
+        float distA = glm::distance(glm::vec3(camera.GetPosition()), a.second->transform.translation);
+        float distB = glm::distance(glm::vec3(camera.GetPosition()), b.second->transform.translation);
+        return distA < distB;
+    });
+    return sortedObjects;
+}
+
 } // namespace Utils
 } // namespace Humongous

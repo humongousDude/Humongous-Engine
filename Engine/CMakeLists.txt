@@ -5,6 +5,8 @@ file(GLOB IMGUI CONFIGURE_DEPENDS ../lib/imgui/*.cpp)
 set(cur_path ${CMAKE_CURRENT_LIST_DIR})
 cmake_path(GET cur_path PARENT_PATH CMAKE_PARENT_LIST_DIR)
 
+# add_compile_options("-fsanitize=address")
+
 add_compile_definitions(HGASSERTIONS_ENABLED)
 add_definitions(-DHGASSETDIRPATH="${CMAKE_PARENT_LIST_DIR}/Assets/")
 

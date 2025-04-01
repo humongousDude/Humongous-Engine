@@ -90,9 +90,8 @@ bool PhysicalDevice::IsDeviceSuitable(vk::PhysicalDevice physicalDevice)
     vk::PhysicalDeviceFeatures2 deviceFeatures{};
     physicalDevice.getFeatures2(&deviceFeatures);
 
-    bool deviceHasFeatures = (deviceProperties.properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu ||
-                              deviceProperties.properties.deviceType == vk::PhysicalDeviceType::eIntegratedGpu) &&
-                             deviceFeatures.features.geometryShader;
+    bool deviceHasFeatures =
+        deviceProperties.properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu && deviceFeatures.features.geometryShader;
 
     bool haveAllRequiredIndices = FindQueueFamilies(physicalDevice).IsComplete();
     bool deviceHasExtensions = CheckDeviceExtensionSupport(physicalDevice);

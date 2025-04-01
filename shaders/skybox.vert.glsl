@@ -26,22 +26,19 @@ layout(set = 0, binding = 0) uniform UBO
 {
     mat4 projection;
     mat4 view;
-    vec3 camPos;
+    mat4 projectionView;
+    vec3 cameraPos;
 } ubo;
 
 void main()
 {
     Vertex v = push.vertexBuffer.vertices[gl_VertexIndex];
 
-    // For a skybox, the view matrix should only affect rotation, not translation.
-    // Remove the translation component from the view matrix.
-    mat4 viewRotOnly = ubo.view;
-    viewRotOnly[3][0] = 0.0;
-    viewRotOnly[3][1] = 0.0;
-    viewRotOnly[3][2] = 0.0;
+    // Correct way to get view rotation only:
+    mat4 viewRotOnly = mat4(mat3(ubo.view)); // Extract the 3x3 rotation part
 
     gl_Position = ubo.projection * viewRotOnly * vec4(v.position, 1.0);
 
-    // Use the vertex position as the texture coordinate for the skybox.
-    outUV = v.position;
+    // Generate spherical coordinates for UVs:
+    outUV = normalize(v.position); // Use normalized position as direction vector
 }

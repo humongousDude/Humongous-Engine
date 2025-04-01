@@ -52,6 +52,8 @@ public:
 
     static void CopyBuffer(LogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, VkDeviceSize size);
 
+    bool IsMapped() const { return m_mapCallCount > 0 ? true : false; }
+
 private:
     struct CreateInfo
     {

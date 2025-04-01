@@ -4,9 +4,8 @@
 
 // based on Sascha Willems' tinyGltf vulkan example
 
-#include "abstractions/descriptor_layout.hpp"
-
 #include "abstractions/buffer.hpp"
+#include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool_growable.hpp"
 #include "logical_device.hpp"
 #include "material.hpp"
@@ -33,25 +32,23 @@ namespace Humongous
 {
 struct Primitive
 {
-    Node*       m_owner;
-    n32         m_firstIndex;
-    n32         m_indexCount;
-    n32         m_vertexCount;
-    Material&   m_material;
-    bool        m_hasIndices;
-    BoundingBox m_bb;
+    Node*     m_owner;
+    n32       m_firstIndex;
+    n32       m_indexCount;
+    n32       m_vertexCount;
+    Material& m_material;
+    bool      m_hasIndices;
     Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, Material& material);
-    void SetBoundingBox(glm::vec3 min, glm::vec3 max);
 };
 
 struct Mesh
 {
     Mesh(LogicalDevice* m_device, glm::mat4 matrix);
     ~Mesh();
+
     LogicalDevice*          m_device;
     std::vector<Primitive*> m_primitives;
-    BoundingBox             m_bb;
-    BoundingBox             m_aabb;
+
     struct UniformBuffer
     {
         Buffer                 uniformBuffer;
@@ -63,17 +60,16 @@ struct Mesh
     {
         glm::mat4 matrix{1.f};
     } m_uniformBlock;
-
-    void SetBoundingBox(glm::vec3 min, glm::vec3 max);
 };
 
 class Model
 {
 public:
-    struct alignas(16) PushConstantData // Align to 16 bytes for mat4
+    struct alignas(16) PushConstantData
     {
-        glm::mat4       model{1.f};    // 16 bytes (4x4 matrix)
-        VkDeviceAddress vertexAddress; // 8 bytes (assuming 64-bit)
+        glm::mat4       model{1.f};
+        VkDeviceAddress vertexAddress;
+        n32             id;
     };
 
     struct alignas(16) Vertex
@@ -100,23 +96,28 @@ public:
 
     void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout);
 
-    glm::mat4 GetAABB() const { return m_aabb; }
-
     struct Dimensions
     {
         glm::vec3 min = glm::vec3(FLT_MAX);
         glm::vec3 max = glm::vec3(-FLT_MAX);
     };
 
-    Dimensions GetDimensions() const { return m_dimensions; }
+    BoundingBox GetLocalBoundingBox() { return m_localAABB; }
 
 private:
+    struct IndirectDrawCommand
+    {
+        n32 indexCount;
+        n32 instanceCount;
+        n32 firstIndex;
+        n32 vertexOffset;
+        n32 firstInstance;
+    };
+
     Buffer m_vertices;
     Buffer m_indices;
 
     LogicalDevice* m_device;
-
-    glm::mat4 m_aabb;
 
     std::vector<Node*> m_nodes;
     std::vector<Node*> m_linearNodes;
@@ -154,7 +155,10 @@ private:
     };
     Buffer m_shaderMaterialBuffer;
 
-    Dimensions m_dimensions;
+    void                                                               SetupIndirectDrawBuffer();
+    Buffer                                                             m_indirectDrawBuffer;
+    std::unordered_map<n32, std::vector<VkDrawIndexedIndirectCommand>> m_indirectCommands;
+    std::vector<VkDrawIndexedIndirectCommand>                          m_debugCommands;
 
     struct LoaderInfo
     {
@@ -164,29 +168,33 @@ private:
         size_t  vertexPos = 0;
     };
 
+    BoundingBox CalculateLocalAABB(LoaderInfo& loaderInfo) const;
+    BoundingBox m_localAABB{};
+
     bool m_initialized{false};
+    void LoadFromFile(std::string filename, LogicalDevice* device, VkQueue transferQueue, float scale = 1.0f);
+    void Destroy(VkDevice m_device);
+
     // TODO: maybe move the shader material buffer and this out?
     // maybe only write at draw time?
     void CreateMaterialBuffer();
     void UpdateShaderMaterialBuffer(Node* node);
+
     void UpdateUBO(Node* node, glm::mat4 matrix);
     void UpdateMaterialBatches(Node* node);
 
-    void Destroy(VkDevice m_device);
-    void LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, float globalscale);
+    void LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, float globalscale,
+                  glm::mat4 parentTransform);
     void GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& model, size_t& vertexCount, size_t& indexCount);
     void LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* m_device, VkQueue transferQueue);
+
     VkSamplerAddressMode GetVkWrapMode(s32 wrapMode);
     VkFilter             GetVkFilterMode(s32 filterMode);
-    void                 LoadTextureSamplers(tinygltf::Model& gltfModel);
-    void                 LoadMaterials(tinygltf::Model& gltfModel);
-    void                 LoadFromFile(std::string filename, LogicalDevice* device, VkQueue transferQueue, float scale = 1.0f);
-    void                 DrawNode(Node* node, VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout);
-    void                 CalculateBoundingBox(Node* node, Node* parent);
-    void                 GetSceneDimensions();
-    Node*                FindNode(Node* parent, n32 index);
-    Node*                NodeFromIndex(n32 index);
-    void                 SetupDescriptorSet(Node* node);
-    void                 SetupNodeDescriptorSet(Node* node, DescriptorPoolGrowable* descriptorPool, DescriptorSetLayout* layout);
+
+    void LoadTextureSamplers(tinygltf::Model& gltfModel);
+    void LoadMaterials(tinygltf::Model& gltfModel);
+
+    void SetupDescriptorSet(Node* node);
+    void SetupNodeDescriptorSet(Node* node, DescriptorPoolGrowable* descriptorPool, DescriptorSetLayout* layout);
 };
 } // namespace Humongous

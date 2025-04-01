@@ -16,9 +16,9 @@ public:
 
     ~DescriptorPoolGrowable();
 
-    int GetPoolCount() { return m_readyPools.size() + m_fullPools.size(); }
-    int GetReadyPoolCount() { return m_readyPools.size(); }
-    int GetFullPoolCount() { return m_fullPools.size(); }
+    int GetPoolCount() const { return m_readyPools.size() + m_fullPools.size(); }
+    int GetReadyPoolCount() const { return m_readyPools.size(); }
+    int GetFullPoolCount() const { return m_fullPools.size(); }
 
     bool            AllocateDescriptor(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptor);
     VkDescriptorSet AllocateDescriptor(const VkDescriptorSetLayout descriptorSetLayout);

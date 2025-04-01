@@ -1,6 +1,5 @@
 #pragma once
 
-#include "logger.hpp"
 #include "material.hpp"
 #include <defines.hpp>
 
@@ -31,15 +30,22 @@ struct TransformComponent
     }
 };
 
-struct RigidBodyComponent
-{
-    glm::vec2 velocity;
-    float     mass{1.0f};
-};
-
 class GameObject
 {
 public:
+    struct UpdateData
+    {
+        const glm::mat4& pvm;
+        const n16&       screenWidth = 800;
+        const n16&       screenHeight = 600;
+    };
+
+    struct BoundingData
+    {
+        BoundingBox totalBB{};
+        BoundingBox modelBB{};
+    };
+
     using id_t = unsigned int;
     using Map = std::unordered_map<id_t, GameObject>;
 
@@ -58,24 +64,26 @@ public:
 
     glm::vec3          color{};
     TransformComponent transform{};
-    RigidBodyComponent rigidBody{};
 
-    void        SetModel(std::shared_ptr<Model> model);
-    void        Update();
-    BoundingBox GetBoundingBox() const { return m_aabb; }
-
-    static std::vector<glm::vec3> TransformAABBToWorldSpace(const Model::Dimensions& modelBB, const glm::mat4& modelMatrix);
-    static BoundingBox            ComputeWorldAABB(const std::vector<glm::vec3>& worldCorners);
+    void         SetModel(std::shared_ptr<Model> model);
+    void         Update();
+    BoundingData GetBoundingData() const { return m_boundingBoxData; }
+    BoundingBox  GetBoundingBox() const { return m_worldBounds; }
 
     std::shared_ptr<Model> model{};
+
+    std::string name;
 
 private:
     id_t m_id;
 
     GameObject(id_t objId) : m_id{objId} {};
-    BoundingBox m_aabb;
 
+    BoundingData       m_boundingBoxData{};
+    BoundingBox        m_worldBounds{};
     TransformComponent m_prevFrameTransform{};
+
+    void UpdateBoundingData();
 };
 
 } // namespace Humongous

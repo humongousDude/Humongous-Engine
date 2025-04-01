@@ -1,0 +1,10 @@
+{
+  "dependencies": [
+      {"name": "sdl3", "features": ["vulkan"]},
+      "spdlog",
+      "gli",
+      "glm",
+      "vulkan-memory-allocator",
+      "tinygltf"
+  ]
+}

@@ -1,6 +1,7 @@
 #include "globals.hpp"
 #include "defines.hpp"
 #include "vector"
+#include <algorithm>
 
 namespace Humongous::Globals
 {
@@ -19,7 +20,10 @@ f32 Time::Internal_AverageDeltaTime()
     f32 sum{0};
     for(const auto& a: past10Frames) { sum += a; }
 
-    return sum / averageCount;
+    auto averageDT = sum / averageCount;
+    averageDT = std::clamp(averageDT, 0.0f, 50.0f);
+
+    return averageDT;
 }
 
 void Time::Internal_Update(f32 newDeltaTime)

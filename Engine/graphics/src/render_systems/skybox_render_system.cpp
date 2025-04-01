@@ -26,7 +26,7 @@ void SkyboxRenderSystem::InitDescriptors()
 
     DescriptorSetLayout::Builder builder{*m_logicalDevice};
     builder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    m_skyboxSetLayout = builder.build();
+    m_skyboxSetLayout = builder.Build();
 }
 
 void SkyboxRenderSystem::CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& globalLayouts)
@@ -57,11 +57,12 @@ void SkyboxRenderSystem::CreatePipelineLayout(const std::vector<VkDescriptorSetL
 void SkyboxRenderSystem::CreatePipeline()
 {
     RenderPipeline::PipelineConfigInfo ppCI = RenderPipeline::DefaultPipelineConfigInfo();
-    ppCI.depthStencilInfo.depthTestEnable = VK_FALSE;
+    ppCI.depthStencilInfo.depthTestEnable = VK_TRUE;
     ppCI.depthStencilInfo.depthWriteEnable = VK_FALSE;
     ppCI.multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     ppCI.multisampleInfo.sampleShadingEnable = VK_FALSE;
     ppCI.multisampleInfo.minSampleShading = 1.0;
+    ppCI.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
     ppCI.pipelineLayout = m_pipelineLayout;
     ppCI.vertShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.vert");
     ppCI.fragShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.frag");

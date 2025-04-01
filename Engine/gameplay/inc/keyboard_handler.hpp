@@ -15,7 +15,11 @@ public:
     enum class Movements
     {
         FORWARD,
+        FORWARD_LEFT,
+        FORWARD_RIGHT,
         BACKWARD,
+        BACKWARD_LEFT,
+        BACKWARD_RIGHT,
         LEFT,
         RIGHT,
         UP,
@@ -25,16 +29,16 @@ public:
 
     struct InputData
     {
-        float       frameTime;
-        GameObject& gameObject;
-        Movements   movementType;
-        float&      mouseDeltaX;
-        float&      mouseDeltaY;
+        float     frameTime;
+        Movements movementType;
+        float&    mouseDeltaX;
+        float&    mouseDeltaY;
+        Camera&   camera;
     };
 
     void ProcessInput(const InputData& inputData);
 
-    float moveSpeed{3.0f};
-    float lookSpeed{5.0f};
+    float lookSpeed = 0.5f;
+    float moveSpeed = 25.0f;
 };
 } // namespace Humongous

@@ -82,11 +82,24 @@ void SwapChain::CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, 
     {
         // throw error
     }
+
     m_images.resize(imageCount);
     if(m_logicalDevice.GetVkDevice().getSwapchainImagesKHR(m_swapChain, &imageCount, m_images.data()) != vk::Result::eSuccess)
     {
         // throw error
     }
+
+    // for(auto& img: m_depthImages)
+    // {
+    //     Utils::AllocatedImageCreateInfo info{.logicalDevice = m_logicalDevice, .allocatedImage = img};
+    //     info.width = extent.width;
+    //     info.height = extent.height;
+    //     info.format = VK_FORMAT_D32_SFLOAT;
+    //     info.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+    //
+    //     Utils::CreateAllocatedImage(info);
+    // }
+
     HGINFO("Got %d swapchain images", imageCount);
 }
 

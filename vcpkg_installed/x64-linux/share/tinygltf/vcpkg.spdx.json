@@ -1,0 +1,110 @@
+{
+  "$schema": "https://raw.githubusercontent.com/spdx/spdx-spec/v2.2.1/schemas/spdx-schema.json",
+  "spdxVersion": "SPDX-2.2",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "documentNamespace": "https://spdx.org/spdxdocs/tinygltf-x64-linux-2.9.4-908c375b-ca1a-46d5-b845-e214f1f95baa",
+  "name": "tinygltf:x64-linux@2.9.4 7eb4a106b309711177a51356b4d41cd59c7a5d46a44d25861ff45c8f1e4250ef",
+  "creationInfo": {
+    "creators": [
+      "Tool: vcpkg-2025-03-13-7699e411ea11543de6abc0c7d5fd11cfe0039ae5"
+    ],
+    "created": "2025-03-27T09:57:15Z"
+  },
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-port",
+      "relationshipType": "GENERATES",
+      "relatedSpdxElement": "SPDXRef-binary"
+    },
+    {
+      "spdxElementId": "SPDXRef-port",
+      "relationshipType": "CONTAINS",
+      "relatedSpdxElement": "SPDXRef-file-0"
+    },
+    {
+      "spdxElementId": "SPDXRef-port",
+      "relationshipType": "CONTAINS",
+      "relatedSpdxElement": "SPDXRef-file-1"
+    },
+    {
+      "spdxElementId": "SPDXRef-binary",
+      "relationshipType": "GENERATED_FROM",
+      "relatedSpdxElement": "SPDXRef-port"
+    },
+    {
+      "spdxElementId": "SPDXRef-file-0",
+      "relationshipType": "CONTAINED_BY",
+      "relatedSpdxElement": "SPDXRef-port"
+    },
+    {
+      "spdxElementId": "SPDXRef-file-1",
+      "relationshipType": "CONTAINED_BY",
+      "relatedSpdxElement": "SPDXRef-port"
+    }
+  ],
+  "packages": [
+    {
+      "name": "tinygltf",
+      "SPDXID": "SPDXRef-port",
+      "versionInfo": "2.9.4",
+      "downloadLocation": "git+https://github.com/Microsoft/vcpkg#ports/tinygltf",
+      "homepage": "https://github.com/syoyo/tinygltf",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "description": "A header only C++11 glTF 2.0 library.",
+      "comment": "This is the port (recipe) consumed by vcpkg."
+    },
+    {
+      "name": "tinygltf:x64-linux",
+      "SPDXID": "SPDXRef-binary",
+      "versionInfo": "7eb4a106b309711177a51356b4d41cd59c7a5d46a44d25861ff45c8f1e4250ef",
+      "downloadLocation": "NONE",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "comment": "This is a binary package built by vcpkg."
+    },
+    {
+      "SPDXID": "SPDXRef-resource-0",
+      "name": "syoyo/tinygltf",
+      "downloadLocation": "git+https://github.com/syoyo/tinygltf@v2.9.4",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "checksums": [
+        {
+          "algorithm": "SHA512",
+          "checksumValue": "45317d84c1cb008838d784ccc654ffa20f9f62e20c8cef0796839ce755f144b2f41ddbda77d7e89817536c3ce4e6860742e7b2f1abb492c359b9d876a1433154"
+        }
+      ]
+    }
+  ],
+  "files": [
+    {
+      "fileName": ".//home/youssef/programs/vcpkg/ports/tinygltf/vcpkg.json",
+      "SPDXID": "SPDXRef-file-0",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "15b5e93b460f99d71d909ab3247df1d72f001fa05738c1149ea14fcfa80803fe"
+        }
+      ],
+      "licenseConcluded": "NOASSERTION",
+      "copyrightText": "NOASSERTION"
+    },
+    {
+      "fileName": ".//home/youssef/programs/vcpkg/ports/tinygltf/portfile.cmake",
+      "SPDXID": "SPDXRef-file-1",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "dddea3c1a644cb9faa86eee804a09dd81e868fc9c527c8ec99a6d53f17c56fba"
+        }
+      ],
+      "licenseConcluded": "NOASSERTION",
+      "copyrightText": "NOASSERTION"
+    }
+  ]
+}

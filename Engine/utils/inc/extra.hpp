@@ -1,10 +1,13 @@
 #pragma once
+#include "gameobject.hpp"
 
 #include <functional>
 #include <model.hpp>
 #include <string>
 #include <vector>
 
+#include "gameobject.hpp"
+#include <algorithm>
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/hash.hpp"
 
@@ -12,7 +15,10 @@ namespace Humongous
 {
 namespace Utils
 {
+
 std::vector<char> ReadFile(const std::string& filePath);
+
+std::vector<std::pair<GameObject::id_t, GameObject*>> SortAndCullGameObjects(Camera& camera, GameObject::Map& unsortedObjects);
 
 template <typename T, typename... Rest> void HashCombine(std::size_t& seed, const T& v, const Rest&... rest)
 {
@@ -34,4 +40,5 @@ template <> struct hash<Humongous::Model::Vertex>
         return seed;
     }
 };
+
 } // namespace std

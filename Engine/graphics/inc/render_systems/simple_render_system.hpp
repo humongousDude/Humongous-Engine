@@ -11,13 +11,14 @@ namespace Humongous
 {
 struct RenderData
 {
-    VkCommandBuffer              commandBuffer;
-    std::vector<VkDescriptorSet> uboSets;
-    std::vector<VkDescriptorSet> sceneSets;
-    GameObject::Map&             gameObjects;
-    n32                          frameIndex;
-    Camera&                      cam;
-    const glm::vec3              camPos;
+    VkCommandBuffer                                       commandBuffer;
+    std::vector<VkDescriptorSet>                          uboSets;
+    std::vector<VkDescriptorSet>                          sceneSets;
+    std::vector<std::pair<GameObject::id_t, GameObject*>> gameObjects;
+    n32                                                   frameIndex;
+    Camera&                                               cam;
+    const Renderer&                                       renderer;
+    const glm::vec3                                       camPos;
 };
 
 struct ShaderSet
@@ -33,25 +34,15 @@ public:
     ~SimpleRenderSystem();
 
     void RenderObjects(RenderData& renderData);
+    void DepthOnlyRender(RenderData& renderData);
     s16  GetObjectsDrawn() { return m_objectsDrawn; }
 
 private:
     LogicalDevice&                  m_logicalDevice;
     std::unique_ptr<RenderPipeline> m_renderPipeline;
+    std::unique_ptr<RenderPipeline> m_depthOnlyPipeline;
     VkPipelineLayout                m_pipelineLayout{};
     s16                             m_objectsDrawn{0};
-
-    struct DescriptorLayouts
-    {
-        std::unique_ptr<DescriptorSetLayout> node;
-        std::unique_ptr<DescriptorSetLayout> material;
-        std::unique_ptr<DescriptorSetLayout> materialBuffers;
-
-    } m_descriptorSetLayouts;
-
-    std::unique_ptr<DescriptorPoolGrowable> m_imageSamplerPool;
-    std::unique_ptr<DescriptorPoolGrowable> m_uniformPool;
-    std::unique_ptr<DescriptorPoolGrowable> m_storagePool;
 
     void CreateModelDescriptorSetPool();
     void CreateModelDescriptorSetLayout();

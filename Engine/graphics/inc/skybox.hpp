@@ -29,18 +29,20 @@ public:
     void Draw(VkCommandBuffer cmd)
     {
         vkCmdBindIndexBuffer(cmd, m_indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(cmd, m_indexCount, 1, 0, 0, 1);
+        vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer->GetBuffer(), 0, 1, sizeof(VkDrawIndexedIndirectCommand));
     }
 
 private:
     LogicalDevice* m_logicalDevice = nullptr;
 
-    std::unique_ptr<Texture> m_skybox;
-    n32                      m_vertexCount;
-    n32                      m_indexCount;
-    std::unique_ptr<Buffer>  m_vertexBuffer;
-    std::unique_ptr<Buffer>  m_indexBuffer;
-    VkDescriptorSet          m_cubeMapSet;
+    std::unique_ptr<Texture>     m_skybox;
+    n32                          m_vertexCount;
+    n32                          m_indexCount;
+    std::unique_ptr<Buffer>      m_vertexBuffer;
+    std::unique_ptr<Buffer>      m_indexBuffer;
+    std::unique_ptr<Buffer>      m_indirectDrawBuffer;
+    VkDrawIndexedIndirectCommand m_command;
+    VkDescriptorSet              m_cubeMapSet;
 
     void LoadCube();
     void LoadCubemap(const std::string& cubemapPath);

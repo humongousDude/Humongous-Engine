@@ -1,0 +1,11 @@
+x64-linux/
+x64-linux/include/
+x64-linux/include/vk_mem_alloc.h
+x64-linux/share/
+x64-linux/share/VulkanMemoryAllocator/
+x64-linux/share/VulkanMemoryAllocator/VulkanMemoryAllocatorConfig.cmake
+x64-linux/share/vulkan-memory-allocator/
+x64-linux/share/vulkan-memory-allocator/copyright
+x64-linux/share/vulkan-memory-allocator/usage
+x64-linux/share/vulkan-memory-allocator/vcpkg.spdx.json
+x64-linux/share/vulkan-memory-allocator/vcpkg_abi_info.txt

@@ -53,6 +53,7 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
 
     vk::PhysicalDeviceFeatures deviceFeatures{};
     deviceFeatures.samplerAnisotropy = VK_TRUE;
+    deviceFeatures.multiDrawIndirect = VK_TRUE;
 
     auto queueCreateInfos = CreateQueues(physicalDevice);
 

@@ -33,18 +33,21 @@ void Window::CreateWindow()
         HGFATAL("Failed to initalize SDL3! Error: %s", SDL_GetError());
     };
     if(!SDL_Vulkan_LoadLibrary(NULL)) { HGFATAL("Failed to load vulkan! Error: %s", SDL_GetError()); };
-    if(!(window = SDL_CreateWindow("Humongous Window", width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE)))
+    if(!(window = SDL_CreateWindow("Humongous Window", width, height,
+                                   SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_FULLSCREEN)))
     {
         HGFATAL("Failed to create SDL3 Window! Error: %s", SDL_GetError());
     };
 
     SDL_AddEventWatch(HandleWindowResized, this);
+    HGINFO("VIDEO DRIVER: %s", SDL_GetVideoDriver(0));
 }
 
 vk::SurfaceKHR Window::CreateWindowSurface(vk::Instance instance)
 {
     VkSurfaceKHR a;
     if(!SDL_Vulkan_CreateSurface(window, instance, nullptr, &a)) { HGFATAL("Failed to create window surface"); }
+    SDL_UpdateWindowSurface(window);
     HGINFO("Created window surface");
     return a;
 }

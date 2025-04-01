@@ -13,14 +13,21 @@ namespace Humongous
 {
 struct Node;
 
-struct BoundingBox
+struct alignas(16) BoundingBox
 {
-    glm::vec3 min;
-    glm::vec3 max;
-    bool      valid = false;
-    BoundingBox(){};
-    BoundingBox(glm::vec3 min, glm::vec3 max) : min(min), max(max){};
-    BoundingBox GetAABB(glm::mat4 m);
+    glm::vec3 min{std::numeric_limits<f32>::max()}; // 12 bytes
+    float     padding1;                             // 4 bytes for alignment
+
+    glm::vec3 max{std::numeric_limits<f32>::min()}; // 12 bytes
+    float     padding2;                             // 4 bytes for alignment
+
+    std::array<glm::vec4, 8> corners;
+
+    s32   valid{false}; // 4 bytes (matches GLSL int for std140)
+    float padding3[3];  // 12 bytes to align the struct to 48 bytes
+
+    BoundingBox() = default;
+    BoundingBox(glm::vec3 min, glm::vec3 max) : min(min), max(max) {}
 };
 
 struct Material

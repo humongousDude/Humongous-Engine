@@ -18,13 +18,6 @@ Primitive::Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, Material& 
     m_hasIndices = indexCount > 0;
 };
 
-void Primitive::SetBoundingBox(glm::vec3 min, glm::vec3 max)
-{
-    m_bb.min = min;
-    m_bb.max = max;
-    m_bb.valid = true;
-}
-
 // Mesh
 Mesh::Mesh(LogicalDevice* device, glm::mat4 matrix)
 {
@@ -41,13 +34,6 @@ Mesh::Mesh(LogicalDevice* device, glm::mat4 matrix)
 Mesh::~Mesh()
 {
     for(Primitive* p: m_primitives) { delete p; }
-}
-
-void Mesh::SetBoundingBox(glm::vec3 min, glm::vec3 max)
-{
-    m_bb.min = min;
-    m_bb.max = max;
-    m_bb.valid = true;
 }
 
 Model::Model(LogicalDevice* device, const std::string& modelPath, float scale)
@@ -81,8 +67,9 @@ void Model::UpdateUBO(Node* node, glm::mat4 matrix)
 void Model::UpdateShaderMaterialBuffer(Node* node) {}
 
 void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo,
-                     float globalscale)
+                     float globalscale, glm::mat4 parentTransform) // Add parentTransform as parameter
 {
+
     Node* newNode = new Node{};
     newNode->m_index = nodeIndex;
     newNode->m_parent = parent;
@@ -111,33 +98,39 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
     }
     if(node.matrix.size() == 16) { newNode->m_matrix = glm::make_mat4x4(node.matrix.data()); };
 
+    glm::mat4 currentTransform = parentTransform * newNode->m_matrix; // Calculate current transform
+
     // Node with children
     if(node.children.size() > 0)
     {
         for(size_t i = 0; i < node.children.size(); i++)
         {
-            LoadNode(newNode, model.nodes[node.children[i]], node.children[i], model, loaderInfo, globalscale);
+            LoadNode(newNode, model.nodes[node.children[i]], node.children[i], model, loaderInfo, globalscale,
+                     currentTransform); // Pass currentTransform
         }
     }
 
     // Node contains mesh data
     if(node.mesh > -1)
     {
+
         const tinygltf::Mesh mesh = model.meshes[node.mesh];
         Mesh*                newMesh = new Mesh(m_device, newNode->m_matrix);
         for(size_t j = 0; j < mesh.primitives.size(); j++)
         {
+
             const tinygltf::Primitive& primitive = mesh.primitives[j];
             n32                        vertexStart = static_cast<n32>(loaderInfo.vertexPos);
             n32                        indexStart = static_cast<n32>(loaderInfo.indexPos);
             n32                        indexCount = 0;
             n32                        vertexCount = 0;
-            glm::vec3                  posMin{};
-            glm::vec3                  posMax{};
+            glm::vec3                  posMin{}; // Not needed anymore, using m_localAABB directly
+            glm::vec3                  posMax{}; // Not needed anymore, using m_localAABB directly
             bool                       hasSkin = false;
             bool                       hasIndices = primitive.indices > -1;
             // Vertices
             {
+
                 const float* bufferPos = nullptr;
                 const float* bufferNormals = nullptr;
                 const float* bufferTexCoordSet0 = nullptr;
@@ -161,9 +154,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
 
                 const tinygltf::Accessor&   posAccessor = model.accessors[primitive.attributes.find("POSITION")->second];
                 const tinygltf::BufferView& posView = model.bufferViews[posAccessor.bufferView];
-                bufferPos = reinterpret_cast<const float*>(&(model.buffers[posView.buffer].data[posAccessor.byteOffset + posView.byteOffset]));
-                posMin = glm::vec3(posAccessor.minValues[0], posAccessor.minValues[1], posAccessor.minValues[2]);
-                posMax = glm::vec3(posAccessor.maxValues[0], posAccessor.maxValues[1], posAccessor.maxValues[2]);
+                bufferPos = reinterpret_cast<const float*>(model.buffers[posView.buffer].data.data() + posView.byteOffset + posAccessor.byteOffset);
                 vertexCount = static_cast<n32>(posAccessor.count);
                 posByteStride = posAccessor.ByteStride(posView) ? (posAccessor.ByteStride(posView) / sizeof(float))
                                                                 : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3);
@@ -188,6 +179,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     uv0ByteStride = uvAccessor.ByteStride(uvView) ? (uvAccessor.ByteStride(uvView) / sizeof(float))
                                                                   : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2);
                 }
+
                 if(primitive.attributes.find("TEXCOORD_1") != primitive.attributes.end())
                 {
                     const tinygltf::Accessor&   uvAccessor = model.accessors[primitive.attributes.find("TEXCOORD_1")->second];
@@ -242,6 +234,11 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     vert.uv1 = bufferTexCoordSet1 ? glm::make_vec2(&bufferTexCoordSet1[v * uv1ByteStride]) : glm::vec3(0.0f);
                     vert.color = bufferColorSet0 ? glm::make_vec4(&bufferColorSet0[v * color0ByteStride]) : glm::vec4(1.0f);
 
+                    glm::mat4 coordinateTransform =
+                        glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Rotate -90 degrees around X-axis
+                    glm::vec4 transformedPos = coordinateTransform * glm::vec4(vert.position, 1.0f);
+                    vert.position = glm::vec3(transformedPos);
+
                     if(hasSkin)
                     {
                         switch(jointComponentType)
@@ -271,7 +268,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     // vert.weight0 = hasSkin ? glm::make_vec4(&bufferWeights[v * weightByteStride]) : glm::vec4(0.0f);
                     // Fix for all zero weights
                     // if (glm::length(vert.weight0) == 0.0f) {
-                    // 	vert.weight0 = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+                    //     vert.weight0 = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
                     // }
                     loaderInfo.vertexPos++;
                 }
@@ -325,21 +322,10 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             }
             Primitive* newPrimitive =
                 new Primitive(indexStart, indexCount, vertexCount, primitive.material > -1 ? m_materials[primitive.material] : m_materials.back());
-            newPrimitive->SetBoundingBox(posMin, posMax);
             newPrimitive->m_owner = newNode;
             newMesh->m_primitives.push_back(newPrimitive);
         }
-        // Mesh BB from BBs of primitives
-        for(auto p: newMesh->m_primitives)
-        {
-            if(p->m_bb.valid && !newMesh->m_bb.valid)
-            {
-                newMesh->m_bb = p->m_bb;
-                newMesh->m_bb.valid = true;
-            }
-            newMesh->m_bb.min = glm::min(newMesh->m_bb.min, p->m_bb.min);
-            newMesh->m_bb.max = glm::max(newMesh->m_bb.max, p->m_bb.max);
-        }
+
         newNode->m_mesh = newMesh;
     }
     if(parent) { parent->m_children.push_back(newNode); }
@@ -590,9 +576,8 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
     size_t extpos = filename.rfind('.', filename.length());
     if(extpos != std::string::npos) { binary = (filename.substr(extpos + 1, filename.length() - extpos) == "glb"); }
 
-    bool fileLoaded = binary ? gltfContext.LoadBinaryFromFile(&gltfModel, &error, &warning, filename.c_str())
-                             : gltfContext.LoadASCIIFromFile(&gltfModel, &error, &warning, filename.c_str());
-
+    bool       fileLoaded = binary ? gltfContext.LoadBinaryFromFile(&gltfModel, &error, &warning, filename.c_str())
+                                   : gltfContext.LoadASCIIFromFile(&gltfModel, &error, &warning, filename.c_str());
     LoaderInfo loaderInfo{};
     size_t     vertexCount = 0;
     size_t     indexCount = 0;
@@ -614,7 +599,7 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
         for(size_t i = 0; i < scene.nodes.size(); i++)
         {
             const tinygltf::Node node = gltfModel.nodes[scene.nodes[i]];
-            LoadNode(nullptr, node, scene.nodes[i], gltfModel, loaderInfo, scale);
+            LoadNode(nullptr, node, scene.nodes[i], gltfModel, loaderInfo, scale, glm::identity<glm::mat4>());
         }
         /* if(gltfModel.animations.size() > 0) { loadAnimations(gltfModel); }
         loadSkins(gltfModel); */
@@ -677,141 +662,114 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
     Buffer::CopyBuffer(*device, indexStaging, m_indices, indexBufferSize);
     Buffer::CopyBuffer(*device, vertexStaging, m_vertices, vertexBufferSize);
 
+    m_localAABB = CalculateLocalAABB(loaderInfo);
+
     delete[] loaderInfo.vertexBuffer;
     delete[] loaderInfo.indexBuffer;
 
-    GetSceneDimensions();
+    for(auto& node: m_nodes) { UpdateMaterialBatches(node); }
+
+    SetupIndirectDrawBuffer();
+    // m_localAABB = CalculateLocalAABB(gltfModel);
+
+    // HGINFO("Caluclated local AABB MIN/MAX: %f, %f, %f :::  %f, %f, %f", m_localAABB.min.x, m_localAABB.min.y, m_localAABB.min.z,
+    // m_localAABB.max.x,
+    //        m_localAABB.max.y, m_localAABB.max.z);
 }
 
-void Model::DrawNode(Node* node, VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout)
+void Model::Draw(VkCommandBuffer cmd, VkPipelineLayout& pipelineLayout)
 {
-    UpdateUBO(node, node->GetMatrix());
-    UpdateShaderMaterialBuffer(node);
+    vkCmdBindIndexBuffer(cmd, m_indices.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    if(node->m_mesh)
-    {
-        for(Primitive* primitive: node->m_mesh->m_primitives)
-        {
-            std::vector<VkDescriptorSet> descriptorSets{primitive->m_material.descriptorSet, m_descriptorSetMaterials};
-
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, static_cast<n32>(descriptorSets.size()),
-                                    descriptorSets.data(), 0, nullptr);
-            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Model::PushConstantData), sizeof(n32),
-                               &primitive->m_material.index);
-
-            vkCmdDrawIndexed(commandBuffer, primitive->m_indexCount, 1, primitive->m_firstIndex, 0, 0);
-        }
-    }
-    for(auto& child: node->m_children) { DrawNode(child, commandBuffer, pipelineLayout); }
-}
-
-void Model::CalculateBoundingBox(Node* node, Node* parent)
-{
-    BoundingBox* parentBvh = parent ? &parent->m_bvh : nullptr;
-
-    if(node->m_mesh)
-    {
-        if(node->m_mesh->m_bb.valid)
-        {
-            node->m_aabb = node->m_mesh->m_bb.GetAABB(node->GetMatrix());
-            if(node->m_children.size() == 0)
-            {
-                node->m_bvh.min = node->m_aabb.min;
-                node->m_bvh.max = node->m_aabb.max;
-                node->m_bvh.valid = true;
-            }
-        }
-    }
-
-    if(parentBvh)
-    {
-        parentBvh->min = glm::min(parentBvh->min, node->m_bvh.min);
-        parentBvh->max = glm::max(parentBvh->max, node->m_bvh.max);
-    }
-
-    for(auto& child: node->m_children) { CalculateBoundingBox(child, node); }
-}
-
-void Model::GetSceneDimensions()
-{
-    // Calculate binary volume hierarchy for all nodes in the scene
-    for(auto node: m_linearNodes) { CalculateBoundingBox(node, nullptr); }
-
-    m_dimensions.min = glm::vec3(FLT_MAX);
-    m_dimensions.max = glm::vec3(-FLT_MAX);
-
-    for(auto node: m_linearNodes)
-    {
-        if(node->m_bvh.valid)
-        {
-            m_dimensions.min = glm::min(m_dimensions.min, node->m_bvh.min);
-            m_dimensions.max = glm::max(m_dimensions.max, node->m_bvh.max);
-        }
-    }
-
-    // Calculate scene aabb
-    m_aabb = glm::scale(glm::mat4(1.0f), glm::vec3(m_dimensions.max[0] - m_dimensions.min[0], m_dimensions.max[1] - m_dimensions.min[1],
-                                                   m_dimensions.max[2] - m_dimensions.min[2]));
-    m_aabb[3][0] = m_dimensions.min[0];
-    m_aabb[3][1] = m_dimensions.min[1];
-    m_aabb[3][2] = m_dimensions.min[2];
-}
-
-Node* Model::FindNode(Node* parent, n32 index)
-{
-    Node* nodeFound = nullptr;
-    if(parent->m_index == index) { return parent; }
-    for(auto& child: parent->m_children)
-    {
-        nodeFound = FindNode(child, index);
-        if(nodeFound) { break; }
-    }
-    return nodeFound;
-}
-
-Node* Model::NodeFromIndex(n32 index)
-{
-    Node* nodeFound = nullptr;
-    for(auto& node: m_nodes)
-    {
-        nodeFound = FindNode(node, index);
-        if(nodeFound) { break; }
-    }
-    return nodeFound;
-}
-
-void Model::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout)
-{
-    const VkDeviceSize offsets[] = {0};
-    vkCmdBindIndexBuffer(commandBuffer, this->m_indices.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
-
+    VkDeviceSize written{0};
     for(auto& [id, prim]: m_materialBatches)
     {
         auto mat = &m_materials[id];
 
-        if(mat->descriptorSet == VK_NULL_HANDLE)
+        std::vector<VkDescriptorSet> descriptorSets{mat->descriptorSet, m_descriptorSetMaterials};
+
+        // TODO: This will break if we require different matrices for different nodes
+        for(const auto& p: prim)
         {
-            HGERROR("Invalid material descriptor set, did you forget to allocate it?");
-            HGERROR("Material: %d, %s", id, mat->name.c_str());
+            if(p->m_owner->m_mesh)
+            {
+                descriptorSets.push_back(p->m_owner->m_mesh->m_uniformBuffer.descriptorSet);
+                break;
+            }
+            if(descriptorSets.size() > 3) { break; }
         }
 
-        for(auto& primitive: prim)
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, static_cast<uint32_t>(descriptorSets.size()),
+                                descriptorSets.data(), 0, nullptr);
+
+        vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 80, sizeof(n32), &mat->index);
+
+        vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer.GetBuffer(), written, m_indirectCommands[id].size(),
+                                 sizeof(VkDrawIndexedIndirectCommand));
+
+        written += m_indirectCommands[id].size() * sizeof(VkDrawIndexedIndirectCommand);
+    }
+}
+
+void Model::SetupIndirectDrawBuffer()
+{
+    VkDeviceSize totalWritten = 0;
+
+    for(auto& [id, primitives]: m_materialBatches)
+    {
+        std::vector<VkDrawIndexedIndirectCommand> commands;
+
+        for(auto* primitive: primitives)
         {
-            std::vector<VkDescriptorSet> descriptorSets{mat->descriptorSet, m_descriptorSetMaterials};
+            VkDrawIndexedIndirectCommand command{};
+            command.indexCount = primitive->m_indexCount;
+            command.instanceCount = 1;
+            command.firstIndex = primitive->m_firstIndex;
+            command.vertexOffset = 0;  // Adjust if needed
+            command.firstInstance = 0; // Adjust if needed
 
-            if(primitive->m_owner->m_mesh) { descriptorSets.push_back(primitive->m_owner->m_mesh->m_uniformBuffer.descriptorSet); }
-
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, static_cast<n32>(descriptorSets.size()),
-                                    descriptorSets.data(), 0, nullptr);
-
-            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(Model::PushConstantData), sizeof(n32),
-                               &mat->index);
-
-            vkCmdDrawIndexed(commandBuffer, primitive->m_indexCount, 1, primitive->m_firstIndex, 0, 0);
+            commands.push_back(command);
         }
+
+        // Update total written after processing all primitives for this material
+        totalWritten += commands.size() * sizeof(VkDrawIndexedIndirectCommand);
+
+        // Store the commands for this material in the unordered_map
+        m_indirectCommands.emplace(id, std::move(commands));
     }
 
-    // for(auto& node: nodes) { DrawNode(node, commandBuffer, pipelineLayout); }
+    if(totalWritten == 0) { return; }
+
+    // Create staging buffer with the calculated total size
+    Buffer stagingBuffer{m_device,
+                         totalWritten,
+                         1,
+                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                         VMA_MEMORY_USAGE_CPU_TO_GPU,
+                         4};
+    stagingBuffer.Map();
+
+    // Create indirect draw buffer
+    m_indirectDrawBuffer.Init(m_device, totalWritten, 1, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_CPU_COPY, 4);
+
+    // Copy commands to staging buffer (one loop)
+    VkDeviceSize writtenOffset = 0;
+    for(auto& [id, prim]: m_materialBatches)
+    {
+        stagingBuffer.WriteToBuffer((void*)m_indirectCommands[id].data(), m_indirectCommands[id].size() * sizeof(VkDrawIndexedIndirectCommand),
+                                    writtenOffset);
+
+        writtenOffset += m_indirectCommands[id].size() * sizeof(VkDrawIndexedIndirectCommand);
+    }
+
+    // Flush and unmap staging buffer
+    stagingBuffer.Flush();
+    stagingBuffer.UnMap();
+
+    // Copy staging buffer to indirect draw buffer
+    Buffer::CopyBuffer(*m_device, stagingBuffer, m_indirectDrawBuffer, totalWritten);
 }
 
 void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeLayout, DescriptorSetLayout* materialBufferLayout,
@@ -867,11 +825,7 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
         }
     }
 
-    for(auto& node: m_nodes)
-    {
-        SetupNodeDescriptorSet(node, uniformPool, nodeLayout);
-        UpdateMaterialBatches(node);
-    }
+    for(auto& node: m_nodes) { SetupNodeDescriptorSet(node, uniformPool, nodeLayout); }
 
     if(m_descriptorSetMaterials == VK_NULL_HANDLE)
     {
@@ -974,4 +928,30 @@ void Model::CreateMaterialBuffer()
     Buffer::CopyBuffer(*m_device, stagingBuffer, m_shaderMaterialBuffer, bufferSize);
 }
 
+BoundingBox Model::CalculateLocalAABB(LoaderInfo& loaderInfo) const
+{
+    // I have checked this, it calculates the bounding boxes correctly
+    BoundingBox boundingBox{};
+
+    for(n32 i = 0; i < m_vertices.GetBufferSize() / sizeof(Vertex); ++i)
+    {
+        auto vert = loaderInfo.vertexBuffer[i];
+        boundingBox.min = glm::min(vert.position, boundingBox.min);
+        boundingBox.max = glm::max(vert.position, boundingBox.max);
+    }
+
+    // Calculate the corners
+    boundingBox.corners[0] = glm::vec4(boundingBox.min.x, boundingBox.min.y, boundingBox.min.z, 0);
+    boundingBox.corners[1] = glm::vec4(boundingBox.max.x, boundingBox.min.y, boundingBox.min.z, 0);
+    boundingBox.corners[2] = glm::vec4(boundingBox.max.x, boundingBox.max.y, boundingBox.min.z, 0);
+    boundingBox.corners[3] = glm::vec4(boundingBox.min.x, boundingBox.max.y, boundingBox.min.z, 0);
+    boundingBox.corners[4] = glm::vec4(boundingBox.min.x, boundingBox.min.y, boundingBox.max.z, 0);
+    boundingBox.corners[5] = glm::vec4(boundingBox.max.x, boundingBox.min.y, boundingBox.max.z, 0);
+    boundingBox.corners[6] = glm::vec4(boundingBox.max.x, boundingBox.max.y, boundingBox.max.z, 0);
+    boundingBox.corners[7] = glm::vec4(boundingBox.min.x, boundingBox.max.y, boundingBox.max.z, 0);
+
+    boundingBox.valid = true;
+
+    return boundingBox;
+}
 } // namespace Humongous

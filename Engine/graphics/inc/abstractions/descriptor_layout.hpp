@@ -17,7 +17,7 @@ public:
         Builder(LogicalDevice& device) : m_device{device} {}
 
         Builder&                             addBinding(n32 binding, VkDescriptorType descriptorType, VkShaderStageFlags stageFlags, n32 count = 1);
-        std::unique_ptr<DescriptorSetLayout> build() const;
+        std::unique_ptr<DescriptorSetLayout> Build() const;
 
     private:
         LogicalDevice&                                        m_device;

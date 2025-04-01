@@ -89,7 +89,7 @@ void UI::InitDescriptorThings()
     {
         DescriptorSetLayout::Builder builder{*m_logicalDevice};
         builder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_ALL);
-        m_setLayout = builder.build();
+        m_setLayout = builder.Build();
     }
 }
 
@@ -134,12 +134,13 @@ void UI::Internal_EndUIFRame(vk::CommandBuffer cmd)
     m_initedFrame = false;
 }
 
-void UI::Internal_Debug_DrawMetrics(const s16& draws)
+void UI::Internal_Debug_DrawMetrics(const s16& draws, const glm::vec3& camPosition)
 {
-    UiWidget widg{"Metrics", true, {00, 0}, {225, 100}, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize};
+    UiWidget widg{"Metrics", true, {0, 0}, {400, 100}, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize};
     widg.AddBullet("Drawn Objects: %i", draws);
     widg.AddBullet("FPS: %i", static_cast<int>(std::round((1 / Globals::Time::AverageDeltaTime()))));
     widg.AddBullet("FrameTime(ms): %f", static_cast<float>(Globals::Time::AverageDeltaTime()) * 1000);
+    widg.AddBullet("Camera Position: %f, %f, %f", camPosition.x, camPosition.y, camPosition.z);
     widg.Draw();
 }
 

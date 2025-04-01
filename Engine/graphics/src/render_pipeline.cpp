@@ -52,10 +52,10 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexBindingDescriptions = nullptr;
-    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+    vertexInputInfo.vertexBindingDescriptionCount = 0;      // MUST be 0
+    vertexInputInfo.pVertexBindingDescriptions = nullptr;   // MUST be nullptr
+    vertexInputInfo.vertexAttributeDescriptionCount = 0;    // MUST be 0
+    vertexInputInfo.pVertexAttributeDescriptions = nullptr; // MUST be nullptr
     vertexInputInfo.flags = 0;
     vertexInputInfo.pNext = nullptr;
 
@@ -201,7 +201,6 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
     configInfo.renderingInfo.colorAttachmentCount = 1;
     configInfo.renderingInfo.pColorAttachmentFormats = &configInfo.colorAttachmentFormat;
     configInfo.renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
-    // configInfo.renderingInfo.stencilAttachmentFormat = VK_FORMAT_D32_SFLOAT;
 
     // hardcoded for now
     configInfo.colorAttachmentFormat = VK_FORMAT_R16G16B16A16_SFLOAT;

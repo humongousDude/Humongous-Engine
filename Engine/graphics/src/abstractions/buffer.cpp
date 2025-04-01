@@ -7,11 +7,13 @@
  * https://github.com/SaschaWillems/Vulkan/blob/master/base/VulkanBuffer.h
  */
 
+#include "logger.hpp"
 #include <abstractions/buffer.hpp>
 
 // std
 #include <cassert>
 #include <cstring>
+#include <vulkan/vk_enum_string_helper.h>
 
 // TODO: Change this to use vulkan.hpp
 
@@ -79,6 +81,22 @@ Buffer::~Buffer()
 
 void Buffer::CreateBuffer(CreateInfo& createInfo)
 {
+    if(!createInfo.device)
+    {
+        HGERROR("Invalid Logical Device passed to buffer creator");
+        return;
+    }
+    if(!createInfo.device->GetVmaAllocator())
+    {
+        HGERROR("Unable to acquire valid VMA Allocator from Logical Device");
+        return;
+    }
+    if(createInfo.size <= 0)
+    {
+        HGERROR("Cannot create buffer with <= 0 memory");
+        return;
+    }
+
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = createInfo.size;
@@ -89,19 +107,22 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
     allocCreateInfo.usage = createInfo.memoryUsage;
     allocCreateInfo.requiredFlags = createInfo.properties;
 
-    VmaAllocationInfo allocInfo{};
-    allocInfo.offset = 0;
-    allocInfo.size = createInfo.size;
-    allocInfo.deviceMemory = createInfo.memory;
-    allocInfo.pMappedData = nullptr;
-    allocInfo.pUserData = nullptr;
+    VkResult result =
+        vmaCreateBuffer(createInfo.device->GetVmaAllocator(), &bufferInfo, &allocCreateInfo, createInfo.buffer, &createInfo.allocation, nullptr);
 
-    vmaCreateBufferWithAlignment(createInfo.device->GetVmaAllocator(), &bufferInfo, &allocCreateInfo, createInfo.minOffsetAlignment,
-                                 createInfo.buffer, &createInfo.allocation, &allocInfo);
+    if(result != VK_SUCCESS) { HGERROR("Failed to create buffer: %s", string_VkResult(result)); }
 
-    VmaAllocationInfo ret{};
-    vmaGetAllocationInfo(createInfo.device->GetVmaAllocator(), createInfo.allocation, &ret);
-    m_allocationInfo = ret;
+    // Retrieve allocation info
+    VmaAllocationInfo allocInfo = {};
+    vmaGetAllocationInfo(createInfo.device->GetVmaAllocator(), createInfo.allocation, &allocInfo);
+
+    if(!createInfo.allocation) { HGERROR("Failed to get allocation info"); }
+
+    m_allocationInfo = allocInfo;
+
+    // Log allocation details
+    // std::cout << "Buffer created: size=" << bufferInfo.size << ", offset=" << allocInfo.offset << ", deviceMemory=" << allocInfo.deviceMemory
+    //           << std::endl;
 }
 
 /**
@@ -117,8 +138,8 @@ VkResult Buffer::Map(VkDeviceSize size, VkDeviceSize offset)
 {
     HGASSERT(m_buffer && m_allocationInfo.deviceMemory && "Called map on buffer before create");
 
-    m_mapCallCount++;
-    return vmaMapMemory(m_logicalDevice->GetVmaAllocator(), m_allocation, &m_allocationInfo.pMappedData);
+    if(!m_allocationInfo.pMappedData) { return vmaMapMemory(m_logicalDevice->GetVmaAllocator(), m_allocation, &m_allocationInfo.pMappedData); }
+    else { return VK_SUCCESS; }
 }
 
 /**
@@ -132,14 +153,14 @@ void Buffer::UnMap()
     {
         if(!(m_memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) { Invalidate(); }
 
-        for(int i = 0; i < m_mapCallCount; i++) { vmaUnmapMemory(m_logicalDevice->GetVmaAllocator(), m_allocation); }
+        if(m_allocationInfo.pMappedData) { vmaUnmapMemory(m_logicalDevice->GetVmaAllocator(), m_allocation); }
 
         m_allocationInfo.pMappedData = nullptr;
     }
 }
 
 /**
- * Copies the specified data to the m_mapped m_buffer. Default value writes whole m_buffer range
+ * Copies the specified data to the mapped buffer. Default value writes whole m_buffer range
  *
  * @param data Pointer to the data to copy
  * @param size (Optional) Size of the data to copy. Pass VK_WHOLE_SIZE to flush the complete m_buffer
@@ -149,19 +170,17 @@ void Buffer::UnMap()
  */
 void Buffer::WriteToBuffer(void* data, VkDeviceSize size, VkDeviceSize offset)
 {
-    assert(m_allocationInfo.pMappedData && "Cannot copy to unmapped buffer");
+    if(!m_allocationInfo.pMappedData) { HGERROR("Cannot copy to unmapped buffer"); }
 
-    if(size == VK_WHOLE_SIZE) { memcpy(m_allocationInfo.pMappedData, data, m_bufferSize); }
-    else
-    {
-        char* memOffset = (char*)m_allocationInfo.pMappedData;
-        memOffset += offset;
-        memcpy(memOffset, data, size);
-    }
+    if(size == VK_WHOLE_SIZE) { size = m_bufferSize; }
+    if(offset + size > m_bufferSize) { HGERROR("Write exceeds buffer bounds"); }
+
+    char* memOffset = static_cast<char*>(m_allocationInfo.pMappedData) + offset;
+    memcpy(memOffset, data, size);
 }
 
 /**
- * Flush a m_memory range of the m_buffer to make it visible to the device
+ * Flush a memory range of the buffer to make it visible to the device
  *
  * @note Only required for non-coherent m_memory
  *
@@ -205,7 +224,6 @@ VkResult Buffer::Invalidate(VkDeviceSize size, VkDeviceSize offset)
 
 void Buffer::UpdateAddress(VkBufferUsageFlags usage)
 {
-
     if(!(usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)) { return; }
     VkBufferDeviceAddressInfo bufferDeviceAddressInfo{};
     bufferDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
@@ -294,4 +312,5 @@ void Buffer::CopyBuffer(LogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuf
     srcBuffer.UpdateAddress(srcBuffer.GetUsageFlags());
     dstBuffer.UpdateAddress(dstBuffer.GetUsageFlags());
 }
+
 } // namespace Humongous

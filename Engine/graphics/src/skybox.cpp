@@ -1,6 +1,5 @@
 #include "skybox.hpp"
 #include "abstractions/descriptor_writer.hpp"
-#include "extra.hpp"
 #include "model.hpp"
 #include "tiny_gltf.h"
 
@@ -62,9 +61,6 @@ void Skybox::LoadCube()
         {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
     };
 
-    // makes the skybox very far away
-    for(auto& vert: vertices) { vert.position *= 1000; }
-
     m_vertexCount = static_cast<n32>(vertices.size());
     m_indexCount = static_cast<n32>(indices.size());
 
@@ -106,6 +102,32 @@ void Skybox::LoadCube()
                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_CPU_COPY);
 
         Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_indexBuffer, bufferSize);
+    }
+
+    // Indirect Draw buffer
+    {
+        VkDeviceSize bufferSize = sizeof(VkDrawIndexedIndirectCommand);
+
+        Buffer stagingBuffer{m_logicalDevice,
+                             bufferSize,
+                             1,
+                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                             VMA_MEMORY_USAGE_CPU_TO_GPU,
+                             4};
+        m_command.firstIndex = 0;
+        m_command.indexCount = m_indexCount;
+        m_command.vertexOffset = 0;
+        m_command.instanceCount = 1;
+        m_command.firstInstance = 0;
+        stagingBuffer.Map();
+        stagingBuffer.WriteToBuffer((void*)&m_command);
+
+        m_indirectDrawBuffer =
+            std::make_unique<Buffer>(m_logicalDevice, bufferSize, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_CPU_COPY, 4);
+
+        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_indirectDrawBuffer, bufferSize);
     }
 }
 

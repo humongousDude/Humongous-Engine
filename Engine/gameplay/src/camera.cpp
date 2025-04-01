@@ -2,6 +2,7 @@
 #include "logger.hpp"
 #include <camera.hpp>
 
+#include <glm/ext/matrix_transform.hpp>
 #include <swapchain.hpp>
 
 #include <glm/gtc/matrix_access.hpp>
@@ -10,7 +11,7 @@
 namespace Humongous
 {
 
-Camera::Camera(LogicalDevice* logicalDevice) { InitDescriptorThings(logicalDevice); }
+Camera::Camera(LogicalDevice* logicalDevice) : m_position(0), m_rotation(0) { InitDescriptorThings(logicalDevice); }
 
 Camera::~Camera() {}
 
@@ -26,16 +27,17 @@ void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
 
     DescriptorSetLayout::Builder builder2{*logicalDevice};
     builder2.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-    m_projectionLayout = builder2.build();
+    m_projectionLayout = builder2.Build();
 
     DescriptorSetLayout::Builder builder3{*logicalDevice};
     builder3.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    m_paramLayout = builder3.build();
+    m_paramLayout = builder3.Build();
 
     m_projectionBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_projectionMatrixSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_uboParamSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_paramBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_combinedCameraDataBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
     for(int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
     {
@@ -54,20 +56,47 @@ void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
 
         auto paramInfo = m_paramBuffers[i]->DescriptorInfo();
         DescriptorWriter(*m_paramLayout, m_projectionPool.get()).WriteBuffer(0, &paramInfo).Build(m_uboParamSet[i]);
+
+        m_combinedCameraDataBuffers[i] = std::make_unique<Buffer>(
+            logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(Camera::CombinedCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_AUTO);
     }
 }
 
-void Camera::UpdateUBO(n32 index, const glm::vec3& camPos)
+void Camera::Update()
+{
+    UpdateViewMatrix();
+    UpdateUBO(m_index);
+    UpdateCombinedCameraData(m_index);
+
+    m_index = (m_index + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
+}
+
+void Camera::UpdateUBO(n32 index)
 {
     ProjectionUBO ubo{};
     ubo.projection = m_projectionMatrix;
     ubo.view = m_viewMatrix;
-    ubo.cameraPos = camPos;
+    ubo.projectionView = GetProjectionViewMatrix();
+    ubo.cameraPos = m_position;
 
     m_projectionBuffers[index]->WriteToBuffer(&ubo);
 
     UboParams params{};
     m_paramBuffers[index]->WriteToBuffer(&params);
+}
+
+void Camera::UpdateCombinedCameraData(n32 index)
+{
+    Camera::CombinedCameraData data;
+    data.camPos = m_position;
+    data.projection = m_projectionMatrix;
+    data.view = m_viewMatrix;
+    data.projectionView = GetProjectionViewMatrix();
+
+    m_combinedCameraDataBuffers[index]->Map();
+    m_combinedCameraDataBuffers[index]->WriteToBuffer(&data);
+    m_combinedCameraDataBuffers[index]->UnMap();
 }
 
 void Camera::SetOrthographicProjection(float left, float right, float top, float bottom, float near, float far)
@@ -83,63 +112,20 @@ void Camera::SetOrthographicProjection(float left, float right, float top, float
 
 void Camera::SetPerspectiveProjection(float fovy, float aspect, float near, float far)
 {
-    assert(glm::abs(aspect - std::numeric_limits<float>::epsilon()) > 0.0f);
-    const float tanHalfFovy = tan(fovy / 2.f);
-    m_projectionMatrix = glm::mat4{0.0f};
-    m_projectionMatrix[0][0] = 1.f / (aspect * tanHalfFovy);
-    m_projectionMatrix[1][1] = 1.f / (tanHalfFovy);
-    m_projectionMatrix[2][2] = far / (far - near);
-    m_projectionMatrix[2][3] = 1.f;
-    m_projectionMatrix[3][2] = -(far * near) / (far - near);
+    m_projectionMatrix = glm::perspectiveRH_NO(fovy, aspect, near, far);
 }
-
-void Camera::SetViewDirection(glm::vec3 position, glm::vec3 direction, glm::vec3 up)
+void Camera::UpdateViewMatrix()
 {
-    const glm::vec3 w{glm::normalize(direction)};
-    const glm::vec3 u{glm::normalize(glm::cross(w, up))};
-    const glm::vec3 v{glm::cross(w, u)};
+    glm::vec3 forwardDir = glm::vec3(0.0f, 0.0f, -1.0f);
+    glm::mat4 cameraRotationMatrix = glm::mat4(1.0f);
+    cameraRotationMatrix = glm::rotate(cameraRotationMatrix, m_rotation.y, glm::vec3(0.0f, 1.0f, 0.0f)); // Yaw
+    cameraRotationMatrix = glm::rotate(cameraRotationMatrix, m_rotation.x, glm::vec3(1.0f, 0.0f, 0.0f)); // Pitch
+    cameraRotationMatrix = glm::rotate(cameraRotationMatrix, m_rotation.z, glm::vec3(0.0f, 0.0f, 1.0f)); // Roll
+    forwardDir = glm::normalize(glm::vec3(cameraRotationMatrix * glm::vec4(forwardDir, 0.0f)));
 
-    m_viewMatrix = glm::mat4{1.f};
-    m_viewMatrix[0][0] = u.x;
-    m_viewMatrix[1][0] = u.y;
-    m_viewMatrix[2][0] = u.z;
-    m_viewMatrix[0][1] = v.x;
-    m_viewMatrix[1][1] = v.y;
-    m_viewMatrix[2][1] = v.z;
-    m_viewMatrix[0][2] = w.x;
-    m_viewMatrix[1][2] = w.y;
-    m_viewMatrix[2][2] = w.z;
-    m_viewMatrix[3][0] = -glm::dot(u, position);
-    m_viewMatrix[3][1] = -glm::dot(v, position);
-    m_viewMatrix[3][2] = -glm::dot(w, position);
-}
+    glm::vec3 target = m_position + forwardDir;
 
-void Camera::SetViewTarget(glm::vec3 position, glm::vec3 target, glm::vec3 up) { SetViewDirection(position, target - position, up); }
-
-void Camera::SetViewYXZ(glm::vec3 position, glm::vec3 rotation)
-{
-    const float     c3 = glm::cos(rotation.z);
-    const float     s3 = glm::sin(rotation.z);
-    const float     c2 = glm::cos(rotation.x);
-    const float     s2 = glm::sin(rotation.x);
-    const float     c1 = glm::cos(rotation.y);
-    const float     s1 = glm::sin(rotation.y);
-    const glm::vec3 u{(c1 * c3 + s1 * s2 * s3), (c2 * s3), (c1 * s2 * s3 - c3 * s1)};
-    const glm::vec3 v{(c3 * s1 * s2 - c1 * s3), (c2 * c3), (c1 * c3 * s2 + s1 * s3)};
-    const glm::vec3 w{(c2 * s1), (-s2), (c1 * c2)};
-    m_viewMatrix = glm::mat4{1.f};
-    m_viewMatrix[0][0] = u.x;
-    m_viewMatrix[1][0] = u.y;
-    m_viewMatrix[2][0] = u.z;
-    m_viewMatrix[0][1] = v.x;
-    m_viewMatrix[1][1] = v.y;
-    m_viewMatrix[2][1] = v.z;
-    m_viewMatrix[0][2] = w.x;
-    m_viewMatrix[1][2] = w.y;
-    m_viewMatrix[2][2] = w.z;
-    m_viewMatrix[3][0] = -glm::dot(u, position);
-    m_viewMatrix[3][1] = -glm::dot(v, position);
-    m_viewMatrix[3][2] = -glm::dot(w, position);
+    m_viewMatrix = glm::lookAtRH(m_position, target, glm::vec3(0.0f, 1.0f, 0.0f));
 }
 
 void Camera::ExtractFrustumPlanes(const glm::mat4& projectionViewMatrix, std::array<Plane, 6>& frustumPlanes)
@@ -190,7 +176,7 @@ void Camera::ExtractFrustumPlanes(const glm::mat4& projectionViewMatrix, std::ar
 }
 
 // Check if an AABB is outside a single frustum plane
-bool Camera::IsAABBOutsidePlane(const Plane& plane, const glm::vec3& aabbMin, const glm::vec3& aabbMax)
+bool Camera::IsAABBOutsidePlane(const Plane& plane, const glm::vec3& aabbMin, const glm::vec3& aabbMax) const
 {
     // Calculate the positive and negative vertices relative to the plane
     glm::vec3 positiveVertex = aabbMin;
@@ -220,10 +206,10 @@ bool Camera::IsAABBOutsidePlane(const Plane& plane, const glm::vec3& aabbMin, co
 }
 
 // Check if an AABB is inside the frustum
-bool Camera::IsAABBInsideFrustum(const glm::vec3& aabbMin, const glm::vec3& aabbMax)
+bool Camera::IsAABBInsideFrustum(const glm::vec3& aabbMin, const glm::vec3& aabbMax) const
 {
     std::array<Plane, 6> frustumPlanes;
-    Camera::ExtractFrustumPlanes(GetVPM(), frustumPlanes);
+    Camera::ExtractFrustumPlanes(GetProjectionViewMatrix(), frustumPlanes);
 
     for(int i = 0; i < 6; i++)
     {

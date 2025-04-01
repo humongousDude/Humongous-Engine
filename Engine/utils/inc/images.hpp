@@ -37,15 +37,16 @@ struct AllocatedImageCreateInfo
 
 struct ImageTransitionInfo
 {
-    VkCommandBuffer cmd;
-    VkImageLayout   oldLayout;
-    VkImageLayout   newLayout;
-    LogicalDevice*  logicalDevice;
-    VkImage         image;
-    n32             baseMipLevel = 0;
-    n32             levelCount = 1;
-    n32             baseArrayLayer = 0;
-    n32             layerCount = 1;
+    VkCommandBuffer    cmd;
+    VkImageLayout      oldLayout;
+    VkImageLayout      newLayout;
+    LogicalDevice*     logicalDevice;
+    VkImage            image;
+    VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_NONE;
+    n32                baseMipLevel = 0;
+    n32                levelCount = 1;
+    n32                baseArrayLayer = 0;
+    n32                layerCount = 1;
 };
 
 void CreateAllocatedImage(LogicalDevice& logicalDevice, n32 width, n32 height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
@@ -54,7 +55,11 @@ void CreateAllocatedImage(LogicalDevice& logicalDevice, n32 width, n32 height, V
 
 void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo);
 
+/**
+ *  Quick helper function, usage not recommended
+ */
 void TransitionImageLayout(LogicalDevice& logicalDevice, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
+
 void TransitionImageLayout(ImageTransitionInfo& info);
 
 void CopyImageToImage(VkCommandBuffer cmd, VkImage src, VkImage dst, VkExtent2D srcSize, VkExtent2D dstSize);

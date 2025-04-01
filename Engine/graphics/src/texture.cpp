@@ -46,29 +46,82 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     unsigned char* buffer = nullptr;
     VkDeviceSize   bufferSize = 0;
     bool           deleteBuffer = false;
+
+    m_width = gltfimage.width;
+    m_height = gltfimage.height;
+    VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
+    size_t   expectedBufferSize = m_width * m_height * 4;
+
     if(gltfimage.component == 3)
     {
-        // Most devices don't support RGB only on Vulkan so convert if necessary
-        // TODO: Check actual format support and transform only if required
-        bufferSize = gltfimage.width * gltfimage.height * 4;
+        bufferSize = expectedBufferSize;
         buffer = new unsigned char[bufferSize];
         unsigned char* rgba = buffer;
         unsigned char* rgb = &gltfimage.image[0];
-        for(s32 i = 0; i < gltfimage.width * gltfimage.height; ++i)
+        for(s32 i = 0; i < m_width * m_height; ++i)
         {
             for(s32 j = 0; j < 3; ++j) { rgba[j] = rgb[j]; }
+            rgba[3] = 255; // Add alpha channel
             rgba += 4;
             rgb += 3;
         }
         deleteBuffer = true;
     }
+    else if(gltfimage.component == 4)
+    {
+        if(gltfimage.image.size() != expectedBufferSize)
+        {
+            // Handle potential size mismatch, maybe log an error or resize
+            bufferSize = gltfimage.image.size();
+            buffer = &gltfimage.image[0];
+        }
+        else
+        {
+            bufferSize = gltfimage.image.size();
+            buffer = &gltfimage.image[0];
+        }
+    }
+    else if(gltfimage.component == 1)
+    {
+        bufferSize = expectedBufferSize;
+        buffer = new unsigned char[bufferSize];
+        unsigned char* rgba = buffer;
+        unsigned char* gray = &gltfimage.image[0];
+        for(s32 i = 0; i < m_width * m_height; ++i)
+        {
+            rgba[0] = gray[0]; // R
+            rgba[1] = gray[0]; // G
+            rgba[2] = gray[0]; // B
+            rgba[3] = 255;     // A
+            rgba += 4;
+            gray += 1;
+        }
+        deleteBuffer = true;
+    }
+    else if(gltfimage.component == 2)
+    {
+        bufferSize = expectedBufferSize;
+        buffer = new unsigned char[bufferSize];
+        unsigned char* rgba = buffer;
+        unsigned char* ga = &gltfimage.image[0];
+        for(s32 i = 0; i < m_width * m_height; ++i)
+        {
+            rgba[0] = ga[0]; // R (grayscale)
+            rgba[1] = ga[0]; // G (grayscale)
+            rgba[2] = ga[0]; // B (grayscale)
+            rgba[3] = ga[1]; // A
+            rgba += 4;
+            ga += 2;
+        }
+        deleteBuffer = true;
+    }
     else
     {
-        buffer = &gltfimage.image[0];
-        bufferSize = gltfimage.image.size();
+        // Handle unsupported component count
+        HGASSERT(false && "Unsupported image component count");
+        return;
     }
 
-    VkFormat           format = VK_FORMAT_R8G8B8A8_UNORM;
     VkFormatProperties formatProperties;
 
     m_width = gltfimage.width;
@@ -85,6 +138,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                          VMA_MEMORY_USAGE_CPU_TO_GPU};
+
     stagingBuffer.Map();
     stagingBuffer.WriteToBuffer((void*)buffer, bufferSize);
 
@@ -274,7 +328,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         createInfo.height = m_height;
         createInfo.mipLevels = m_miplevels;
         createInfo.layerCount = 1;
-        createInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        createInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
         createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -300,7 +354,9 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         m_logicalDevice->EndSingleTimeCommands(cmd);
         m_textureImage.imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
+        HGINFO("COPYING BUFFER TO IMAGE");
         Utils::CopyBufferToImage(*m_logicalDevice, stagingBuffer.GetBuffer(), m_textureImage.image, bufferCopyRegions);
+        HGINFO("COPIED BUFFER TO IMAGE");
 
         VkCommandBuffer cmd2 = m_logicalDevice->BeginSingleTimeCommands();
 

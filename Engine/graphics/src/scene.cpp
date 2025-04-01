@@ -15,7 +15,7 @@ glm::mat4 Node::LocalMatrix()
     transform = glm::scale(transform, m_scale);           // Scale
     transform *= glm::toMat4(m_rotation);                 // Rotation (quaternion assumed)
     transform = glm::translate(transform, m_translation); // Translation
-    transform *= m_matrix;                                // Additional transformation
+    // transform *= m_matrix;                                // Additional transformation
     return transform;
 }
 

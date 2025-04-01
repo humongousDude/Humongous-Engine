@@ -1,5 +1,6 @@
 #pragma once
 
+#include "images.hpp"
 #include "logical_device.hpp"
 #include "non_copyable.hpp"
 #include "physical_device.hpp"
@@ -34,6 +35,8 @@ public:
     std::vector<vk::ImageView> GetImageViews() const { return m_imageViews; }
     std::vector<vk::Image>     GetImages() const { return m_images; }
 
+    // std::vector<AllocatedImage> GetDepthImages() const { return m_depthImages; }
+
 private:
     LogicalDevice&   m_logicalDevice;
     vk::SwapchainKHR m_swapChain;
@@ -44,6 +47,8 @@ private:
 
     std::vector<vk::Image>     m_images;
     std::vector<vk::ImageView> m_imageViews;
+
+    // std::vector<AllocatedImage> m_depthImages;
 
     void CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, vk::SwapchainKHR* oldSwap = nullptr);
     void CreateImageViews();

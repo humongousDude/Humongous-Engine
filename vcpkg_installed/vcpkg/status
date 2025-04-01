@@ -1,0 +1,254 @@
+Package: vcpkg-cmake-config
+Version: 2024-05-23
+Architecture: x64-linux
+Multi-Arch: same
+Abi: b58ae4294790f6234e4678ab7e3d470e39b5ca7d78f701ffa02fd1675db65df2
+Status: install ok installed
+
+Package: vcpkg-cmake
+Version: 2024-04-23
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 5c4786826fa8135c99d293660136ebecb5efcaf3f4fb52a1a094ae25c43a70c4
+Status: install ok installed
+
+Package: glm
+Version: 1.0.1
+Port-Version: 3
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: ea63fe89b42ce5fc36372f4c44220508c6998d7aeec8ff955066303889f1a028
+Description: OpenGL Mathematics (GLM)
+Status: install ok installed
+
+Package: gli
+Version: 2021-07-06
+Port-Version: 2
+Depends: glm, vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 27576ee288c1752e00103563e75b39d619d52cf445b5e019a0bf67c34cb94509
+Description: OpenGL Image (GLI)
+Status: install ok installed
+
+Package: zstd
+Version: 1.5.7
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 862dfd07395097ac8886357b199305bbab3005fc17d51a6175df9e32b757b9db
+Description: Zstandard - Fast real-time compression algorithm
+Status: install ok installed
+
+Package: vcpkg-cmake-get-vars
+Version: 2024-09-22
+Depends: vcpkg-cmake
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 600b81fd901d52aa5f3ab4b3a1a2342f7f9ea88b2e2ce8e661b0c3dccc96b131
+Status: install ok installed
+
+Package: vcpkg-tool-meson
+Version: 1.6.1
+Depends: vcpkg-cmake-get-vars
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 67c6a0970efafd44e251fd273adfb24eaf9af014047a28031af51ad591d29512
+Description: Meson build system
+Status: install ok installed
+
+Package: lz4
+Version: 1.10.0
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 6ee4043e7e486be7d36e722dbf8e9681abef0665961b4d86382e4a1526109d26
+Description: Lossless compression algorithm, providing compression speed at 400 MB/s per core.
+Status: install ok installed
+
+Package: vcpkg-make
+Version: 2025-02-08
+Depends: vcpkg-cmake-get-vars
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 304677e7aabf1cef8ee9eab0f17dc1bc82c523f30c6b125c576efeb8f7f362cd
+Status: install ok installed
+
+Package: libxcrypt
+Version: 4.4.38
+Depends: vcpkg-make
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 4b8b913978f7953b873693b8cf09177d0a1106ec302cbb3c1f2f73aee86c151e
+Description: libxcrypt is a modern library for one-way hashing of passwords. On Linux-based systems, by default libxcrypt will be binary backward compatible with the libcrypt.so.1 shipped as part of the GNU C Library.
+Status: install ok installed
+
+Package: libmount
+Version: 2.40
+Architecture: x64-linux
+Multi-Arch: same
+Abi: b2afb8219ef9dcbf206d304cb7ef95bb1ad25edae7644c6b663a282ea30e306a
+Description: Block device identification library from util-linux
+Status: install ok installed
+
+Package: liblzma
+Version: 5.6.3
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 25200471cebe6944cdc8c7543bc3d204f4600c88be1ea0a93e95101ce3c17e9b
+Description: Compression library with an API similar to that of zlib.
+Status: install ok installed
+
+Package: libcap
+Version: 2.73
+Depends: libcap, vcpkg-cmake-get-vars
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 722c5fa8b3d2716ba15342e0a6f7393fe6e366e3583cd0504eab26f57048a965
+Description: A library for getting and setting POSIX.1e (formerly POSIX 6) draft 15 capabilities.
+Status: install ok installed
+
+Package: gperf
+Version: 3.1
+Port-Version: 7
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: aa203b727998e149564e2493474ced247d4a790d38c142af8369d130b4e0d221
+Description: GNU perfect hash function generator
+Status: install ok installed
+
+Package: libsystemd
+Version: 256.4
+Depends: gperf, libcap, liblzma, libmount, libxcrypt, lz4, vcpkg-tool-meson, zstd
+Architecture: x64-linux
+Multi-Arch: same
+Abi: c3727dc45608a75ea034f8a7bf53978a7bb1fd019418e4fad085af44a2b710aa
+Description: Libsystemd
+Status: install ok installed
+
+Package: expat
+Version: 2.6.4
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: cc34f0f46e32cc21749b5785514b30bd507f6157d587db3b794bebd098d89643
+Description: XML parser library written in C
+Status: install ok installed
+
+Package: dbus
+Version: 1.16.2
+Port-Version: 1
+Depends: expat, vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: f6f2d6b5ed0f889e517bab9ec23fb09046a667bdf39718052b56b2ab33b354b3
+Description: D-Bus specification and reference implementation, including libdbus and dbus-daemon
+Default-Features: systemd
+Status: install ok installed
+
+Package: dbus
+Feature: systemd
+Depends: libsystemd
+Architecture: x64-linux
+Multi-Arch: same
+Description: Build with systemd at_console support
+Status: install ok installed
+
+Package: sdl3
+Version: 3.2.8
+Depends: dbus, vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 2cc5968c7f537f332b4b27d945702ba2f26d456e9a2258346b346c5df7673b27
+Description: Simple DirectMedia Layer is a cross-platform development library designed to provide low level access to audio, keyboard, mouse, joystick, and graphics hardware via OpenGL and Direct3D.
+Default-Features: ibus, wayland, x11
+Status: install ok installed
+
+Package: sdl3
+Feature: ibus
+Architecture: x64-linux
+Multi-Arch: same
+Description: Build with ibus IME support
+Status: install ok installed
+
+Package: sdl3
+Feature: wayland
+Architecture: x64-linux
+Multi-Arch: same
+Description: Build with Wayland support
+Status: install ok installed
+
+Package: sdl3
+Feature: x11
+Architecture: x64-linux
+Multi-Arch: same
+Description: Build with X11 support
+Status: install ok installed
+
+Package: fmt
+Version: 11.0.2
+Port-Version: 1
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: f2fbfb32fcae88cff7105c902f0acb8b7a089174bb83b9fb3416492c1226281f
+Description: {fmt} is an open-source formatting library providing a fast and safe alternative to C stdio and C++ iostreams.
+Status: install ok installed
+
+Package: spdlog
+Version: 1.15.1
+Port-Version: 1
+Depends: fmt, vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 37c63ff99ae4b19da9b41ef6d2fbe7af64630ec1b8db5672393876dd1bde90ba
+Description: Very fast, header-only/compiled, C++ logging library.
+Status: install ok installed
+
+Package: stb
+Version: 2024-07-29
+Port-Version: 1
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 9ff91f32efd8546b019efcf22ee60541395c8b44c8afad63619b3648c26f61a2
+Description: public domain header-only libraries
+Status: install ok installed
+
+Package: nlohmann-json
+Version: 3.11.3
+Port-Version: 1
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 506c2d5b26afc1bcc64db34266291920cc42ef0ce96fb7fc47a733a0086b231c
+Description: JSON for Modern C++
+Status: install ok installed
+
+Package: tinygltf
+Version: 2.9.4
+Depends: nlohmann-json, stb
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 7eb4a106b309711177a51356b4d41cd59c7a5d46a44d25861ff45c8f1e4250ef
+Description: A header only C++11 glTF 2.0 library.
+Status: install ok installed
+
+Package: vulkan-memory-allocator
+Version: 3.1.0
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-linux
+Multi-Arch: same
+Abi: 2fa6503f6efe6fa7aa207112ed9b87453af4d52b3f374773700a779d16beacc6
+Description: Easy to integrate Vulkan memory allocation library from GPUOpen
+Status: install ok installed
+
+Package: sdl3
+Feature: vulkan
+Architecture: x64-linux
+Multi-Arch: same
+Description: Vulkan functionality for SDL
+Status: install ok installed
+

@@ -1,14 +1,15 @@
 #include "vulkan_app.hpp"
 #include "allocator.hpp"
 #include "camera.hpp"
+#include "extra.hpp"
 #include "globals.hpp"
 #include "keyboard_handler.hpp"
 #include "logger.hpp"
-#include "model.hpp"
+#include "resource_manager.hpp"
 #include "ui/ui.hpp"
+#include "ui/widget.hpp"
 #define VMA_IMPLEMENTATION
 #include "asset_manager.hpp"
-#include "ui/widget.hpp"
 #include "vk_mem_alloc.h"
 
 namespace Humongous
@@ -32,10 +33,6 @@ void VulkanApp::Init(int argc, char* argv[])
     m_physicalDevice = std::make_unique<PhysicalDevice>(*m_instance, *m_window);
     m_logicalDevice = std::make_unique<LogicalDevice>(*m_instance, *m_physicalDevice);
 
-    HGINFO("Device has %i images", static_cast<s8>(m_logicalDevice->GetPhysicalDevice()
-                                                       .QuerySwapChainSupport(m_logicalDevice->GetPhysicalDevice().GetVkPhysicalDevice())
-                                                       .capabilities.surfaceCapabilities.maxImageCount));
-
     if(argc > 1)
     {
         std::vector<std::string> paths;
@@ -50,6 +47,8 @@ void VulkanApp::Init(int argc, char* argv[])
 
     Allocator::Initialize(m_logicalDevice.get());
 
+    ResourceManager::Init(m_logicalDevice.get());
+
     UI::Init(m_instance.get(), m_logicalDevice.get(), m_window.get());
 
     m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator(),
@@ -57,12 +56,22 @@ void VulkanApp::Init(int argc, char* argv[])
 
     m_cam = std::make_unique<Camera>(m_logicalDevice.get());
 
+    std::vector<VkDescriptorSetLayout> simpleLayouts = {m_cam->GetDescriptorSetLayout(), m_cam->GetParamDescriptorSetLayout()};
+    std::vector<VkDescriptorSetLayout> skyboxLayouts = {m_cam->GetDescriptorSetLayout()};
+
+    ShaderSet set = {Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert"),
+                     Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "unlit.frag")};
+
+    m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, simpleLayouts, set);
+    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(m_logicalDevice.get(), "papermill", skyboxLayouts);
+
     m_mainDeletionQueue.PushDeletor([&]() {
         m_simpleRenderSystem.reset();
         m_skyboxRenderSystem.reset();
         m_renderer.reset();
         m_cam.reset();
         UI::Shutdown();
+        ResourceManager::Shutdown();
         Allocator::Shutdown();
         m_logicalDevice.reset();
         m_physicalDevice.reset();
@@ -75,147 +84,146 @@ void VulkanApp::LoadGameObjects()
 {
     HGINFO("Loading game objects...");
 
-    std::shared_ptr<Model> model;
-    model =
-        std::make_shared<Model>(m_logicalDevice.get(), Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, "Sponza"), 1.00);
+    std::shared_ptr<Model> wallModel = ResourceManager::LoadModel("real_wall");
 
-    GameObject obj = GameObject::CreateGameObject();
-    obj.transform.translation = {0.0f, 0.0f, 0.0f};
-    obj.transform.rotation = {glm::radians(-90.0f), 0, 0};
-    obj.transform.scale = {0.50f, 0.50f, 0.50f};
-    obj.SetModel(model);
+    GameObject wall = GameObject::CreateGameObject();
+    wall.transform.translation = glm::vec3(0.0f, 0.0f, 50.f);
+    wall.transform.scale = glm::vec3(50, 40, 1);
+    wall.transform.rotation = glm::vec3(glm::radians(90.0f), 0.0f, 0.0f);
+    wall.SetModel(wallModel);
+    wall.name = "Wall";
+    m_gameObjects.emplace(wall.GetId(), std::move(wall));
 
-    m_gameObjects.emplace(obj.GetId(), std::move(obj));
+    std::shared_ptr<Model> employeeModel = ResourceManager::LoadModel("employee");
 
-    std::shared_ptr<Model> model2;
-    model2 = std::make_shared<Model>(m_logicalDevice.get(),
-                                     Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, "DamagedHelmet"), 1.00);
+    GameObject employee = GameObject::CreateGameObject();
+    employee.transform.translation = glm::vec3(0, 0, 5);
+    employee.transform.scale = glm::vec3(1.0f);
+    employee.transform.rotation = glm::vec3(glm::radians(90.f), 0.0f, 0.0f);
+    employee.name = "Employee";
+    employee.SetModel(employeeModel);
 
-    GameObject obj2 = GameObject::CreateGameObject();
-    obj2.transform.translation = {1.0f, 0.0f, 0.0f};
-    obj2.transform.rotation = {glm::radians(180.0f), 0, 0};
-    obj2.transform.scale = {0.50f, 0.50f, 0.50f};
-    obj2.SetModel(model2);
+    m_gameObjects.emplace(employee.GetId(), std::move(employee));
 
-    m_gameObjects.emplace(obj2.GetId(), std::move(obj2));
+    std::shared_ptr<Model> carModel = ResourceManager::LoadModel("silly thing");
 
-    std::shared_ptr<Model> model3;
-    model3 = std::make_shared<Model>(m_logicalDevice.get(), Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, "old_hunter"),
-                                     1.00);
-    GameObject obj3 = GameObject::CreateGameObject();
-    obj3.transform.translation = {-1.0f, 0.0f, 0.0f};
-    obj3.transform.rotation = {glm::radians(180.0f), 0, 0};
-    obj3.transform.scale = {0.50f, 0.50f, 0.50f};
-    obj3.SetModel(model3);
+    GameObject car = GameObject::CreateGameObject();
+    car.transform.translation = glm::vec3(0, 0, 150);
+    car.transform.scale = glm::vec3(1);
+    car.name = "Car";
+    car.SetModel(carModel);
 
-    m_gameObjects.emplace(obj3.GetId(), std::move(obj3));
+    m_gameObjects.emplace(car.GetId(), std::move(car));
 
-    // std::shared_ptr<Model> m = std::make_shared<Model>(
-    //     m_logicalDevice.get(), Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, "high_res_car"), 1.0f);
-
-    // int x = 0, y = 0, z = 0;
-    // for(int i = 0; i < 1000; i++)
-    // {
-    //     x+=5;
-    //     if(x >= 50)
-    //     {
-    //         x = 0;
-    //         z+=5;
-    //     }
-    //     if(z >= 50)
-    //     {
-    //         y+= 5;
-    //         x = 0;
-    //         z = 0;
-    //     }
-    //
-    //     GameObject o = GameObject::CreateGameObject();
-    //     o.transform.translation = {x, y, z};
-    //     o.transform.rotation = {glm::radians(180.f), 0, 0};
-    //     o.SetModel(m);
-    //
-    //     m_gameObjects.emplace(o.GetId(), std::move(o));
-    // }
+    m_mainDeletionQueue.PushDeletor([&]() { m_gameObjects.clear(); });
 
     HGINFO("Loaded game objects");
-    m_mainDeletionQueue.PushDeletor([&]() { m_gameObjects.clear(); });
 }
 
-void VulkanApp::HandleInput(float frameTime, GameObject& viewerObject, SDL_Event* event)
+void VulkanApp::HandleInput(float frameTime, SDL_Event* event)
 {
-    float deltaX, deltaY;
+    float                      deltaX = 0.0f, deltaY = 0.0f;                    // Initialize mouse deltas to zero
+    KeyboardHandler::Movements movementType = KeyboardHandler::Movements::NONE; // Initialize movement type
 
-    KeyboardHandler handler;
+    KeyboardHandler handler; // Create handler instance here, if you intend to create a new one each frame - though ideally, this should be a member
+                             // of VulkanApp if it needs to hold state
 
-    // Handle cursor visibility
+    // Handle cursor visibility (This part is fine as is)
     const bool* keyboardState = SDL_GetKeyboardState(nullptr);
     if(keyboardState[SDL_SCANCODE_I] && !m_window->IsCursorHidden()) { m_window->HideCursor(); }
-
     if((keyboardState[SDL_SCANCODE_O] || keyboardState[SDL_SCANCODE_ESCAPE]) && m_window->IsCursorHidden()) { m_window->ShowCursor(); }
+    if(!m_window->IsCursorHidden()) { return; } // If cursor is visible, skip camera input
 
-    // Get the current mouse position
-    if(!m_window->IsCursorHidden()) { return; }
+    // Get relative mouse state only once
     SDL_GetRelativeMouseState(&deltaX, &deltaY);
 
-    KeyboardHandler::InputData data{frameTime, viewerObject, KeyboardHandler::Movements::NONE, deltaX, deltaY};
-    handler.ProcessInput(data);
-
-    // Handle movement inputs (W, A, S, D, Q, E)
-    if(keyboardState[SDL_SCANCODE_W])
-    {
-        data.movementType = KeyboardHandler::Movements::FORWARD;
-        handler.ProcessInput(data);
-    }
+    // Determine movement type based on keyboard input (combine movements)
+    if(keyboardState[SDL_SCANCODE_W]) { movementType = KeyboardHandler::Movements::FORWARD; }
     if(keyboardState[SDL_SCANCODE_S])
     {
-        data.movementType = KeyboardHandler::Movements::BACKWARD;
-        handler.ProcessInput(data);
+        if(movementType == KeyboardHandler::Movements::FORWARD)
+        {
+            movementType = KeyboardHandler::Movements::NONE; // cancel out forward/backward
+        }
+        else { movementType = KeyboardHandler::Movements::BACKWARD; }
     }
     if(keyboardState[SDL_SCANCODE_A])
     {
-        data.movementType = KeyboardHandler::Movements::LEFT;
-        handler.ProcessInput(data);
+        if(movementType == KeyboardHandler::Movements::RIGHT)
+        {
+            movementType = KeyboardHandler::Movements::NONE; // cancel out left/right
+        }
+        else if(movementType == KeyboardHandler::Movements::FORWARD)
+        {
+            movementType = KeyboardHandler::Movements::FORWARD_LEFT; // combine diagonal movement
+        }
+        else if(movementType == KeyboardHandler::Movements::BACKWARD)
+        {
+            movementType = KeyboardHandler::Movements::BACKWARD_LEFT; // combine diagonal movement
+        }
+        else { movementType = KeyboardHandler::Movements::LEFT; }
     }
     if(keyboardState[SDL_SCANCODE_D])
     {
-        data.movementType = KeyboardHandler::Movements::RIGHT;
-        handler.ProcessInput(data);
+        if(movementType == KeyboardHandler::Movements::LEFT)
+        {
+            movementType = KeyboardHandler::Movements::NONE; // cancel out left/right
+        }
+        else if(movementType == KeyboardHandler::Movements::FORWARD)
+        {
+            movementType = KeyboardHandler::Movements::FORWARD_RIGHT; // combine diagonal movement
+        }
+        else if(movementType == KeyboardHandler::Movements::BACKWARD)
+        {
+            movementType = KeyboardHandler::Movements::BACKWARD_RIGHT; // combine diagonal movement
+        }
+        else { movementType = KeyboardHandler::Movements::RIGHT; }
     }
     if(keyboardState[SDL_SCANCODE_Q])
     {
-        data.movementType = KeyboardHandler::Movements::DOWN;
-        handler.ProcessInput(data);
+        if(movementType == KeyboardHandler::Movements::UP)
+        {
+            movementType = KeyboardHandler::Movements::NONE; // cancel out up/down
+        }
+        else { movementType = KeyboardHandler::Movements::DOWN; }
     }
     if(keyboardState[SDL_SCANCODE_E])
     {
-        data.movementType = KeyboardHandler::Movements::UP;
-        handler.ProcessInput(data);
+        if(movementType == KeyboardHandler::Movements::DOWN)
+        {
+            movementType = KeyboardHandler::Movements::NONE; // cancel out up/down
+        }
+        else { movementType = KeyboardHandler::Movements::UP; }
     }
+
+    // Create InputData structure *once* with all input information
+    KeyboardHandler::InputData data{frameTime, movementType, deltaX, deltaY, *m_cam};
+
+    // Process input *only once*
+    handler.ProcessInput(data);
 }
 
 void VulkanApp::Run()
 {
-    float aspect = m_renderer->GetAspectRatio();
-    m_cam->SetViewTarget(glm::vec3(-1.0f, -2.0f, -2.0f), glm::vec3(0.0f, 0.0f, 2.5f));
-
-    std::vector<VkDescriptorSetLayout> simpleLayouts = {m_cam->GetDescriptorSetLayout(), m_cam->GetParamDescriptorSetLayout()};
-    std::vector<VkDescriptorSetLayout> skyboxLayouts = {m_cam->GetDescriptorSetLayout()};
-
-    ShaderSet set = {Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert"),
-                     Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "unlit.frag")};
-
-    m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, simpleLayouts, set);
-    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(m_logicalDevice.get(), "papermill", skyboxLayouts);
-
-    GameObject viewerObject = GameObject::CreateGameObject();
-    viewerObject.transform.translation.z = -2.5f;
-    m_cam->SetViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+    m_cam->UpdateViewMatrix();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
     bool neg{false};
 
-    UiWidget objectWidget{"Objects", true, {200, 400}, {100, 100}, 0};
-    objectWidget.AddText("Object count: %i", m_gameObjects.size());
+    UiWidget objectDataWidget{"Object Data", true, {0, 100}, {300, 1000}, 0};
+    for(auto& [id, obj]: m_gameObjects)
+    {
+        // for(size_t i = 0; i < obj.GetBoundingBox().corners.size(); ++i)
+        // {
+        //     auto box = obj.GetBoundingBox();
+        //     objectDataWidget.AddBullet("\t\tCorner %i: %f, %f, %f", i, box.corners[i].x, box.corners[i].y, box.corners[i].z);
+        // }
+
+        objectDataWidget.AddText("\t\tCorners: ");
+        objectDataWidget.AddText("\t\tPosition: %f, %f, %f", obj.transform.translation.x, obj.transform.translation.y, obj.transform.translation.z);
+        objectDataWidget.AddText("\tObject ID: %i", id);
+        objectDataWidget.AddBullet("Object Model Name: %s", obj.name.c_str());
+    }
 
     HGINFO("Running...");
     bool      quit = false;
@@ -253,48 +261,35 @@ void VulkanApp::Run()
                     break;
             }
         }
+        HandleInput(frameTime, &e);
 
-        HandleInput(frameTime, viewerObject, &e);
-
-        aspect = m_renderer->GetAspectRatio();
-
-        m_cam->SetViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+        float aspect = m_renderer->GetAspectRatio();
 
         m_cam->SetPerspectiveProjection(glm::radians(80.0f), aspect, 0.1f, 1000.0f);
 
         if(!minimized && focused)
         {
-            for(auto& [k, v]: m_gameObjects)
-            {
-                // if(k % 2 == 0)
-                // {
-                //     s8 target = neg ? -2 : 2;
-                //     if(glm::abs(v.transform.translation.z - target) <= .1f) { neg = !neg; }
-                //     v.transform.translation = glm::mix(v.transform.translation, {v.transform.translation.x, 0, target},
-                //                                        static_cast<float>(Globals::Time::AverageDeltaTime()));
-                // }
-                // else
-                // {
-                //     v.transform.translation = glm::mix(
-                //         v.transform.translation,
-                //         {v.transform.translation.x, glm::sin(static_cast<float>(Globals::Time::TimeSinceStart())), v.transform.translation.z},
-                //         static_cast<float>(Globals::Time::AverageDeltaTime()) * 4);
-                // }
-                v.Update();
-            }
+            for(auto& [k, v]: m_gameObjects) { v.Update(); }
 
             if(auto cmd = m_renderer->BeginFrame())
             {
-
+                m_cam->Update();
                 RenderData data{.commandBuffer = cmd,
                                 .uboSets = {m_cam->GetDescriptorSet(m_renderer->GetFrameIndex())},
                                 .sceneSets = {m_cam->GetParamDescriptorSet(m_renderer->GetFrameIndex())},
-                                .gameObjects = m_gameObjects,
+                                .gameObjects = Utils::SortAndCullGameObjects(*m_cam, m_gameObjects),
                                 .frameIndex = m_renderer->GetFrameIndex(),
                                 .cam = *m_cam,
-                                .camPos = viewerObject.transform.translation};
+                                .renderer = *m_renderer,
+                                .camPos = m_cam->GetPosition()};
 
-                m_cam->UpdateUBO(m_renderer->GetFrameIndex(), viewerObject.transform.translation);
+                m_renderer->BeginDepthPrePass(cmd);
+
+                m_simpleRenderSystem->DepthOnlyRender(data);
+
+                m_renderer->EndDepthPrePass(cmd);
+
+                m_renderer->DoGPUOcclusionCulling(cmd, data, *m_cam);
 
                 m_renderer->BeginRendering(cmd);
 
@@ -302,9 +297,9 @@ void VulkanApp::Run()
                 m_simpleRenderSystem->RenderObjects(data);
 
                 UI::BeginUIFrame(cmd);
-                objectWidget.Draw();
 
-                UI::Debug_DrawMetrics(m_simpleRenderSystem->GetObjectsDrawn());
+                objectDataWidget.Draw();
+                UI::Debug_DrawMetrics(m_simpleRenderSystem->GetObjectsDrawn(), m_cam->GetPosition());
 
                 UI::EndUIFRame(cmd);
 

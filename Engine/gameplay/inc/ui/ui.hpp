@@ -32,7 +32,7 @@ public:
 
     static void BeginUIFrame(vk::CommandBuffer cmd) { Get().Internal_BeginUIFrame(cmd); }
     static void EndUIFRame(vk::CommandBuffer cmd) { Get().Internal_EndUIFRame(cmd); }
-    static void Debug_DrawMetrics(const s16& draws) { Get().Internal_Debug_DrawMetrics(draws); }
+    static void Debug_DrawMetrics(const s16& draws, const glm::vec3& camPosition) { Get().Internal_Debug_DrawMetrics(draws, camPosition); }
 
 private:
     bool m_hasInited{false};
@@ -54,6 +54,6 @@ private:
     void Internal_Shutdown();
     void Internal_BeginUIFrame(vk::CommandBuffer cmd);
     void Internal_EndUIFRame(vk::CommandBuffer cmd);
-    void Internal_Debug_DrawMetrics(const s16& draws);
+    void Internal_Debug_DrawMetrics(const s16& draws, const glm::vec3& camPosition);
 };
 }; // namespace Humongous

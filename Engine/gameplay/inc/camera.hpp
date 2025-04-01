@@ -17,10 +17,11 @@
 namespace Humongous
 {
 
-struct ProjectionUBO
+struct alignas(16) ProjectionUBO
 {
     glm::mat4 projection;
     glm::mat4 view;
+    glm::mat4 projectionView;
     glm::vec3 cameraPos;
 };
 
@@ -41,16 +42,20 @@ struct Plane
 class Camera
 {
 public:
+    struct CombinedCameraData
+    {
+        glm::mat4 projection;
+        glm::mat4 view;
+        glm::mat4 projectionView;
+        glm::vec3 camPos;
+    };
+
     Camera(LogicalDevice* logicalDevice);
     ~Camera();
 
     void SetOrthographicProjection(float left, float right, float top, float bottom, float near, float far);
 
     void SetPerspectiveProjection(float fovy, float spect, float near, float far);
-
-    void SetViewDirection(glm::vec3 position, glm::vec3 direction, glm::vec3 up = glm::vec3{0.0f, -1.0f, 0.0f});
-    void SetViewTarget(glm::vec3 position, glm::vec3 target, glm::vec3 up = glm::vec3{0.0f, -1.0f, 0.0f});
-    void SetViewYXZ(glm::vec3 position, glm::vec3 rotation);
 
     VkDescriptorSet GetDescriptorSet(n32 index) const { return m_projectionMatrixSet[index]; };
     VkDescriptorSet GetParamDescriptorSet(n32 index) const { return m_uboParamSet[index]; };
@@ -59,21 +64,34 @@ public:
     const std::vector<VkDescriptorSet> GetCombinedSets(n32 index) const { return {m_projectionMatrixSet[index], m_uboParamSet[index]}; };
     VkDescriptorSetLayout              GetDescriptorSetLayout() const { return m_projectionLayout->GetDescriptorSetLayout(); };
     VkBuffer                           GetProjectionBuffer(n32 index) const { return m_projectionBuffers[index]->GetBuffer(); };
+    Buffer&                            GetProjectionBufferHandle(n32 index) const { return *m_projectionBuffers[index]; }
+    Buffer&                            GetCombinedDataBufferHandle(n32 index) const { return *m_combinedCameraDataBuffers[index]; }
 
     const glm::mat4& GetProjection() const { return m_projectionMatrix; };
     const glm::mat4& GetView() const { return m_viewMatrix; };
 
-    void UpdateUBO(n32 index, const glm::vec3& camPos);
-
-    glm::mat4 GetVPM() const { return m_projectionMatrix * m_viewMatrix; }
+    glm::mat4 GetProjectionViewMatrix() const { return m_projectionMatrix * m_viewMatrix; }
 
     static void ExtractFrustumPlanes(const glm::mat4& viewProjectionMatrix, std::array<Plane, 6>& planes);
-    bool        IsAABBOutsidePlane(const Plane& plane, const glm::vec3& aabbMin, const glm::vec3& aabbMax);
-    bool        IsAABBInsideFrustum(const glm::vec3& aabbMin, const glm::vec3& aabbMax);
+    bool        IsAABBOutsidePlane(const Plane& plane, const glm::vec3& aabbMin, const glm::vec3& aabbMax) const;
+    bool        IsAABBInsideFrustum(const glm::vec3& aabbMin, const glm::vec3& aabbMax) const;
+
+    void UpdateViewMatrix(); // Function to calculate and update m_viewMatrix
+
+    void Update();
+
+    void SetPosition(glm::vec3 position) { m_position = position; }
+    void SetRotation(glm::vec3 rotation) { m_rotation = rotation; }
+
+    glm::vec3 GetPosition() const { return m_position; }
+    glm::vec3 GetRotation() const { return m_rotation; }
 
 private:
+    n32 m_index{0};
+
     std::vector<std::unique_ptr<Buffer>> m_projectionBuffers;
     std::vector<std::unique_ptr<Buffer>> m_paramBuffers;
+    std::vector<std::unique_ptr<Buffer>> m_combinedCameraDataBuffers;
 
     std::unique_ptr<DescriptorPool>      m_projectionPool;
     std::unique_ptr<DescriptorSetLayout> m_projectionLayout;
@@ -85,7 +103,12 @@ private:
 
     glm::mat4 m_projectionMatrix{1.f};
     glm::mat4 m_viewMatrix{1.0f};
+    glm::vec3 m_position;
+    glm::vec3 m_rotation; // Store rotation as Euler angles (YXZ order - Yaw, Pitch, Roll) in radians
 
     void InitDescriptorThings(LogicalDevice* logicalDevice);
+
+    void UpdateUBO(n32 index);
+    void UpdateCombinedCameraData(n32 index);
 };
 } // namespace Humongous
