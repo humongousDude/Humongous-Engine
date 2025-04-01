@@ -31,12 +31,14 @@
 *.out
 *.app
 
-.vscode
+\.vscode
 Binaries
 Binaries-Release
+\.idea
+vcpkg_installed
 
 !*.glb
 *.spv
 
-\.cache/*
+\.cache
 compile_commands.json
