@@ -1,41 +1,63 @@
-set(BUILD_SHARED_LIBS OFF)
-file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS *.cpp)
-file(GLOB IMGUI CONFIGURE_DEPENDS ../lib/imgui/*.cpp)
+# TODO: rewrite this
 
 set(cur_path ${CMAKE_CURRENT_LIST_DIR})
+
+# TODO: Switch from gli to something else
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 cmake_path(GET cur_path PARENT_PATH CMAKE_PARENT_LIST_DIR)
 
-# add_compile_options("-fsanitize=address")
 
 add_compile_definitions(HGASSERTIONS_ENABLED)
 add_definitions(-DHGASSETDIRPATH="${CMAKE_PARENT_LIST_DIR}/Assets/")
 
+file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS core/*.cpp gameplay/*.cpp graphics/*.cpp systems/*.cpp utils/*.cpp)
+
+add_subdirectory(ThirdParty/SDL EXCLUDE_FROM_ALL)
+add_subdirectory(ThirdParty/gli EXCLUDE_FROM_ALL)
+add_subdirectory(ThirdParty/glm EXCLUDE_FROM_ALL)
+add_subdirectory(ThirdParty/spdlog EXCLUDE_FROM_ALL)
+add_subdirectory(ThirdParty/VulkanMemoryAllocator EXCLUDE_FROM_ALL)
+add_subdirectory(ThirdParty/tinygltf EXCLUDE_FROM_ALL)
+
+# There has got to be a better way to do this
+
+file(GLOB IMGUI CONFIGURE_DEPENDS ./ThirdParty/imgui/*.cpp)
 add_library(Engine STATIC ${SRCS} ${IMGUI}
-    ../lib/imgui/backends/imgui_impl_vulkan.cpp
-    ../lib/imgui/backends/imgui_impl_sdl3.cpp   
+    ./ThirdParty/imgui/backends/imgui_impl_vulkan.cpp
+    ./ThirdParty/imgui/backends/imgui_impl_sdl3.cpp   
     )
 
 target_include_directories(
-  Engine
-  PUBLIC core/inc
-         gameplay/inc
-         graphics/inc
-         utils/inc
-         systems/inc
-         ../lib/imgui/
-         ../lib/imgui/backends/
-        )
-
+    Engine
+    PUBLIC core/inc
+           gameplay/inc
+           graphics/inc
+           utils/inc
+           systems/inc
+           ThirdParty/imgui/
+           ThirdParty/imgui/backends/
+           ThirdParty/SDL/include/SDL3/ 
+           ThirdParty/gli/gli/
+           ThirdParty/gli/gli/core/
+           ThirdParty/glm/glm/ext/
+           ThirdParty/glm/glm/gtc/
+           ThirdParty/glm/glm/gtx/
+           ThirdParty/glm/glm/simd/
+           ThirdParty/glm/glm/detail/
+           ThirdParty/spdlog/include/spdlog/
+           ThirdParty/spdlog/include/spdlog/cfg/
+           ThirdParty/spdlog/include/spdlog/fmt/
+           ThirdParty/spdlog/include/spdlog/fmt/bundled/
+           ThirdParty/spdlog/include/spdlog/sinks/
+           ThirdParty/spdlog/include/spdlog/details/
+           ThirdParty/VulkanMemoryAllocator/include/
+)
 
 find_package(Vulkan)
-find_package(SDL3 CONFIG REQUIRED)
-find_package(glm CONFIG REQUIRED)
-find_package(gli CONFIG REQUIRED)
-find_package(spdlog CONFIG REQUIRED)
-find_package(VulkanMemoryAllocator CONFIG REQUIRED)
-find_path(TINYGLTF_INCLUDE_DIRS "tiny_gltf.h")
+
 target_link_libraries(Engine PUBLIC SDL3::SDL3 glm::glm gli spdlog::spdlog Vulkan::Vulkan Vulkan::Headers GPUOpen::VulkanMemoryAllocator)
-target_include_directories(Engine PUBLIC ${TINYGLTF_INCLUDE_DIRS})
+target_include_directories(Engine PUBLIC ThirdParty/tinygltf/)
 
 # Collect shader files
 file(GLOB SHADER_FILES CONFIGURE_DEPENDS

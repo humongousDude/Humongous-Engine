@@ -5,18 +5,14 @@
             "name": "debug",
             "binaryDir": "${sourceDir}/Binaries",
             "generator": "Ninja",
-            "toolchainFile": "$env{vcpkg_root}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "CMAKE_COLOR_DIAGNOSTICS": "ON",
                 "CMAKE_CXX_STANDARD": "20",
                 "CMAKE_C_STANDARD": "23",
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "clang",
-                "CMAKE_CXX_COMPILER": "clang++"
-            },
-            "environment": {
-                "VCPKG_ROOT": "$env{vcpkg_root}"
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++"
             }
         },
         {
@@ -28,8 +24,8 @@
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_CXX_STANDARD": "20",
                 "CMAKE_C_STANDARD": "23",
-                "CMAKE_C_COMPILER": "clang",
-                "CMAKE_CXX_COMPILER": "clang++",
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "OFF",
                 "CMAKE_COLOR_DIAGNOSTICS": "OFF",
                 "CMAKE_CXX_COMPILER_OPTIMIZATION": "3"

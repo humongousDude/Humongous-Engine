@@ -6,9 +6,6 @@
 #include <model.hpp>
 
 // libs
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/gtc/matrix_transform.hpp>
 
 #include <memory>
 #include <unordered_map>

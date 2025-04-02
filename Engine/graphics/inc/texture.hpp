@@ -2,7 +2,7 @@
 
 #include "logical_device.hpp"
 #include <abstractions/buffer.hpp>
-#include <gli/gli.hpp>
+#include <gli.hpp>
 #include <renderer.hpp>
 #include <string>
 
