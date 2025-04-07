@@ -28,6 +28,7 @@ add_library(Engine STATIC ${SRCS} ${IMGUI}
     ./ThirdParty/imgui/backends/imgui_impl_sdl3.cpp   
     )
 
+# Do we need all these directories?
 target_include_directories(
     Engine
     PUBLIC core/inc

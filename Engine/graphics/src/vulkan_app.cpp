@@ -3,14 +3,16 @@
 #include "camera.hpp"
 #include "extra.hpp"
 #include "globals.hpp"
+#include "imgui.h"
+#include "imgui_impl_sdl3.h"
 #include "keyboard_handler.hpp"
 #include "logger.hpp"
 #include "resource_manager.hpp"
-#include "ui/ui.hpp"
-#include "ui/widget.hpp"
 #define VMA_IMPLEMENTATION
 #include "asset_manager.hpp"
 #include "vk_mem_alloc.h"
+
+#include "ui/ui.hpp"
 
 namespace Humongous
 {
@@ -125,8 +127,8 @@ void VulkanApp::HandleInput(float frameTime, SDL_Event* event)
     float                      deltaX = 0.0f, deltaY = 0.0f;                    // Initialize mouse deltas to zero
     KeyboardHandler::Movements movementType = KeyboardHandler::Movements::NONE; // Initialize movement type
 
-    KeyboardHandler handler; // Create handler instance here, if you intend to create a new one each frame - though ideally, this should be a member
-                             // of VulkanApp if it needs to hold state
+    KeyboardHandler handler; // Create handler instance here, if you intend to create a new one each frame - though ideally, this should be a
+                             // member of VulkanApp if it needs to hold state
 
     // Handle cursor visibility (This part is fine as is)
     const bool* keyboardState = SDL_GetKeyboardState(nullptr);
@@ -210,20 +212,34 @@ void VulkanApp::Run()
     auto currentTime = std::chrono::high_resolution_clock::now();
     bool neg{false};
 
-    UiWidget objectDataWidget{"Object Data", true, {0, 100}, {300, 1000}, 0};
+    UiWidget objectDataWidget{"Object Data", true, {0, 100}, {400, 500}, 0};
     for(auto& [id, obj]: m_gameObjects)
     {
-        // for(size_t i = 0; i < obj.GetBoundingBox().corners.size(); ++i)
-        // {
-        //     auto box = obj.GetBoundingBox();
-        //     objectDataWidget.AddBullet("\t\tCorner %i: %f, %f, %f", i, box.corners[i].x, box.corners[i].y, box.corners[i].z);
-        // }
+        objectDataWidget.Add([&]() {
+            if(ImGui::CollapsingHeader(obj.name.c_str()))
+            {
+                ImGui::PushID(id);
+                // ImGui::BulletText("Object Model Name: %s", obj.name.c_str());
+                ImGui::Text("ID: %i", id);
+                ImGui::Text("Position: %f, %f, %f", obj.transform.translation.x, obj.transform.translation.y, obj.transform.translation.z);
 
-        objectDataWidget.AddText("\t\tCorners: ");
-        objectDataWidget.AddText("\t\tPosition: %f, %f, %f", obj.transform.translation.x, obj.transform.translation.y, obj.transform.translation.z);
-        objectDataWidget.AddText("\tObject ID: %i", id);
-        objectDataWidget.AddBullet("Object Model Name: %s", obj.name.c_str());
+                if(ImGui::TreeNode("Boundingbox Corners"))
+                {
+                    for(n32 i = 0; i < obj.GetBoundingBox().corners.size(); ++i)
+                    {
+                        auto box = obj.GetBoundingBox();
+                        ImGui::Text("Corner %i: %f, %f, %f", i, box.corners[i].x, box.corners[i].y, box.corners[i].z);
+                    }
+
+                    ImGui::TreePop();
+                }
+
+                ImGui::PopID();
+            }
+        });
     }
+
+    // objectDataWidget.Add([&]() { ImGui::ShowDemoWindow(); });
 
     HGINFO("Running...");
     bool      quit = false;
@@ -240,6 +256,7 @@ void VulkanApp::Run()
         while(SDL_PollEvent(&e))
         {
             if(e.type == SDL_EVENT_QUIT) { quit = true; }
+            ImGui_ImplSDL3_ProcessEvent(&e);
 
             switch(e.type)
             {
@@ -299,9 +316,10 @@ void VulkanApp::Run()
                 UI::BeginUIFrame(cmd);
 
                 objectDataWidget.Draw();
+
                 UI::Debug_DrawMetrics(m_simpleRenderSystem->GetObjectsDrawn(), m_cam->GetPosition());
 
-                UI::EndUIFRame(cmd);
+                UI::EndUIFrame(cmd);
 
                 m_renderer->EndRendering(cmd);
                 m_renderer->EndFrame();
