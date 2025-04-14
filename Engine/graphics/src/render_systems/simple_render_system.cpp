@@ -175,7 +175,6 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
     n32 v = *static_cast<n32*>(m_debugBuffer->GetMappedMemory());
     m_verticesDrawn = v;
 
-    HGINFO("vertices: %i", m_verticesDrawn);
     m_verticesDrawn = 0;
     m_debugBuffer->WriteToBuffer(&m_verticesDrawn);
     m_debugBuffer->UnMap();
