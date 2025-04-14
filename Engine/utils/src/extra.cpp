@@ -4,9 +4,8 @@
 #include <fstream>
 #include <logger.hpp>
 
-namespace Humongous
-{
-namespace Utils
+
+namespace Humongous::Utils
 {
 
 std::vector<char> ReadFile(const std::string& filePath)
@@ -14,7 +13,7 @@ std::vector<char> ReadFile(const std::string& filePath)
     std::ifstream file(filePath, std::ios::ate | std::ios::binary);
     if(!file.is_open()) { HGERROR("Failed to open file: %s", filePath.c_str()); }
 
-    size_t fileSize = (size_t)file.tellg();
+    const size_t fileSize = file.tellg();
 
     std::vector<char> buffer(fileSize);
     file.seekg(0);
@@ -34,17 +33,17 @@ std::vector<std::pair<GameObject::id_t, GameObject*>> SortAndCullGameObjects(Cam
     {
         if(!gameObject.model) { continue; }
         if(!camera.IsAABBInsideFrustum(gameObject.GetBoundingBox().min, gameObject.GetBoundingBox().max)) { continue; }
-        sortedObjects.push_back({key, &gameObject});
+        sortedObjects.emplace_back(key, &gameObject);
     }
 
     // Sort based on distance
-    std::sort(sortedObjects.begin(), sortedObjects.end(), [&camera](const auto& a, const auto& b) {
-        float distA = glm::distance(glm::vec3(camera.GetPosition()), a.second->transform.translation);
-        float distB = glm::distance(glm::vec3(camera.GetPosition()), b.second->transform.translation);
+    std::ranges::sort(sortedObjects, [&camera](const auto& a, const auto& b) {
+        const float distA = glm::distance(glm::vec3(camera.GetPosition()), a.second->transform.translation);
+        const float distB = glm::distance(glm::vec3(camera.GetPosition()), b.second->transform.translation);
         return distA < distB;
     });
     return sortedObjects;
 }
 
-} // namespace Utils
-} // namespace Humongous
+} // namespace Humongous::Utils
+

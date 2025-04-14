@@ -9,6 +9,15 @@ namespace Humongous
 namespace Globals
 {
 
+// I am unsure where I should put this
+enum class DescriptorSetIndices : n32
+{
+    Camera = 0, // Camera gets 1 descriptor set
+    Scene = 1,  // Scene gets 1 descriptor set
+    Model = 2,  // Model gets 3 descriptor sets
+    Debug = 5,  // Debug gets 1 descriptor set
+};
+
 class Time : public Singleton<Time>, NonCopyable
 {
 public:

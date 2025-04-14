@@ -20,10 +20,12 @@ void ResourceManager::Internal_Shutdown()
     m_modelDescriptors.materialLayout.reset();
     m_modelDescriptors.materialBufferLayout.reset();
     m_modelDescriptors.nodeLayout.reset();
+    m_modelDescriptors.debugLayout.reset();
 
     m_modelDescriptors.imagePool.reset();
     m_modelDescriptors.uniformPool.reset();
     m_modelDescriptors.storagePool.reset();
+    m_modelDescriptors.debugPool.reset();
 
     HGINFO("Resource manager shutdown");
 }
@@ -39,6 +41,8 @@ void ResourceManager::InitDescriptors()
     m_modelDescriptors.uniformPool =
         std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, t2);
     m_modelDescriptors.storagePool =
+        std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, t3);
+    m_modelDescriptors.debugPool =
         std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, t3);
 
     DescriptorSetLayout::Builder nodeBuilder{*m_logicalDevice};
@@ -56,6 +60,10 @@ void ResourceManager::InitDescriptors()
     materialBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     materialBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     m_modelDescriptors.materialLayout = materialBuilder.Build();
+
+    DescriptorSetLayout::Builder debugBuilder{*m_logicalDevice};
+    debugBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    m_modelDescriptors.debugLayout = debugBuilder.Build();
 }
 
 std::shared_ptr<Model> ResourceManager::Internal_LoadModel(std::string name)

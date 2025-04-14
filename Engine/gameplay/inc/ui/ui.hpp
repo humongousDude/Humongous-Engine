@@ -19,7 +19,7 @@ public:
     struct UICreationInfo
     {
         Humongous::Instance* instance;
-        LogicalDevice*       logicalevice;
+        LogicalDevice*       logicalDevice;
         Window*              window;
         Renderer*            renderer;
     };
@@ -35,10 +35,10 @@ public:
     static void Debug_DrawMetrics(const s16& draws, const glm::vec3& camPosition) { Get().Internal_Debug_DrawMetrics(draws, camPosition); }
     static void Debug_DrawObjectData(std::unordered_map<n32, class GameObject>& objects) { Get().Internal_Debug_DrawObjectData(objects); }
 
-    static void                   DrawWidgetList(vk::CommandBuffer cmd) { Get().Internal_DrawWidgetList(cmd); }
-    static std::vector<UiWidget*> GetWidgetList() { return Get().GetWidgetList(); }
+    static void                   DrawWidgetList(const vk::CommandBuffer cmd) { Get().Internal_DrawWidgetList(); }
+    static std::vector<UiWidget*> GetWidgetList() { return Get().Internal_GetWidgetList(); }
     static void                   AddWidgetToList(UiWidget* widg) { Get().Internal_AddWidgetToList(widg); }
-    static void                   PopWidgetAtIndex(n32 index) { Get().Internal_PopWidgetAtIndex(index); }
+    static void                   PopWidgetAtIndex(const n32 index) { Get().Internal_PopWidgetAtIndex(index); }
 
 private:
     bool m_hasInitialized{false};
@@ -51,18 +51,18 @@ private:
 
     std::vector<UiWidget*> m_widgets;
 
-    VkPipelineRenderingCreateInfo m_renderingInfo;
+    VkPipelineRenderingCreateInfo m_renderingInfo = {};
 
     void InitDescriptorThings();
 
-    void Internal_Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window);
+    void Internal_Init(const class Instance* instance, LogicalDevice* logicalDevice, const Window* window);
     void Internal_Shutdown();
     void Internal_BeginUIFrame(vk::CommandBuffer cmd);
     void Internal_EndUIFrame(vk::CommandBuffer cmd);
 
-    void Internal_DrawWidgetList(vk::CommandBuffer cmd);
+    void Internal_DrawWidgetList();
 
-    void                   Internal_AddWidgetToList(UiWidget* widg);
+    void                   Internal_AddWidgetToList(UiWidget* widget);
     void                   Internal_PopWidgetAtIndex(n32 index);
     std::vector<UiWidget*> Internal_GetWidgetList();
 

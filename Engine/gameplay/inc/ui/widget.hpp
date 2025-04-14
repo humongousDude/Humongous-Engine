@@ -14,9 +14,9 @@ class UiWidget
     {
         std::deque<std::function<void()>> texts;
 
-        void PushText(std::function<void()> text) { texts.push_back(text); }
+        void PushText(const std::function<void()>& text) { texts.push_back(text); }
 
-        void Flush()
+        void Flush() const
         {
             for(auto& text: texts) { text(); }
         }
@@ -25,15 +25,15 @@ class UiWidget
     };
 
 public:
-    UiWidget(const char* name, bool show, glm::vec2 position, glm::vec2 scale, ImGuiWindowFlags flags)
-        : m_name{name}, m_show{show}, m_position{position}, m_scale{scale}, m_flags{flags}
+    UiWidget(const char* name, const bool show, const glm::vec2 position, const glm::vec2 scale, const ImGuiWindowFlags flags)
+        : m_position{position}, m_scale{scale}, m_name{name}, m_show{show}, m_flags{flags}
     {
     }
 
-    UiWidget() : m_name{"You should probably name this :)"}, m_show{true}, m_position{0, 0}, m_scale{10, 10}, m_flags{0} {}
+    UiWidget() : m_position{0, 0}, m_scale{10, 10}, m_name{"You should probably name this :)"}, m_show{true}, m_flags{0} {}
 
     // There HAS to be a better way to do this than just a bunch of lambda functions
-    void Add(std::function<void()> func) { m_queue.PushText(func); };
+    void Add(const std::function<void()>& func) { m_queue.PushText(func); };
 
     /***
      *  Iterate through the queue and call the functions stored. This does *NOT* clear the queue

@@ -1,7 +1,5 @@
 #pragma once
 
-#include "abstractions/descriptor_layout.hpp"
-#include "abstractions/descriptor_pool_growable.hpp"
 #include "camera.hpp"
 #include <gameobject.hpp>
 #include <memory>
@@ -35,14 +33,16 @@ public:
 
     void RenderObjects(RenderData& renderData);
     void DepthOnlyRender(RenderData& renderData);
-    s16  GetObjectsDrawn() { return m_objectsDrawn; }
+    s16  GetObjectsDrawn() { return m_verticesDrawn; }
 
 private:
     LogicalDevice&                  m_logicalDevice;
     std::unique_ptr<RenderPipeline> m_renderPipeline;
     std::unique_ptr<RenderPipeline> m_depthOnlyPipeline;
     VkPipelineLayout                m_pipelineLayout{};
-    s16                             m_objectsDrawn{0};
+    n32                             m_verticesDrawn{0};
+
+    std::unique_ptr<Buffer> m_debugBuffer;
 
     void CreateModelDescriptorSetPool();
     void CreateModelDescriptorSetLayout();

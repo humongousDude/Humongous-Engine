@@ -16,7 +16,7 @@
 
 namespace Humongous
 {
-VulkanApp::VulkanApp(int argc, char* argv[])
+VulkanApp::VulkanApp(const int argc, char* argv[])
 {
     Init(argc, argv);
     LoadGameObjects();
@@ -28,7 +28,7 @@ VulkanApp::~VulkanApp()
     m_mainDeletionQueue.Flush();
 }
 
-void VulkanApp::Init(int argc, char* argv[])
+void VulkanApp::Init(const int argc, char* argv[])
 {
     m_window = std::make_unique<Window>();
     m_instance = std::make_unique<Instance>();
@@ -38,7 +38,7 @@ void VulkanApp::Init(int argc, char* argv[])
     if(argc > 1)
     {
         std::vector<std::string> paths;
-        for(int i = 1; i < argc; ++i) { paths.push_back(argv[i]); }
+        for(int i = 1; i < argc; ++i) { paths.emplace_back(argv[i]); }
         Systems::AssetManager::Init(&paths);
     }
     else
@@ -122,30 +122,27 @@ void VulkanApp::LoadGameObjects()
     HGINFO("Loaded game objects");
 }
 
-void VulkanApp::HandleInput(float frameTime, SDL_Event* event)
+void VulkanApp::HandleInput(const float frameTime, SDL_Event* event) const
 {
-    float                      deltaX = 0.0f, deltaY = 0.0f;                    // Initialize mouse deltas to zero
-    KeyboardHandler::Movements movementType = KeyboardHandler::Movements::NONE; // Initialize movement type
+    float                      deltaX = 0.0f, deltaY = 0.0f;
+    auto  movementType = KeyboardHandler::Movements::NONE;
 
-    KeyboardHandler handler; // Create handler instance here, if you intend to create a new one each frame - though ideally, this should be a
-                             // member of VulkanApp if it needs to hold state
+    KeyboardHandler handler;
 
     // Handle cursor visibility (This part is fine as is)
     const bool* keyboardState = SDL_GetKeyboardState(nullptr);
     if(keyboardState[SDL_SCANCODE_I] && !m_window->IsCursorHidden()) { m_window->HideCursor(); }
     if((keyboardState[SDL_SCANCODE_O] || keyboardState[SDL_SCANCODE_ESCAPE]) && m_window->IsCursorHidden()) { m_window->ShowCursor(); }
-    if(!m_window->IsCursorHidden()) { return; } // If cursor is visible, skip camera input
+    if(!m_window->IsCursorHidden()) { return; }
 
-    // Get relative mouse state only once
     SDL_GetRelativeMouseState(&deltaX, &deltaY);
 
-    // Determine movement type based on keyboard input (combine movements)
     if(keyboardState[SDL_SCANCODE_W]) { movementType = KeyboardHandler::Movements::FORWARD; }
     if(keyboardState[SDL_SCANCODE_S])
     {
         if(movementType == KeyboardHandler::Movements::FORWARD)
         {
-            movementType = KeyboardHandler::Movements::NONE; // cancel out forward/backward
+            movementType = KeyboardHandler::Movements::NONE;
         }
         else { movementType = KeyboardHandler::Movements::BACKWARD; }
     }
@@ -153,15 +150,15 @@ void VulkanApp::HandleInput(float frameTime, SDL_Event* event)
     {
         if(movementType == KeyboardHandler::Movements::RIGHT)
         {
-            movementType = KeyboardHandler::Movements::NONE; // cancel out left/right
+            movementType = KeyboardHandler::Movements::NONE;
         }
         else if(movementType == KeyboardHandler::Movements::FORWARD)
         {
-            movementType = KeyboardHandler::Movements::FORWARD_LEFT; // combine diagonal movement
+            movementType = KeyboardHandler::Movements::FORWARD_LEFT;
         }
         else if(movementType == KeyboardHandler::Movements::BACKWARD)
         {
-            movementType = KeyboardHandler::Movements::BACKWARD_LEFT; // combine diagonal movement
+            movementType = KeyboardHandler::Movements::BACKWARD_LEFT;
         }
         else { movementType = KeyboardHandler::Movements::LEFT; }
     }
@@ -169,15 +166,15 @@ void VulkanApp::HandleInput(float frameTime, SDL_Event* event)
     {
         if(movementType == KeyboardHandler::Movements::LEFT)
         {
-            movementType = KeyboardHandler::Movements::NONE; // cancel out left/right
+            movementType = KeyboardHandler::Movements::NONE;
         }
         else if(movementType == KeyboardHandler::Movements::FORWARD)
         {
-            movementType = KeyboardHandler::Movements::FORWARD_RIGHT; // combine diagonal movement
+            movementType = KeyboardHandler::Movements::FORWARD_RIGHT;
         }
         else if(movementType == KeyboardHandler::Movements::BACKWARD)
         {
-            movementType = KeyboardHandler::Movements::BACKWARD_RIGHT; // combine diagonal movement
+            movementType = KeyboardHandler::Movements::BACKWARD_RIGHT;
         }
         else { movementType = KeyboardHandler::Movements::RIGHT; }
     }
@@ -185,7 +182,7 @@ void VulkanApp::HandleInput(float frameTime, SDL_Event* event)
     {
         if(movementType == KeyboardHandler::Movements::UP)
         {
-            movementType = KeyboardHandler::Movements::NONE; // cancel out up/down
+            movementType = KeyboardHandler::Movements::NONE;
         }
         else { movementType = KeyboardHandler::Movements::DOWN; }
     }
@@ -193,15 +190,13 @@ void VulkanApp::HandleInput(float frameTime, SDL_Event* event)
     {
         if(movementType == KeyboardHandler::Movements::DOWN)
         {
-            movementType = KeyboardHandler::Movements::NONE; // cancel out up/down
+            movementType = KeyboardHandler::Movements::NONE;
         }
         else { movementType = KeyboardHandler::Movements::UP; }
     }
 
-    // Create InputData structure *once* with all input information
-    KeyboardHandler::InputData data{frameTime, movementType, deltaX, deltaY, *m_cam};
+    const KeyboardHandler::InputData data{frameTime, movementType, deltaX, deltaY, *m_cam};
 
-    // Process input *only once*
     handler.ProcessInput(data);
 }
 
@@ -210,7 +205,6 @@ void VulkanApp::Run()
     m_cam->UpdateViewMatrix();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
-    bool neg{false};
 
     UiWidget objectDataWidget{"Object Data", true, {0, 100}, {400, 500}, 0};
     for(auto& [id, obj]: m_gameObjects)
@@ -219,11 +213,10 @@ void VulkanApp::Run()
             if(ImGui::CollapsingHeader(obj.name.c_str()))
             {
                 ImGui::PushID(id);
-                // ImGui::BulletText("Object Model Name: %s", obj.name.c_str());
                 ImGui::Text("ID: %i", id);
                 ImGui::Text("Position: %f, %f, %f", obj.transform.translation.x, obj.transform.translation.y, obj.transform.translation.z);
 
-                if(ImGui::TreeNode("Boundingbox Corners"))
+                if(ImGui::TreeNode("Bounding box Corners"))
                 {
                     for(n32 i = 0; i < obj.GetBoundingBox().corners.size(); ++i)
                     {
@@ -248,8 +241,8 @@ void VulkanApp::Run()
     SDL_Event e;
     while(!quit)
     {
-        auto newTime = std::chrono::high_resolution_clock::now();
-        auto frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
+        auto       newTime = std::chrono::high_resolution_clock::now();
+        const auto frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
         currentTime = newTime;
         Globals::Time::Update(frameTime);
 
@@ -276,11 +269,12 @@ void VulkanApp::Run()
                     focused = true;
                     HGINFO("Window gained focus");
                     break;
+                default:;
             }
         }
         HandleInput(frameTime, &e);
 
-        float aspect = m_renderer->GetAspectRatio();
+        const float aspect = m_renderer->GetAspectRatio();
 
         m_cam->SetPerspectiveProjection(glm::radians(80.0f), aspect, 0.1f, 1000.0f);
 
@@ -288,7 +282,7 @@ void VulkanApp::Run()
         {
             for(auto& [k, v]: m_gameObjects) { v.Update(); }
 
-            if(auto cmd = m_renderer->BeginFrame())
+            if(const auto cmd = m_renderer->BeginFrame())
             {
                 m_cam->Update();
                 RenderData data{.commandBuffer = cmd,

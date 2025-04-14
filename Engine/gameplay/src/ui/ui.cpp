@@ -13,7 +13,7 @@
 namespace Humongous
 {
 
-void UI::Internal_Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window)
+void UI::Internal_Init(const class Instance* instance, LogicalDevice* logicalDevice, const Window* window)
 {
     if(m_hasInitialized) { return; }
 
@@ -69,7 +69,7 @@ void UI::Internal_Shutdown()
 
     m_pool.reset();
     m_setLayout.reset();
-    HGINFO("Successfuly shut UI down");
+    HGINFO("Successfully shut UI down");
 }
 
 void UI::InitDescriptorThings()
@@ -99,7 +99,7 @@ void UI::Internal_BeginUIFrame(vk::CommandBuffer cmd)
     ImGui::NewFrame();
 }
 
-void UI::Internal_EndUIFrame(vk::CommandBuffer cmd)
+void UI::Internal_EndUIFrame(const vk::CommandBuffer cmd)
 {
     if(!m_startedFrame) { return; }
 
@@ -110,9 +110,9 @@ void UI::Internal_EndUIFrame(vk::CommandBuffer cmd)
     m_startedFrame = false;
 }
 
-void UI::Internal_DrawWidgetList(vk::CommandBuffer cmd)
+void UI::Internal_DrawWidgetList()
 {
-    for(auto& widg: m_widgets) { widg->Draw(); }
+    for(auto& widget: m_widgets) { widget->Draw(); }
 }
 
 void UI::Internal_Debug_DrawMetrics(const s16& draws, const glm::vec3& camPosition)
@@ -130,7 +130,7 @@ void UI::Internal_Debug_DrawMetrics(const s16& draws, const glm::vec3& camPositi
 
 void UI::Internal_AddWidgetToList(UiWidget* widg) { m_widgets.push_back(widg); }
 
-void UI::Internal_PopWidgetAtIndex(n32 index) { m_widgets.erase(m_widgets.begin() + index); }
+void UI::Internal_PopWidgetAtIndex(const n32 index) { m_widgets.erase(m_widgets.begin() + index); }
 
 std::vector<UiWidget*> UI::Internal_GetWidgetList() { return m_widgets; }
 

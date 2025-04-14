@@ -31,6 +31,8 @@ public:
 
     VkDescriptorSetLayout GetDescriptorSetLayout() const { return m_descriptorSetLayout; }
 
+    n32 GetBindingCount() const { return m_bindings.size(); }
+
 private:
     LogicalDevice&                                        m_device;
     VkDescriptorSetLayout                                 m_descriptorSetLayout;

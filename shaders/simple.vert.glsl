@@ -46,16 +46,13 @@ layout(set = 4, binding = 0) uniform UBONode {
     // float jointCount;
 } node;
 */
+layout(set = 5, binding = 0) buffer DebugData
+{
+    uint draws;
+} debug;
 
 void main()
 {
-    // uint objectID = mnv.id;
-    // if (results.visibility[objectID] == false)
-    // {
-    //     gl_Position = vec4(100000);
-    //     return;
-    // }
-
     Vertex v = mnv.vertexBuffer.vertices[gl_VertexIndex];
 
     vec4 locPos = ubo.projectionView * mnv.modelMatrix * vec4(v.position, 1.0);
@@ -67,4 +64,7 @@ void main()
     outUV0 = v.uv1;
     outUV1 = v.uv2;
     cameraPos = ubo.cameraPos;
+
+    // debug.draws += 1;
+    atomicAdd(debug.draws, 1);
 }

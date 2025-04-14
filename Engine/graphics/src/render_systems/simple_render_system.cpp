@@ -1,7 +1,8 @@
+#include "abstractions/buffer.hpp"
 #include "asset_manager.hpp"
+#include "globals.hpp"
 #include "logger.hpp"
 #include "resource_manager.hpp"
-#include <algorithm>
 #include <render_systems/simple_render_system.hpp>
 
 namespace Humongous
@@ -20,6 +21,7 @@ SimpleRenderSystem::~SimpleRenderSystem()
 {
     HGINFO("Destroying simple render system...");
     vkDestroyPipelineLayout(m_logicalDevice.GetVkDevice(), m_pipelineLayout, nullptr);
+    m_debugBuffer.reset();
     HGINFO("Destroyed Simple render system");
 }
 
@@ -94,6 +96,12 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 
     m_depthOnlyPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
     HGINFO("Created pipeline");
+
+    m_debugBuffer = std::make_unique<Buffer>(&m_logicalDevice, 1, sizeof(n32), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_AUTO);
+    m_debugBuffer->Map();
+    m_debugBuffer->WriteToBuffer(&m_verticesDrawn);
+    m_debugBuffer->UnMap();
 }
 
 void SimpleRenderSystem::DepthOnlyRender(RenderData& renderData)
@@ -106,7 +114,7 @@ void SimpleRenderSystem::DepthOnlyRender(RenderData& renderData)
     vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 1, renderData.sceneSets.size(),
                             renderData.sceneSets.data(), 0, nullptr);
 
-    m_objectsDrawn = 0;
+    s16 objectsDrawn = 0;
 
     for(auto& [id, obj]: renderData.gameObjects)
     {
@@ -114,13 +122,13 @@ void SimpleRenderSystem::DepthOnlyRender(RenderData& renderData)
         data.model = obj->transform.Mat4();
         obj->model->GetVertexBuffer().UpdateAddress(obj->model->GetVertexBuffer().GetUsageFlags());
         data.vertexAddress = obj->model->GetVertexBuffer().GetDeviceAddress();
-        data.id = m_objectsDrawn;
+        data.id = objectsDrawn;
 
         vkCmdPushConstants(renderData.commandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Model::PushConstantData), &data);
 
         obj->model->Draw(renderData.commandBuffer, m_pipelineLayout);
 
-        m_objectsDrawn++;
+        objectsDrawn++;
     }
 
     // Uncomment if you want to know the number of objects drawn
@@ -131,31 +139,46 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
 {
     m_renderPipeline->Bind(renderData.commandBuffer);
 
-    vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, renderData.uboSets.size(),
-                            renderData.uboSets.data(), 0, nullptr);
+    VkDescriptorSet  debugSet;
+    auto             info = m_debugBuffer->DescriptorInfo();
+    DescriptorWriter writer{*ResourceManager::GetModelDescriptors().debugLayout, ResourceManager::GetModelDescriptors().debugPool.get()};
+    writer.WriteBuffer(0, &info).Build(debugSet);
 
-    vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 1, renderData.sceneSets.size(),
-                            renderData.sceneSets.data(), 0, nullptr);
+    std::vector<VkDescriptorSet> allSets{};
+    allSets.insert(allSets.begin(), renderData.uboSets.begin(), renderData.uboSets.end());
+    allSets.insert(allSets.begin() + allSets.size(), renderData.sceneSets.begin(), renderData.sceneSets.end());
 
-    m_objectsDrawn = 0;
+    vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout,
+                            static_cast<n32>(Globals::DescriptorSetIndices::Camera), allSets.size(), allSets.data(), 0, nullptr);
+
+    vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout,
+                            static_cast<n32>(Globals::DescriptorSetIndices::Debug), 1, &debugSet, 0, nullptr);
+
+    s16 objectsDrawn = 0;
 
     for(auto& [id, obj]: renderData.gameObjects)
     {
-        // if(!renderData.cam.IsAABBInsideFrustum(obj->GetBoundingBox().min, obj->GetBoundingBox().max)) { continue; }
-        // if(!obj->model) { continue; }
-
         Model::PushConstantData data{};
         data.model = obj->transform.Mat4();
         obj->model->GetVertexBuffer().UpdateAddress(obj->model->GetVertexBuffer().GetUsageFlags());
         data.vertexAddress = obj->model->GetVertexBuffer().GetDeviceAddress();
-        data.id = m_objectsDrawn;
+        data.id = objectsDrawn;
 
         vkCmdPushConstants(renderData.commandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Model::PushConstantData), &data);
 
         obj->model->Draw(renderData.commandBuffer, m_pipelineLayout);
 
-        m_objectsDrawn++;
+        objectsDrawn++;
     }
+    m_debugBuffer->Map();
+
+    n32 v = *static_cast<n32*>(m_debugBuffer->GetMappedMemory());
+    m_verticesDrawn = v;
+
+    HGINFO("vertices: %i", m_verticesDrawn);
+    m_verticesDrawn = 0;
+    m_debugBuffer->WriteToBuffer(&m_verticesDrawn);
+    m_debugBuffer->UnMap();
 }
 
 } // namespace Humongous

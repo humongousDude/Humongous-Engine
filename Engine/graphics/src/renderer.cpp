@@ -63,8 +63,6 @@ void Renderer::RecreateSwapChain()
     while(extent.width == 0 || extent.height == 0)
     {
         extent = m_window.GetExtent();
-
-        // if(m_window.ShouldWindowClose()) { return; }
     }
 
     if(m_swapChain == nullptr) { m_swapChain = std::make_unique<SwapChain>(m_window, m_physicalDevice, m_logicalDevice); }
@@ -72,8 +70,6 @@ void Renderer::RecreateSwapChain()
     {
         std::shared_ptr<SwapChain> oldSwapChain = std::move(m_swapChain);
         m_swapChain = std::make_unique<SwapChain>(m_window, m_physicalDevice, m_logicalDevice, std::move(m_swapChain));
-
-        if(!oldSwapChain->CompareSwapFormats(*m_swapChain.get())) { HGERROR("Swap chain image(or depth) format has changed"); }
     }
     // recreate the image views
 
@@ -606,11 +602,6 @@ void Renderer::DoGPUOcclusionCulling(VkCommandBuffer cmd, RenderData& data, cons
 
     m_rendererDataBuffer->Init(&m_logicalDevice, sizeof(RendererData), 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_AUTO);
-
-    constexpr size_t minOffset = offsetof(BoundingBox, min);
-    constexpr size_t maxOffset = offsetof(BoundingBox, max);
-    constexpr size_t validOffset = offsetof(BoundingBox, valid);
-    constexpr size_t boxSize = sizeof(BoundingBox);
 
     VkMemoryBarrier2 memoryBarrier{};
     memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;

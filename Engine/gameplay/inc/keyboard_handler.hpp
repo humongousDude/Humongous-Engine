@@ -6,7 +6,7 @@ namespace Humongous
 {
 /*
  taken from brendan galea's vulkan tutorial series.
- im shit at matrix math. so please excuse the fact that this
+ im bad at matrix math. so please excuse the fact that this
  is copied
 */
 class KeyboardHandler

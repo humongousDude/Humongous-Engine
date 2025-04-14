@@ -5,6 +5,8 @@
 #include <iostream>
 #include <logger.hpp>
 
+#include "globals.hpp"
+
 #define TINYGLTF_IMPLEMENTATION
 #define STBI_MSC_SECURE_CRT
 
@@ -696,13 +698,13 @@ void Model::Draw(VkCommandBuffer cmd, VkPipelineLayout& pipelineLayout)
                 descriptorSets.push_back(p->m_owner->m_mesh->m_uniformBuffer.descriptorSet);
                 break;
             }
-            if(descriptorSets.size() > 3) { break; }
         }
 
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, static_cast<uint32_t>(descriptorSets.size()),
-                                descriptorSets.data(), 0, nullptr);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model),
 
-        vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 80, sizeof(n32), &mat->index);
+                                static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
+
+        vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstantData), sizeof(n32), &mat->index);
 
         vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer.GetBuffer(), written, m_indirectCommands[id].size(),
                                  sizeof(VkDrawIndexedIndirectCommand));

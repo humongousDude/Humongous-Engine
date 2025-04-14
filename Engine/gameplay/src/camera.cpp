@@ -20,9 +20,8 @@ void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
     HGINFO("Initializing descriptor things...");
 
     DescriptorPool::Builder builder{*logicalDevice};
-    builder.SetMaxSets(40);
-    builder.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 20);
-    builder.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 20);
+    builder.SetMaxSets(6);
+    builder.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6);
     m_projectionPool = builder.Build();
 
     DescriptorSetLayout::Builder builder2{*logicalDevice};
