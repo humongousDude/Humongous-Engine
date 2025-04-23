@@ -19,7 +19,6 @@
             "name": "release",
             "binaryDir": "${sourceDir}/Binaries-Release",
             "generator": "Ninja",
-            "toolchainFile": "$env{vcpkg_root}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_CXX_STANDARD": "20",
@@ -28,10 +27,8 @@
                 "CMAKE_CXX_COMPILER": "g++",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "OFF",
                 "CMAKE_COLOR_DIAGNOSTICS": "OFF",
-                "CMAKE_CXX_COMPILER_OPTIMIZATION": "3"
-            },
-            "environment": {
-                "VCPKG_ROOT": "$env{vcpkg_root}"
+                "CMAKE_CXX_FLAGS_RELEASE": "-O3 -march=native -flto -DNDEBUG",
+                "CMAKE_C_FLAGS_RELEASE": "-O3 -march=native -flto -DNDEBUG"
             }
         }
     ]

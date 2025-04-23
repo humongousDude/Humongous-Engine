@@ -60,9 +60,7 @@ find_package(Vulkan)
 target_link_libraries(Engine PUBLIC SDL3::SDL3 glm::glm gli spdlog::spdlog Vulkan::Vulkan Vulkan::Headers GPUOpen::VulkanMemoryAllocator)
 target_include_directories(Engine PUBLIC ThirdParty/tinygltf/)
 
-# Collect shader files
-file(GLOB SHADER_FILES CONFIGURE_DEPENDS
-     ${CMAKE_PARENT_LIST_DIR}/shaders/*.glsl)
+
 
 # Find the Vulkan shader compiler (prefer glslc for SPIR-V generation)
 find_program(VULKAN_GLSLC glslc)
@@ -76,6 +74,14 @@ if(NOT VULKAN_GLSLC AND NOT VULKAN_GLSLANG_VALIDATOR)
     FATAL_ERROR
       "Neither glslc nor glslangValidator found for shader compilation.")
 endif()
+
+# Collect shader files
+file(GLOB_RECURSE SHADER_FILES CONFIGURE_DEPENDS
+     ${CMAKE_PARENT_LIST_DIR}/shaders/vert/*.glsl
+     ${CMAKE_PARENT_LIST_DIR}/shaders/frag/*.glsl
+     ${CMAKE_PARENT_LIST_DIR}/shaders/comp/*.glsl
+     ${CMAKE_PARENT_LIST_DIR}/shaders/includes/*.glsl
+ )
 
 # Compile shaders
 foreach(SHADER_FILE ${SHADER_FILES})
