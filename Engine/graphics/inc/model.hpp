@@ -128,7 +128,7 @@ private:
     std::vector<Material>                            m_materials;
     std::unordered_map<n32, std::vector<Primitive*>> m_materialBatches;
 
-    VkDescriptorSet m_descriptorSetMaterials{VK_NULL_HANDLE};
+    VkDescriptorSet m_materialDataDescriptor{VK_NULL_HANDLE};
     enum PBRWorkflows
     {
         PBR_WORKFLOW_METALLIC_ROUGHNESS = 0,
@@ -152,8 +152,9 @@ private:
         float     alphaMask;
         float     alphaMaskCutoff;
         float     emissiveStrength;
+        n32       _padding0;
     };
-    Buffer m_shaderMaterialBuffer;
+    Buffer m_materialDataBuffer;
 
     void                                                               SetupIndirectDrawBuffer();
     Buffer                                                             m_indirectDrawBuffer;
@@ -177,7 +178,7 @@ private:
 
     // TODO: maybe move the shader material buffer and this out?
     // maybe only write at draw time?
-    void CreateMaterialBuffer();
+    void CreateMaterialDataBuffer();
     void UpdateShaderMaterialBuffer(Node* node);
 
     void UpdateUBO(Node* node, glm::mat4 matrix);

@@ -5,6 +5,7 @@
 #include "logical_device.hpp"
 #include "model.hpp"
 #include "singleton.hpp"
+#include "skybox.hpp"
 
 namespace Humongous
 {
@@ -13,43 +14,53 @@ class ResourceManager : Singleton<ResourceManager>
 {
 private:
     struct ModelDescriptors;
+    struct DescriptorPools;
 
 public:
     static void Init(LogicalDevice* logicalDevice) { Get().Internal_Init(logicalDevice); }
     static void Shutdown() { Get().Internal_Shutdown(); }
 
-    static std::shared_ptr<Model> LoadModel(std::string name) { return Get().Internal_LoadModel(name); };
+    static std::shared_ptr<Model>  LoadModel(const std::string& name) { return Get().Internal_LoadModel(name); };
+    static std::shared_ptr<Skybox> LoadSkybox(const std::string& name) { return Get().Internal_LoadSkybox(name); }
 
     static const ModelDescriptors& GetModelDescriptors() { return Get().m_modelDescriptors; }
+    static const DescriptorPools&  GetDescriptorPools() { return Get().m_descriptorPools; }
+
+    static VkDescriptorSetLayout GetSkyboxDescriptorLayout() { return Get().m_skyboxLayout->GetDescriptorSetLayout(); }
 
     // Material, MaterialBuffer, Node, RendererBuffer
     static std::vector<VkDescriptorSetLayout> GetLayoutVector()
     {
-        return {Get().m_modelDescriptors.materialLayout->GetDescriptorSetLayout(),
-                Get().m_modelDescriptors.materialBufferLayout->GetDescriptorSetLayout(),
-                Get().m_modelDescriptors.nodeLayout->GetDescriptorSetLayout(), Get().m_modelDescriptors.debugLayout->GetDescriptorSetLayout()};
+        return {Get().m_modelDescriptors.materialDataLayout->GetDescriptorSetLayout(),
+                Get().m_modelDescriptors.materialLayout->GetDescriptorSetLayout(), Get().m_modelDescriptors.nodeLayout->GetDescriptorSetLayout(),
+                Get().m_modelDescriptors.debugLayout->GetDescriptorSetLayout()};
     }
 
     static n32 GetTotalModelBindingCount()
     {
-        return Get().m_modelDescriptors.materialLayout->GetBindingCount() + Get().m_modelDescriptors.materialBufferLayout->GetBindingCount() +
+        return Get().m_modelDescriptors.materialLayout->GetBindingCount() + Get().m_modelDescriptors.materialDataLayout->GetBindingCount() +
                Get().m_modelDescriptors.nodeLayout->GetBindingCount() + Get().m_modelDescriptors.debugLayout->GetBindingCount();
     }
 
 private:
-    struct ModelDescriptors
+    struct DescriptorPools
     {
         std::unique_ptr<DescriptorPoolGrowable> imagePool;
         std::unique_ptr<DescriptorPoolGrowable> uniformPool;
         std::unique_ptr<DescriptorPoolGrowable> storagePool;
         std::unique_ptr<DescriptorPoolGrowable> debugPool;
+    } m_descriptorPools;
 
+    struct ModelDescriptors
+    {
         std::unique_ptr<DescriptorSetLayout> materialLayout;
         std::unique_ptr<DescriptorSetLayout> nodeLayout;
-        std::unique_ptr<DescriptorSetLayout> materialBufferLayout;
+        std::unique_ptr<DescriptorSetLayout> materialDataLayout;
         std::unique_ptr<DescriptorSetLayout> rendererBuffer;
         std::unique_ptr<DescriptorSetLayout> debugLayout;
     } m_modelDescriptors;
+
+    std::unique_ptr<DescriptorSetLayout> m_skyboxLayout;
 
     struct WorldDescriptors
     {
@@ -62,6 +73,7 @@ private:
     void InitDescriptors();
     void Internal_Shutdown();
 
-    std::shared_ptr<Model> Internal_LoadModel(std::string name);
+    std::shared_ptr<Model>  Internal_LoadModel(const std::string& name);
+    std::shared_ptr<Skybox> Internal_LoadSkybox(const std::string& name);
 };
 } // namespace Humongous

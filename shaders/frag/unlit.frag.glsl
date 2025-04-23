@@ -10,15 +10,16 @@ layout(location = 5) in vec3 inCamPos;
 
 layout(location = 0) out vec4 outColor;
 
-// Textures
+layout(set = 2, binding = 1) uniform samplerCube samplerIrradiance;
+layout(set = 2, binding = 2) uniform samplerCube prefilteredMap;
+layout(set = 2, binding = 3) uniform sampler2D samplerBRDFLUT;
 
-layout(set = 3, binding = 0) uniform sampler2D colorMap;
-layout(set = 3, binding = 1) uniform sampler2D physicalDescriptorMap;
-layout(set = 3, binding = 2) uniform sampler2D normalMap;
-layout(set = 3, binding = 3) uniform sampler2D aoMap;
-layout(set = 3, binding = 4) uniform sampler2D emissiveMap;
+layout(set = 4, binding = 0) uniform sampler2D colorMap;
+layout(set = 4, binding = 1) uniform sampler2D physicalDescriptorMap;
+layout(set = 4, binding = 2) uniform sampler2D normalMap;
+layout(set = 4, binding = 3) uniform sampler2D aoMap;
+layout(set = 4, binding = 4) uniform sampler2D emissiveMap;
 
-// Properties
 struct MaterialData {
     vec4 baseColorFactor;
     vec4 emissiveFactor;
@@ -37,17 +38,13 @@ struct MaterialData {
     float emissiveStrength;
 };
 
-layout(std430, set = 2, binding = 0) readonly buffer SSBO
+layout(std430, set = 3, binding = 0) readonly buffer SSBO
 {
     MaterialData materials[];
 };
 
-layout(push_constant) uniform Push
-{
-    layout(offset = 80) uint materialIndex;
-} push;
-
 layout(set = 1, binding = 0) uniform UBOParams {
+    vec3 camPos;
     vec4 lightDir;
     float exposure;
     float gamma;
@@ -56,6 +53,11 @@ layout(set = 1, binding = 0) uniform UBOParams {
     float debugViewInputs;
     float debugViewEquation;
 } uboParams;
+
+layout(push_constant) uniform Push
+{
+    layout(offset = 80) uint materialIndex;
+} push;
 
 vec4 SRGBtoLINEAR(vec4 srgbIn)
 {

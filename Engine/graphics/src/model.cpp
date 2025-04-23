@@ -411,7 +411,7 @@ void Model::LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, VkQu
         else { textureSampler = m_textureSamplers[tex.sampler]; }
         Texture texture;
         texture.CreateFromGLTFImage(image, textureSampler, device, transferQueue);
-        m_textures.push_back(texture);
+        m_textures.push_back(std::move(texture));
     }
 
     m_emptyTexture.CreateFromFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::TEXTURE, "empty"), device,
@@ -445,41 +445,50 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         {
             material.baseColorTexture = &m_textures[mat.values["baseColorTexture"].TextureIndex()];
             material.texCoordSets.baseColor = mat.values["baseColorTexture"].TextureTexCoord();
+            HGINFO("GOT BASE COLOR TEX");
         }
         if(mat.values.find("metallicRoughnessTexture") != mat.values.end())
         {
             material.metallicRoughnessTexture = &m_textures[mat.values["metallicRoughnessTexture"].TextureIndex()];
             material.texCoordSets.metallicRoughness = mat.values["metallicRoughnessTexture"].TextureTexCoord();
+            HGINFO("GOT metallic rouch TEX");
         }
         if(mat.values.find("roughnessFactor") != mat.values.end())
         {
             material.roughnessFactor = static_cast<float>(mat.values["roughnessFactor"].Factor());
+            HGINFO("GOT rouch fac TEX");
         }
         if(mat.values.find("metallicFactor") != mat.values.end())
         {
             material.metallicFactor = static_cast<float>(mat.values["metallicFactor"].Factor());
+            HGINFO("GOT metal fac TEX");
         }
         if(mat.values.find("baseColorFactor") != mat.values.end())
         {
             material.baseColorFactor = glm::make_vec4(mat.values["baseColorFactor"].ColorFactor().data());
+            HGINFO("GOT base col fac TEX");
         }
         if(mat.additionalValues.find("normalTexture") != mat.additionalValues.end())
         {
             material.normalTexture = &m_textures[mat.additionalValues["normalTexture"].TextureIndex()];
             material.texCoordSets.normal = mat.additionalValues["normalTexture"].TextureTexCoord();
+            HGINFO("GOT normal TEX");
         }
         if(mat.additionalValues.find("emissiveTexture") != mat.additionalValues.end())
         {
             material.emissiveTexture = &m_textures[mat.additionalValues["emissiveTexture"].TextureIndex()];
             material.texCoordSets.emissive = mat.additionalValues["emissiveTexture"].TextureTexCoord();
+            HGINFO("GOT emissive TEX");
         }
         if(mat.additionalValues.find("occlusionTexture") != mat.additionalValues.end())
         {
             material.occlusionTexture = &m_textures[mat.additionalValues["occlusionTexture"].TextureIndex()];
             material.texCoordSets.occlusion = mat.additionalValues["occlusionTexture"].TextureTexCoord();
+            HGINFO("GOT occlusnio TEX");
         }
         if(mat.additionalValues.find("alphaMode") != mat.additionalValues.end())
         {
+            HGINFO("GOT alphamonde TEX");
             tinygltf::Parameter param = mat.additionalValues["alphaMode"];
             if(param.string_value == "BLEND") { material.alphaMode = Material::ALPHAMODE_BLEND; }
             if(param.string_value == "MASK")
@@ -562,6 +571,68 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
 
     std::vector<Primitive*> empt{};
     m_materialBatches.emplace(m_materialBatches.size(), empt);
+}
+
+void Model::CreateMaterialDataBuffer()
+{
+    std::vector<ShaderMaterial> shaderMaterials{};
+    for(auto& material: m_materials)
+    {
+        ShaderMaterial shaderMaterial{};
+
+        shaderMaterial.emissiveFactor = material.emissiveFactor;
+        // To save space, availabilty and texture coordinate set are combined
+        // -1 = texture not used for this material, >= 0 texture used and index of texture coordinate set
+        shaderMaterial.colorTextureSet = material.baseColorTexture != nullptr ? material.texCoordSets.baseColor : -1;
+        shaderMaterial.normalTextureSet = material.normalTexture != nullptr ? material.texCoordSets.normal : -1;
+        shaderMaterial.occlusionTextureSet = material.occlusionTexture != nullptr ? material.texCoordSets.occlusion : -1;
+        shaderMaterial.emissiveTextureSet = material.emissiveTexture != nullptr ? material.texCoordSets.emissive : -1;
+        shaderMaterial.alphaMask = static_cast<float>(material.alphaMode == Material::ALPHAMODE_MASK);
+        shaderMaterial.alphaMaskCutoff = material.alphaCutoff;
+        shaderMaterial.emissiveStrength = material.emissiveStrength;
+
+        // TODO: glTF specs states that metallic roughness should be preferred, even if specular glosiness is present
+
+        if(material.pbrWorkflows.metallicRoughness)
+        {
+            // Metallic roughness workflow
+            shaderMaterial.workflow = static_cast<float>(PBR_WORKFLOW_METALLIC_ROUGHNESS);
+            shaderMaterial.baseColorFactor = material.baseColorFactor;
+            shaderMaterial.metallicFactor = material.metallicFactor;
+            shaderMaterial.roughnessFactor = material.roughnessFactor;
+            shaderMaterial.PhysicalDescriptorTextureSet =
+                material.metallicRoughnessTexture != nullptr ? material.texCoordSets.metallicRoughness : -1;
+            shaderMaterial.colorTextureSet = material.baseColorTexture != nullptr ? material.texCoordSets.baseColor : -1;
+        }
+
+        if(material.pbrWorkflows.specularGlossiness)
+        {
+            // Specular glossiness workflow
+            shaderMaterial.workflow = static_cast<float>(PBR_WORKFLOW_SPECULAR_GLOSSINESS);
+            shaderMaterial.PhysicalDescriptorTextureSet =
+                material.extension.specularGlossinessTexture != nullptr ? material.texCoordSets.specularGlossiness : -1;
+            shaderMaterial.colorTextureSet = material.extension.diffuseTexture != nullptr ? material.texCoordSets.baseColor : -1;
+            shaderMaterial.diffuseFactor = material.extension.diffuseFactor;
+            shaderMaterial.specularFactor = glm::vec4(material.extension.specularFactor, 1.0f);
+        }
+
+        shaderMaterials.push_back(shaderMaterial);
+    }
+
+    VkDeviceSize bufferSize = shaderMaterials.size() * sizeof(ShaderMaterial);
+    Buffer       stagingBuffer{m_device,
+                         bufferSize,
+                         1,
+                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                         VMA_MEMORY_USAGE_CPU_TO_GPU};
+    stagingBuffer.Map();
+    stagingBuffer.WriteToBuffer((void*)shaderMaterials.data(), bufferSize);
+
+    m_materialDataBuffer.Init(m_device, bufferSize, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    Buffer::CopyBuffer(*m_device, stagingBuffer, m_materialDataBuffer, bufferSize);
 }
 
 void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue transferQueue, float scale)
@@ -683,28 +754,32 @@ void Model::Draw(VkCommandBuffer cmd, VkPipelineLayout& pipelineLayout)
 {
     vkCmdBindIndexBuffer(cmd, m_indices.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model), 1,
+                            &m_materialDataDescriptor, 0, nullptr);
+
     VkDeviceSize written{0};
     for(auto& [id, prim]: m_materialBatches)
     {
         auto mat = &m_materials[id];
 
-        std::vector<VkDescriptorSet> descriptorSets{mat->descriptorSet, m_descriptorSetMaterials};
+        std::vector<VkDescriptorSet> descriptorSets{mat->descriptorSet};
 
         // TODO: This will break if we require different matrices for different nodes
+        std::vector<glm::mat4> nodeMatrices;
+
         for(const auto& p: prim)
         {
             if(p->m_owner->m_mesh)
             {
                 descriptorSets.push_back(p->m_owner->m_mesh->m_uniformBuffer.descriptorSet);
                 break;
+                // nodeMatrices.push_back(p->m_owner->m_mesh->m_uniformBlock.matrix);
             }
         }
-
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model),
-
-                                static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
-
         vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstantData), sizeof(n32), &mat->index);
+
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model) + 1,
+                                static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
 
         vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer.GetBuffer(), written, m_indirectCommands[id].size(),
                                  sizeof(VkDrawIndexedIndirectCommand));
@@ -829,15 +904,15 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
 
     for(auto& node: m_nodes) { SetupNodeDescriptorSet(node, uniformPool, nodeLayout); }
 
-    if(m_descriptorSetMaterials == VK_NULL_HANDLE)
+    if(m_materialDataDescriptor == VK_NULL_HANDLE)
     {
-        m_descriptorSetMaterials = storagePool->AllocateDescriptor(materialBufferLayout->GetDescriptorSetLayout());
+        m_materialDataDescriptor = storagePool->AllocateDescriptor(materialBufferLayout->GetDescriptorSetLayout());
     }
 
-    CreateMaterialBuffer();
+    CreateMaterialDataBuffer();
 
-    auto bufInfo = m_shaderMaterialBuffer.DescriptorInfo();
-    DescriptorWriter(*materialBufferLayout, storagePool).WriteBuffer(0, &bufInfo).Overwrite(m_descriptorSetMaterials);
+    auto bufInfo = m_materialDataBuffer.DescriptorInfo();
+    DescriptorWriter(*materialBufferLayout, storagePool).WriteBuffer(0, &bufInfo).Overwrite(m_materialDataDescriptor);
 
     m_initialized = true;
 }
@@ -848,7 +923,6 @@ void Model::UpdateMaterialBatches(Node* node)
     {
         for(auto* prim: node->m_mesh->m_primitives) { m_materialBatches[prim->m_material.index].push_back(prim); }
     }
-
     for(auto& c: node->m_children) { UpdateMaterialBatches(c); }
 }
 
@@ -866,68 +940,6 @@ void Model::SetupNodeDescriptorSet(Node* node, DescriptorPoolGrowable* descripto
     }
 
     for(auto& c: node->m_children) { SetupNodeDescriptorSet(c, descriptorPool, layout); }
-}
-
-void Model::CreateMaterialBuffer()
-{
-    std::vector<ShaderMaterial> shaderMaterials{};
-    for(auto& material: m_materials)
-    {
-        ShaderMaterial shaderMaterial{};
-
-        shaderMaterial.emissiveFactor = material.emissiveFactor;
-        // To save space, availabilty and texture coordinate set are combined
-        // -1 = texture not used for this material, >= 0 texture used and index of texture coordinate set
-        shaderMaterial.colorTextureSet = material.baseColorTexture != nullptr ? material.texCoordSets.baseColor : -1;
-        shaderMaterial.normalTextureSet = material.normalTexture != nullptr ? material.texCoordSets.normal : -1;
-        shaderMaterial.occlusionTextureSet = material.occlusionTexture != nullptr ? material.texCoordSets.occlusion : -1;
-        shaderMaterial.emissiveTextureSet = material.emissiveTexture != nullptr ? material.texCoordSets.emissive : -1;
-        shaderMaterial.alphaMask = static_cast<float>(material.alphaMode == Material::ALPHAMODE_MASK);
-        shaderMaterial.alphaMaskCutoff = material.alphaCutoff;
-        shaderMaterial.emissiveStrength = material.emissiveStrength;
-
-        // TODO: glTF specs states that metallic roughness should be preferred, even if specular glosiness is present
-
-        if(material.pbrWorkflows.metallicRoughness)
-        {
-            // Metallic roughness workflow
-            shaderMaterial.workflow = static_cast<float>(PBR_WORKFLOW_METALLIC_ROUGHNESS);
-            shaderMaterial.baseColorFactor = material.baseColorFactor;
-            shaderMaterial.metallicFactor = material.metallicFactor;
-            shaderMaterial.roughnessFactor = material.roughnessFactor;
-            shaderMaterial.PhysicalDescriptorTextureSet =
-                material.metallicRoughnessTexture != nullptr ? material.texCoordSets.metallicRoughness : -1;
-            shaderMaterial.colorTextureSet = material.baseColorTexture != nullptr ? material.texCoordSets.baseColor : -1;
-        }
-
-        if(material.pbrWorkflows.specularGlossiness)
-        {
-            // Specular glossiness workflow
-            shaderMaterial.workflow = static_cast<float>(PBR_WORKFLOW_SPECULAR_GLOSSINESS);
-            shaderMaterial.PhysicalDescriptorTextureSet =
-                material.extension.specularGlossinessTexture != nullptr ? material.texCoordSets.specularGlossiness : -1;
-            shaderMaterial.colorTextureSet = material.extension.diffuseTexture != nullptr ? material.texCoordSets.baseColor : -1;
-            shaderMaterial.diffuseFactor = material.extension.diffuseFactor;
-            shaderMaterial.specularFactor = glm::vec4(material.extension.specularFactor, 1.0f);
-        }
-
-        shaderMaterials.push_back(shaderMaterial);
-    }
-
-    VkDeviceSize bufferSize = shaderMaterials.size() * sizeof(ShaderMaterial);
-    Buffer       stagingBuffer{m_device,
-                         bufferSize,
-                         3,
-                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                         VMA_MEMORY_USAGE_CPU_TO_GPU};
-    stagingBuffer.Map();
-    stagingBuffer.WriteToBuffer((void*)shaderMaterials.data(), bufferSize);
-
-    m_shaderMaterialBuffer.Init(m_device, bufferSize, 3, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
-
-    Buffer::CopyBuffer(*m_device, stagingBuffer, m_shaderMaterialBuffer, bufferSize);
 }
 
 BoundingBox Model::CalculateLocalAABB(LoaderInfo& loaderInfo) const

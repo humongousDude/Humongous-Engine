@@ -74,6 +74,8 @@ public:
         else { return {}; }
     }
 
+    static void WaitForCompute(VkCommandBuffer cmd);
+
 private:
     std::unique_ptr<SwapChain> m_swapChain = nullptr;
     Window&                    m_window;
@@ -119,7 +121,5 @@ private:
     void AllocateCommandBuffers();
     void RecreateSwapChain();
     void UpdateDepthBuffer();
-
-    void WaitForCompute(VkCommandBuffer cmd);
 };
 } // namespace Humongous

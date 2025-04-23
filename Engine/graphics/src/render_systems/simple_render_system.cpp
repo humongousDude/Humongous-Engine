@@ -141,12 +141,13 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
 
     VkDescriptorSet  debugSet;
     auto             info = m_debugBuffer->DescriptorInfo();
-    DescriptorWriter writer{*ResourceManager::GetModelDescriptors().debugLayout, ResourceManager::GetModelDescriptors().debugPool.get()};
+    DescriptorWriter writer{*ResourceManager::GetModelDescriptors().debugLayout, ResourceManager::GetDescriptorPools().debugPool.get()};
     writer.WriteBuffer(0, &info).Build(debugSet);
 
     std::vector<VkDescriptorSet> allSets{};
     allSets.insert(allSets.begin(), renderData.uboSets.begin(), renderData.uboSets.end());
     allSets.insert(allSets.begin() + allSets.size(), renderData.sceneSets.begin(), renderData.sceneSets.end());
+    allSets.insert(allSets.begin() + allSets.size(), renderData.skyboxSets.begin(), renderData.skyboxSets.end());
 
     vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout,
                             static_cast<n32>(Globals::DescriptorSetIndices::Camera), allSets.size(), allSets.data(), 0, nullptr);

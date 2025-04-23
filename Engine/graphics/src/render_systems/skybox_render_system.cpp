@@ -2,6 +2,7 @@
 
 #include "asset_manager.hpp"
 #include "logger.hpp"
+#include "resource_manager.hpp"
 #include <vector>
 
 namespace Humongous
@@ -38,7 +39,7 @@ void SkyboxRenderSystem::CreatePipelineLayout(const std::vector<VkDescriptorSetL
 
     std::vector<VkDescriptorSetLayout> layouts;
     layouts.insert(layouts.begin(), globalLayouts.begin(), globalLayouts.end());
-    layouts.push_back(m_skyboxSetLayout->GetDescriptorSetLayout());
+    layouts.push_back(ResourceManager::GetSkyboxDescriptorLayout());
 
     VkPipelineLayoutCreateInfo layoutCI{};
     layoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -70,15 +71,7 @@ void SkyboxRenderSystem::CreatePipeline()
     m_renderPipeline = std::make_unique<RenderPipeline>(*m_logicalDevice, ppCI);
 }
 
-void SkyboxRenderSystem::InitSkybox(const std::string& skyBoxImgPath)
-{
-    SkyboxCreateInfo skyboxCI{.logicalDevice = m_logicalDevice,
-                              .cubemapPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::TEXTURE, skyBoxImgPath),
-                              .descriptorSetLayout = *m_skyboxSetLayout,
-                              .growablePool = *m_skyboxPool};
-
-    m_skybox = std::make_unique<Skybox>(skyboxCI);
-}
+void SkyboxRenderSystem::InitSkybox(const std::string& skyBoxImgPath) { m_skybox = ResourceManager::LoadSkybox("papermill"); }
 
 void SkyboxRenderSystem::RenderSkybox(const n32& frameIndex, std::vector<VkDescriptorSet>& globalSets, VkCommandBuffer cmd)
 {

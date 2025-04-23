@@ -12,6 +12,7 @@ struct RenderData
     VkCommandBuffer                                       commandBuffer;
     std::vector<VkDescriptorSet>                          uboSets;
     std::vector<VkDescriptorSet>                          sceneSets;
+    std::vector<VkDescriptorSet>                          skyboxSets;
     std::vector<std::pair<GameObject::id_t, GameObject*>> gameObjects;
     n32                                                   frameIndex;
     Camera&                                               cam;

@@ -60,10 +60,7 @@ void Renderer::RecreateSwapChain()
     m_logicalDevice.GetVkDevice().waitIdle();
 
     auto extent = m_window.GetExtent();
-    while(extent.width == 0 || extent.height == 0)
-    {
-        extent = m_window.GetExtent();
-    }
+    while(extent.width == 0 || extent.height == 0) { extent = m_window.GetExtent(); }
 
     if(m_swapChain == nullptr) { m_swapChain = std::make_unique<SwapChain>(m_window, m_physicalDevice, m_logicalDevice); }
     else

@@ -19,6 +19,8 @@ public:
 
     void RenderSkybox(const n32& frameIndex, std::vector<VkDescriptorSet>& globalSets, VkCommandBuffer commandBuffer);
 
+    std::shared_ptr<Skybox> GetSkybox() const { return m_skybox; }
+
 private:
     LogicalDevice*                  m_logicalDevice;
     std::unique_ptr<RenderPipeline> m_renderPipeline;
@@ -27,7 +29,7 @@ private:
     std::unique_ptr<DescriptorPoolGrowable> m_skyboxPool;
     std::unique_ptr<DescriptorSetLayout>    m_skyboxSetLayout;
 
-    std::unique_ptr<Skybox> m_skybox;
+    std::shared_ptr<Skybox> m_skybox;
 
     void InitDescriptors();
     void CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& globalLayouts);

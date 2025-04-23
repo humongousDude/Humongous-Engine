@@ -26,11 +26,11 @@ void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
 
     DescriptorSetLayout::Builder builder2{*logicalDevice};
     builder2.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-    m_projectionLayout = builder2.Build();
+    m_projectionDescriptorLayout = builder2.Build();
 
     DescriptorSetLayout::Builder builder3{*logicalDevice};
     builder3.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    m_paramLayout = builder3.Build();
+    m_paramDescriptorLayout = builder3.Build();
 
     m_projectionBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_projectionMatrixSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -46,7 +46,7 @@ void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
         m_projectionBuffers[i]->Map();
 
         auto bufInfo = m_projectionBuffers[i]->DescriptorInfo();
-        DescriptorWriter(*m_projectionLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_projectionMatrixSet[i]);
+        DescriptorWriter(*m_projectionDescriptorLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_projectionMatrixSet[i]);
 
         m_paramBuffers[i] =
             std::make_unique<Buffer>(logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(UboParams), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -54,7 +54,7 @@ void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
         m_paramBuffers[i]->Map();
 
         auto paramInfo = m_paramBuffers[i]->DescriptorInfo();
-        DescriptorWriter(*m_paramLayout, m_projectionPool.get()).WriteBuffer(0, &paramInfo).Build(m_uboParamSet[i]);
+        DescriptorWriter(*m_paramDescriptorLayout, m_projectionPool.get()).WriteBuffer(0, &paramInfo).Build(m_uboParamSet[i]);
 
         m_combinedCameraDataBuffers[i] = std::make_unique<Buffer>(
             logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(Camera::CombinedCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -82,6 +82,14 @@ void Camera::UpdateUBO(n32 index)
     m_projectionBuffers[index]->WriteToBuffer(&ubo);
 
     UboParams params{};
+    params.camPos = m_position;
+    params.lightDir = glm::vec4(glm::normalize(glm::vec3(1.0f, -3.0f, 1.0f)), 0.0f); // Example directional light
+    params.exposure = 2.0f;                                                          // Example exposure
+    params.gamma = 2.2f;                                                             // Standard gamma
+    params.prefilteredCubeMipLevels = static_cast<float>(9);                         // Get actual mip count
+    params.scaleIBLAmbient = 1.0f;                                                   // Start with no ambient scaling
+    params.debugViewInputs = 0;                                                      // Debugging disabled
+    params.debugViewEquation = 0;                                                    // Debugging disabled
     m_paramBuffers[index]->WriteToBuffer(&params);
 }
 

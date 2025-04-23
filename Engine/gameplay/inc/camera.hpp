@@ -25,11 +25,12 @@ struct alignas(16) ProjectionUBO
     glm::vec3 cameraPos;
 };
 
-struct UboParams
+struct alignas(16) UboParams
 {
-    glm::vec4 lightDir = glm::vec4(1.0f, 4.0f, 0.0f, 1.0f);
+    glm::vec3 camPos{};
+    glm::vec4 lightDir = glm::vec4(1.0f, 4.0f, 0.0f, 10.0f);
 
-    float exposure = 100.0f, gamma = 100.0f, prefilteredCubeMipLevels = 100.f, scaleIBLAmbient = 100.0f, debugViewInputs = 0, debugViewEquation = 0;
+    float exposure = 100.0f, gamma = 100.0f, prefilteredCubeMipLevels = 100.f, scaleIBLAmbient = 1.0f, debugViewInputs = 0, debugViewEquation = 0;
 };
 
 // Define a plane struct representing a plane in 3D space
@@ -60,9 +61,9 @@ public:
     VkDescriptorSet GetDescriptorSet(n32 index) const { return m_projectionMatrixSet[index]; };
     VkDescriptorSet GetParamDescriptorSet(n32 index) const { return m_uboParamSet[index]; };
 
-    VkDescriptorSetLayout              GetParamDescriptorSetLayout() const { return m_paramLayout->GetDescriptorSetLayout(); };
+    VkDescriptorSetLayout              GetParamDescriptorSetLayout() const { return m_paramDescriptorLayout->GetDescriptorSetLayout(); };
     const std::vector<VkDescriptorSet> GetCombinedSets(n32 index) const { return {m_projectionMatrixSet[index], m_uboParamSet[index]}; };
-    VkDescriptorSetLayout              GetDescriptorSetLayout() const { return m_projectionLayout->GetDescriptorSetLayout(); };
+    VkDescriptorSetLayout              GetDescriptorSetLayout() const { return m_projectionDescriptorLayout->GetDescriptorSetLayout(); };
     VkBuffer                           GetProjectionBuffer(n32 index) const { return m_projectionBuffers[index]->GetBuffer(); };
     Buffer&                            GetProjectionBufferHandle(n32 index) const { return *m_projectionBuffers[index]; }
     Buffer&                            GetCombinedDataBufferHandle(n32 index) const { return *m_combinedCameraDataBuffers[index]; }
@@ -94,9 +95,8 @@ private:
     std::vector<std::unique_ptr<Buffer>> m_combinedCameraDataBuffers;
 
     std::unique_ptr<DescriptorPool>      m_projectionPool;
-    std::unique_ptr<DescriptorSetLayout> m_projectionLayout;
-
-    std::unique_ptr<DescriptorSetLayout> m_paramLayout;
+    std::unique_ptr<DescriptorSetLayout> m_projectionDescriptorLayout;
+    std::unique_ptr<DescriptorSetLayout> m_paramDescriptorLayout;
 
     std::vector<VkDescriptorSet> m_projectionMatrixSet;
     std::vector<VkDescriptorSet> m_uboParamSet;

@@ -58,14 +58,17 @@ void VulkanApp::Init(const int argc, char* argv[])
 
     m_cam = std::make_unique<Camera>(m_logicalDevice.get());
 
-    std::vector<VkDescriptorSetLayout> simpleLayouts = {m_cam->GetDescriptorSetLayout(), m_cam->GetParamDescriptorSetLayout()};
     std::vector<VkDescriptorSetLayout> skyboxLayouts = {m_cam->GetDescriptorSetLayout()};
 
     ShaderSet set = {Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert"),
-                     Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "unlit.frag")};
+                     Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "pbr.frag")};
+
+    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(m_logicalDevice.get(), "papermill", skyboxLayouts);
+
+    std::vector<VkDescriptorSetLayout> simpleLayouts = {m_cam->GetDescriptorSetLayout(), m_cam->GetParamDescriptorSetLayout(),
+                                                        ResourceManager::GetSkyboxDescriptorLayout()};
 
     m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, simpleLayouts, set);
-    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(m_logicalDevice.get(), "papermill", skyboxLayouts);
 
     m_mainDeletionQueue.PushDeletor([&]() {
         m_simpleRenderSystem.reset();
@@ -96,12 +99,12 @@ void VulkanApp::LoadGameObjects()
     wall.name = "Wall";
     m_gameObjects.emplace(wall.GetId(), std::move(wall));
 
-    std::shared_ptr<Model> employeeModel = ResourceManager::LoadModel("employee");
+    std::shared_ptr<Model> employeeModel = ResourceManager::LoadModel("DamagedHelmet");
 
     GameObject employee = GameObject::CreateGameObject();
-    employee.transform.translation = glm::vec3(0, 0, 5);
-    employee.transform.scale = glm::vec3(1.0f);
-    employee.transform.rotation = glm::vec3(glm::radians(90.f), 0.0f, 0.0f);
+    employee.transform.translation = glm::vec3(0, 0, -40);
+    employee.transform.scale = glm::vec3(10.0f);
+    employee.transform.rotation = glm::vec3(glm::radians(90.f), glm::radians(180.0f), 0.0f);
     employee.name = "Employee";
     employee.SetModel(employeeModel);
 
@@ -124,7 +127,7 @@ void VulkanApp::LoadGameObjects()
 
 void VulkanApp::HandleInput(const float frameTime, SDL_Event* event) const
 {
-    float                      deltaX = 0.0f, deltaY = 0.0f;
+    float deltaX = 0.0f, deltaY = 0.0f;
     auto  movementType = KeyboardHandler::Movements::NONE;
 
     KeyboardHandler handler;
@@ -140,58 +143,31 @@ void VulkanApp::HandleInput(const float frameTime, SDL_Event* event) const
     if(keyboardState[SDL_SCANCODE_W]) { movementType = KeyboardHandler::Movements::FORWARD; }
     if(keyboardState[SDL_SCANCODE_S])
     {
-        if(movementType == KeyboardHandler::Movements::FORWARD)
-        {
-            movementType = KeyboardHandler::Movements::NONE;
-        }
+        if(movementType == KeyboardHandler::Movements::FORWARD) { movementType = KeyboardHandler::Movements::NONE; }
         else { movementType = KeyboardHandler::Movements::BACKWARD; }
     }
     if(keyboardState[SDL_SCANCODE_A])
     {
-        if(movementType == KeyboardHandler::Movements::RIGHT)
-        {
-            movementType = KeyboardHandler::Movements::NONE;
-        }
-        else if(movementType == KeyboardHandler::Movements::FORWARD)
-        {
-            movementType = KeyboardHandler::Movements::FORWARD_LEFT;
-        }
-        else if(movementType == KeyboardHandler::Movements::BACKWARD)
-        {
-            movementType = KeyboardHandler::Movements::BACKWARD_LEFT;
-        }
+        if(movementType == KeyboardHandler::Movements::RIGHT) { movementType = KeyboardHandler::Movements::NONE; }
+        else if(movementType == KeyboardHandler::Movements::FORWARD) { movementType = KeyboardHandler::Movements::FORWARD_LEFT; }
+        else if(movementType == KeyboardHandler::Movements::BACKWARD) { movementType = KeyboardHandler::Movements::BACKWARD_LEFT; }
         else { movementType = KeyboardHandler::Movements::LEFT; }
     }
     if(keyboardState[SDL_SCANCODE_D])
     {
-        if(movementType == KeyboardHandler::Movements::LEFT)
-        {
-            movementType = KeyboardHandler::Movements::NONE;
-        }
-        else if(movementType == KeyboardHandler::Movements::FORWARD)
-        {
-            movementType = KeyboardHandler::Movements::FORWARD_RIGHT;
-        }
-        else if(movementType == KeyboardHandler::Movements::BACKWARD)
-        {
-            movementType = KeyboardHandler::Movements::BACKWARD_RIGHT;
-        }
+        if(movementType == KeyboardHandler::Movements::LEFT) { movementType = KeyboardHandler::Movements::NONE; }
+        else if(movementType == KeyboardHandler::Movements::FORWARD) { movementType = KeyboardHandler::Movements::FORWARD_RIGHT; }
+        else if(movementType == KeyboardHandler::Movements::BACKWARD) { movementType = KeyboardHandler::Movements::BACKWARD_RIGHT; }
         else { movementType = KeyboardHandler::Movements::RIGHT; }
     }
     if(keyboardState[SDL_SCANCODE_Q])
     {
-        if(movementType == KeyboardHandler::Movements::UP)
-        {
-            movementType = KeyboardHandler::Movements::NONE;
-        }
+        if(movementType == KeyboardHandler::Movements::UP) { movementType = KeyboardHandler::Movements::NONE; }
         else { movementType = KeyboardHandler::Movements::DOWN; }
     }
     if(keyboardState[SDL_SCANCODE_E])
     {
-        if(movementType == KeyboardHandler::Movements::DOWN)
-        {
-            movementType = KeyboardHandler::Movements::NONE;
-        }
+        if(movementType == KeyboardHandler::Movements::DOWN) { movementType = KeyboardHandler::Movements::NONE; }
         else { movementType = KeyboardHandler::Movements::UP; }
     }
 
@@ -288,6 +264,7 @@ void VulkanApp::Run()
                 RenderData data{.commandBuffer = cmd,
                                 .uboSets = {m_cam->GetDescriptorSet(m_renderer->GetFrameIndex())},
                                 .sceneSets = {m_cam->GetParamDescriptorSet(m_renderer->GetFrameIndex())},
+                                .skyboxSets = {m_skyboxRenderSystem->GetSkybox()->GetDescriptorSet()},
                                 .gameObjects = Utils::SortAndCullGameObjects(*m_cam, m_gameObjects),
                                 .frameIndex = m_renderer->GetFrameIndex(),
                                 .cam = *m_cam,

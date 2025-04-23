@@ -38,13 +38,13 @@ layout(set = 0, binding = 0) uniform UBO
 } ubo;
 
 // TODO : make this work again
-layout(set = 4, binding = 0) uniform UBONode {
+layout(set = 5, binding = 0) uniform UBONode {
     mat4 matrix;
     // mat4 jointMatrix[MAX_NUM_JOINTS];
     // float jointCount;
 } node;
 
-layout(set = 5, binding = 0) buffer DebugData
+layout(set = 6, binding = 0) buffer DebugData
 {
     uint draws;
 } debug;
@@ -62,6 +62,7 @@ void main()
     outUV0 = v.uv1;
     outUV1 = v.uv2;
     cameraPos = ubo.cameraPos;
+    outColor = vec4(1);
 
     atomicAdd(debug.draws, 1);
 }

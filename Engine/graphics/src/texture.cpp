@@ -16,9 +16,10 @@
 
 namespace Humongous
 {
-Texture::Texture(LogicalDevice* logicalDevice, const std::string& imagePath, const ImageType& imageType) : m_logicalDevice{logicalDevice}
+Texture::Texture(LogicalDevice* logicalDevice, const std::string& imagePath, const ImageType& imageType, const bool& storage)
+    : m_logicalDevice{logicalDevice}
 {
-    CreateFromFile(imagePath, logicalDevice, imageType);
+    CreateFromFile(imagePath, logicalDevice, imageType, storage);
 }
 
 void Texture::Destroy()
@@ -32,11 +33,11 @@ void Texture::Destroy()
     }
 }
 
-void Texture::CreateFromFile(const std::string& path, LogicalDevice* device, const ImageType& imageType)
+void Texture::CreateFromFile(const std::string& path, LogicalDevice* device, const ImageType& imageType, const bool& storage)
 {
     this->m_logicalDevice = device;
 
-    CreateTextureImage(path, imageType);
+    CreateTextureImage(path, imageType, storage);
 }
 
 void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo textureSampler, LogicalDevice* device, VkQueue copyQueue)
@@ -280,7 +281,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     if(deleteBuffer) { delete[] buffer; }
 }
 
-void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& imageType)
+void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& imageType, const bool& storage)
 {
     SamplerCreateInfo samplerInfo{};
 
@@ -330,7 +331,10 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         createInfo.layerCount = 1;
         createInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
         createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-        createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+        if(storage) { createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT; }
+        else { createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; }
+
         createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         createInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 
@@ -364,7 +368,10 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         second.cmd = cmd2;
         second.image = m_textureImage.image;
         second.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        second.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        if(storage) { second.newLayout = VK_IMAGE_LAYOUT_GENERAL; }
+        else { second.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; }
+
         second.logicalDevice = m_logicalDevice;
         second.baseMipLevel = 0;
         second.levelCount = m_miplevels;
@@ -374,14 +381,14 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         Utils::TransitionImageLayout(second);
 
         m_logicalDevice->EndSingleTimeCommands(cmd2);
-        m_textureImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        if(storage) { m_textureImage.imageLayout = VK_IMAGE_LAYOUT_GENERAL; }
+        else { m_textureImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; }
 
         samplerInfo.magFilter = VK_FILTER_LINEAR;
         samplerInfo.minFilter = VK_FILTER_LINEAR;
         samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-
         CreateTextureImageSampler(samplerInfo);
     }
     else if(imageType == ImageType::CUBEMAP)
@@ -391,6 +398,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         m_width = static_cast<n32>(texCube.extent().x);
         m_height = static_cast<n32>(texCube.extent().y);
         m_miplevels = static_cast<n32>(texCube.levels());
+        m_baseSize = static_cast<n32>(texCube[0][0].extent().x);
 
         Buffer stagingBuffer{m_logicalDevice,
                              texCube.size(),
@@ -430,7 +438,8 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         createInfo.mipLevels = m_miplevels;
         createInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-        createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        if(storage) { createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT; }
+        else { createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; }
         createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         createInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
         createInfo.width = static_cast<n32>(m_width);
@@ -466,7 +475,8 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         second.cmd = cmd;
         second.image = m_textureImage.image;
         second.oldLayout = m_textureImage.imageLayout;
-        second.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        if(storage) { second.newLayout = VK_IMAGE_LAYOUT_GENERAL; }
+        else { second.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; }
         second.logicalDevice = m_logicalDevice;
         second.baseMipLevel = 0;
         second.levelCount = m_miplevels;
@@ -476,7 +486,8 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         Utils::TransitionImageLayout(second);
 
         m_logicalDevice->EndSingleTimeCommands(cmd2);
-        m_textureImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        if(storage) { m_textureImage.imageLayout = VK_IMAGE_LAYOUT_GENERAL; }
+        else { m_textureImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; }
 
         samplerInfo.magFilter = VK_FILTER_LINEAR;
         samplerInfo.minFilter = VK_FILTER_LINEAR;
@@ -486,6 +497,59 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
 
         CreateTextureImageSampler(samplerInfo, ImageType::CUBEMAP);
     }
+}
+
+void Texture::FillWithEmpty(LogicalDevice* logicalDevice, n32 width, n32 height, const bool& storage)
+{
+    m_width = width;
+    m_height = height;
+    m_miplevels = 1;
+    m_layerCount = 1;
+    m_baseSize = width;
+    m_logicalDevice = logicalDevice;
+
+    Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = *logicalDevice, .allocatedImage = m_textureImage};
+    createInfo.width = width;
+    createInfo.height = height;
+    createInfo.mipLevels = 1;
+    createInfo.layerCount = 1;
+    createInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    if(storage) { createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT; }
+    else { createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; }
+    createInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    createInfo.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+
+    Utils::CreateAllocatedImage(createInfo);
+
+    VkCommandBuffer cmd = logicalDevice->BeginSingleTimeCommands();
+
+    Utils::ImageTransitionInfo transinfo{};
+    transinfo.cmd = cmd;
+    transinfo.image = m_textureImage.image;
+    transinfo.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if(storage) { transinfo.newLayout = VK_IMAGE_LAYOUT_GENERAL; }
+    else { transinfo.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; }
+    transinfo.logicalDevice = logicalDevice;
+    transinfo.baseMipLevel = 0;
+    transinfo.levelCount = 1;
+    transinfo.baseArrayLayer = 0;
+    transinfo.layerCount = 1;
+
+    Utils::TransitionImageLayout(transinfo);
+
+    logicalDevice->EndSingleTimeCommands(cmd);
+
+    if(storage) { m_textureImage.imageLayout = VK_IMAGE_LAYOUT_GENERAL; }
+    else { m_textureImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; }
+
+    SamplerCreateInfo samplerInfo{};
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    CreateTextureImageSampler(samplerInfo);
 }
 
 void Texture::CreateTextureImageSampler(const SamplerCreateInfo& info, const ImageType& imageType)
