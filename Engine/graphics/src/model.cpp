@@ -445,50 +445,41 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         {
             material.baseColorTexture = &m_textures[mat.values["baseColorTexture"].TextureIndex()];
             material.texCoordSets.baseColor = mat.values["baseColorTexture"].TextureTexCoord();
-            HGINFO("GOT BASE COLOR TEX");
         }
         if(mat.values.find("metallicRoughnessTexture") != mat.values.end())
         {
             material.metallicRoughnessTexture = &m_textures[mat.values["metallicRoughnessTexture"].TextureIndex()];
             material.texCoordSets.metallicRoughness = mat.values["metallicRoughnessTexture"].TextureTexCoord();
-            HGINFO("GOT metallic rouch TEX");
         }
         if(mat.values.find("roughnessFactor") != mat.values.end())
         {
             material.roughnessFactor = static_cast<float>(mat.values["roughnessFactor"].Factor());
-            HGINFO("GOT rouch fac TEX");
         }
         if(mat.values.find("metallicFactor") != mat.values.end())
         {
             material.metallicFactor = static_cast<float>(mat.values["metallicFactor"].Factor());
-            HGINFO("GOT metal fac TEX");
         }
         if(mat.values.find("baseColorFactor") != mat.values.end())
         {
             material.baseColorFactor = glm::make_vec4(mat.values["baseColorFactor"].ColorFactor().data());
-            HGINFO("GOT base col fac TEX");
         }
         if(mat.additionalValues.find("normalTexture") != mat.additionalValues.end())
         {
             material.normalTexture = &m_textures[mat.additionalValues["normalTexture"].TextureIndex()];
             material.texCoordSets.normal = mat.additionalValues["normalTexture"].TextureTexCoord();
-            HGINFO("GOT normal TEX");
         }
         if(mat.additionalValues.find("emissiveTexture") != mat.additionalValues.end())
         {
             material.emissiveTexture = &m_textures[mat.additionalValues["emissiveTexture"].TextureIndex()];
             material.texCoordSets.emissive = mat.additionalValues["emissiveTexture"].TextureTexCoord();
-            HGINFO("GOT emissive TEX");
         }
         if(mat.additionalValues.find("occlusionTexture") != mat.additionalValues.end())
         {
             material.occlusionTexture = &m_textures[mat.additionalValues["occlusionTexture"].TextureIndex()];
             material.texCoordSets.occlusion = mat.additionalValues["occlusionTexture"].TextureTexCoord();
-            HGINFO("GOT occlusnio TEX");
         }
         if(mat.additionalValues.find("alphaMode") != mat.additionalValues.end())
         {
-            HGINFO("GOT alphamonde TEX");
             tinygltf::Parameter param = mat.additionalValues["alphaMode"];
             if(param.string_value == "BLEND") { material.alphaMode = Material::ALPHAMODE_BLEND; }
             if(param.string_value == "MASK")
@@ -743,11 +734,6 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
     for(auto& node: m_nodes) { UpdateMaterialBatches(node); }
 
     SetupIndirectDrawBuffer();
-    // m_localAABB = CalculateLocalAABB(gltfModel);
-
-    // HGINFO("Caluclated local AABB MIN/MAX: %f, %f, %f :::  %f, %f, %f", m_localAABB.min.x, m_localAABB.min.y, m_localAABB.min.z,
-    // m_localAABB.max.x,
-    //        m_localAABB.max.y, m_localAABB.max.z);
 }
 
 void Model::Draw(VkCommandBuffer cmd, VkPipelineLayout& pipelineLayout)
