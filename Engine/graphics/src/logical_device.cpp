@@ -37,10 +37,14 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     m_graphicsQueueIndex = indices.graphicsFamily.value();
     m_presentQueueIndex = indices.presentFamily.value();
 
+    vk::PhysicalDeviceVulkan11Features vulkan11Features{};
+    vulkan11Features.shaderDrawParameters = VK_TRUE;
+
     // vulkan 1.2 features
     vk::PhysicalDeviceVulkan12Features vulkan12Features{};
     vulkan12Features.descriptorIndexing = VK_TRUE;
     vulkan12Features.bufferDeviceAddress = VK_TRUE;
+    vulkan12Features.pNext = &vulkan11Features;
 
     // vulkan 1.3 features
     vk::PhysicalDeviceVulkan13Features vulkan13Features{};

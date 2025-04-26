@@ -25,7 +25,7 @@ add_subdirectory(ThirdParty/tinygltf EXCLUDE_FROM_ALL)
 file(GLOB IMGUI CONFIGURE_DEPENDS ./ThirdParty/imgui/*.cpp)
 add_library(Engine STATIC ${SRCS} ${IMGUI}
     ./ThirdParty/imgui/backends/imgui_impl_vulkan.cpp
-    ./ThirdParty/imgui/backends/imgui_impl_sdl3.cpp   
+    ./ThirdParty/imgui/backends/imgui_impl_sdl3.cpp
     )
 
 # Do we need all these directories?
@@ -53,12 +53,13 @@ target_include_directories(
            ThirdParty/spdlog/include/spdlog/sinks/
            ThirdParty/spdlog/include/spdlog/details/
            ThirdParty/VulkanMemoryAllocator/include/
+           ThirdParty/tinygltf/
 )
 
 find_package(Vulkan)
 
 target_link_libraries(Engine PUBLIC SDL3::SDL3 glm::glm gli spdlog::spdlog Vulkan::Vulkan Vulkan::Headers GPUOpen::VulkanMemoryAllocator)
-target_include_directories(Engine PUBLIC ThirdParty/tinygltf/)
+# target_include_directories(Engine PUBLIC ThirdParty/tinygltf/)
 
 
 

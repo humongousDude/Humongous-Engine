@@ -1,5 +1,7 @@
 #include "abstractions/descriptor_writer.hpp"
+#include "imgui.h"
 #include "logger.hpp"
+#include "ui/widget.hpp"
 #include <camera.hpp>
 
 #include <glm/ext/matrix_transform.hpp>
@@ -81,16 +83,15 @@ void Camera::UpdateUBO(n32 index)
 
     m_projectionBuffers[index]->WriteToBuffer(&ubo);
 
-    UboParams params{};
-    params.camPos = m_position;
-    params.lightDir = glm::vec4(glm::normalize(glm::vec3(1.0f, -3.0f, 1.0f)), 0.0f); // Example directional light
-    params.exposure = 2.0f;                                                          // Example exposure
-    params.gamma = 2.2f;                                                             // Standard gamma
-    params.prefilteredCubeMipLevels = static_cast<float>(9);                         // Get actual mip count
-    params.scaleIBLAmbient = 1.0f;                                                   // Start with no ambient scaling
-    params.debugViewInputs = 0;                                                      // Debugging disabled
-    params.debugViewEquation = 0;                                                    // Debugging disabled
-    m_paramBuffers[index]->WriteToBuffer(&params);
+    m_uboParams.camPos = m_position;
+    // m_uboParams.lightDir = glm::vec4(glm::normalize(glm::vec3(1.0f, -3.0f, 1.0f)), 0.0f); // Example directional light
+    // m_uboParams.exposure = 2.0f;                                  // Example exposure
+    // m_uboParams.gamma = 2.2f;                                     // Standard gamma
+    m_uboParams.prefilteredCubeMipLevels = static_cast<float>(9); // Get actual mip count
+    // m_uboParams.scaleIBLAmbient = 1.0f;                           // Start with no ambient scaling
+    // m_uboParams.debugViewInputs = 0;   // Debugging disabled
+    // m_uboParams.debugViewEquation = 0; // Debugging disabled
+    m_paramBuffers[index]->WriteToBuffer(&m_uboParams);
 }
 
 void Camera::UpdateCombinedCameraData(n32 index)
@@ -229,4 +230,29 @@ bool Camera::IsAABBInsideFrustum(const glm::vec3& aabbMin, const glm::vec3& aabb
     return true; // AABB is inside or intersecting the frustum
 }
 
+void Camera::DrawUI()
+{
+    static bool     first = true;
+    static UiWidget widget{"Lighting", true, {0, 500}, {400, 500}, 0};
+    if(first)
+    {
+        widget.Add([&]() {
+            f32 lightDir[3] = {m_uboParams.lightDir.x, m_uboParams.lightDir.y, m_uboParams.lightDir.z};
+            ImGui::DragFloat3("Light direction", lightDir);
+            m_uboParams.lightDir.x = lightDir[0];
+            m_uboParams.lightDir.y = lightDir[1];
+            m_uboParams.lightDir.z = lightDir[2];
+
+            ImGui::DragFloat("gamma", &m_uboParams.gamma);
+            ImGui::DragFloat("exposure", &m_uboParams.exposure);
+            ImGui::DragFloat("scaleIBLAmbient", &m_uboParams.scaleIBLAmbient);
+            ImGui::SliderFloat("debug lighting", &m_uboParams.debugViewInputs, 0, 6);
+            ImGui::SliderFloat("debug equation", &m_uboParams.debugViewEquation, 0, 5);
+        });
+
+        first = false;
+    }
+
+    widget.Draw();
+}
 }; // namespace Humongous

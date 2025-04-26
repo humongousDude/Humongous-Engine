@@ -46,20 +46,8 @@ struct Mesh
     Mesh(LogicalDevice* device, glm::mat4 matrix);
     ~Mesh();
 
-    LogicalDevice*          device;
+    LogicalDevice*          logicalDevice;
     std::vector<Primitive*> primitives;
-
-    struct UniformBuffer
-    {
-        Buffer                 uniformBuffer;
-        VkDescriptorBufferInfo descriptorInfo;
-        VkDescriptorSet        descriptorSet = VK_NULL_HANDLE;
-    } uniformBuffer;
-
-    struct UniformBlock
-    {
-        glm::mat4 matrix{1.f};
-    } uniformBlock;
 };
 
 class Model
@@ -149,6 +137,8 @@ private:
 
     void                                                               SetupIndirectDrawBuffer();
     Buffer                                                             m_indirectDrawBuffer;
+    Buffer                                                             m_nodeIDBuffer;
+    Buffer                                                             m_nodeMatrixBuffer;
     std::unordered_map<n32, std::vector<VkDrawIndexedIndirectCommand>> m_indirectCommands;
     std::vector<VkDrawIndexedIndirectCommand>                          m_debugCommands;
 
@@ -165,11 +155,10 @@ private:
     BoundingBox m_localAABB{};
 
     bool m_initialized{false};
-    void LoadFromFile(std::string filename, LogicalDevice* device, VkQueue transferQueue, float scale = 1.0f);
+    void LoadFromFile(std::string filepath, LogicalDevice* device, VkQueue transferQueue, float scale = 1.0f);
     void Destroy(VkDevice m_device);
 
     void CreateMaterialDataBuffer();
-    void UpdateShaderMaterialBuffer(Node* node);
 
     void UpdateUBO(Node* node, glm::mat4 matrix);
     void UpdateMaterialBatches(Node* node);

@@ -28,9 +28,9 @@ struct alignas(16) ProjectionUBO
 struct alignas(16) UboParams
 {
     glm::vec3 camPos{};
-    glm::vec4 lightDir = glm::vec4(1.0f, 4.0f, 0.0f, 10.0f);
-
-    float exposure = 100.0f, gamma = 100.0f, prefilteredCubeMipLevels = 100.f, scaleIBLAmbient = 1.0f, debugViewInputs = 0, debugViewEquation = 0;
+    f32       _padding0;
+    glm::vec4 lightDir = glm::vec4(glm::normalize(glm::vec3(1.0f, -3.0f, 1.0f)), 0.0f);
+    f32       exposure = 2.0f, gamma = 2.2f, prefilteredCubeMipLevels = 9.f, scaleIBLAmbient = 0.05f, debugViewInputs = 0, debugViewEquation = 0;
 };
 
 // Define a plane struct representing a plane in 3D space
@@ -55,11 +55,12 @@ public:
     ~Camera();
 
     void SetOrthographicProjection(float left, float right, float top, float bottom, float near, float far);
-
     void SetPerspectiveProjection(float fovy, float spect, float near, float far);
 
     VkDescriptorSet GetDescriptorSet(n32 index) const { return m_projectionMatrixSet[index]; };
     VkDescriptorSet GetParamDescriptorSet(n32 index) const { return m_uboParamSet[index]; };
+
+    void DrawUI();
 
     VkDescriptorSetLayout              GetParamDescriptorSetLayout() const { return m_paramDescriptorLayout->GetDescriptorSetLayout(); };
     const std::vector<VkDescriptorSet> GetCombinedSets(n32 index) const { return {m_projectionMatrixSet[index], m_uboParamSet[index]}; };
@@ -100,6 +101,7 @@ private:
 
     std::vector<VkDescriptorSet> m_projectionMatrixSet;
     std::vector<VkDescriptorSet> m_uboParamSet;
+    UboParams                    m_uboParams{};
 
     glm::mat4 m_projectionMatrix{1.f};
     glm::mat4 m_viewMatrix{1.0f};

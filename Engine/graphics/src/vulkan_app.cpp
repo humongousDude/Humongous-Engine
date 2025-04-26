@@ -89,34 +89,36 @@ void VulkanApp::LoadGameObjects()
 {
     HGINFO("Loading game objects...");
 
-    std::shared_ptr<Model> wallModel = ResourceManager::LoadModel("real_wall");
+    auto wallModel = ResourceManager::LoadModel("real_wall");
 
     GameObject wall = GameObject::CreateGameObject();
     wall.transform.translation = glm::vec3(0.0f, 0.0f, 50.f);
-    wall.transform.scale = glm::vec3(50, 40, 1);
-    wall.transform.rotation = glm::vec3(glm::radians(90.0f), 0.0f, 0.0f);
+    wall.transform.scale = glm::vec3(10, 10, 10);
+    wall.transform.rotation = glm::vec3(90, 0.0f, 0.0f);
     wall.SetModel(wallModel);
     wall.name = "Wall";
     m_gameObjects.emplace(wall.GetId(), std::move(wall));
 
-    std::shared_ptr<Model> employeeModel = ResourceManager::LoadModel("DamagedHelmet");
+    // Sponza isn't available by default. This tests the Asset Manager's ability to load a default model. However, if sponza is provided, it'll be
+    // loaded instead
+    auto employeeModel = ResourceManager::LoadModel("Sponza");
 
     GameObject employee = GameObject::CreateGameObject();
-    employee.transform.translation = glm::vec3(0, 0, -40);
-    employee.transform.scale = glm::vec3(10.0f);
-    employee.transform.rotation = glm::vec3(glm::radians(90.f), glm::radians(180.0f), 0.0f);
-    employee.name = "Employee";
+    employee.transform.translation = glm::vec3(5, 0, 0);
+    employee.transform.scale = glm::vec3(0.1f);
+    employee.transform.rotation = glm::vec3(0.0f);
+    employee.name = "Sponza";
     employee.SetModel(employeeModel);
 
     m_gameObjects.emplace(employee.GetId(), std::move(employee));
 
-    std::shared_ptr<Model> carModel = ResourceManager::LoadModel("silly thing");
+    auto damagedHelmetModel = ResourceManager::LoadModel("DamagedHelmet");
 
     GameObject car = GameObject::CreateGameObject();
-    car.transform.translation = glm::vec3(0, 0, 150);
-    car.transform.scale = glm::vec3(1);
-    car.name = "Car";
-    car.SetModel(carModel);
+    car.transform.translation = glm::vec3(-5, 0, 0);
+    car.transform.scale = glm::vec3(5);
+    car.name = "Damaged Helmet";
+    car.SetModel(damagedHelmetModel);
 
     m_gameObjects.emplace(car.GetId(), std::move(car));
 
@@ -182,7 +184,7 @@ void VulkanApp::Run()
 
     auto currentTime = std::chrono::high_resolution_clock::now();
 
-    UiWidget objectDataWidget{"Object Data", true, {0, 100}, {400, 500}, 0};
+    UiWidget objectDataWidget{"Object Data", true, {0, 0}, {400, 500}, 0};
     for(auto& [id, obj]: m_gameObjects)
     {
         objectDataWidget.Add([&]() {
@@ -190,7 +192,24 @@ void VulkanApp::Run()
             {
                 ImGui::PushID(id);
                 ImGui::Text("ID: %i", id);
-                ImGui::Text("Position: %f, %f, %f", obj.transform.translation.x, obj.transform.translation.y, obj.transform.translation.z);
+
+                float position[3] = {obj.transform.translation.x, obj.transform.translation.y, obj.transform.translation.z};
+                ImGui::DragFloat3("Position", position, -100, 100);
+                obj.transform.translation.x = position[0];
+                obj.transform.translation.y = position[1];
+                obj.transform.translation.z = position[2];
+
+                float scale[3] = {obj.transform.scale.x, obj.transform.scale.y, obj.transform.scale.z};
+                ImGui::DragFloat3("scale", scale, -10, 10);
+                obj.transform.scale.x = scale[0];
+                obj.transform.scale.y = scale[1];
+                obj.transform.scale.z = scale[2];
+
+                float rotate[3] = {obj.transform.rotation.x, obj.transform.rotation.y, obj.transform.rotation.z};
+                ImGui::DragFloat3("rotation", rotate, -360, 360);
+                obj.transform.rotation.x = rotate[0];
+                obj.transform.rotation.y = rotate[1];
+                obj.transform.rotation.z = rotate[2];
 
                 if(ImGui::TreeNode("Bounding box Corners"))
                 {
@@ -207,8 +226,6 @@ void VulkanApp::Run()
             }
         });
     }
-
-    // objectDataWidget.Add([&]() { ImGui::ShowDemoWindow(); });
 
     HGINFO("Running...");
     bool      quit = false;
@@ -273,7 +290,7 @@ void VulkanApp::Run()
 
                 m_renderer->BeginDepthPrePass(cmd);
 
-                m_simpleRenderSystem->DepthOnlyRender(data);
+                m_simpleRenderSystem->RenderObjects(data, true);
 
                 m_renderer->EndDepthPrePass(cmd);
 
@@ -282,11 +299,12 @@ void VulkanApp::Run()
                 m_renderer->BeginRendering(cmd);
 
                 m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
-                m_simpleRenderSystem->RenderObjects(data);
+                m_simpleRenderSystem->RenderObjects(data, false);
 
                 UI::BeginUIFrame(cmd);
 
                 objectDataWidget.Draw();
+                m_cam->DrawUI();
 
                 UI::Debug_DrawMetrics(m_simpleRenderSystem->GetObjectsDrawn(), m_cam->GetPosition());
 

@@ -19,8 +19,9 @@ void ResourceManager::Internal_Shutdown()
     HGINFO("Shutting down resource manager...");
 
     m_modelDescriptors.materialLayout.reset();
-    m_modelDescriptors.materialDataLayout.reset();
+    m_modelDescriptors.nodeIdLayout.reset();
     m_modelDescriptors.nodeLayout.reset();
+    m_modelDescriptors.materialDataLayout.reset();
     m_modelDescriptors.debugLayout.reset();
 
     m_descriptorPools.imagePool.reset();
@@ -48,13 +49,17 @@ void ResourceManager::InitDescriptors()
     m_descriptorPools.debugPool =
         std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, t3);
 
-    DescriptorSetLayout::Builder nodeBuilder{*m_logicalDevice};
-    nodeBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-    m_modelDescriptors.nodeLayout = nodeBuilder.Build();
-
     DescriptorSetLayout::Builder materialBufferBuilder{*m_logicalDevice};
     materialBufferBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
     m_modelDescriptors.materialDataLayout = materialBufferBuilder.Build();
+
+    DescriptorSetLayout::Builder nodeIDBufferBuilder{*m_logicalDevice};
+    nodeIDBufferBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    m_modelDescriptors.nodeIdLayout = nodeIDBufferBuilder.Build();
+
+    DescriptorSetLayout::Builder nodeBuilder{*m_logicalDevice};
+    nodeBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    m_modelDescriptors.nodeLayout = nodeBuilder.Build();
 
     DescriptorSetLayout::Builder materialBuilder{*m_logicalDevice};
     materialBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -78,7 +83,7 @@ void ResourceManager::InitDescriptors()
 
 std::shared_ptr<Model> ResourceManager::Internal_LoadModel(const std::string& name)
 {
-    auto m = std::make_shared<Model>(m_logicalDevice, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, name), 0.1f);
+    auto m = std::make_shared<Model>(m_logicalDevice, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, name), 1.0f);
     m->Init(m_modelDescriptors.materialLayout.get(), m_modelDescriptors.nodeLayout.get(), m_modelDescriptors.materialDataLayout.get(),
             m_descriptorPools.imagePool.get(), m_descriptorPools.uniformPool.get(), m_descriptorPools.storagePool.get());
     return m;

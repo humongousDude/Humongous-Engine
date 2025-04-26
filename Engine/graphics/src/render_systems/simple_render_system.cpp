@@ -101,43 +101,14 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_AUTO);
     m_debugBuffer->Map();
     m_debugBuffer->WriteToBuffer(&m_verticesDrawn);
+    m_debugBuffer->Flush();
     m_debugBuffer->UnMap();
 }
 
-void SimpleRenderSystem::DepthOnlyRender(RenderData& renderData)
+void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depthOnly)
 {
-    m_depthOnlyPipeline->Bind(renderData.commandBuffer);
-
-    vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, renderData.uboSets.size(),
-                            renderData.uboSets.data(), 0, nullptr);
-
-    vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 1, renderData.sceneSets.size(),
-                            renderData.sceneSets.data(), 0, nullptr);
-
-    s16 objectsDrawn = 0;
-
-    for(auto& [id, obj]: renderData.gameObjects)
-    {
-        Model::PushConstantData data{};
-        data.model = obj->transform.Mat4();
-        obj->model->GetVertexBuffer().UpdateAddress(obj->model->GetVertexBuffer().GetUsageFlags());
-        data.vertexAddress = obj->model->GetVertexBuffer().GetDeviceAddress();
-        data.id = objectsDrawn;
-
-        vkCmdPushConstants(renderData.commandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Model::PushConstantData), &data);
-
-        obj->model->Draw(renderData.commandBuffer, m_pipelineLayout);
-
-        objectsDrawn++;
-    }
-
-    // Uncomment if you want to know the number of objects drawn
-    // HGINFO("%d objects drawn", draws);
-}
-
-void SimpleRenderSystem::RenderObjects(RenderData& renderData)
-{
-    m_renderPipeline->Bind(renderData.commandBuffer);
+    if(depthOnly) { m_depthOnlyPipeline->Bind(renderData.commandBuffer); }
+    else { m_renderPipeline->Bind(renderData.commandBuffer); }
 
     VkDescriptorSet  debugSet;
     auto             info = m_debugBuffer->DescriptorInfo();
@@ -155,8 +126,7 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
     vkCmdBindDescriptorSets(renderData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout,
                             static_cast<n32>(Globals::DescriptorSetIndices::Debug), 1, &debugSet, 0, nullptr);
 
-    s16 objectsDrawn = 0;
-
+    n32 objectsDrawn = 0;
     for(auto& [id, obj]: renderData.gameObjects)
     {
         Model::PushConstantData data{};
@@ -171,14 +141,16 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData)
 
         objectsDrawn++;
     }
-    m_debugBuffer->Map();
 
-    n32 v = *static_cast<n32*>(m_debugBuffer->GetMappedMemory());
-    m_verticesDrawn = v;
+    // For some reason, this just won't work. Clearing the debug buffer at the start of the frame cause this to return 0. If we don't clear it, it
+    // returns incorrect numbers
+    m_verticesDrawn = objectsDrawn;
 
-    m_verticesDrawn = 0;
-    m_debugBuffer->WriteToBuffer(&m_verticesDrawn);
-    m_debugBuffer->UnMap();
+    // m_debugBuffer->Map();
+    // n32 v = *static_cast<n32*>(m_debugBuffer->GetMappedMemory());
+    // m_verticesDrawn = v;
+    // // HGINFO("%i", v);
+    // m_debugBuffer->UnMap();
 }
 
 } // namespace Humongous

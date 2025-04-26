@@ -409,8 +409,9 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& pool)
             n32 prefilteredGroupCountY = (mipSize + LOCAL_SIZE_Y - 1) / LOCAL_SIZE_Y;
             n32 prefilteredGroupCountZ = (6 + LOCAL_SIZE_Z - 1) / LOCAL_SIZE_Z;
 
-            VkDescriptorImageInfo info{m_prefilteredMap->GetRawSamplerHandle(), m_prefilteredMipViews[mipLevel],
-                                       m_prefilteredMap->GetRawImageLayout()};
+            VkDescriptorImageInfo info;
+            info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+            info.imageView = m_prefilteredMipViews[mipLevel];
 
             VkDescriptorSet s;
             DescriptorWriter(*prefilteredLayout, &pool).WriteImage(0, &info).Build(s);

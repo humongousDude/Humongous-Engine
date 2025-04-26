@@ -32,13 +32,13 @@ glm::mat4 Node::GetMatrix() const
 
 void Node::Update()
 {
-    if(mesh)
-    {
-        glm::mat4 m = GetMatrix();
-        mesh->uniformBuffer.uniformBuffer.WriteToBuffer((void*)&m, sizeof(glm::mat4));
-    }
+    // if(mesh)
+    // {
+    // glm::mat4 m = GetMatrix();
+    // mesh->uniformBuffer.uniformBuffer.WriteToBuffer((void*)&m, sizeof(glm::mat4));
+    // }
 
-    for(auto& child: children) { child->Update(); }
+    // for(auto& child: children) { child->Update(); }
 }
 
 Node::~Node()

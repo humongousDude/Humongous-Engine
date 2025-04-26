@@ -117,7 +117,7 @@ void UI::Internal_DrawWidgetList()
 
 void UI::Internal_Debug_DrawMetrics(const s16& draws, const glm::vec3& camPosition)
 {
-    static UiWidget debugWidget{};
+    static UiWidget debugWidget{"Debug data", true, {1920 - 400, 1080 - 500}, {400, 500}, 0};
 
     debugWidget.Add([&]() {
         ImGui::Text("Draws: %i", draws);

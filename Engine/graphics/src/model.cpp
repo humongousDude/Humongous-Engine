@@ -6,6 +6,7 @@
 #include "globals.hpp"
 #include "iostream"
 #include "logger.hpp"
+#include "resource_manager.hpp"
 
 #define TINYGLTF_IMPLEMENTATION
 #define STBI_MSC_SECURE_CRT
@@ -21,17 +22,7 @@ Primitive::Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, Material& 
 };
 
 // Mesh
-Mesh::Mesh(LogicalDevice* device, glm::mat4 matrix)
-{
-    this->device = device;
-    this->uniformBlock.matrix = matrix;
-
-    uniformBuffer.uniformBuffer.Init(device, sizeof(UniformBlock), 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    uniformBuffer.uniformBuffer.Map();
-
-    uniformBuffer.descriptorInfo = uniformBuffer.uniformBuffer.DescriptorInfo();
-};
+Mesh::Mesh(LogicalDevice* device, glm::mat4 matrix) { this->logicalDevice = device; };
 
 Mesh::~Mesh()
 {
@@ -59,14 +50,13 @@ void Model::Destroy(VkDevice device)
 
 void Model::UpdateUBO(Node* node, glm::mat4 matrix)
 {
-    if(node->mesh)
-    {
-        node->mesh->uniformBlock.matrix = matrix;
-        node->mesh->uniformBuffer.uniformBuffer.WriteToBuffer((void*)&node->mesh->uniformBlock, sizeof(node->mesh->uniformBlock));
-    }
+    // Might need this when I implement animations.
+    // if(node->mesh)
+    // {
+    //     node->mesh->uniformBlock.matrix = matrix;
+    //     node->mesh->uniformBuffer.uniformBuffer.WriteToBuffer((void*)&node->mesh->uniformBlock, sizeof(node->mesh->uniformBlock));
+    // }
 }
-
-void Model::UpdateShaderMaterialBuffer(Node* node) {}
 
 void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo,
                      float globalscale, glm::mat4 parentTransform) // Add parentTransform as parameter
@@ -625,7 +615,7 @@ void Model::CreateMaterialDataBuffer()
     Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_materialDataBuffer, bufferSize);
 }
 
-void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue transferQueue, float scale)
+void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, VkQueue transferQueue, float scale)
 {
     tinygltf::Model    gltfModel;
     tinygltf::TinyGLTF gltfContext;
@@ -633,14 +623,14 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
     std::string error;
     std::string warning;
 
-    this->m_logicalDevice = device;
+    this->m_logicalDevice = logicalDevice;
 
     bool   binary = false;
-    size_t extpos = filename.rfind('.', filename.length());
-    if(extpos != std::string::npos) { binary = (filename.substr(extpos + 1, filename.length() - extpos) == "glb"); }
+    size_t extpos = filePath.rfind('.', filePath.length());
+    if(extpos != std::string::npos) { binary = (filePath.substr(extpos + 1, filePath.length() - extpos) == "glb"); }
 
-    bool       fileLoaded = binary ? gltfContext.LoadBinaryFromFile(&gltfModel, &error, &warning, filename.c_str())
-                                   : gltfContext.LoadASCIIFromFile(&gltfModel, &error, &warning, filename.c_str());
+    bool       fileLoaded = binary ? gltfContext.LoadBinaryFromFile(&gltfModel, &error, &warning, filePath.c_str())
+                                   : gltfContext.LoadASCIIFromFile(&gltfModel, &error, &warning, filePath.c_str());
     LoaderInfo loaderInfo{};
     size_t     vertexCount = 0;
     size_t     indexCount = 0;
@@ -648,7 +638,7 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
     if(fileLoaded)
     {
         LoadTextureSamplers(gltfModel);
-        LoadTextures(gltfModel, device, transferQueue);
+        LoadTextures(gltfModel, logicalDevice, transferQueue);
         LoadMaterials(gltfModel);
 
         const tinygltf::Scene& scene = gltfModel.scenes[gltfModel.defaultScene > -1 ? gltfModel.defaultScene : 0];
@@ -688,7 +678,7 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
 
     HGASSERT(vertexBufferSize > 0);
 
-    Buffer vertexStaging{device,
+    Buffer vertexStaging{logicalDevice,
                          vertexBufferSize,
                          1,
                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -703,7 +693,7 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
     Buffer indexStaging{};
     if(indexBufferSize > 0)
     {
-        indexStaging.Init(device, indexBufferSize, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        indexStaging.Init(logicalDevice, indexBufferSize, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
         indexStaging.Map();
         indexStaging.WriteToBuffer((void*)loaderInfo.indexBuffer.data());
@@ -711,19 +701,19 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
 
     // Create device local buffers
     // Vertex buffer
-    m_vertices.Init(device, vertexBufferSize, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+    m_vertices.Init(logicalDevice, vertexBufferSize, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Index buffer
     if(indexBufferSize > 0)
     {
-        m_indices.Init(device, indexBufferSize, 1, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        m_indices.Init(logicalDevice, indexBufferSize, 1, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     }
 
     // Copy from staging buffers
-    Buffer::CopyBuffer(*device, indexStaging, m_indices, indexBufferSize);
-    Buffer::CopyBuffer(*device, vertexStaging, m_vertices, vertexBufferSize);
+    Buffer::CopyBuffer(*logicalDevice, indexStaging, m_indices, indexBufferSize);
+    Buffer::CopyBuffer(*logicalDevice, vertexStaging, m_vertices, vertexBufferSize);
 
     // delete[] loaderInfo.vertexBuffer;
     // delete[] loaderInfo.indexBuffer;
@@ -739,30 +729,32 @@ void Model::Draw(VkCommandBuffer cmd, VkPipelineLayout& pipelineLayout)
 {
     vkCmdBindIndexBuffer(cmd, m_indices.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model), 1,
-                            &m_materialDataDescriptor, 0, nullptr);
+    auto            bufInfo = m_nodeIDBuffer.DescriptorInfo();
+    VkDescriptorSet nodeIdSet;
+    DescriptorWriter(*ResourceManager::GetModelDescriptors().nodeIdLayout, ResourceManager::GetDescriptorPools().storagePool.get())
+        .WriteBuffer(0, &bufInfo)
+        .Build(nodeIdSet);
+
+    VkDescriptorSet nodeMatrixSet;
+    bufInfo = m_nodeMatrixBuffer.DescriptorInfo();
+    DescriptorWriter(*ResourceManager::GetModelDescriptors().nodeLayout, ResourceManager::GetDescriptorPools().storagePool.get())
+        .WriteBuffer(0, &bufInfo)
+        .Build(nodeMatrixSet);
+
+    std::vector<VkDescriptorSet> sets = {m_materialDataDescriptor, nodeIdSet, nodeMatrixSet};
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model),
+                            sets.size(), sets.data(), 0, nullptr);
 
     VkDeviceSize written{0};
     for(auto& [id, prim]: m_materialBatches)
     {
-        auto                         mat = &m_materials[id];
-        std::vector<VkDescriptorSet> descriptorSets{mat->descriptorSet};
-
-        // FIXME: This will break if we require different matrices for different nodes
-        // Also, validation layers report an error when we can't find one
-        for(const auto& p: prim)
-        {
-            if(p->owner->mesh)
-            {
-                descriptorSets.push_back(p->owner->mesh->uniformBuffer.descriptorSet);
-                break;
-            }
-        }
+        auto mat = &m_materials[id];
 
         vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstantData), sizeof(n32), &mat->index);
 
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model) + 1,
-                                static_cast<n32>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model) + 3, 1,
+                                &mat->descriptorSet, 0, nullptr);
 
         vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer.GetBuffer(), written, m_indirectCommands[id].size(),
                                  sizeof(VkDrawIndexedIndirectCommand));
@@ -773,7 +765,9 @@ void Model::Draw(VkCommandBuffer cmd, VkPipelineLayout& pipelineLayout)
 
 void Model::SetupIndirectDrawBuffer()
 {
-    VkDeviceSize totalWritten = 0;
+    VkDeviceSize           totalWritten = 0;
+    std::vector<n32>       nodeID;
+    std::vector<glm::mat4> nodeMatricies;
 
     for(auto& [id, primitives]: m_materialBatches)
     {
@@ -788,6 +782,8 @@ void Model::SetupIndirectDrawBuffer()
             command.vertexOffset = 0;  // Adjust if needed
             command.firstInstance = 0; // Adjust if needed
 
+            nodeID.push_back(primitive->owner->index);
+            nodeMatricies.push_back(primitive->owner->GetMatrix());
             if(command.indexCount == 0) { continue; }
 
             commands.push_back(command);
@@ -800,38 +796,77 @@ void Model::SetupIndirectDrawBuffer()
         m_indirectCommands.emplace(id, std::move(commands));
     }
 
-    if(totalWritten == 0) { return; }
-
-    // Create staging buffer with the calculated total size
-    Buffer stagingBuffer{m_logicalDevice,
-                         totalWritten,
-                         1,
-                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                         VMA_MEMORY_USAGE_CPU_TO_GPU,
-                         4};
-    stagingBuffer.Map();
-
-    // Create indirect draw buffer
-    m_indirectDrawBuffer.Init(m_logicalDevice, totalWritten, 1, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_CPU_COPY, 4);
-
-    // Copy commands to staging buffer (one loop)
-    VkDeviceSize writtenOffset = 0;
-    for(auto& [id, prim]: m_materialBatches)
+    // Node Matricies
     {
-        stagingBuffer.WriteToBuffer((void*)m_indirectCommands[id].data(), m_indirectCommands[id].size() * sizeof(VkDrawIndexedIndirectCommand),
-                                    writtenOffset);
+        Buffer stagingBuffer{m_logicalDevice,
+                             nodeMatricies.size() * sizeof(glm::mat4),
+                             1,
+                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             VMA_MEMORY_USAGE_CPU_TO_GPU};
+        stagingBuffer.Map();
+        m_nodeMatrixBuffer.Init(m_logicalDevice, nodeMatricies.size() * sizeof(glm::mat4), 1,
+                                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                VMA_MEMORY_USAGE_CPU_COPY);
+        stagingBuffer.WriteToBuffer((void*)nodeMatricies.data());
+        stagingBuffer.Flush();
+        stagingBuffer.UnMap();
 
-        writtenOffset += m_indirectCommands[id].size() * sizeof(VkDrawIndexedIndirectCommand);
+        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_nodeMatrixBuffer, nodeMatricies.size() * sizeof(glm::mat4));
     }
 
-    // Flush and unmap staging buffer
-    stagingBuffer.Flush();
-    stagingBuffer.UnMap();
+    // Node IDs
+    {
+        Buffer stagingBuffer{m_logicalDevice,
+                             nodeID.size() * sizeof(n32),
+                             1,
+                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             VMA_MEMORY_USAGE_CPU_TO_GPU};
+        stagingBuffer.Map();
+        m_nodeIDBuffer.Init(m_logicalDevice, nodeID.size() * sizeof(n32), 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_CPU_COPY);
+        stagingBuffer.WriteToBuffer((void*)nodeID.data());
+        stagingBuffer.Flush();
+        stagingBuffer.UnMap();
 
-    // Copy staging buffer to indirect draw buffer
-    Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_indirectDrawBuffer, totalWritten);
+        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_nodeIDBuffer, nodeID.size() * sizeof(n32));
+    }
+
+    // Indirect
+    if(totalWritten == 0) { return; }
+    {
+        // Create staging buffer with the calculated total size
+        Buffer stagingBuffer{m_logicalDevice,
+                             totalWritten,
+                             1,
+                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             VMA_MEMORY_USAGE_CPU_TO_GPU,
+                             4};
+        stagingBuffer.Map();
+
+        // Create indirect draw buffer
+        m_indirectDrawBuffer.Init(m_logicalDevice, totalWritten, 1, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_CPU_COPY, 4);
+
+        // Copy commands to staging buffer (one loop)
+        VkDeviceSize writtenOffset = 0;
+        for(auto& [id, prim]: m_materialBatches)
+        {
+            stagingBuffer.WriteToBuffer((void*)m_indirectCommands[id].data(), m_indirectCommands[id].size() * sizeof(VkDrawIndexedIndirectCommand),
+                                        writtenOffset);
+
+            writtenOffset += m_indirectCommands[id].size() * sizeof(VkDrawIndexedIndirectCommand);
+        }
+
+        // Flush and unmap staging buffer
+        stagingBuffer.Flush();
+        stagingBuffer.UnMap();
+
+        // Copy staging buffer to indirect draw buffer
+        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_indirectDrawBuffer, totalWritten);
+    }
 }
 
 void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeLayout, DescriptorSetLayout* materialBufferLayout,
@@ -887,8 +922,6 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
         }
     }
 
-    for(auto& node: m_nodes) { SetupNodeDescriptorSet(node, uniformPool, nodeLayout); }
-
     if(m_materialDataDescriptor == VK_NULL_HANDLE)
     {
         m_materialDataDescriptor = storagePool->AllocateDescriptor(materialBufferLayout->GetDescriptorSetLayout());
@@ -909,22 +942,6 @@ void Model::UpdateMaterialBatches(Node* node)
         for(auto* prim: node->mesh->primitives) { m_materialBatches[prim->material.index].push_back(prim); }
     }
     for(auto& c: node->children) { UpdateMaterialBatches(c); }
-}
-
-void Model::SetupNodeDescriptorSet(Node* node, DescriptorPoolGrowable* descriptorPool, DescriptorSetLayout* layout)
-{
-    if(node->mesh)
-    {
-        if(node->mesh->uniformBuffer.descriptorSet == VK_NULL_HANDLE)
-        {
-            node->mesh->uniformBuffer.descriptorSet = descriptorPool->AllocateDescriptor(layout->GetDescriptorSetLayout());
-        }
-
-        auto bufInfo = node->mesh->uniformBuffer.uniformBuffer.DescriptorInfo();
-        DescriptorWriter(*layout, descriptorPool).WriteBuffer(0, &bufInfo).Overwrite(node->mesh->uniformBuffer.descriptorSet);
-    }
-
-    for(auto& c: node->children) { SetupNodeDescriptorSet(c, descriptorPool, layout); }
 }
 
 void CalculateNodeBoundsRecursive(BoundingBox&                      bounds,       // Input/Output: The AABB

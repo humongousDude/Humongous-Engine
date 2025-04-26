@@ -30,7 +30,7 @@ build() {
 
     if [ $? -eq 0 ]; then
         echo "Ninja build successful"
-        ./App/App "$@"
+        ./App/App $1
     else
         echo "Ninja build failed!"
     fi
@@ -38,7 +38,7 @@ build() {
 
 cmake_setup() {
     echo "Setting up CMake..."
-    cmake -S . -B "$BUILD_DIR" --preset release
+    cmake -S . -B "$BUILD_DIR" --preset debug
 
     if [ $? -ne 0 ]; then
         echo "CMake setup failed!"

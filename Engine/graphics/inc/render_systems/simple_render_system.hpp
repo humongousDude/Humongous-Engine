@@ -32,9 +32,9 @@ public:
     SimpleRenderSystem(LogicalDevice& logicalDevice, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts, const ShaderSet& shaderSet);
     ~SimpleRenderSystem();
 
-    void RenderObjects(RenderData& renderData);
-    void DepthOnlyRender(RenderData& renderData);
-    s16  GetObjectsDrawn() { return m_verticesDrawn; }
+    void RenderObjects(RenderData& renderData, const bool& depthOnly);
+    // void DepthOnlyRender(RenderData& renderData);
+    n32 GetObjectsDrawn() { return m_verticesDrawn; }
 
 private:
     LogicalDevice&                  m_logicalDevice;

@@ -11,13 +11,9 @@ namespace Humongous
 glm::mat4 TransformComponent::Mat4() const
 {
     glm::mat4 model = glm::mat4(1.0f);
-
     model = glm::translate(model, translation);
-
     glm::quat rotationQuat = glm::quat(glm::radians(rotation));
-
     model = model * glm::toMat4(rotationQuat);
-
     model = glm::scale(model, scale);
 
     return model;
@@ -58,10 +54,6 @@ void GameObject::SetModel(std::shared_ptr<Model> model)
 
 void GameObject::Update()
 {
-    // m_aabb = ComputeWorldAABB(TransformAABBToWorldSpace(model->GetDimensions(), transform.Mat4()));
-    // HGINFO("Update object: %i, with corners: ", m_id);
-    // for(auto& corner: m_aabb.corners) { HGINFO("\t Corner: %f, %f, %f", corner.x, corner.y, corner.z); }
-
     UpdateBoundingData();
     m_prevFrameTransform = transform;
 }

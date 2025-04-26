@@ -14,11 +14,11 @@ layout(set = 2, binding = 1) uniform samplerCube samplerIrradiance;
 layout(set = 2, binding = 2) uniform samplerCube prefilteredMap;
 layout(set = 2, binding = 3) uniform sampler2D samplerBRDFLUT;
 
-layout(set = 4, binding = 0) uniform sampler2D colorMap;
-layout(set = 4, binding = 1) uniform sampler2D physicalDescriptorMap;
-layout(set = 4, binding = 2) uniform sampler2D normalMap;
-layout(set = 4, binding = 3) uniform sampler2D aoMap;
-layout(set = 4, binding = 4) uniform sampler2D emissiveMap;
+layout(set = 6, binding = 0) uniform sampler2D colorMap;
+layout(set = 6, binding = 1) uniform sampler2D physicalDescriptorMap;
+layout(set = 6, binding = 2) uniform sampler2D normalMap;
+layout(set = 6, binding = 3) uniform sampler2D aoMap;
+layout(set = 6, binding = 4) uniform sampler2D emissiveMap;
 
 struct MaterialData {
     vec4 baseColorFactor;
@@ -45,6 +45,7 @@ layout(std430, set = 3, binding = 0) readonly buffer SSBO
 
 layout(set = 1, binding = 0) uniform UBOParams {
     vec3 camPos;
+    float _padding0;
     vec4 lightDir;
     float exposure;
     float gamma;

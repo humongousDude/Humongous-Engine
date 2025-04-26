@@ -1,4 +1,4 @@
-#version 450
+#version 460
 #extension GL_EXT_buffer_reference : require
 #extension GL_GOOGLE_include_directive : require
 
@@ -37,14 +37,18 @@ layout(set = 0, binding = 0) uniform UBO
     vec3 cameraPos;
 } ubo;
 
+layout(set = 4, binding = 0) readonly buffer NodeID {
+    uint nodeID;
+} ids;
+
 // TODO : make this work again
-layout(set = 5, binding = 0) uniform UBONode {
-    mat4 matrix;
+layout(set = 5, binding = 0) readonly buffer UBONode {
+    mat4 matrix[];
     // mat4 jointMatrix[MAX_NUM_JOINTS];
     // float jointCount;
 } node;
 
-layout(set = 6, binding = 0) buffer DebugData
+layout(set = 7, binding = 0) writeonly buffer DebugData
 {
     uint draws;
 } debug;
@@ -52,17 +56,18 @@ layout(set = 6, binding = 0) buffer DebugData
 void main()
 {
     Vertex v = mnv.vertexBuffer.vertices[gl_VertexIndex];
+    uint nodeid = gl_DrawID;
 
-    vec4 locPos = ubo.projectionView * mnv.modelMatrix * vec4(v.position, 1.0);
+    vec4 locPos = ubo.projectionView * mnv.modelMatrix * node.matrix[nodeid] * vec4(v.position, 1.0);
     gl_Position = locPos;
 
     worldPosition = (mnv.modelMatrix * vec4(v.position, 1.0)).xyz;
-    outNormal = normalize(transpose(inverse(mat3(mnv.modelMatrix /* * node.matrix */ ))) * v.normal);
+    outNormal = normalize(transpose(inverse(mat3(mnv.modelMatrix * node.matrix[nodeid]))) * v.normal);
 
     outUV0 = v.uv1;
     outUV1 = v.uv2;
     cameraPos = ubo.cameraPos;
-    outColor = vec4(1);
+    outColor = v.color;
 
     atomicAdd(debug.draws, 1);
 }
