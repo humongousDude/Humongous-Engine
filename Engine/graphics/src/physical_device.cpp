@@ -90,9 +90,6 @@ bool PhysicalDevice::IsDeviceSuitable(vk::PhysicalDevice physicalDevice)
     vk::PhysicalDeviceFeatures2 deviceFeatures{};
     physicalDevice.getFeatures2(&deviceFeatures);
 
-    bool deviceHasFeatures =
-        deviceProperties.properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu && deviceFeatures.features.geometryShader;
-
     bool haveAllRequiredIndices = FindQueueFamilies(physicalDevice).IsComplete();
     bool deviceHasExtensions = CheckDeviceExtensionSupport(physicalDevice);
 
@@ -103,13 +100,13 @@ bool PhysicalDevice::IsDeviceSuitable(vk::PhysicalDevice physicalDevice)
         swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
     }
 
-    if(deviceHasFeatures && haveAllRequiredIndices && deviceHasExtensions && swapChainAdequate)
+    if(haveAllRequiredIndices && deviceHasExtensions && swapChainAdequate)
     {
         HGINFO("device is suitable");
         HGINFO("Device: %s", deviceProperties.properties.deviceName.data());
     }
 
-    return deviceHasFeatures && haveAllRequiredIndices && deviceHasExtensions && swapChainAdequate;
+    return haveAllRequiredIndices && deviceHasExtensions && swapChainAdequate;
 }
 
 bool PhysicalDevice::CheckDeviceExtensionSupport(vk::PhysicalDevice physicalDevice)

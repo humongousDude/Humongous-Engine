@@ -122,7 +122,11 @@ std::vector<vk::DeviceQueueInfo2> LogicalDevice::CreateQueues(PhysicalDevice& ph
     PhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 
     std::vector<vk::DeviceQueueInfo2> queueCreateInfos;
-    std::set<n32>                     uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+    std::set<n32>                     uniqueQueueFamilies;
+    if(indices.graphicsFamily.has_value()) { uniqueQueueFamilies.insert(indices.graphicsFamily.value()); }
+    if(indices.presentFamily.has_value()) { uniqueQueueFamilies.insert(indices.presentFamily.value()); }
+
+    if(uniqueQueueFamilies.empty()) { HGFATAL("Failed to find any suitable queue families!"); }
 
     float queuePriority = 1.0f;
     for(n32 queueFamily: uniqueQueueFamilies)
