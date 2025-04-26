@@ -1,41 +1,41 @@
+#include "model.hpp"
 #include "abstractions/descriptor_writer.hpp"
 #include "asserts.hpp"
 #include "asset_manager.hpp"
 #include "defines.hpp"
-#include <iostream>
-#include <logger.hpp>
-
 #include "globals.hpp"
+#include "iostream"
+#include "logger.hpp"
 
 #define TINYGLTF_IMPLEMENTATION
 #define STBI_MSC_SECURE_CRT
 
-#include <model.hpp>
+#include "tiny_gltf.h"
 
 namespace Humongous
 {
 Primitive::Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, Material& material)
-    : m_firstIndex(firstIndex), m_indexCount(indexCount), m_vertexCount(vertexCount), m_material(material)
+    : firstIndex(firstIndex), indexCount(indexCount), vertexCount(vertexCount), material(material)
 {
-    m_hasIndices = indexCount > 0;
+    hasIndices = indexCount > 0;
 };
 
 // Mesh
 Mesh::Mesh(LogicalDevice* device, glm::mat4 matrix)
 {
-    this->m_device = device;
-    this->m_uniformBlock.matrix = matrix;
+    this->device = device;
+    this->uniformBlock.matrix = matrix;
 
-    m_uniformBuffer.uniformBuffer.Init(device, sizeof(UniformBlock), 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    m_uniformBuffer.uniformBuffer.Map();
+    uniformBuffer.uniformBuffer.Init(device, sizeof(UniformBlock), 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    uniformBuffer.uniformBuffer.Map();
 
-    m_uniformBuffer.descriptorInfo = m_uniformBuffer.uniformBuffer.DescriptorInfo();
+    uniformBuffer.descriptorInfo = uniformBuffer.uniformBuffer.DescriptorInfo();
 };
 
 Mesh::~Mesh()
 {
-    for(Primitive* p: m_primitives) { delete p; }
+    for(Primitive* p: primitives) { delete p; }
 }
 
 Model::Model(LogicalDevice* device, const std::string& modelPath, float scale)
@@ -45,7 +45,7 @@ Model::Model(LogicalDevice* device, const std::string& modelPath, float scale)
     HGINFO("Created model");
 }
 
-Model::~Model() { Destroy(m_device->GetVkDevice()); }
+Model::~Model() { Destroy(m_logicalDevice->GetVkDevice()); }
 
 void Model::Destroy(VkDevice device)
 {
@@ -59,10 +59,10 @@ void Model::Destroy(VkDevice device)
 
 void Model::UpdateUBO(Node* node, glm::mat4 matrix)
 {
-    if(node->m_mesh)
+    if(node->mesh)
     {
-        node->m_mesh->m_uniformBlock.matrix = matrix;
-        node->m_mesh->m_uniformBuffer.uniformBuffer.WriteToBuffer((void*)&node->m_mesh->m_uniformBlock, sizeof(node->m_mesh->m_uniformBlock));
+        node->mesh->uniformBlock.matrix = matrix;
+        node->mesh->uniformBuffer.uniformBuffer.WriteToBuffer((void*)&node->mesh->uniformBlock, sizeof(node->mesh->uniformBlock));
     }
 }
 
@@ -71,36 +71,35 @@ void Model::UpdateShaderMaterialBuffer(Node* node) {}
 void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo,
                      float globalscale, glm::mat4 parentTransform) // Add parentTransform as parameter
 {
-
     Node* newNode = new Node{};
-    newNode->m_index = nodeIndex;
-    newNode->m_parent = parent;
-    newNode->m_name = node.name;
+    newNode->index = nodeIndex;
+    newNode->parent = parent;
+    newNode->name = node.name;
     // newNode->skinIndex = node.skin;
-    newNode->m_matrix = glm::mat4(1.0f);
+    newNode->matrix = glm::mat4(1.0f);
 
     // Generate local node matrix
     glm::vec3 translation = glm::vec3(0.0f);
     if(node.translation.size() == 3)
     {
         translation = glm::make_vec3(node.translation.data());
-        newNode->m_translation = translation;
+        newNode->translation = translation;
     }
     glm::mat4 rotation = glm::mat4(1.0f);
     if(node.rotation.size() == 4)
     {
         glm::quat q = glm::make_quat(node.rotation.data());
-        newNode->m_rotation = glm::mat4(q);
+        newNode->rotation = glm::mat4(q);
     }
     glm::vec3 scale = glm::vec3(1.0f);
     if(node.scale.size() == 3)
     {
         scale = glm::make_vec3(node.scale.data());
-        newNode->m_scale = scale;
+        newNode->scale = scale;
     }
-    if(node.matrix.size() == 16) { newNode->m_matrix = glm::make_mat4x4(node.matrix.data()); };
+    if(node.matrix.size() == 16) { newNode->matrix = glm::make_mat4x4(node.matrix.data()); };
 
-    glm::mat4 currentTransform = parentTransform * newNode->m_matrix; // Calculate current transform
+    glm::mat4 currentTransform = parentTransform * newNode->matrix; // Calculate current transform
 
     // Node with children
     if(node.children.size() > 0)
@@ -117,7 +116,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
     {
 
         const tinygltf::Mesh mesh = model.meshes[node.mesh];
-        Mesh*                newMesh = new Mesh(m_device, newNode->m_matrix);
+        Mesh*                newMesh = new Mesh(m_logicalDevice, newNode->matrix);
         for(size_t j = 0; j < mesh.primitives.size(); j++)
         {
 
@@ -324,13 +323,13 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             }
             Primitive* newPrimitive =
                 new Primitive(indexStart, indexCount, vertexCount, primitive.material > -1 ? m_materials[primitive.material] : m_materials.back());
-            newPrimitive->m_owner = newNode;
-            newMesh->m_primitives.push_back(newPrimitive);
+            newPrimitive->owner = newNode;
+            newMesh->primitives.push_back(newPrimitive);
         }
 
-        newNode->m_mesh = newMesh;
+        newNode->mesh = newMesh;
     }
-    if(parent) { parent->m_children.push_back(newNode); }
+    if(parent) { parent->children.push_back(newNode); }
     else { m_nodes.push_back(newNode); }
     m_linearNodes.push_back(newNode);
 }
@@ -611,7 +610,7 @@ void Model::CreateMaterialDataBuffer()
     }
 
     VkDeviceSize bufferSize = shaderMaterials.size() * sizeof(ShaderMaterial);
-    Buffer       stagingBuffer{m_device,
+    Buffer       stagingBuffer{m_logicalDevice,
                          bufferSize,
                          1,
                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -620,10 +619,10 @@ void Model::CreateMaterialDataBuffer()
     stagingBuffer.Map();
     stagingBuffer.WriteToBuffer((void*)shaderMaterials.data(), bufferSize);
 
-    m_materialDataBuffer.Init(m_device, bufferSize, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+    m_materialDataBuffer.Init(m_logicalDevice, bufferSize, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    Buffer::CopyBuffer(*m_device, stagingBuffer, m_materialDataBuffer, bufferSize);
+    Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_materialDataBuffer, bufferSize);
 }
 
 void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue transferQueue, float scale)
@@ -634,7 +633,7 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
     std::string error;
     std::string warning;
 
-    this->m_device = device;
+    this->m_logicalDevice = device;
 
     bool   binary = false;
     size_t extpos = filename.rfind('.', filename.length());
@@ -656,8 +655,8 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
 
         // Get vertex and index buffer sizes up-front
         for(size_t i = 0; i < scene.nodes.size(); i++) { GetNodeProps(gltfModel.nodes[scene.nodes[i]], gltfModel, vertexCount, indexCount); }
-        loaderInfo.vertexBuffer = new Vertex[vertexCount];
-        loaderInfo.indexBuffer = new n32[indexCount];
+        loaderInfo.vertexBuffer.resize(vertexCount);
+        loaderInfo.indexBuffer.resize(indexCount);
 
         // TODO: scene handling with no default scene
         for(size_t i = 0; i < scene.nodes.size(); i++)
@@ -673,7 +672,7 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
             // // Assign skins
             // if(node->m_skinIndex > -1) { node->m_skin = skins[node->m_skinIndex]; }
             // Initial pose
-            if(node->m_mesh) { node->Update(); }
+            if(node->mesh) { node->Update(); }
         }
     }
     else
@@ -699,7 +698,7 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
 
     // Create staging buffers
     // Vertex data
-    vertexStaging.WriteToBuffer((void*)loaderInfo.vertexBuffer);
+    vertexStaging.WriteToBuffer((void*)loaderInfo.vertexBuffer.data());
     // Index data
     Buffer indexStaging{};
     if(indexBufferSize > 0)
@@ -707,7 +706,7 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
         indexStaging.Init(device, indexBufferSize, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
         indexStaging.Map();
-        indexStaging.WriteToBuffer((void*)loaderInfo.indexBuffer);
+        indexStaging.WriteToBuffer((void*)loaderInfo.indexBuffer.data());
     }
 
     // Create device local buffers
@@ -726,14 +725,14 @@ void Model::LoadFromFile(std::string filename, LogicalDevice* device, VkQueue tr
     Buffer::CopyBuffer(*device, indexStaging, m_indices, indexBufferSize);
     Buffer::CopyBuffer(*device, vertexStaging, m_vertices, vertexBufferSize);
 
-    m_localAABB = CalculateLocalAABB(loaderInfo);
-
-    delete[] loaderInfo.vertexBuffer;
-    delete[] loaderInfo.indexBuffer;
+    // delete[] loaderInfo.vertexBuffer;
+    // delete[] loaderInfo.indexBuffer;
 
     for(auto& node: m_nodes) { UpdateMaterialBatches(node); }
 
     SetupIndirectDrawBuffer();
+
+    m_localAABB = CalculateModelAABB(m_nodes, loaderInfo.vertexBuffer, loaderInfo.indexBuffer);
 }
 
 void Model::Draw(VkCommandBuffer cmd, VkPipelineLayout& pipelineLayout)
@@ -746,26 +745,24 @@ void Model::Draw(VkCommandBuffer cmd, VkPipelineLayout& pipelineLayout)
     VkDeviceSize written{0};
     for(auto& [id, prim]: m_materialBatches)
     {
-        auto mat = &m_materials[id];
-
+        auto                         mat = &m_materials[id];
         std::vector<VkDescriptorSet> descriptorSets{mat->descriptorSet};
 
-        // TODO: This will break if we require different matrices for different nodes
-        std::vector<glm::mat4> nodeMatrices;
-
+        // FIXME: This will break if we require different matrices for different nodes
+        // Also, validation layers report an error when we can't find one
         for(const auto& p: prim)
         {
-            if(p->m_owner->m_mesh)
+            if(p->owner->mesh)
             {
-                descriptorSets.push_back(p->m_owner->m_mesh->m_uniformBuffer.descriptorSet);
+                descriptorSets.push_back(p->owner->mesh->uniformBuffer.descriptorSet);
                 break;
-                // nodeMatrices.push_back(p->m_owner->m_mesh->m_uniformBlock.matrix);
             }
         }
+
         vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstantData), sizeof(n32), &mat->index);
 
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model) + 1,
-                                static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
+                                static_cast<n32>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
 
         vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer.GetBuffer(), written, m_indirectCommands[id].size(),
                                  sizeof(VkDrawIndexedIndirectCommand));
@@ -785,11 +782,13 @@ void Model::SetupIndirectDrawBuffer()
         for(auto* primitive: primitives)
         {
             VkDrawIndexedIndirectCommand command{};
-            command.indexCount = primitive->m_indexCount;
+            command.indexCount = primitive->indexCount;
             command.instanceCount = 1;
-            command.firstIndex = primitive->m_firstIndex;
+            command.firstIndex = primitive->firstIndex;
             command.vertexOffset = 0;  // Adjust if needed
             command.firstInstance = 0; // Adjust if needed
+
+            if(command.indexCount == 0) { continue; }
 
             commands.push_back(command);
         }
@@ -804,7 +803,7 @@ void Model::SetupIndirectDrawBuffer()
     if(totalWritten == 0) { return; }
 
     // Create staging buffer with the calculated total size
-    Buffer stagingBuffer{m_device,
+    Buffer stagingBuffer{m_logicalDevice,
                          totalWritten,
                          1,
                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -814,7 +813,7 @@ void Model::SetupIndirectDrawBuffer()
     stagingBuffer.Map();
 
     // Create indirect draw buffer
-    m_indirectDrawBuffer.Init(m_device, totalWritten, 1, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+    m_indirectDrawBuffer.Init(m_logicalDevice, totalWritten, 1, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_CPU_COPY, 4);
 
     // Copy commands to staging buffer (one loop)
@@ -832,7 +831,7 @@ void Model::SetupIndirectDrawBuffer()
     stagingBuffer.UnMap();
 
     // Copy staging buffer to indirect draw buffer
-    Buffer::CopyBuffer(*m_device, stagingBuffer, m_indirectDrawBuffer, totalWritten);
+    Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_indirectDrawBuffer, totalWritten);
 }
 
 void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeLayout, DescriptorSetLayout* materialBufferLayout,
@@ -905,53 +904,144 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
 
 void Model::UpdateMaterialBatches(Node* node)
 {
-    if(node->m_mesh)
+    if(node->mesh)
     {
-        for(auto* prim: node->m_mesh->m_primitives) { m_materialBatches[prim->m_material.index].push_back(prim); }
+        for(auto* prim: node->mesh->primitives) { m_materialBatches[prim->material.index].push_back(prim); }
     }
-    for(auto& c: node->m_children) { UpdateMaterialBatches(c); }
+    for(auto& c: node->children) { UpdateMaterialBatches(c); }
 }
 
 void Model::SetupNodeDescriptorSet(Node* node, DescriptorPoolGrowable* descriptorPool, DescriptorSetLayout* layout)
 {
-    if(node->m_mesh)
+    if(node->mesh)
     {
-        if(node->m_mesh->m_uniformBuffer.descriptorSet == VK_NULL_HANDLE)
+        if(node->mesh->uniformBuffer.descriptorSet == VK_NULL_HANDLE)
         {
-            node->m_mesh->m_uniformBuffer.descriptorSet = descriptorPool->AllocateDescriptor(layout->GetDescriptorSetLayout());
+            node->mesh->uniformBuffer.descriptorSet = descriptorPool->AllocateDescriptor(layout->GetDescriptorSetLayout());
         }
 
-        auto bufInfo = node->m_mesh->m_uniformBuffer.uniformBuffer.DescriptorInfo();
-        DescriptorWriter(*layout, descriptorPool).WriteBuffer(0, &bufInfo).Overwrite(node->m_mesh->m_uniformBuffer.descriptorSet);
+        auto bufInfo = node->mesh->uniformBuffer.uniformBuffer.DescriptorInfo();
+        DescriptorWriter(*layout, descriptorPool).WriteBuffer(0, &bufInfo).Overwrite(node->mesh->uniformBuffer.descriptorSet);
     }
 
-    for(auto& c: node->m_children) { SetupNodeDescriptorSet(c, descriptorPool, layout); }
+    for(auto& c: node->children) { SetupNodeDescriptorSet(c, descriptorPool, layout); }
 }
 
-BoundingBox Model::CalculateLocalAABB(LoaderInfo& loaderInfo) const
+void CalculateNodeBoundsRecursive(BoundingBox&                      bounds,       // Input/Output: The AABB
+                                  const Node*                       node,         // The current node to process
+                                  const std::vector<Model::Vertex>& vertexBuffer, // Reference to your vertex data
+                                  const std::vector<uint32_t>&      indexBuffer)       // Reference to your index data
 {
-    // I have checked this, it calculates the bounding boxes correctly
-    BoundingBox boundingBox{};
+    if(!node) { return; }
 
-    for(n32 i = 0; i < m_vertices.GetBufferSize() / sizeof(Vertex); ++i)
+    // Calculate the final world matrix for this node
+    glm::mat4 nodeWorldMatrix = node->GetMatrix(); // Use your existing GetMatrix()
+
+    // --- Process Mesh Vertices ---
+    if(node->mesh)
     {
-        auto vert = loaderInfo.vertexBuffer[i];
-        boundingBox.min = glm::min(vert.position, boundingBox.min);
-        boundingBox.max = glm::max(vert.position, boundingBox.max);
+        for(const Primitive* primitive: node->mesh->primitives)
+        {
+            if(!primitive) { continue; }
+
+            if(primitive->hasIndices)
+            {
+                // Indexed geometry
+                if(primitive->indexCount > 0)
+                {
+                    // Iterate through the indices for this primitive
+                    for(n32 i = 0; i < primitive->indexCount; ++i)
+                    {
+                        // Get the index from the index buffer
+                        uint32_t vertexIndex = indexBuffer[primitive->firstIndex + i];
+
+                        // Get the vertex position from the vertex buffer
+                        // Add bounds check for safety if needed
+                        if(vertexIndex < vertexBuffer.size())
+                        {
+                            const glm::vec3& localPos = vertexBuffer[vertexIndex].position;
+
+                            // Transform the vertex position
+                            glm::vec4 worldPos = nodeWorldMatrix * glm::vec4(localPos, 1.0f);
+
+                            // Update the bounding box
+                            bounds.min = glm::min(bounds.min, glm::vec3(worldPos));
+                            bounds.max = glm::max(bounds.max, glm::vec3(worldPos));
+                            bounds.valid = true;
+                        }
+                        else
+                        {
+                            // Handle invalid index if necessary
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Non-indexed geometry (less common for GLTF, but handle it)
+                // Assume m_firstIndex is the start vertex offset
+                if(primitive->vertexCount > 0)
+                {
+                    for(n32 i = 0; i < primitive->vertexCount; ++i)
+                    {
+                        // Calculate the vertex index directly
+                        uint32_t vertexIndex = primitive->firstIndex + i; // Assuming m_firstIndex is vertex offset here
+
+                        // Get the vertex position
+                        if(vertexIndex < vertexBuffer.size())
+                        {
+                            const glm::vec3& localPos = vertexBuffer[vertexIndex].position;
+
+                            // Transform the vertex position
+                            glm::vec4 worldPos = nodeWorldMatrix * glm::vec4(localPos, 1.0f);
+
+                            // Update the bounding box
+                            bounds.min = glm::min(bounds.min, glm::vec3(worldPos));
+                            bounds.max = glm::max(bounds.max, glm::vec3(worldPos));
+                            bounds.valid = true;
+                        }
+                        else
+                        {
+                            // Handle invalid index if necessary
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    // Calculate the corners
-    boundingBox.corners[0] = glm::vec4(boundingBox.min.x, boundingBox.min.y, boundingBox.min.z, 0);
-    boundingBox.corners[1] = glm::vec4(boundingBox.max.x, boundingBox.min.y, boundingBox.min.z, 0);
-    boundingBox.corners[2] = glm::vec4(boundingBox.max.x, boundingBox.max.y, boundingBox.min.z, 0);
-    boundingBox.corners[3] = glm::vec4(boundingBox.min.x, boundingBox.max.y, boundingBox.min.z, 0);
-    boundingBox.corners[4] = glm::vec4(boundingBox.min.x, boundingBox.min.y, boundingBox.max.z, 0);
-    boundingBox.corners[5] = glm::vec4(boundingBox.max.x, boundingBox.min.y, boundingBox.max.z, 0);
-    boundingBox.corners[6] = glm::vec4(boundingBox.max.x, boundingBox.max.y, boundingBox.max.z, 0);
-    boundingBox.corners[7] = glm::vec4(boundingBox.min.x, boundingBox.max.y, boundingBox.max.z, 0);
+    // --- Recurse for Children ---
+    for(const Node* child: node->children) { CalculateNodeBoundsRecursive(bounds, child, vertexBuffer, indexBuffer); }
+}
 
-    boundingBox.valid = true;
+BoundingBox Model::CalculateModelAABB(const std::vector<Node*>&         rootNodes,    // Pass the root nodes of your model hierarchy
+                                      const std::vector<Model::Vertex>& vertexBuffer, // Your flat vertex buffer
+                                      const std::vector<uint32_t>&      indexBuffer)       // Your flat index buffer
+{
+    BoundingBox boundingBox{}; // Initialized with invalid state
+
+    // Process all root nodes in the scene
+    for(const Node* rootNode: rootNodes)
+    {
+        // Start recursion from each root. No initial parent matrix needed
+        // as node->GetMatrix() calculates the full world matrix internally.
+        CalculateNodeBoundsRecursive(boundingBox, rootNode, vertexBuffer, indexBuffer);
+    }
+
+    // --- Finalize Corners (Optional) ---
+    if(boundingBox.valid)
+    {
+        boundingBox.corners[0] = glm::vec4(boundingBox.min.x, boundingBox.min.y, boundingBox.min.z, 1.0f);
+        boundingBox.corners[1] = glm::vec4(boundingBox.max.x, boundingBox.min.y, boundingBox.min.z, 1.0f);
+        boundingBox.corners[2] = glm::vec4(boundingBox.max.x, boundingBox.max.y, boundingBox.min.z, 1.0f);
+        boundingBox.corners[3] = glm::vec4(boundingBox.min.x, boundingBox.max.y, boundingBox.min.z, 1.0f);
+        boundingBox.corners[4] = glm::vec4(boundingBox.min.x, boundingBox.min.y, boundingBox.max.z, 1.0f);
+        boundingBox.corners[5] = glm::vec4(boundingBox.max.x, boundingBox.min.y, boundingBox.max.z, 1.0f);
+        boundingBox.corners[6] = glm::vec4(boundingBox.max.x, boundingBox.max.y, boundingBox.max.z, 1.0f);
+        boundingBox.corners[7] = glm::vec4(boundingBox.min.x, boundingBox.max.y, boundingBox.max.z, 1.0f);
+    }
 
     return boundingBox;
 }
+
 } // namespace Humongous

@@ -32,34 +32,34 @@ namespace Humongous
 {
 struct Primitive
 {
-    Node*     m_owner;
-    n32       m_firstIndex;
-    n32       m_indexCount;
-    n32       m_vertexCount;
-    Material& m_material;
-    bool      m_hasIndices;
+    Node*     owner;
+    n32       firstIndex;
+    n32       indexCount;
+    n32       vertexCount;
+    Material& material;
+    bool      hasIndices;
     Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, Material& material);
 };
 
 struct Mesh
 {
-    Mesh(LogicalDevice* m_device, glm::mat4 matrix);
+    Mesh(LogicalDevice* device, glm::mat4 matrix);
     ~Mesh();
 
-    LogicalDevice*          m_device;
-    std::vector<Primitive*> m_primitives;
+    LogicalDevice*          device;
+    std::vector<Primitive*> primitives;
 
     struct UniformBuffer
     {
         Buffer                 uniformBuffer;
         VkDescriptorBufferInfo descriptorInfo;
         VkDescriptorSet        descriptorSet = VK_NULL_HANDLE;
-    } m_uniformBuffer;
+    } uniformBuffer;
 
     struct UniformBlock
     {
         glm::mat4 matrix{1.f};
-    } m_uniformBlock;
+    } uniformBlock;
 };
 
 class Model
@@ -105,19 +105,10 @@ public:
     BoundingBox GetLocalBoundingBox() { return m_localAABB; }
 
 private:
-    struct IndirectDrawCommand
-    {
-        n32 indexCount;
-        n32 instanceCount;
-        n32 firstIndex;
-        n32 vertexOffset;
-        n32 firstInstance;
-    };
-
     Buffer m_vertices;
     Buffer m_indices;
 
-    LogicalDevice* m_device;
+    LogicalDevice* m_logicalDevice;
 
     std::vector<Node*> m_nodes;
     std::vector<Node*> m_linearNodes;
@@ -163,21 +154,20 @@ private:
 
     struct LoaderInfo
     {
-        n32*    indexBuffer;
-        Vertex* vertexBuffer;
-        size_t  indexPos = 0;
-        size_t  vertexPos = 0;
+        std::vector<n32>           indexBuffer;
+        std::vector<Model::Vertex> vertexBuffer;
+        n32                        indexPos = 0;
+        n32                        vertexPos = 0;
     };
 
-    BoundingBox CalculateLocalAABB(LoaderInfo& loaderInfo) const;
+    BoundingBox CalculateModelAABB(const std::vector<Node*>& rootNodes, const std::vector<Model::Vertex>& vertexBuffer,
+                                   const std::vector<n32>& indexBuffer);
     BoundingBox m_localAABB{};
 
     bool m_initialized{false};
     void LoadFromFile(std::string filename, LogicalDevice* device, VkQueue transferQueue, float scale = 1.0f);
     void Destroy(VkDevice m_device);
 
-    // TODO: maybe move the shader material buffer and this out?
-    // maybe only write at draw time?
     void CreateMaterialDataBuffer();
     void UpdateShaderMaterialBuffer(Node* node);
 
