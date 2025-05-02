@@ -18,6 +18,10 @@ Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice&
     m_drawImage.imageFormat = drawFormat;
     m_depthImage.imageFormat = depthFormat;
 
+    m_boundingBoxBuffer.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_visibilityResults.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_rendererDataBuffer.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+
     RecreateSwapChain();
     CreateCommandPool();
     AllocateCommandBuffers();
@@ -577,13 +581,13 @@ void Renderer::DoGPUOcclusionCulling(VkCommandBuffer cmd, RenderData& data, cons
     WaitForCompute(waitCmd);
     m_logicalDevice.EndSingleTimeCommands(waitCmd);
 
-    m_boundingBoxBuffer.reset();
-    m_visibilityResults.reset();
-    m_rendererDataBuffer.reset();
+    m_boundingBoxBuffer[m_currentFrameIndex].reset();
+    m_visibilityResults[m_currentFrameIndex].reset();
+    m_rendererDataBuffer[m_currentFrameIndex].reset();
 
-    m_boundingBoxBuffer = std::make_unique<Buffer>();
-    m_visibilityResults = std::make_unique<Buffer>();
-    m_rendererDataBuffer = std::make_unique<Buffer>();
+    m_boundingBoxBuffer[m_currentFrameIndex] = std::make_unique<Buffer>();
+    m_visibilityResults[m_currentFrameIndex] = std::make_unique<Buffer>();
+    m_rendererDataBuffer[m_currentFrameIndex] = std::make_unique<Buffer>();
 
     auto alignment = m_logicalDevice.GetPhysicalDevice().GetProperties().properties.limits.minStorageBufferOffsetAlignment;
 
@@ -591,14 +595,17 @@ void Renderer::DoGPUOcclusionCulling(VkCommandBuffer cmd, RenderData& data, cons
     size_t bufferSize = bbSize * sizeof(BoundingBox);
     size_t alignedSize = std::max(bufferSize, alignment) & ~(alignment - 1);
 
-    m_boundingBoxBuffer->Init(&m_logicalDevice, bufferSize, 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_AUTO);
+    m_boundingBoxBuffer[m_currentFrameIndex]->Init(&m_logicalDevice, bufferSize, 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                                   VMA_MEMORY_USAGE_AUTO);
 
-    m_visibilityResults->Init(&m_logicalDevice, bbSize * sizeof(b32), 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_AUTO);
+    m_visibilityResults[m_currentFrameIndex]->Init(&m_logicalDevice, bbSize * sizeof(b32), 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                                   VMA_MEMORY_USAGE_AUTO);
 
-    m_rendererDataBuffer->Init(&m_logicalDevice, sizeof(RendererData), 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_AUTO);
+    m_rendererDataBuffer[m_currentFrameIndex]->Init(&m_logicalDevice, sizeof(RendererData), 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                                    VMA_MEMORY_USAGE_AUTO);
 
     VkMemoryBarrier2 memoryBarrier{};
     memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
@@ -625,20 +632,20 @@ void Renderer::DoGPUOcclusionCulling(VkCommandBuffer cmd, RenderData& data, cons
 
     Utils::TransitionImageLayout(preComputeReadTransition);
 
-    m_boundingBoxBuffer->Map();
-    m_boundingBoxBuffer->WriteToBuffer((void*)boundingBoxes.data());
-    m_boundingBoxBuffer->UnMap();
+    m_boundingBoxBuffer[m_currentFrameIndex]->Map();
+    m_boundingBoxBuffer[m_currentFrameIndex]->WriteToBuffer((void*)boundingBoxes.data());
+    m_boundingBoxBuffer[m_currentFrameIndex]->UnMap();
 
     RendererData renderData{{m_swapChain->GetExtent().width, m_swapChain->GetExtent().height}};
-    m_rendererDataBuffer->Map();
-    m_rendererDataBuffer->WriteToBuffer((void*)&renderData);
-    m_rendererDataBuffer->UnMap();
+    m_rendererDataBuffer[m_currentFrameIndex]->Map();
+    m_rendererDataBuffer[m_currentFrameIndex]->WriteToBuffer((void*)&renderData);
+    m_rendererDataBuffer[m_currentFrameIndex]->UnMap();
 
     VkDescriptorImageInfo  depthInfo = {m_depthImageSampler, m_depthImage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    VkDescriptorBufferInfo boundingBoxInfo = m_boundingBoxBuffer->DescriptorInfo();
-    VkDescriptorBufferInfo visiblityInfo = m_visibilityResults->DescriptorInfo();
+    VkDescriptorBufferInfo boundingBoxInfo = m_boundingBoxBuffer[m_currentFrameIndex]->DescriptorInfo();
+    VkDescriptorBufferInfo visiblityInfo = m_visibilityResults[m_currentFrameIndex]->DescriptorInfo();
     VkDescriptorBufferInfo projectionInfo = cam.GetCombinedDataBufferHandle(m_currentFrameIndex).DescriptorInfo();
-    VkDescriptorBufferInfo rendererDataInfo = m_rendererDataBuffer->DescriptorInfo();
+    VkDescriptorBufferInfo rendererDataInfo = m_rendererDataBuffer[m_currentFrameIndex]->DescriptorInfo();
 
     if(m_computeSet == VK_NULL_HANDLE)
     {
@@ -678,15 +685,15 @@ void Renderer::DoGPUOcclusionCulling(VkCommandBuffer cmd, RenderData& data, cons
 
     Utils::TransitionImageLayout(postComputeDepthTransition);
 
-    m_visibilityResults->Map();
+    m_visibilityResults[m_currentFrameIndex]->Map();
 
-    n32* visibilityResults = static_cast<n32*>(m_visibilityResults->GetMappedMemory());
+    n32* visibilityResults = static_cast<n32*>(m_visibilityResults[m_currentFrameIndex]->GetMappedMemory());
 
     for(int i = 0; i < boundingBoxes.size(); i++)
     {
         if(!visibilityResults[i]) { data.gameObjects.erase(data.gameObjects.begin() + i); }
     }
-    m_visibilityResults->UnMap();
+    m_visibilityResults[m_currentFrameIndex]->UnMap();
 }
 
 void Renderer::WaitForCompute(VkCommandBuffer cmd)

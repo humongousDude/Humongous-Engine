@@ -68,9 +68,9 @@ public:
 
     void DoGPUOcclusionCulling(VkCommandBuffer cmd, struct RenderData& objs, const Camera& cam);
 
-    VkDescriptorBufferInfo VisibilityResultDescriptorData() const
+    VkDescriptorBufferInfo VisibilityResultDescriptorData(const n32& index) const
     {
-        if(m_visibilityResults) { return m_visibilityResults->DescriptorInfo(); }
+        if(!m_visibilityResults.empty()) { return m_visibilityResults[index]->DescriptorInfo(); }
         else { return {}; }
     }
 
@@ -105,10 +105,10 @@ private:
     vk::Extent2D   m_depthImageExtent;
     VkSampler      m_depthImageSampler;
 
-    std::unique_ptr<Buffer> m_boundingBoxBuffer;
-    std::unique_ptr<Buffer> m_visibilityResults;
-    std::unique_ptr<Buffer> m_rendererDataBuffer;
-    std::unique_ptr<Buffer> m_debugBuffer;
+    std::vector<std::unique_ptr<Buffer>> m_boundingBoxBuffer;
+    std::vector<std::unique_ptr<Buffer>> m_visibilityResults;
+    std::vector<std::unique_ptr<Buffer>> m_rendererDataBuffer;
+    std::vector<std::unique_ptr<Buffer>> m_debugBuffer;
 
     AllocatedImage m_debugImage;
     VkSampler      m_debugImageSampler;
