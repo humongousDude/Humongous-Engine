@@ -683,7 +683,7 @@ void Renderer::DoGPUOcclusionCulling(vk::CommandBuffer cmd, RenderData& data, co
 
     m_visibilityResults[m_currentFrameIndex]->Map();
 
-    n32* visibilityResults = static_cast<n32*>(m_visibilityResults[m_currentFrameIndex]->GetMappedMemory());
+    b32* visibilityResults = static_cast<b32*>(m_visibilityResults[m_currentFrameIndex]->GetMappedMemory());
 
     for(int i = 0; i < boundingBoxes.size(); i++)
     {

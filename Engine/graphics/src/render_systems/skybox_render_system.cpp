@@ -12,10 +12,12 @@ SkyboxRenderSystem::SkyboxRenderSystem(LogicalDevice* logicalDevice, const std::
                                        const std::vector<vk::DescriptorSetLayout>& globalLayouts)
     : m_logicalDevice{logicalDevice}
 {
+    HGINFO("Initializing skybox render system...");
     InitDescriptors();
     CreatePipelineLayout(globalLayouts);
     CreatePipeline();
     InitSkybox(skyboxImgPath);
+    HGINFO("Initialized skybox render system");
 }
 
 SkyboxRenderSystem::~SkyboxRenderSystem() { vkDestroyPipelineLayout(m_logicalDevice->GetVkDevice(), m_pipelineLayout, nullptr); }

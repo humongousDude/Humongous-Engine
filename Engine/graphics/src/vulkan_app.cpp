@@ -30,6 +30,8 @@ VulkanApp::~VulkanApp()
 
 void VulkanApp::Init(const int argc, char* argv[])
 {
+    InitializeLogging();
+
     m_window = std::make_unique<Window>();
     m_instance = std::make_unique<Instance>();
     m_physicalDevice = std::make_unique<PhysicalDevice>(*m_instance, *m_window);

@@ -16,6 +16,7 @@ RenderPipeline::RenderPipeline(LogicalDevice& logicalDevice, const RenderPipelin
 
 RenderPipeline::~RenderPipeline()
 {
+    HGINFO("Destroying Render pipeline...");
     vkDestroyPipeline(m_logicalDevice.GetVkDevice(), m_pipeline, nullptr);
     HGINFO("Destroyed Render Pipeline");
 }
@@ -106,6 +107,7 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
     vkDestroyShaderModule(m_logicalDevice.GetVkDevice(), fragShaderModule, nullptr);
 
     HGINFO("Successfully destroyed shader modules");
+    HGINFO("Created render pipeline");
 }
 
 void RenderPipeline::CreateShaderModule(const std::vector<char>& code, vk::ShaderModule* shaderModule)

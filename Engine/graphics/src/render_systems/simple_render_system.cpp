@@ -20,7 +20,7 @@ SimpleRenderSystem::SimpleRenderSystem(LogicalDevice& logicalDevice, const std::
 SimpleRenderSystem::~SimpleRenderSystem()
 {
     HGINFO("Destroying simple render system...");
-    vkDestroyPipelineLayout(m_logicalDevice.GetVkDevice(), m_pipelineLayout, nullptr);
+    m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_pipelineLayout, nullptr);
     m_debugBuffer.reset();
     HGINFO("Destroyed Simple render system");
 }

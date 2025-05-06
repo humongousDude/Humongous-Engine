@@ -273,9 +273,10 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         gli::texture2d tex2D(gli::load(imagePath.c_str()));
         HGASSERT(!tex2D.empty());
 
-        m_width = static_cast<n32>(tex2D[0].extent().x);
-        m_height = static_cast<n32>(tex2D[0].extent().y);
+        m_width = static_cast<n32>(tex2D.extent().x);
+        m_height = static_cast<n32>(tex2D.extent().y);
         m_miplevels = static_cast<n32>(tex2D.levels());
+        m_baseSize = m_width;
 
         Buffer stagingBuffer{m_logicalDevice,
                              tex2D.size(),
@@ -342,9 +343,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         m_logicalDevice->EndSingleTimeCommands(cmd);
         m_textureImage.imageLayout = vk::ImageLayout::eTransferDstOptimal;
 
-        HGINFO("COPYING BUFFER TO IMAGE");
         Utils::CopyBufferToImage(*m_logicalDevice, stagingBuffer.GetBuffer(), m_textureImage.image, regions);
-        HGINFO("COPIED BUFFER TO IMAGE");
 
         VkCommandBuffer cmd2 = m_logicalDevice->BeginSingleTimeCommands();
 
@@ -382,6 +381,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         m_width = static_cast<n32>(texCube.extent().x);
         m_height = static_cast<n32>(texCube.extent().y);
         m_miplevels = static_cast<n32>(texCube.levels());
+        m_baseSize = m_width;
 
         Buffer stagingBuffer{m_logicalDevice,
                              texCube.size(),
