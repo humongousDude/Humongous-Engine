@@ -21,7 +21,7 @@ enum LogLevel
     LOG_LEVEL_TRACE = 5
 };
 
-b8   InitializeLogging(LogLevel level);
+b8   InitializeLogging(LogLevel minLevel = LOG_LEVEL_TRACE, const char* logFilePath = "log.txt");
 void ShutDownLogging();
 
 void LogOutput(LogLevel level, const char* message, ...);
