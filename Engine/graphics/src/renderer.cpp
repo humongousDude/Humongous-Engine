@@ -11,8 +11,8 @@
 
 namespace Humongous
 {
-Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator, VkFormat drawFormat,
-                   VkFormat depthFormat)
+Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator, vk::Format drawFormat,
+                   vk::Format depthFormat)
     : m_window{window}, m_logicalDevice{logicalDevice}, m_physicalDevice{physicalDevice}, m_allocator{allocator}
 {
     m_drawImage.imageFormat = drawFormat;
@@ -32,22 +32,22 @@ Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice&
 Renderer::~Renderer()
 {
     HGINFO("Destroying renderer...");
-    if(m_commandPool) { vkDestroyCommandPool(m_logicalDevice.GetVkDevice(), m_commandPool, nullptr); }
+    if(m_commandPool) { m_logicalDevice.GetVkDevice().destroyCommandPool(m_commandPool, nullptr); }
 
     for(Frame& frame: m_frames)
     {
-        vkDestroySemaphore(m_logicalDevice.GetVkDevice(), frame.imageAvailableSemaphore, nullptr);
-        vkDestroySemaphore(m_logicalDevice.GetVkDevice(), frame.renderFinishedSemaphore, nullptr);
-        vkDestroyFence(m_logicalDevice.GetVkDevice(), frame.inFlightFence, nullptr);
+        m_logicalDevice.GetVkDevice().destroySemaphore(frame.imageAvailableSemaphore, nullptr);
+        m_logicalDevice.GetVkDevice().destroySemaphore(frame.renderFinishedSemaphore, nullptr);
+        m_logicalDevice.GetVkDevice().destroyFence(frame.inFlightFence, nullptr);
     }
 
     if(m_drawImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_drawImage.image, m_drawImage.allocation); }
-    if(m_depthImage.imageView != VK_NULL_HANDLE) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), m_drawImage.imageView, nullptr); }
+    if(m_depthImage.imageView != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyImageView(m_drawImage.imageView, nullptr); }
     if(m_depthImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_depthImage.image, m_depthImage.allocation); }
-    if(m_depthImage.imageView != VK_NULL_HANDLE) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), m_depthImage.imageView, nullptr); }
+    if(m_depthImage.imageView != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyImageView(m_depthImage.imageView, nullptr); }
 
-    vkDestroyPipeline(m_logicalDevice.GetVkDevice(), m_computePipeline, nullptr);
-    vkDestroyPipelineLayout(m_logicalDevice.GetVkDevice(), m_computePipelineLayout, nullptr);
+    m_logicalDevice.GetVkDevice().destroyPipeline(m_computePipeline, nullptr);
+    m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_computePipelineLayout, nullptr);
 
     m_computeLayout.reset();
     m_computePool.reset();
@@ -87,32 +87,30 @@ void Renderer::InitImagesAndViews()
 
     HGINFO("Creating draw image and view...");
 
-    VkExtent3D drawImageExtent = {m_swapChain->GetExtent().width, m_swapChain->GetExtent().height, 1};
+    vk::Extent3D drawImageExtent = {m_swapChain->GetExtent().width, m_swapChain->GetExtent().height, 1};
 
-    // m_drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
     m_drawImage.imageExtent = drawImageExtent;
 
-    VkImageUsageFlags drawImageUsages{};
-    drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
-    drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    vk::ImageUsageFlags drawImageUsages{};
+    drawImageUsages |= vk::ImageUsageFlagBits::eTransferSrc;
+    drawImageUsages |= vk::ImageUsageFlagBits::eTransferDst;
+    drawImageUsages |= vk::ImageUsageFlagBits::eStorage;
+    drawImageUsages |= vk::ImageUsageFlagBits::eColorAttachment;
 
     Utils::AllocatedImageCreateInfo imgCI{.logicalDevice = m_logicalDevice, .allocatedImage = m_drawImage};
     imgCI.layerCount = 1;
-    imgCI.flags = 0;
-    imgCI.imageViewType = VK_IMAGE_VIEW_TYPE_2D;
-    imgCI.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imgCI.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    imgCI.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+    imgCI.imageViewType = vk::ImageViewType::e2D;
+    imgCI.tiling = vk::ImageTiling::eOptimal;
+    imgCI.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+    imgCI.aspectFlags = vk::ImageAspectFlagBits::eColor;
     imgCI.height = m_drawImage.imageExtent.height;
     imgCI.width = m_drawImage.imageExtent.width;
     imgCI.mipLevels = 1;
     imgCI.usage = drawImageUsages;
     imgCI.layerCount = 1;
-    imgCI.format = m_drawImage.imageFormat == VK_FORMAT_UNDEFINED ? VK_FORMAT_R16G16B16A16_SFLOAT : m_drawImage.imageFormat;
+    imgCI.format = m_drawImage.imageFormat == vk::Format::eUndefined ? vk::Format::eR16G16B16A16Sfloat : m_drawImage.imageFormat;
     imgCI.imagePool = VK_NULL_HANDLE;
-    imgCI.samples = VK_SAMPLE_COUNT_1_BIT;
+    imgCI.samples = vk::SampleCountFlagBits::e1;
 
     Utils::CreateAllocatedImage(imgCI);
 
@@ -126,41 +124,41 @@ void Renderer::InitDepthImage()
 
     HGINFO("Creating depth image and view...");
 
-    VkExtent3D depthImageExtent = {m_swapChain->GetExtent().width, m_swapChain->GetExtent().height, 1};
+    vk::Extent3D depthImageExtent = {m_swapChain->GetExtent().width, m_swapChain->GetExtent().height, 1};
 
     // hardcoding the draw format to 32 bit float
-    // m_depthImage.imageFormat = VK_FORMAT_D32_SFLOAT;
+    // m_depthImage.imageFormat = vk::Format::eD32Sfloat;
     m_depthImage.imageExtent = depthImageExtent;
 
-    VkImageUsageFlags depthImageUsages{};
-    depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    depthImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    vk::ImageUsageFlags depthImageUsages{};
+    depthImageUsages |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
+    depthImageUsages |= vk::ImageUsageFlagBits::eSampled;
 
     Utils::AllocatedImageCreateInfo imgCI{.logicalDevice = m_logicalDevice, .allocatedImage = m_depthImage};
     imgCI.layerCount = 1;
-    imgCI.flags = 0;
-    imgCI.imageViewType = VK_IMAGE_VIEW_TYPE_2D;
-    imgCI.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imgCI.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    imgCI.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+    // imgCI.flags = 0;
+    imgCI.imageViewType = vk::ImageViewType::e2D;
+    imgCI.tiling = vk::ImageTiling::eOptimal;
+    imgCI.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+    imgCI.aspectFlags = vk::ImageAspectFlagBits::eDepth;
     imgCI.height = m_depthImage.imageExtent.height;
     imgCI.width = m_depthImage.imageExtent.width;
     imgCI.mipLevels = 1;
     imgCI.usage = depthImageUsages;
-    imgCI.format = VK_FORMAT_D32_SFLOAT;
+    imgCI.format = vk::Format::eD32Sfloat;
     imgCI.imagePool = VK_NULL_HANDLE;
-    imgCI.samples = VK_SAMPLE_COUNT_1_BIT;
+    imgCI.samples = vk::SampleCountFlagBits::e1;
 
     auto cmd = m_logicalDevice.BeginSingleTimeCommands();
 
     Utils::CreateAllocatedImage(imgCI);
 
     Utils::ImageTransitionInfo postComputeDepthTransition{cmd,
-                                                          VK_IMAGE_LAYOUT_UNDEFINED,
-                                                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                                                          vk::ImageLayout::eUndefined,
+                                                          vk::ImageLayout::eDepthStencilAttachmentOptimal,
                                                           &m_logicalDevice,
                                                           m_depthImage.image,
-                                                          VK_IMAGE_ASPECT_DEPTH_BIT};
+                                                          vk::ImageAspectFlagBits::eDepth};
 
     Utils::TransitionImageLayout(postComputeDepthTransition);
 
@@ -244,86 +242,86 @@ void Renderer::InitSyncStructures()
 void Renderer::CreateComputePipeline()
 {
     DescriptorPool::Builder builder{m_logicalDevice};
-    builder.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5);
-    builder.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 5);
-    builder.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 5);
-    builder.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 5);
+    builder.AddPoolSize(vk::DescriptorType::eCombinedImageSampler, 5);
+    builder.AddPoolSize(vk::DescriptorType::eStorageBuffer, 5);
+    builder.AddPoolSize(vk::DescriptorType::eUniformBuffer, 5);
+    builder.AddPoolSize(vk::DescriptorType::eStorageImage, 5);
     builder.SetMaxSets(100);
     m_computePool = builder.Build();
 
     DescriptorSetLayout::Builder builder2{m_logicalDevice};
-    builder2.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT);
-    builder2.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-    builder2.addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-    builder2.addBinding(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-    builder2.addBinding(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-    builder2.addBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+    builder2.addBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
+    builder2.addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+    builder2.addBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+    builder2.addBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute);
+    builder2.addBinding(4, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute);
+    builder2.addBinding(5, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
     m_computeLayout = builder2.Build();
 
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = VK_FILTER_NEAREST;
-    samplerInfo.minFilter = VK_FILTER_NEAREST;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    vk::SamplerCreateInfo samplerInfo{};
+    // samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = vk::Filter::eNearest;
+    samplerInfo.minFilter = vk::Filter::eNearest;
+    samplerInfo.addressModeU = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.addressModeV = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.addressModeW = vk::SamplerAddressMode::eClampToEdge;
     samplerInfo.anisotropyEnable = VK_FALSE;
     samplerInfo.maxAnisotropy = 1.0f;
-    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    samplerInfo.borderColor = vk::BorderColor::eFloatOpaqueWhite;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
     samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = VK_COMPARE_OP_NEVER;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    samplerInfo.compareOp = vk::CompareOp::eNever;
+    samplerInfo.mipmapMode = vk::SamplerMipmapMode::eNearest;
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = 0;
     samplerInfo.compareEnable = VK_FALSE;
 
-    if(vkCreateSampler(m_logicalDevice.GetVkDevice(), &samplerInfo, nullptr, &m_depthImageSampler) != VK_SUCCESS)
+    if(m_logicalDevice.GetVkDevice().createSampler(&samplerInfo, nullptr, &m_depthImageSampler) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create texture sampler");
     }
 
     auto layout = m_computeLayout->GetDescriptorSetLayout();
 
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
+    // pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &layout;
     pipelineLayoutInfo.pushConstantRangeCount = 0;
     pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
-    if(vkCreatePipelineLayout(m_logicalDevice.GetVkDevice(), &pipelineLayoutInfo, nullptr, &m_computePipelineLayout) != VK_SUCCESS)
+    if(m_logicalDevice.GetVkDevice().createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_computePipelineLayout) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create pipeline layout");
     }
 
     auto compCode = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "occlusion.comp"));
 
-    VkShaderModuleCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    vk::ShaderModuleCreateInfo createInfo{};
+    // createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = compCode.size();
     createInfo.pCode = reinterpret_cast<const n32*>(compCode.data());
 
-    VkShaderModule compModule;
+    vk::ShaderModule compModule;
 
-    if(vkCreateShaderModule(m_logicalDevice.GetVkDevice(), &createInfo, nullptr, &compModule) != VK_SUCCESS)
+    if(m_logicalDevice.GetVkDevice().createShaderModule(&createInfo, nullptr, &compModule) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create shader module!");
     }
 
-    VkPipelineShaderStageCreateInfo why{};
-    why.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    why.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vk::PipelineShaderStageCreateInfo why{};
+    why.stage = vk::ShaderStageFlagBits::eCompute;
+    // why.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     why.pName = "main";
     why.module = compModule;
 
-    VkComputePipelineCreateInfo compInfo{};
-    compInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    vk::ComputePipelineCreateInfo compInfo{};
+    // compInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     compInfo.layout = m_computePipelineLayout;
     compInfo.stage = why;
 
-    if(vkCreateComputePipelines(m_logicalDevice.GetVkDevice(), nullptr, 1, &compInfo, nullptr, &m_computePipeline) != VK_SUCCESS)
+    if(m_logicalDevice.GetVkDevice().createComputePipelines(nullptr, 1, &compInfo, nullptr, &m_computePipeline) != vk::Result::eSuccess)
     {
         HGFATAL("Failed to create renderer compute pipeline!");
     }
@@ -331,17 +329,17 @@ void Renderer::CreateComputePipeline()
     vkDestroyShaderModule(m_logicalDevice.GetVkDevice(), compModule, nullptr);
 }
 
-VkCommandBuffer Renderer::BeginFrame()
+vk::CommandBuffer Renderer::BeginFrame()
 {
     vk::Result result = m_logicalDevice.GetVkDevice().waitForFences(1, &GetCurrentFrame().inFlightFence, vk::True, std::numeric_limits<n64>::max());
-    if(result != vk::Result::eSuccess) { HGINFO("Failed to wait for fences: ", string_VkResult(static_cast<VkResult>(result))); }
+    if(result != vk::Result::eSuccess) { HGINFO("Failed to wait for fences: %s", vk::to_string(result).c_str()); }
 
     result = m_logicalDevice.GetVkDevice().resetFences(1, &GetCurrentFrame().inFlightFence);
-    if(result != vk::Result::eSuccess) { HGINFO("Failed to reset fences: ", string_VkResult(static_cast<VkResult>(result))); }
+    if(result != vk::Result::eSuccess) { HGINFO("Failed to reset fences: %s", vk::to_string(result).c_str()); }
 
     result = m_logicalDevice.GetVkDevice().acquireNextImageKHR(m_swapChain->GetSwapChain(), 1000000000, GetCurrentFrame().imageAvailableSemaphore,
                                                                VK_NULL_HANDLE, &m_currentImageIndex);
-    if(result != vk::Result::eSuccess) { HGINFO("Failed to acquire swapchain image: ", string_VkResult(static_cast<VkResult>(result))); }
+    if(result != vk::Result::eSuccess) { HGINFO("Failed to acquire swapchain image: %s", vk::to_string(result).c_str()); }
 
     if(result == vk::Result::eErrorOutOfDateKHR)
     {
@@ -359,12 +357,12 @@ VkCommandBuffer Renderer::BeginFrame()
 
     if(cmd.begin(&beginInfo) != vk::Result::eSuccess) { HGERROR("Failed to begin recording command buffer"); }
 
-    return static_cast<VkCommandBuffer>(cmd);
+    return static_cast<vk::CommandBuffer>(cmd);
 }
 
 void Renderer::EndFrame()
 {
-    if(vkEndCommandBuffer(GetCurrentFrame().commandBuffer) != VK_SUCCESS) { HGERROR("Failed to record command buffer"); }
+    GetCurrentFrame().commandBuffer.end();
 
     vk::CommandBufferSubmitInfo cmdInfo{};
     cmdInfo.deviceMask = 0;
@@ -412,7 +410,7 @@ void Renderer::EndFrame()
     m_currentFrameIndex = (m_currentFrameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
 }
 
-void Renderer::BeginRendering(VkCommandBuffer cmd)
+void Renderer::BeginRendering(vk::CommandBuffer cmd)
 {
     m_drawImageExtent.width = m_drawImage.imageExtent.width;
     m_drawImageExtent.height = m_drawImage.imageExtent.height;
@@ -421,34 +419,32 @@ void Renderer::BeginRendering(VkCommandBuffer cmd)
 
     Utils::ImageTransitionInfo transInfo{};
     transInfo.image = m_drawImage.image;
-    transInfo.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    transInfo.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    transInfo.oldLayout = vk::ImageLayout::eUndefined;
+    transInfo.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
     transInfo.cmd = cmd;
 
     Utils::TransitionImageLayout(transInfo);
 
-    std::array<VkClearValue, 2> clearValues{};
+    std::array<vk::ClearValue, 2> clearValues{};
     clearValues[0].color = {0.3f, 0.3f, 0.3f, 1.0f};
-    clearValues[1].depthStencil = {1.0f, 0};
+    clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
 
-    VkRenderingAttachmentInfo colorAttachment{};
-    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    vk::RenderingAttachmentInfo colorAttachment{};
     colorAttachment.imageView = m_drawImage.imageView;
-    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.imageLayout = vk::ImageLayout::eGeneral;
+    colorAttachment.loadOp = vk::AttachmentLoadOp::eClear;
+    colorAttachment.storeOp = vk::AttachmentStoreOp::eDontCare;
     colorAttachment.clearValue = clearValues[0];
 
-    VkRenderingAttachmentInfo depthAttachment{};
-    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    vk::RenderingAttachmentInfo depthAttachment{};
     depthAttachment.imageView = m_depthImage.imageView;
-    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+    depthAttachment.loadOp = vk::AttachmentLoadOp::eClear;
+    depthAttachment.storeOp = vk::AttachmentStoreOp::eDontCare;
     depthAttachment.clearValue = clearValues[1];
 
-    VkRenderingInfo renderingInfo{};
-    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    vk::RenderingInfo renderingInfo{};
+    // renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderingInfo.renderArea = {0, 0, m_swapChain->GetExtent().width, m_swapChain->GetExtent().height};
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 1;
@@ -457,11 +453,11 @@ void Renderer::BeginRendering(VkCommandBuffer cmd)
     renderingInfo.pStencilAttachment = nullptr;
     renderingInfo.pNext = nullptr;
     renderingInfo.viewMask = 0;
-    renderingInfo.flags = 0;
+    // renderingInfo.flags = 0;
 
-    vkCmdBeginRendering(cmd, &renderingInfo);
+    cmd.beginRendering(&renderingInfo);
 
-    VkViewport viewport{};
+    vk::Viewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
     viewport.width = static_cast<float>(m_drawImageExtent.width);
@@ -469,30 +465,30 @@ void Renderer::BeginRendering(VkCommandBuffer cmd)
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
+    cmd.setViewport(0, 1, &viewport);
 
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
+    vk::Rect2D scissor{};
+    scissor.offset = vk::Offset2D{0, 0};
     scissor.extent.width = m_drawImageExtent.width;
     scissor.extent.height = m_drawImageExtent.height;
 
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
+    cmd.setScissor(0, 1, &scissor);
 }
 
-void Renderer::EndRendering(VkCommandBuffer cmd)
+void Renderer::EndRendering(vk::CommandBuffer cmd)
 {
     vkCmdEndRendering(cmd);
 
     Utils::ImageTransitionInfo drawInfo{};
     drawInfo.image = m_drawImage.image;
-    drawInfo.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    drawInfo.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    drawInfo.oldLayout = vk::ImageLayout::eColorAttachmentOptimal;
+    drawInfo.newLayout = vk::ImageLayout::eTransferSrcOptimal;
     drawInfo.cmd = cmd;
 
     Utils::ImageTransitionInfo swapInfo{};
     swapInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
-    swapInfo.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    swapInfo.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    swapInfo.oldLayout = vk::ImageLayout::eUndefined;
+    swapInfo.newLayout = vk::ImageLayout::eTransferDstOptimal;
     swapInfo.cmd = cmd;
 
     Utils::TransitionImageLayout(drawInfo);
@@ -502,33 +498,33 @@ void Renderer::EndRendering(VkCommandBuffer cmd)
 
     Utils::ImageTransitionInfo presentInfo{};
     presentInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
-    presentInfo.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    presentInfo.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    presentInfo.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+    presentInfo.newLayout = vk::ImageLayout::ePresentSrcKHR;
     presentInfo.cmd = cmd;
 
     Utils::TransitionImageLayout(presentInfo);
 }
 
-void Renderer::BeginDepthPrePass(VkCommandBuffer cmd)
+void Renderer::BeginDepthPrePass(vk::CommandBuffer cmd)
 {
     m_drawImageExtent.width = m_drawImage.imageExtent.width;
     m_drawImageExtent.height = m_drawImage.imageExtent.height;
     m_depthImageExtent.width = m_depthImage.imageExtent.width;
     m_depthImageExtent.height = m_depthImage.imageExtent.height;
 
-    VkClearValue clearValue{};
-    clearValue.depthStencil = {1.0f, 0};
+    vk::ClearValue clearValue{};
+    clearValue.depthStencil = vk::ClearDepthStencilValue{1.0f, 0};
 
-    VkRenderingAttachmentInfo depthAttachment{};
-    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    vk::RenderingAttachmentInfo depthAttachment{};
+    // depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     depthAttachment.imageView = m_depthImage.imageView;
-    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachment.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+    depthAttachment.loadOp = vk::AttachmentLoadOp::eClear;
+    depthAttachment.storeOp = vk::AttachmentStoreOp::eStore;
     depthAttachment.clearValue = clearValue;
 
-    VkRenderingInfo renderingInfo{};
-    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    vk::RenderingInfo renderingInfo{};
+    // renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderingInfo.renderArea = {0, 0, m_swapChain->GetExtent().width, m_swapChain->GetExtent().height};
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 0;
@@ -536,13 +532,13 @@ void Renderer::BeginDepthPrePass(VkCommandBuffer cmd)
     renderingInfo.pStencilAttachment = nullptr;
     renderingInfo.pNext = nullptr;
     renderingInfo.viewMask = 0;
-    renderingInfo.flags = 0;
+    // renderingInfo.flags = 0;
 
     renderingInfo.pDepthAttachment = &depthAttachment;
 
-    vkCmdBeginRendering(cmd, &renderingInfo);
+    cmd.beginRendering(&renderingInfo);
 
-    VkViewport viewport{};
+    vk::Viewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
     viewport.width = static_cast<float>(m_drawImageExtent.width);
@@ -550,17 +546,17 @@ void Renderer::BeginDepthPrePass(VkCommandBuffer cmd)
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
+    cmd.setViewport(0, 1, &viewport);
 
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
+    vk::Rect2D scissor{};
+    scissor.offset = vk::Offset2D{0, 0};
     scissor.extent.width = m_drawImageExtent.width;
     scissor.extent.height = m_drawImageExtent.height;
 
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
+    cmd.setScissor(0, 1, &scissor);
 }
 
-void Renderer::EndDepthPrePass(VkCommandBuffer cmd) { vkCmdEndRendering(cmd); }
+void Renderer::EndDepthPrePass(vk::CommandBuffer cmd) { vkCmdEndRendering(cmd); }
 
 struct alignas(16) RendererData
 {
@@ -568,9 +564,9 @@ struct alignas(16) RendererData
     float     padding[2];
 };
 
-void Renderer::DoGPUOcclusionCulling(VkCommandBuffer cmd, RenderData& data, const Camera& cam)
+void Renderer::DoGPUOcclusionCulling(vk::CommandBuffer cmd, RenderData& data, const Camera& cam)
 {
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_computePipeline);
 
     std::vector<BoundingBox> boundingBoxes;
 
@@ -595,39 +591,39 @@ void Renderer::DoGPUOcclusionCulling(VkCommandBuffer cmd, RenderData& data, cons
     size_t bufferSize = bbSize * sizeof(BoundingBox);
     size_t alignedSize = std::max(bufferSize, alignment) & ~(alignment - 1);
 
-    m_boundingBoxBuffer[m_currentFrameIndex]->Init(&m_logicalDevice, bufferSize, 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    m_boundingBoxBuffer[m_currentFrameIndex]->Init(&m_logicalDevice, bufferSize, 1, vk::BufferUsageFlagBits::eStorageBuffer,
+                                                   vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                                                    VMA_MEMORY_USAGE_AUTO);
 
-    m_visibilityResults[m_currentFrameIndex]->Init(&m_logicalDevice, bbSize * sizeof(b32), 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    m_visibilityResults[m_currentFrameIndex]->Init(&m_logicalDevice, bbSize * sizeof(b32), 1, vk::BufferUsageFlagBits::eStorageBuffer,
+                                                   vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                                                    VMA_MEMORY_USAGE_AUTO);
 
-    m_rendererDataBuffer[m_currentFrameIndex]->Init(&m_logicalDevice, sizeof(RendererData), 1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    m_rendererDataBuffer[m_currentFrameIndex]->Init(&m_logicalDevice, sizeof(RendererData), 1, vk::BufferUsageFlagBits::eUniformBuffer,
+                                                    vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                                                     VMA_MEMORY_USAGE_AUTO);
 
-    VkMemoryBarrier2 memoryBarrier{};
-    memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-    memoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
-    memoryBarrier.srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    memoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    memoryBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+    vk::MemoryBarrier2 memoryBarrier{};
+    // memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+    memoryBarrier.srcStageMask = vk::PipelineStageFlagBits2::eLateFragmentTests;
+    memoryBarrier.srcAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+    memoryBarrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
+    memoryBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead;
 
-    VkDependencyInfo dependencyInfo{};
-    dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    vk::DependencyInfo dependencyInfo{};
+    // dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
     dependencyInfo.memoryBarrierCount = 1;
     dependencyInfo.pMemoryBarriers = &memoryBarrier;
 
-    vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+    cmd.pipelineBarrier2(&dependencyInfo);
 
     Utils::ImageTransitionInfo preComputeReadTransition{
         cmd,
-        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        vk::ImageLayout::eDepthStencilAttachmentOptimal,
+        vk::ImageLayout::eShaderReadOnlyOptimal,
         &m_logicalDevice,
         m_depthImage.image,
-        VK_IMAGE_ASPECT_DEPTH_BIT,
+        vk::ImageAspectFlagBits::eDepth,
     };
 
     Utils::TransitionImageLayout(preComputeReadTransition);
@@ -641,11 +637,11 @@ void Renderer::DoGPUOcclusionCulling(VkCommandBuffer cmd, RenderData& data, cons
     m_rendererDataBuffer[m_currentFrameIndex]->WriteToBuffer((void*)&renderData);
     m_rendererDataBuffer[m_currentFrameIndex]->UnMap();
 
-    VkDescriptorImageInfo  depthInfo = {m_depthImageSampler, m_depthImage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    VkDescriptorBufferInfo boundingBoxInfo = m_boundingBoxBuffer[m_currentFrameIndex]->DescriptorInfo();
-    VkDescriptorBufferInfo visiblityInfo = m_visibilityResults[m_currentFrameIndex]->DescriptorInfo();
-    VkDescriptorBufferInfo projectionInfo = cam.GetCombinedDataBufferHandle(m_currentFrameIndex).DescriptorInfo();
-    VkDescriptorBufferInfo rendererDataInfo = m_rendererDataBuffer[m_currentFrameIndex]->DescriptorInfo();
+    vk::DescriptorImageInfo  depthInfo = {m_depthImageSampler, m_depthImage.imageView, vk::ImageLayout::eShaderReadOnlyOptimal};
+    vk::DescriptorBufferInfo boundingBoxInfo = m_boundingBoxBuffer[m_currentFrameIndex]->DescriptorInfo();
+    vk::DescriptorBufferInfo visiblityInfo = m_visibilityResults[m_currentFrameIndex]->DescriptorInfo();
+    vk::DescriptorBufferInfo projectionInfo = cam.GetCombinedDataBufferHandle(m_currentFrameIndex).DescriptorInfo();
+    vk::DescriptorBufferInfo rendererDataInfo = m_rendererDataBuffer[m_currentFrameIndex]->DescriptorInfo();
 
     if(m_computeSet == VK_NULL_HANDLE)
     {
@@ -670,18 +666,18 @@ void Renderer::DoGPUOcclusionCulling(VkCommandBuffer cmd, RenderData& data, cons
         writer.Overwrite(m_computeSet);
     }
 
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipelineLayout, 0, 1, &m_computeSet, 0, nullptr);
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_computePipelineLayout, 0, 1, &m_computeSet, 0, nullptr);
 
     vkCmdDispatch(cmd, (n32)(data.gameObjects.size() + 63) / 64, 1, 1);
 
     WaitForCompute(cmd);
 
     Utils::ImageTransitionInfo postComputeDepthTransition{cmd,
-                                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                                                          vk::ImageLayout::eShaderReadOnlyOptimal,
+                                                          vk::ImageLayout::eDepthStencilAttachmentOptimal,
                                                           &m_logicalDevice,
                                                           m_depthImage.image,
-                                                          VK_IMAGE_ASPECT_DEPTH_BIT};
+                                                          vk::ImageAspectFlagBits::eDepth};
 
     Utils::TransitionImageLayout(postComputeDepthTransition);
 
@@ -696,21 +692,19 @@ void Renderer::DoGPUOcclusionCulling(VkCommandBuffer cmd, RenderData& data, cons
     m_visibilityResults[m_currentFrameIndex]->UnMap();
 }
 
-void Renderer::WaitForCompute(VkCommandBuffer cmd)
+void Renderer::WaitForCompute(vk::CommandBuffer cmd)
 {
-    VkMemoryBarrier2 visibilityBarrier{};
-    visibilityBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-    visibilityBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    visibilityBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-    visibilityBarrier.dstStageMask = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-    visibilityBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+    vk::MemoryBarrier2 visibilityBarrier{};
+    visibilityBarrier.srcStageMask = vk::PipelineStageFlagBits2::eComputeShader;
+    visibilityBarrier.srcAccessMask = vk::AccessFlagBits2::eShaderWrite;
+    visibilityBarrier.dstStageMask = vk::PipelineStageFlagBits2::eVertexShader | vk::PipelineStageFlagBits2::eFragmentShader;
+    visibilityBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead;
 
-    VkDependencyInfo visibilityDependencyInfo{};
-    visibilityDependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    vk::DependencyInfo visibilityDependencyInfo{};
     visibilityDependencyInfo.memoryBarrierCount = 1;
     visibilityDependencyInfo.pMemoryBarriers = &visibilityBarrier;
 
-    vkCmdPipelineBarrier2(cmd, &visibilityDependencyInfo);
+    cmd.pipelineBarrier2(&visibilityDependencyInfo);
 }
 
 } // namespace Humongous

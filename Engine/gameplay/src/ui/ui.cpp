@@ -1,12 +1,11 @@
 #include "ui/ui.hpp"
-#include "gameobject.hpp"
 #include "logger.hpp"
+#include "render_pipeline.hpp"
 
 // lib
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_vulkan.h"
 
-#include "cmath"
 #include "ui/widget.hpp"
 #include <vulkan/vk_enum_string_helper.h>
 
@@ -76,14 +75,14 @@ void UI::InitDescriptorThings()
 {
     {
         DescriptorPool::Builder builder{*m_logicalDevice};
-        builder.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100);
+        builder.AddPoolSize(vk::DescriptorType::eCombinedImageSampler, 100);
         builder.SetMaxSets(100);
-        builder.SetPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+        builder.SetPoolFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet);
         m_pool = builder.Build();
     }
     {
         DescriptorSetLayout::Builder builder{*m_logicalDevice};
-        builder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_ALL);
+        builder.addBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eAll);
         m_setLayout = builder.Build();
     }
 }

@@ -23,15 +23,15 @@ void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
 
     DescriptorPool::Builder builder{*logicalDevice};
     builder.SetMaxSets(6);
-    builder.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6);
+    builder.AddPoolSize(vk::DescriptorType::eUniformBuffer, 6);
     m_projectionPool = builder.Build();
 
     DescriptorSetLayout::Builder builder2{*logicalDevice};
-    builder2.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    builder2.addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex);
     m_projectionDescriptorLayout = builder2.Build();
 
     DescriptorSetLayout::Builder builder3{*logicalDevice};
-    builder3.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    builder3.addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eFragment);
     m_paramDescriptorLayout = builder3.Build();
 
     m_projectionBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -43,24 +43,24 @@ void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
     for(int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
     {
         m_projectionBuffers[i] =
-            std::make_unique<Buffer>(logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(ProjectionUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_AUTO);
+            std::make_unique<Buffer>(logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(ProjectionUBO), vk::BufferUsageFlagBits::eUniformBuffer,
+                                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO);
         m_projectionBuffers[i]->Map();
 
         auto bufInfo = m_projectionBuffers[i]->DescriptorInfo();
         DescriptorWriter(*m_projectionDescriptorLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_projectionMatrixSet[i]);
 
         m_paramBuffers[i] =
-            std::make_unique<Buffer>(logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(UboParams), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_AUTO);
+            std::make_unique<Buffer>(logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(UboParams), vk::BufferUsageFlagBits::eUniformBuffer,
+                                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO);
         m_paramBuffers[i]->Map();
 
         auto paramInfo = m_paramBuffers[i]->DescriptorInfo();
         DescriptorWriter(*m_paramDescriptorLayout, m_projectionPool.get()).WriteBuffer(0, &paramInfo).Build(m_uboParamSet[i]);
 
         m_combinedCameraDataBuffers[i] = std::make_unique<Buffer>(
-            logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(Camera::CombinedCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_AUTO);
+            logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(CombinedCameraData), vk::BufferUsageFlagBits::eUniformBuffer,
+            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO);
     }
 }
 

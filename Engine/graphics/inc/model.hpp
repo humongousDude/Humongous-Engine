@@ -55,9 +55,9 @@ class Model
 public:
     struct alignas(16) PushConstantData
     {
-        glm::mat4       model{1.f};
-        VkDeviceAddress vertexAddress;
-        n32             id;
+        glm::mat4         model{1.f};
+        vk::DeviceAddress vertexAddress;
+        n32               id;
     };
 
     struct alignas(16) Vertex
@@ -82,7 +82,7 @@ public:
     void Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeLayout, DescriptorSetLayout* materialBufferLayout,
               DescriptorPoolGrowable* imagePool, DescriptorPoolGrowable* uniformPool, DescriptorPoolGrowable* storagePool);
 
-    void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout& pipelineLayout);
+    void Draw(vk::CommandBuffer commandBuffer, vk::PipelineLayout& pipelineLayout);
 
     struct Dimensions
     {
@@ -107,7 +107,7 @@ private:
     std::vector<Material>                            m_materials;
     std::unordered_map<n32, std::vector<Primitive*>> m_materialBatches;
 
-    VkDescriptorSet m_materialDataDescriptor{VK_NULL_HANDLE};
+    vk::DescriptorSet m_materialDataDescriptor{VK_NULL_HANDLE};
     enum PBRWorkflows
     {
         PBR_WORKFLOW_METALLIC_ROUGHNESS = 0,
@@ -135,12 +135,12 @@ private:
     };
     Buffer m_materialDataBuffer;
 
-    void                                                               SetupIndirectDrawBuffer();
-    Buffer                                                             m_indirectDrawBuffer;
-    Buffer                                                             m_nodeIDBuffer;
-    Buffer                                                             m_nodeMatrixBuffer;
-    std::unordered_map<n32, std::vector<VkDrawIndexedIndirectCommand>> m_indirectCommands;
-    std::vector<VkDrawIndexedIndirectCommand>                          m_debugCommands;
+    void                                                                 SetupIndirectDrawBuffer();
+    Buffer                                                               m_indirectDrawBuffer;
+    Buffer                                                               m_nodeIDBuffer;
+    Buffer                                                               m_nodeMatrixBuffer;
+    std::unordered_map<n32, std::vector<vk::DrawIndexedIndirectCommand>> m_indirectCommands;
+    std::vector<vk::DrawIndexedIndirectCommand>                          m_debugCommands;
 
     struct LoaderInfo
     {
@@ -155,8 +155,8 @@ private:
     BoundingBox m_localAABB{};
 
     bool m_initialized{false};
-    void LoadFromFile(std::string filepath, LogicalDevice* device, VkQueue transferQueue, float scale = 1.0f);
-    void Destroy(VkDevice m_device);
+    void LoadFromFile(std::string filepath, LogicalDevice* device, vk::Queue transferQueue, float scale = 1.0f);
+    void Destroy(vk::Device m_device);
 
     void CreateMaterialDataBuffer();
 
@@ -166,10 +166,10 @@ private:
     void LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, float globalscale,
                   glm::mat4 parentTransform);
     void GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& model, size_t& vertexCount, size_t& indexCount);
-    void LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* m_device, VkQueue transferQueue);
+    void LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* m_device, vk::Queue transferQueue);
 
-    VkSamplerAddressMode GetVkWrapMode(s32 wrapMode);
-    VkFilter             GetVkFilterMode(s32 filterMode);
+    vk::SamplerAddressMode GetVkWrapMode(s32 wrapMode);
+    vk::Filter             GetVkFilterMode(s32 filterMode);
 
     void LoadTextureSamplers(tinygltf::Model& gltfModel);
     void LoadMaterials(tinygltf::Model& gltfModel);

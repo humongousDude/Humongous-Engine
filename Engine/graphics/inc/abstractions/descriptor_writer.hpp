@@ -18,16 +18,16 @@ public:
     DescriptorWriter(DescriptorSetLayout& setLayout, DescriptorPool* pool);
     DescriptorWriter(DescriptorSetLayout& setLayout, DescriptorPoolGrowable* pool);
 
-    DescriptorWriter& WriteBuffer(n32 binding, VkDescriptorBufferInfo* bufferInfo);
-    DescriptorWriter& WriteImage(n32 binding, VkDescriptorImageInfo* imageInfo);
+    DescriptorWriter& WriteBuffer(n32 binding, vk::DescriptorBufferInfo* bufferInfo);
+    DescriptorWriter& WriteImage(n32 binding, vk::DescriptorImageInfo* imageInfo);
 
-    bool Build(VkDescriptorSet& set);
-    void Overwrite(VkDescriptorSet& set);
+    bool Build(vk::DescriptorSet& set);
+    void Overwrite(vk::DescriptorSet& set);
 
 private:
-    DescriptorSetLayout&              m_setLayout;
-    DescriptorPool*                   m_pool{nullptr};
-    DescriptorPoolGrowable*           m_poolGrowable{nullptr};
-    std::vector<VkWriteDescriptorSet> m_writes;
+    DescriptorSetLayout&                m_setLayout;
+    DescriptorPool*                     m_pool{nullptr};
+    DescriptorPoolGrowable*             m_poolGrowable{nullptr};
+    std::vector<vk::WriteDescriptorSet> m_writes;
 };
 } // namespace Humongous

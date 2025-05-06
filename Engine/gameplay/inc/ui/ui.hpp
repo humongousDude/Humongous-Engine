@@ -51,7 +51,7 @@ private:
 
     std::vector<UiWidget*> m_widgets;
 
-    VkPipelineRenderingCreateInfo m_renderingInfo = {};
+    vk::PipelineRenderingCreateInfo m_renderingInfo = {};
 
     void InitDescriptorThings();
 

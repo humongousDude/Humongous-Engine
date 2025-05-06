@@ -14,17 +14,17 @@ namespace Humongous
 class SkyboxRenderSystem
 {
 public:
-    SkyboxRenderSystem(LogicalDevice* logicalDevice, const std::string& skyboxImgPath, const std::vector<VkDescriptorSetLayout>& globalLayouts);
+    SkyboxRenderSystem(LogicalDevice* logicalDevice, const std::string& skyboxImgPath, const std::vector<vk::DescriptorSetLayout>& globalLayouts);
     ~SkyboxRenderSystem();
 
-    void RenderSkybox(const n32& frameIndex, std::vector<VkDescriptorSet>& globalSets, VkCommandBuffer commandBuffer);
+    void RenderSkybox(const n32& frameIndex, std::vector<vk::DescriptorSet>& globalSets, vk::CommandBuffer commandBuffer);
 
     std::shared_ptr<Skybox> GetSkybox() const { return m_skybox; }
 
 private:
     LogicalDevice*                  m_logicalDevice;
     std::unique_ptr<RenderPipeline> m_renderPipeline;
-    VkPipelineLayout                m_pipelineLayout;
+    vk::PipelineLayout              m_pipelineLayout;
 
     std::unique_ptr<DescriptorPoolGrowable> m_skyboxPool;
     std::unique_ptr<DescriptorSetLayout>    m_skyboxSetLayout;
@@ -32,7 +32,7 @@ private:
     std::shared_ptr<Skybox> m_skybox;
 
     void InitDescriptors();
-    void CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& globalLayouts);
+    void CreatePipelineLayout(const std::vector<vk::DescriptorSetLayout>& globalLayouts);
     void CreatePipeline();
     void InitSkybox(const std::string& skyBoxImgPath);
 };

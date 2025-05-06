@@ -17,20 +17,20 @@ public:
         std::string fragShaderPath;
         bool        bindless;
 
-        std::vector<VkVertexInputBindingDescription>   inputBindings;
-        std::vector<VkVertexInputAttributeDescription> attribBindings;
+        std::vector<vk::VertexInputBindingDescription>   inputBindings;
+        std::vector<vk::VertexInputAttributeDescription> attribBindings;
 
-        VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
-        VkPipelineRasterizationStateCreateInfo rasterizationInfo;
-        VkPipelineMultisampleStateCreateInfo   multisampleInfo;
-        VkPipelineColorBlendAttachmentState    colorBlendAttachment;
-        VkPipelineColorBlendStateCreateInfo    colorBlendInfo;
-        VkPipelineDepthStencilStateCreateInfo  depthStencilInfo;
-        std::vector<VkDynamicState>            dynamicStateEnables;
-        VkPipelineDynamicStateCreateInfo       dynamicStateInfo;
-        VkPipelineLayout                       pipelineLayout = nullptr;
-        VkPipelineRenderingCreateInfo          renderingInfo;
-        VkFormat                               colorAttachmentFormat;
+        vk::PipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
+        vk::PipelineRasterizationStateCreateInfo rasterizationInfo;
+        vk::PipelineMultisampleStateCreateInfo   multisampleInfo;
+        vk::PipelineColorBlendAttachmentState    colorBlendAttachment;
+        vk::PipelineColorBlendStateCreateInfo    colorBlendInfo;
+        vk::PipelineDepthStencilStateCreateInfo  depthStencilInfo;
+        std::vector<vk::DynamicState>            dynamicStateEnables;
+        vk::PipelineDynamicStateCreateInfo       dynamicStateInfo;
+        vk::PipelineLayout                       pipelineLayout = nullptr;
+        vk::PipelineRenderingCreateInfo          renderingInfo;
+        vk::Format                               colorAttachmentFormat;
     };
 
     RenderPipeline(LogicalDevice& logicalDevice, const PipelineConfigInfo& configInfo);
@@ -38,15 +38,15 @@ public:
 
     static PipelineConfigInfo DefaultPipelineConfigInfo();
 
-    VkPipeline& GetPipeline() { return m_pipeline; }
+    vk::Pipeline& GetPipeline() { return m_pipeline; }
 
-    void Bind(VkCommandBuffer cmd) { vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline); };
+    void Bind(vk::CommandBuffer cmd) { vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline); };
 
 private:
     LogicalDevice& m_logicalDevice;
-    VkPipeline     m_pipeline;
+    vk::Pipeline   m_pipeline;
 
     void CreateRenderPipeline(const PipelineConfigInfo& configInfo);
-    void CreateShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
+    void CreateShaderModule(const std::vector<char>& code, vk::ShaderModule* shaderModule);
 };
 } // namespace Humongous

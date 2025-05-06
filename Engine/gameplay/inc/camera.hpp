@@ -99,9 +99,9 @@ private:
     std::unique_ptr<DescriptorSetLayout> m_projectionDescriptorLayout;
     std::unique_ptr<DescriptorSetLayout> m_paramDescriptorLayout;
 
-    std::vector<VkDescriptorSet> m_projectionMatrixSet;
-    std::vector<VkDescriptorSet> m_uboParamSet;
-    UboParams                    m_uboParams{};
+    std::vector<vk::DescriptorSet> m_projectionMatrixSet;
+    std::vector<vk::DescriptorSet> m_uboParamSet;
+    UboParams                      m_uboParams{};
 
     glm::mat4 m_projectionMatrix{1.f};
     glm::mat4 m_viewMatrix{1.0f};

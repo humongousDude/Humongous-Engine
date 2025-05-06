@@ -54,19 +54,19 @@ void VulkanApp::Init(const int argc, char* argv[])
     UI::Init(m_instance.get(), m_logicalDevice.get(), m_window.get());
 
     m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator(),
-                                            VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_D32_SFLOAT);
+                                            vk::Format::eR16G16B16A16Sfloat, vk::Format::eD32Sfloat);
 
     m_cam = std::make_unique<Camera>(m_logicalDevice.get());
 
-    std::vector<VkDescriptorSetLayout> skyboxLayouts = {m_cam->GetDescriptorSetLayout()};
+    std::vector<vk::DescriptorSetLayout> skyboxLayouts = {m_cam->GetDescriptorSetLayout()};
 
     ShaderSet set = {Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert"),
                      Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "pbr.frag")};
 
     m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(m_logicalDevice.get(), "papermill", skyboxLayouts);
 
-    std::vector<VkDescriptorSetLayout> simpleLayouts = {m_cam->GetDescriptorSetLayout(), m_cam->GetParamDescriptorSetLayout(),
-                                                        ResourceManager::GetSkyboxDescriptorLayout()};
+    std::vector<vk::DescriptorSetLayout> simpleLayouts = {m_cam->GetDescriptorSetLayout(), m_cam->GetParamDescriptorSetLayout(),
+                                                          ResourceManager::GetSkyboxDescriptorLayout()};
 
     m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, simpleLayouts, set);
 

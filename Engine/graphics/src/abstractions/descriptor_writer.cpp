@@ -13,7 +13,7 @@ DescriptorWriter::DescriptorWriter(DescriptorSetLayout& m_setLayout, DescriptorP
 {
 }
 
-DescriptorWriter& DescriptorWriter::WriteBuffer(n32 binding, VkDescriptorBufferInfo* bufferInfo)
+DescriptorWriter& DescriptorWriter::WriteBuffer(n32 binding, vk::DescriptorBufferInfo* bufferInfo)
 {
     HGASSERT(m_setLayout.m_bindings.count(binding) == 1 && "Layout does not contain specified binding")
 
@@ -21,8 +21,8 @@ DescriptorWriter& DescriptorWriter::WriteBuffer(n32 binding, VkDescriptorBufferI
 
     HGASSERT(bindingDescription.descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple")
 
-    VkWriteDescriptorSet write{};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    vk::WriteDescriptorSet write{};
+    write.sType = vk::StructureType::eWriteDescriptorSet;
     write.descriptorType = bindingDescription.descriptorType;
     write.dstBinding = binding;
     write.pBufferInfo = bufferInfo;
@@ -32,7 +32,7 @@ DescriptorWriter& DescriptorWriter::WriteBuffer(n32 binding, VkDescriptorBufferI
     return *this;
 }
 
-DescriptorWriter& DescriptorWriter::WriteImage(n32 binding, VkDescriptorImageInfo* imageInfo)
+DescriptorWriter& DescriptorWriter::WriteImage(n32 binding, vk::DescriptorImageInfo* imageInfo)
 {
     HGASSERT(m_setLayout.m_bindings.count(binding) == 1 && "Layout does not contain specified binding")
 
@@ -40,8 +40,8 @@ DescriptorWriter& DescriptorWriter::WriteImage(n32 binding, VkDescriptorImageInf
 
     HGASSERT(bindingDescription.descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple")
 
-    VkWriteDescriptorSet write{};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    vk::WriteDescriptorSet write{};
+    write.sType = vk::StructureType::eWriteDescriptorSet;
     write.descriptorType = bindingDescription.descriptorType;
     write.dstBinding = binding;
     write.pImageInfo = imageInfo;
@@ -51,7 +51,7 @@ DescriptorWriter& DescriptorWriter::WriteImage(n32 binding, VkDescriptorImageInf
     return *this;
 }
 
-bool DescriptorWriter::Build(VkDescriptorSet& set)
+bool DescriptorWriter::Build(vk::DescriptorSet& set)
 {
     bool success;
     if(m_pool) { success = m_pool->AllocateDescriptor(m_setLayout.m_descriptorSetLayout, set); }
@@ -62,11 +62,11 @@ bool DescriptorWriter::Build(VkDescriptorSet& set)
     return true;
 }
 
-void DescriptorWriter::Overwrite(VkDescriptorSet& set)
+void DescriptorWriter::Overwrite(vk::DescriptorSet& set)
 {
     for(auto& write: m_writes) { write.dstSet = set; }
-    if(m_pool) { vkUpdateDescriptorSets(m_pool->m_logicalDevice.GetVkDevice(), m_writes.size(), m_writes.data(), 0, nullptr); }
-    else { vkUpdateDescriptorSets(m_poolGrowable->m_logicalDevice.GetVkDevice(), m_writes.size(), m_writes.data(), 0, nullptr); }
+    if(m_pool) { m_pool->m_logicalDevice.GetVkDevice().updateDescriptorSets(m_writes.size(), m_writes.data(), 0, nullptr); }
+    else { m_poolGrowable->m_logicalDevice.GetVkDevice().updateDescriptorSets(m_writes.size(), m_writes.data(), 0, nullptr); }
 }
 
 } // namespace Humongous

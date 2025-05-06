@@ -24,23 +24,23 @@ public:
     Skybox(const SkyboxCreateInfo& createInfo);
     ~Skybox();
 
-    VkDescriptorSet GetDescriptorSet() const { return m_cubeMapSet; }
-    VkDeviceAddress GetVertexBufferAddress() const { return m_vertexBuffer->GetDeviceAddress(); }
+    vk::DescriptorSet GetDescriptorSet() const { return m_cubeMapSet; }
+    vk::DeviceAddress GetVertexBufferAddress() const { return m_vertexBuffer->GetDeviceAddress(); }
 
-    void Draw(VkCommandBuffer cmd)
+    void Draw(vk::CommandBuffer cmd)
     {
         vkCmdBindIndexBuffer(cmd, m_indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer->GetBuffer(), 0, 1, sizeof(VkDrawIndexedIndirectCommand));
+        vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer->GetBuffer(), 0, 1, sizeof(vk::DrawIndexedIndirectCommand));
     }
 
 private:
     LogicalDevice* m_logicalDevice = nullptr;
 
-    std::unique_ptr<Texture> m_skybox;
-    std::unique_ptr<Texture> m_irradiance;
-    std::unique_ptr<Texture> m_brdflut;
-    std::unique_ptr<Texture> m_prefilteredMap;
-    std::vector<VkImageView> m_prefilteredMipViews;
+    std::unique_ptr<Texture>   m_skybox;
+    std::unique_ptr<Texture>   m_irradiance;
+    std::unique_ptr<Texture>   m_brdflut;
+    std::unique_ptr<Texture>   m_prefilteredMap;
+    std::vector<vk::ImageView> m_prefilteredMipViews;
 
     n32 m_vertexCount;
     n32 m_indexCount;
@@ -48,9 +48,9 @@ private:
     std::unique_ptr<Buffer> m_vertexBuffer;
     std::unique_ptr<Buffer> m_indexBuffer;
 
-    std::unique_ptr<Buffer>      m_indirectDrawBuffer;
-    VkDrawIndexedIndirectCommand m_command;
-    VkDescriptorSet              m_cubeMapSet;
+    std::unique_ptr<Buffer>        m_indirectDrawBuffer;
+    vk::DrawIndexedIndirectCommand m_command;
+    vk::DescriptorSet              m_cubeMapSet;
 
     void LoadCube();
     void LoadCubemap(const std::string& cubemapPath);

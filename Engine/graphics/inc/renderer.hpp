@@ -5,7 +5,6 @@
 #include "abstractions/descriptor_pool.hpp"
 #include "camera.hpp"
 #include "defines.hpp"
-#include "render_pipeline.hpp"
 #include <images.hpp>
 #include <logical_device.hpp>
 #include <memory>
@@ -26,8 +25,8 @@ public:
     };
 
     // Set depthFormat to VK_FORMAT_UNDEFINED to not have depth
-    Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator, VkFormat drawFormat,
-             VkFormat depthFormat);
+    Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator, vk::Format drawFormat,
+             vk::Format depthFormat);
     ~Renderer();
 
     // Get the swapchain image index we're currently using
@@ -37,16 +36,16 @@ public:
     n32 GetFrameIndex() const { return m_currentFrameIndex; }
 
     // Get the command buffer we're currently using
-    VkCommandBuffer GetCommandBuffer() { return GetCurrentFrame().commandBuffer; }
+    vk::CommandBuffer GetCommandBuffer() { return GetCurrentFrame().commandBuffer; }
 
     // Begin a frame, acquire the next swapchain image and prep command buffers
-    VkCommandBuffer BeginFrame();
+    vk::CommandBuffer BeginFrame();
 
     // End a frame and submit command buffers
     void EndFrame();
 
-    void BeginDepthPrePass(VkCommandBuffer cmd);
-    void EndDepthPrePass(VkCommandBuffer cmd);
+    void BeginDepthPrePass(vk::CommandBuffer cmd);
+    void EndDepthPrePass(vk::CommandBuffer cmd);
 
     // Get the swapchain's aspect ratio
     f32 GetAspectRatio() const { return static_cast<float>(m_swapChain->GetExtent().width) / static_cast<float>(m_swapChain->GetExtent().height); }
@@ -57,24 +56,24 @@ public:
      * commandBuffer: the command buffer we'll write the commands to
      *
      */
-    void BeginRendering(VkCommandBuffer commandBuffer);
+    void BeginRendering(vk::CommandBuffer commandBuffer);
 
     /***
      *  Stop listening for draw commands and copy the outputs to the final swapchain image
      */
-    void EndRendering(VkCommandBuffer commandBuffer);
+    void EndRendering(vk::CommandBuffer commandBuffer);
 
     SwapChain* GetSwapChain() const { return m_swapChain.get(); }
 
-    void DoGPUOcclusionCulling(VkCommandBuffer cmd, struct RenderData& objs, const Camera& cam);
+    void DoGPUOcclusionCulling(vk::CommandBuffer cmd, struct RenderData& objs, const Camera& cam);
 
-    VkDescriptorBufferInfo VisibilityResultDescriptorData(const n32& index) const
+    vk::DescriptorBufferInfo VisibilityResultDescriptorData(const n32& index) const
     {
         if(!m_visibilityResults.empty()) { return m_visibilityResults[index]->DescriptorInfo(); }
         else { return {}; }
     }
 
-    static void WaitForCompute(VkCommandBuffer cmd);
+    static void WaitForCompute(vk::CommandBuffer cmd);
 
 private:
     std::unique_ptr<SwapChain> m_swapChain = nullptr;
@@ -82,12 +81,12 @@ private:
     LogicalDevice&             m_logicalDevice;
     PhysicalDevice&            m_physicalDevice;
 
-    VkPipeline       m_computePipeline;
-    VkPipelineLayout m_computePipelineLayout;
+    vk::Pipeline       m_computePipeline;
+    vk::PipelineLayout m_computePipelineLayout;
 
     std::unique_ptr<DescriptorPool>      m_computePool;
     std::unique_ptr<DescriptorSetLayout> m_computeLayout;
-    VkDescriptorSet                      m_computeSet{VK_NULL_HANDLE};
+    vk::DescriptorSet                    m_computeSet{VK_NULL_HANDLE};
 
     VmaAllocator m_allocator;
 
@@ -103,7 +102,7 @@ private:
 
     AllocatedImage m_depthImage;
     vk::Extent2D   m_depthImageExtent;
-    VkSampler      m_depthImageSampler;
+    vk::Sampler    m_depthImageSampler;
 
     std::vector<std::unique_ptr<Buffer>> m_boundingBoxBuffer;
     std::vector<std::unique_ptr<Buffer>> m_visibilityResults;
@@ -111,7 +110,7 @@ private:
     std::vector<std::unique_ptr<Buffer>> m_debugBuffer;
 
     AllocatedImage m_debugImage;
-    VkSampler      m_debugImageSampler;
+    vk::Sampler    m_debugImageSampler;
 
     void InitImagesAndViews();
     void InitDepthImage();

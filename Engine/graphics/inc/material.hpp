@@ -71,11 +71,11 @@ struct Material
         bool metallicRoughness = true;
         bool specularGlossiness = false;
     } pbrWorkflows;
-    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-    int             index = 0;
-    std::string     name = "";
-    bool            unlit = false;
-    float           emissiveStrength = 1.0f;
+    vk::DescriptorSet descriptorSet = VK_NULL_HANDLE;
+    int               index = 0;
+    std::string       name = "";
+    bool              unlit = false;
+    float             emissiveStrength = 1.0f;
 };
 
 } // namespace Humongous

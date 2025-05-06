@@ -9,10 +9,10 @@ namespace Humongous
 {
 struct RenderData
 {
-    VkCommandBuffer                                       commandBuffer;
-    std::vector<VkDescriptorSet>                          uboSets;
-    std::vector<VkDescriptorSet>                          sceneSets;
-    std::vector<VkDescriptorSet>                          skyboxSets;
+    vk::CommandBuffer                                     commandBuffer;
+    std::vector<vk::DescriptorSet>                        uboSets;
+    std::vector<vk::DescriptorSet>                        sceneSets;
+    std::vector<vk::DescriptorSet>                        skyboxSets;
     std::vector<std::pair<GameObject::id_t, GameObject*>> gameObjects;
     n32                                                   frameIndex;
     Camera&                                               cam;
@@ -29,7 +29,7 @@ struct ShaderSet
 class SimpleRenderSystem
 {
 public:
-    SimpleRenderSystem(LogicalDevice& logicalDevice, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts, const ShaderSet& shaderSet);
+    SimpleRenderSystem(LogicalDevice& logicalDevice, const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts, const ShaderSet& shaderSet);
     ~SimpleRenderSystem();
 
     void RenderObjects(RenderData& renderData, const bool& depthOnly);
@@ -40,7 +40,7 @@ private:
     LogicalDevice&                  m_logicalDevice;
     std::unique_ptr<RenderPipeline> m_renderPipeline;
     std::unique_ptr<RenderPipeline> m_depthOnlyPipeline;
-    VkPipelineLayout                m_pipelineLayout{};
+    vk::PipelineLayout              m_pipelineLayout{};
     n32                             m_verticesDrawn{0};
 
     std::unique_ptr<Buffer> m_debugBuffer;
@@ -48,7 +48,7 @@ private:
     void CreateModelDescriptorSetPool();
     void CreateModelDescriptorSetLayout();
     void AllocateDescriptorSet(n32 identifier, n32 index);
-    void CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts);
+    void CreatePipelineLayout(const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts);
     void CreatePipeline(const ShaderSet& shaderSet);
 };
 } // namespace Humongous

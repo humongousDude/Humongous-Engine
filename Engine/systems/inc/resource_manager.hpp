@@ -26,10 +26,10 @@ public:
     static const ModelDescriptors& GetModelDescriptors() { return Get().m_modelDescriptors; }
     static const DescriptorPools&  GetDescriptorPools() { return Get().m_descriptorPools; }
 
-    static VkDescriptorSetLayout GetSkyboxDescriptorLayout() { return Get().m_skyboxLayout->GetDescriptorSetLayout(); }
+    static vk::DescriptorSetLayout GetSkyboxDescriptorLayout() { return Get().m_skyboxLayout->GetDescriptorSetLayout(); }
 
     // Material Textures, Material Data, Node, RendererBuffer
-    static std::vector<VkDescriptorSetLayout> GetLayoutVector()
+    static std::vector<vk::DescriptorSetLayout> GetLayoutVector()
     {
         return {Get().m_modelDescriptors.materialDataLayout->GetDescriptorSetLayout(),
                 Get().m_modelDescriptors.nodeIdLayout->GetDescriptorSetLayout(), Get().m_modelDescriptors.nodeLayout->GetDescriptorSetLayout(),

@@ -11,8 +11,8 @@ namespace Humongous
 class DescriptorPoolGrowable : NonCopyable
 {
 public:
-    DescriptorPoolGrowable(LogicalDevice& logicalDevice, n32 m_maxSets, VkDescriptorPoolCreateFlags m_poolFlags,
-                           std::vector<VkDescriptorType>& poolTypes);
+    DescriptorPoolGrowable(LogicalDevice& logicalDevice, n32 m_maxSets, vk::DescriptorPoolCreateFlags m_poolFlags,
+                           std::vector<vk::DescriptorType>& poolTypes);
 
     ~DescriptorPoolGrowable();
 
@@ -20,18 +20,18 @@ public:
     int GetReadyPoolCount() const { return m_readyPools.size(); }
     int GetFullPoolCount() const { return m_fullPools.size(); }
 
-    bool            AllocateDescriptor(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptor);
-    VkDescriptorSet AllocateDescriptor(const VkDescriptorSetLayout descriptorSetLayout);
-    void            ResetPools();
+    bool              AllocateDescriptor(const vk::DescriptorSetLayout descriptorSetLayout, vk::DescriptorSet& descriptor);
+    vk::DescriptorSet AllocateDescriptor(const vk::DescriptorSetLayout descriptorSetLayout);
+    void              ResetPools();
 
 private:
-    LogicalDevice&   m_logicalDevice;
-    VkDescriptorPool GetPool(LogicalDevice& logicalDevice);
-    VkDescriptorPool CreatePool(LogicalDevice& logicalDevice, n32 setCount, std::vector<VkDescriptorType> poolTypes) const;
+    LogicalDevice&     m_logicalDevice;
+    vk::DescriptorPool GetPool(LogicalDevice& logicalDevice);
+    vk::DescriptorPool CreatePool(LogicalDevice& logicalDevice, n32 setCount, std::vector<vk::DescriptorType> poolTypes) const;
 
-    std::vector<VkDescriptorType> m_poolTypes;
-    std::vector<VkDescriptorPool> m_fullPools, m_readyPools;
-    n32                           m_setsPerPool{1};
+    std::vector<vk::DescriptorType> m_poolTypes;
+    std::vector<vk::DescriptorPool> m_fullPools, m_readyPools;
+    n32                             m_setsPerPool{1};
 
     friend class DescriptorWriter;
 };

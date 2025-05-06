@@ -38,7 +38,7 @@ Model::Model(LogicalDevice* device, const std::string& modelPath, float scale)
 
 Model::~Model() { Destroy(m_logicalDevice->GetVkDevice()); }
 
-void Model::Destroy(VkDevice device)
+void Model::Destroy(vk::Device device)
 {
     for(auto& t: m_textures) { t.Destroy(); }
     m_emptyTexture.Destroy();
@@ -342,47 +342,47 @@ void Model::GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& mode
     }
 }
 
-VkSamplerAddressMode Model::GetVkWrapMode(s32 wrapMode)
+vk::SamplerAddressMode Model::GetVkWrapMode(s32 wrapMode)
 {
     switch(wrapMode)
     {
         case -1:
         case 10497:
-            return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+            return vk::SamplerAddressMode::eRepeat;
         case 33071:
-            return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            return vk::SamplerAddressMode::eClampToEdge;
         case 33648:
-            return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+            return vk::SamplerAddressMode::eMirroredRepeat;
     }
 
-    std::cerr << "Unknown wrap mode for getVkWrapMode: " << wrapMode << std::endl;
-    return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    std::cerr << "Unknown wrap mode for getvk::WrapMode: " << wrapMode << std::endl;
+    return vk::SamplerAddressMode::eRepeat;
 }
 
-VkFilter Model::GetVkFilterMode(s32 filterMode)
+vk::Filter Model::GetVkFilterMode(s32 filterMode)
 {
     switch(filterMode)
     {
         case -1:
         case 9728:
-            return VK_FILTER_NEAREST;
+            return vk::Filter::eNearest;
         case 9729:
-            return VK_FILTER_LINEAR;
+            return vk::Filter::eLinear;
         case 9984:
-            return VK_FILTER_NEAREST;
+            return vk::Filter::eNearest;
         case 9985:
-            return VK_FILTER_NEAREST;
+            return vk::Filter::eNearest;
         case 9986:
-            return VK_FILTER_LINEAR;
+            return vk::Filter::eLinear;
         case 9987:
-            return VK_FILTER_LINEAR;
+            return vk::Filter::eLinear;
     }
 
-    std::cerr << "Unknown filter mode for getVkFilterMode: " << filterMode << std::endl;
-    return VK_FILTER_NEAREST;
+    std::cerr << "Unknown filter mode for getvk::FilterMode: " << filterMode << std::endl;
+    return vk::Filter::eNearest;
 }
 
-void Model::LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, VkQueue transferQueue)
+void Model::LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, vk::Queue transferQueue)
 {
     for(tinygltf::Texture& tex: gltfModel.textures)
     {
@@ -391,11 +391,11 @@ void Model::LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, VkQu
         if(tex.sampler == -1)
         {
             // No sampler specified, use a default one
-            textureSampler.magFilter = VK_FILTER_LINEAR;
-            textureSampler.minFilter = VK_FILTER_LINEAR;
-            textureSampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            textureSampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            textureSampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+            textureSampler.magFilter = vk::Filter::eLinear;
+            textureSampler.minFilter = vk::Filter::eLinear;
+            textureSampler.addressModeU = vk::SamplerAddressMode::eRepeat;
+            textureSampler.addressModeV = vk::SamplerAddressMode::eRepeat;
+            textureSampler.addressModeW = vk::SamplerAddressMode::eRepeat;
         }
         else { textureSampler = m_textureSamplers[tex.sampler]; }
         Texture texture;
@@ -487,7 +487,7 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         }
 
         // Extensions
-        // @TODO: Find out if there is a nicer way of reading these properties with recent tinygltf headers
+        // TODO: Find out if there is a nicer way of reading these properties with recent tinygltf headers
         if(mat.extensions.find("KHR_materials_pbrSpecularGlossiness") != mat.extensions.end())
         {
             auto ext = mat.extensions.find("KHR_materials_pbrSpecularGlossiness");
@@ -575,7 +575,6 @@ void Model::CreateMaterialDataBuffer()
 
         if(material.pbrWorkflows.metallicRoughness)
         {
-            // Metallic roughness workflow
             shaderMaterial.workflow = static_cast<float>(PBR_WORKFLOW_METALLIC_ROUGHNESS);
             shaderMaterial.baseColorFactor = material.baseColorFactor;
             shaderMaterial.metallicFactor = material.metallicFactor;
@@ -587,7 +586,6 @@ void Model::CreateMaterialDataBuffer()
 
         if(material.pbrWorkflows.specularGlossiness)
         {
-            // Specular glossiness workflow
             shaderMaterial.workflow = static_cast<float>(PBR_WORKFLOW_SPECULAR_GLOSSINESS);
             shaderMaterial.PhysicalDescriptorTextureSet =
                 material.extension.specularGlossinessTexture != nullptr ? material.texCoordSets.specularGlossiness : -1;
@@ -599,23 +597,23 @@ void Model::CreateMaterialDataBuffer()
         shaderMaterials.push_back(shaderMaterial);
     }
 
-    VkDeviceSize bufferSize = shaderMaterials.size() * sizeof(ShaderMaterial);
-    Buffer       stagingBuffer{m_logicalDevice,
+    vk::DeviceSize bufferSize = shaderMaterials.size() * sizeof(ShaderMaterial);
+    Buffer         stagingBuffer{m_logicalDevice,
                          bufferSize,
                          1,
-                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                         vk::BufferUsageFlagBits::eTransferSrc,
+                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                          VMA_MEMORY_USAGE_CPU_TO_GPU};
     stagingBuffer.Map();
     stagingBuffer.WriteToBuffer((void*)shaderMaterials.data(), bufferSize);
 
-    m_materialDataBuffer.Init(m_logicalDevice, bufferSize, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    m_materialDataBuffer.Init(m_logicalDevice, bufferSize, 1, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
+                              vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
 
     Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_materialDataBuffer, bufferSize);
 }
 
-void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, VkQueue transferQueue, float scale)
+void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk::Queue transferQueue, float scale)
 {
     tinygltf::Model    gltfModel;
     tinygltf::TinyGLTF gltfContext;
@@ -643,7 +641,6 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, VkQ
 
         const tinygltf::Scene& scene = gltfModel.scenes[gltfModel.defaultScene > -1 ? gltfModel.defaultScene : 0];
 
-        // Get vertex and index buffer sizes up-front
         for(size_t i = 0; i < scene.nodes.size(); i++) { GetNodeProps(gltfModel.nodes[scene.nodes[i]], gltfModel, vertexCount, indexCount); }
         loaderInfo.vertexBuffer.resize(vertexCount);
         loaderInfo.indexBuffer.resize(indexCount);
@@ -681,37 +678,30 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, VkQ
     Buffer vertexStaging{logicalDevice,
                          vertexBufferSize,
                          1,
-                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                         vk::BufferUsageFlagBits::eTransferSrc,
+                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                          VMA_MEMORY_USAGE_CPU_TO_GPU};
     vertexStaging.Map();
 
-    // Create staging buffers
-    // Vertex data
     vertexStaging.WriteToBuffer((void*)loaderInfo.vertexBuffer.data());
-    // Index data
     Buffer indexStaging{};
     if(indexBufferSize > 0)
     {
-        indexStaging.Init(logicalDevice, indexBufferSize, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        indexStaging.Init(logicalDevice, indexBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
+                          vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
         indexStaging.Map();
         indexStaging.WriteToBuffer((void*)loaderInfo.indexBuffer.data());
     }
 
-    // Create device local buffers
-    // Vertex buffer
-    m_vertices.Init(logicalDevice, vertexBufferSize, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    m_vertices.Init(logicalDevice, vertexBufferSize, 1, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                    vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    // Index buffer
     if(indexBufferSize > 0)
     {
-        m_indices.Init(logicalDevice, indexBufferSize, 1, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+        m_indices.Init(logicalDevice, indexBufferSize, 1, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                       vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
     }
 
-    // Copy from staging buffers
     Buffer::CopyBuffer(*logicalDevice, indexStaging, m_indices, indexBufferSize);
     Buffer::CopyBuffer(*logicalDevice, vertexStaging, m_vertices, vertexBufferSize);
 
@@ -725,62 +715,62 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, VkQ
     m_localAABB = CalculateModelAABB(m_nodes, loaderInfo.vertexBuffer, loaderInfo.indexBuffer);
 }
 
-void Model::Draw(VkCommandBuffer cmd, VkPipelineLayout& pipelineLayout)
+void Model::Draw(vk::CommandBuffer cmd, vk::PipelineLayout& pipelineLayout)
 {
     vkCmdBindIndexBuffer(cmd, m_indices.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    auto            bufInfo = m_nodeIDBuffer.DescriptorInfo();
-    VkDescriptorSet nodeIdSet;
+    auto              bufInfo = m_nodeIDBuffer.DescriptorInfo();
+    vk::DescriptorSet nodeIdSet;
     DescriptorWriter(*ResourceManager::GetModelDescriptors().nodeIdLayout, ResourceManager::GetDescriptorPools().storagePool.get())
         .WriteBuffer(0, &bufInfo)
         .Build(nodeIdSet);
 
-    VkDescriptorSet nodeMatrixSet;
+    vk::DescriptorSet nodeMatrixSet;
     bufInfo = m_nodeMatrixBuffer.DescriptorInfo();
     DescriptorWriter(*ResourceManager::GetModelDescriptors().nodeLayout, ResourceManager::GetDescriptorPools().storagePool.get())
         .WriteBuffer(0, &bufInfo)
         .Build(nodeMatrixSet);
 
-    std::vector<VkDescriptorSet> sets = {m_materialDataDescriptor, nodeIdSet, nodeMatrixSet};
+    std::vector<vk::DescriptorSet> sets = {m_materialDataDescriptor, nodeIdSet, nodeMatrixSet};
 
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model),
-                            sets.size(), sets.data(), 0, nullptr);
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model), sets.size(),
+                           sets.data(), 0, nullptr);
 
-    VkDeviceSize written{0};
+    vk::DeviceSize written{0};
     for(auto& [id, prim]: m_materialBatches)
     {
         auto mat = &m_materials[id];
 
         vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstantData), sizeof(n32), &mat->index);
 
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model) + 3, 1,
-                                &mat->descriptorSet, 0, nullptr);
+        cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model) + 3, 1,
+                               &mat->descriptorSet, 0, nullptr);
 
         vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer.GetBuffer(), written, m_indirectCommands[id].size(),
-                                 sizeof(VkDrawIndexedIndirectCommand));
+                                 sizeof(vk::DrawIndexedIndirectCommand));
 
-        written += m_indirectCommands[id].size() * sizeof(VkDrawIndexedIndirectCommand);
+        written += m_indirectCommands[id].size() * sizeof(vk::DrawIndexedIndirectCommand);
     }
 }
 
 void Model::SetupIndirectDrawBuffer()
 {
-    VkDeviceSize           totalWritten = 0;
+    vk::DeviceSize         totalWritten = 0;
     std::vector<n32>       nodeID;
     std::vector<glm::mat4> nodeMatricies;
 
     for(auto& [id, primitives]: m_materialBatches)
     {
-        std::vector<VkDrawIndexedIndirectCommand> commands;
+        std::vector<vk::DrawIndexedIndirectCommand> commands;
 
         for(auto* primitive: primitives)
         {
-            VkDrawIndexedIndirectCommand command{};
+            vk::DrawIndexedIndirectCommand command{};
             command.indexCount = primitive->indexCount;
             command.instanceCount = 1;
             command.firstIndex = primitive->firstIndex;
-            command.vertexOffset = 0;  // Adjust if needed
-            command.firstInstance = 0; // Adjust if needed
+            command.vertexOffset = 0;
+            command.firstInstance = 0;
 
             nodeID.push_back(primitive->owner->index);
             nodeMatricies.push_back(primitive->owner->GetMatrix());
@@ -789,10 +779,8 @@ void Model::SetupIndirectDrawBuffer()
             commands.push_back(command);
         }
 
-        // Update total written after processing all primitives for this material
-        totalWritten += commands.size() * sizeof(VkDrawIndexedIndirectCommand);
+        totalWritten += commands.size() * sizeof(vk::DrawIndexedIndirectCommand);
 
-        // Store the commands for this material in the unordered_map
         m_indirectCommands.emplace(id, std::move(commands));
     }
 
@@ -801,13 +789,13 @@ void Model::SetupIndirectDrawBuffer()
         Buffer stagingBuffer{m_logicalDevice,
                              nodeMatricies.size() * sizeof(glm::mat4),
                              1,
-                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             vk::BufferUsageFlagBits::eTransferSrc,
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                              VMA_MEMORY_USAGE_CPU_TO_GPU};
         stagingBuffer.Map();
         m_nodeMatrixBuffer.Init(m_logicalDevice, nodeMatricies.size() * sizeof(glm::mat4), 1,
-                                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                VMA_MEMORY_USAGE_CPU_COPY);
+                                vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
+                                vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_CPU_COPY);
         stagingBuffer.WriteToBuffer((void*)nodeMatricies.data());
         stagingBuffer.Flush();
         stagingBuffer.UnMap();
@@ -820,12 +808,13 @@ void Model::SetupIndirectDrawBuffer()
         Buffer stagingBuffer{m_logicalDevice,
                              nodeID.size() * sizeof(n32),
                              1,
-                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             vk::BufferUsageFlagBits::eTransferSrc,
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                              VMA_MEMORY_USAGE_CPU_TO_GPU};
         stagingBuffer.Map();
-        m_nodeIDBuffer.Init(m_logicalDevice, nodeID.size() * sizeof(n32), 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_CPU_COPY);
+        m_nodeIDBuffer.Init(m_logicalDevice, nodeID.size() * sizeof(n32), 1,
+                            vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
+                            vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_CPU_COPY);
         stagingBuffer.WriteToBuffer((void*)nodeID.data());
         stagingBuffer.Flush();
         stagingBuffer.UnMap();
@@ -836,35 +825,31 @@ void Model::SetupIndirectDrawBuffer()
     // Indirect
     if(totalWritten == 0) { return; }
     {
-        // Create staging buffer with the calculated total size
         Buffer stagingBuffer{m_logicalDevice,
                              totalWritten,
                              1,
-                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             vk::BufferUsageFlagBits::eTransferSrc,
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                              VMA_MEMORY_USAGE_CPU_TO_GPU,
                              4};
         stagingBuffer.Map();
 
-        // Create indirect draw buffer
-        m_indirectDrawBuffer.Init(m_logicalDevice, totalWritten, 1, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_CPU_COPY, 4);
+        m_indirectDrawBuffer.Init(m_logicalDevice, totalWritten, 1,
+                                  vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                                  vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_CPU_COPY, 4);
 
-        // Copy commands to staging buffer (one loop)
-        VkDeviceSize writtenOffset = 0;
+        vk::DeviceSize writtenOffset = 0;
         for(auto& [id, prim]: m_materialBatches)
         {
-            stagingBuffer.WriteToBuffer((void*)m_indirectCommands[id].data(), m_indirectCommands[id].size() * sizeof(VkDrawIndexedIndirectCommand),
-                                        writtenOffset);
+            stagingBuffer.WriteToBuffer((void*)m_indirectCommands[id].data(),
+                                        m_indirectCommands[id].size() * sizeof(vk::DrawIndexedIndirectCommand), writtenOffset);
 
-            writtenOffset += m_indirectCommands[id].size() * sizeof(VkDrawIndexedIndirectCommand);
+            writtenOffset += m_indirectCommands[id].size() * sizeof(vk::DrawIndexedIndirectCommand);
         }
 
-        // Flush and unmap staging buffer
         stagingBuffer.Flush();
         stagingBuffer.UnMap();
 
-        // Copy staging buffer to indirect draw buffer
         Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_indirectDrawBuffer, totalWritten);
     }
 }
@@ -884,7 +869,7 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
             material->descriptorSet = imagePool->AllocateDescriptor(materialLayout->GetDescriptorSetLayout());
         }
 
-        std::vector<VkDescriptorImageInfo> imageDescriptors = {
+        std::vector<vk::DescriptorImageInfo> imageDescriptors = {
             m_emptyTexture.GetDescriptorInfo(), m_emptyTexture.GetDescriptorInfo(),
             material->normalTexture ? material->normalTexture->GetDescriptorInfo() : m_emptyTexture.GetDescriptorInfo(),
             material->occlusionTexture ? material->occlusionTexture->GetDescriptorInfo() : m_emptyTexture.GetDescriptorInfo(),
@@ -908,11 +893,11 @@ void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeL
             }
         }
 
-        std::array<VkWriteDescriptorSet, 5> writeDescriptorSets{};
+        std::array<vk::WriteDescriptorSet, 5> writeDescriptorSets{};
         for(size_t i = 0; i < imageDescriptors.size(); i++)
         {
-            writeDescriptorSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            writeDescriptorSets[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            writeDescriptorSets[i].sType = vk::StructureType::eWriteDescriptorSet;
+            writeDescriptorSets[i].descriptorType = vk::DescriptorType::eCombinedImageSampler;
             writeDescriptorSets[i].descriptorCount = 1;
             writeDescriptorSets[i].dstSet = material->descriptorSet;
             writeDescriptorSets[i].dstBinding = static_cast<n32>(i);

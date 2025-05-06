@@ -4,7 +4,6 @@
 #include "extra.hpp"
 #include "logger.hpp"
 #include "model.hpp"
-#include "renderer.hpp"
 #include "tiny_gltf.h"
 
 namespace Humongous
@@ -80,53 +79,53 @@ void Skybox::LoadCube()
 
     // Vertex buffer
     {
-        VkDeviceSize bufferSize = sizeof(Model::Vertex) * m_vertexCount;
+        vk::DeviceSize bufferSize = sizeof(Model::Vertex) * m_vertexCount;
 
         Buffer stagingBuffer{m_logicalDevice,
                              bufferSize,
                              1,
-                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                             vk::BufferUsageFlagBits::eTransferSrc,
+                             vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
                              VMA_MEMORY_USAGE_CPU_TO_GPU};
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer((void*)vertices.data());
 
-        m_vertexBuffer =
-            std::make_unique<Buffer>(m_logicalDevice, bufferSize, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+        m_vertexBuffer = std::make_unique<Buffer>(m_logicalDevice, bufferSize, 1,
+                                                  vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                                                  vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
 
         Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_vertexBuffer, bufferSize);
     }
 
     // Index Buffer
     {
-        VkDeviceSize bufferSize = sizeof(n32) * m_indexCount;
+        vk::DeviceSize bufferSize = sizeof(n32) * m_indexCount;
 
         Buffer stagingBuffer{m_logicalDevice,
                              bufferSize,
                              1,
-                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                             vk::BufferUsageFlagBits::eTransferSrc,
+                             vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
                              VMA_MEMORY_USAGE_CPU_TO_GPU};
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer((void*)indices.data());
 
         m_indexBuffer =
-            std::make_unique<Buffer>(m_logicalDevice, bufferSize, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_CPU_COPY);
+            std::make_unique<Buffer>(m_logicalDevice, bufferSize, 1, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
+                                     vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_CPU_COPY);
 
         Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_indexBuffer, bufferSize);
     }
 
     // Indirect Draw buffer
     {
-        VkDeviceSize bufferSize = sizeof(VkDrawIndexedIndirectCommand);
+        vk::DeviceSize bufferSize = sizeof(vk::DrawIndexedIndirectCommand);
 
         Buffer stagingBuffer{m_logicalDevice,
                              bufferSize,
                              1,
-                             VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                             vk::BufferUsageFlagBits::eTransferSrc,
+                             vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
                              VMA_MEMORY_USAGE_CPU_TO_GPU,
                              4};
         m_command.firstIndex = 0;
@@ -137,9 +136,9 @@ void Skybox::LoadCube()
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer((void*)&m_command);
 
-        m_indirectDrawBuffer =
-            std::make_unique<Buffer>(m_logicalDevice, bufferSize, 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
-                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VMA_MEMORY_USAGE_CPU_COPY, 4);
+        m_indirectDrawBuffer = std::make_unique<Buffer>(m_logicalDevice, bufferSize, 1,
+                                                        vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndirectBuffer,
+                                                        vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_CPU_COPY, 4);
 
         Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_indirectDrawBuffer, bufferSize);
     }
@@ -152,10 +151,10 @@ void Skybox::LoadCubemap(const std::string& cubemapPath)
 
 void Skybox::LoadDescriptorSet(DescriptorSetLayout& descriptorLayout, DescriptorPoolGrowable* pool)
 {
-    auto                  imgInfo = m_skybox->GetDescriptorInfo();
-    auto                  irradInfo = m_irradiance->GetDescriptorInfo();
-    VkDescriptorImageInfo info{m_prefilteredMap->GetRawSamplerHandle(), m_prefilteredMipViews[1], m_prefilteredMap->GetRawImageLayout()};
-    auto                  brdfInfo = m_brdflut->GetDescriptorInfo();
+    auto                    imgInfo = m_skybox->GetDescriptorInfo();
+    auto                    irradInfo = m_irradiance->GetDescriptorInfo();
+    vk::DescriptorImageInfo info{m_prefilteredMap->GetRawSamplerHandle(), m_prefilteredMipViews[1], m_prefilteredMap->GetRawImageLayout()};
+    auto                    brdfInfo = m_brdflut->GetDescriptorInfo();
     DescriptorWriter(descriptorLayout, pool)
         .WriteImage(0, &imgInfo)
         .WriteImage(1, &irradInfo)
@@ -172,13 +171,12 @@ struct PrefilteredData
 
 void Skybox::CreatePrefilteredMipViews()
 {
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = m_prefilteredMap->GetRawImageHandle(); // The main VkImage resource
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;            // It's a cubemap
-    viewInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;        // Match your image format
+    vk::ImageViewCreateInfo viewInfo{};
+    viewInfo.image = m_prefilteredMap->GetRawImageHandle(); // The main vk::Image resource
+    viewInfo.viewType = vk::ImageViewType::eCube;           // It's a cubemap
+    viewInfo.format = vk::Format::eR16G16B16A16Sfloat;      // Match your image format
     viewInfo.components = {VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A};
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
     viewInfo.subresourceRange.baseArrayLayer = 0; // Start from the first face
     viewInfo.subresourceRange.layerCount = 6;     // View all 6 faces
 
@@ -189,7 +187,7 @@ void Skybox::CreatePrefilteredMipViews()
         viewInfo.subresourceRange.baseMipLevel = mipLevel;
         viewInfo.subresourceRange.levelCount = 1; // View only this single mip level
 
-        if(vkCreateImageView(m_logicalDevice->GetVkDevice(), &viewInfo, nullptr, &m_prefilteredMipViews[mipLevel]) != VK_SUCCESS)
+        if(m_logicalDevice->GetVkDevice().createImageView(&viewInfo, nullptr, &m_prefilteredMipViews[mipLevel]) != vk::Result::eSuccess)
         {
             HGERROR("Failed to create image view for prefiltered map mip level %u", mipLevel);
         }
@@ -212,121 +210,115 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& pool)
     m_brdflut = std::make_unique<Texture>();
     m_brdflut->FillWithEmpty(m_logicalDevice, 512, 512, true);
 
-    VkShaderModule irradianceMod;
+    vk::ShaderModule irradianceMod;
     {
         auto code = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "irradiance.comp"));
 
-        VkShaderModuleCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        vk::ShaderModuleCreateInfo createInfo{};
         createInfo.codeSize = code.size();
         createInfo.pCode = reinterpret_cast<const n32*>(code.data());
 
-        if(vkCreateShaderModule(m_logicalDevice->GetVkDevice(), &createInfo, nullptr, &irradianceMod) != VK_SUCCESS)
+        if(m_logicalDevice->GetVkDevice().createShaderModule(&createInfo, nullptr, &irradianceMod) != vk::Result::eSuccess)
         {
             HGERROR("Failed to create shader module!");
         }
     }
 
-    VkShaderModule prefiltredMod;
+    vk::ShaderModule prefiltredMod;
     {
         auto code = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "prefiltredmap.comp"));
 
-        VkShaderModuleCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        vk::ShaderModuleCreateInfo createInfo{};
         createInfo.codeSize = code.size();
         createInfo.pCode = reinterpret_cast<const n32*>(code.data());
 
-        if(vkCreateShaderModule(m_logicalDevice->GetVkDevice(), &createInfo, nullptr, &prefiltredMod) != VK_SUCCESS)
+        if(m_logicalDevice->GetVkDevice().createShaderModule(&createInfo, nullptr, &prefiltredMod) != vk::Result::eSuccess)
         {
             HGERROR("Failed to create shader module!");
         }
     }
 
-    VkShaderModule brdfMod;
+    vk::ShaderModule brdfMod;
     {
         auto code = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "brdflut.comp"));
 
-        VkShaderModuleCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        vk::ShaderModuleCreateInfo createInfo{};
         createInfo.codeSize = code.size();
         createInfo.pCode = reinterpret_cast<const n32*>(code.data());
 
-        if(vkCreateShaderModule(m_logicalDevice->GetVkDevice(), &createInfo, nullptr, &brdfMod) != VK_SUCCESS)
+        if(m_logicalDevice->GetVkDevice().createShaderModule(&createInfo, nullptr, &brdfMod) != vk::Result::eSuccess)
         {
             HGERROR("Failed to create shader module!");
         }
     }
 
     DescriptorSetLayout::Builder envImageBuilder{*m_logicalDevice};
-    envImageBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT);
+    envImageBuilder.addBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
     auto envLayout = envImageBuilder.Build();
 
     DescriptorSetLayout::Builder IrradImageBuilder{*m_logicalDevice};
-    IrradImageBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
+    IrradImageBuilder.addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute);
     auto irradLayout = IrradImageBuilder.Build();
 
     DescriptorSetLayout::Builder PrefiltImageBuilder{*m_logicalDevice};
-    PrefiltImageBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
+    PrefiltImageBuilder.addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute);
     auto prefilteredLayout = PrefiltImageBuilder.Build();
 
     DescriptorSetLayout::Builder brdfImageBuilder{*m_logicalDevice};
-    brdfImageBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
+    brdfImageBuilder.addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute);
     auto brdfLayout = brdfImageBuilder.Build();
 
-    std::array<VkDescriptorSetLayout, 2> irradDescriptorLayouts = {envLayout->GetDescriptorSetLayout(), irradLayout->GetDescriptorSetLayout()};
+    std::array<vk::DescriptorSetLayout, 2> irradDescriptorLayouts = {envLayout->GetDescriptorSetLayout(), irradLayout->GetDescriptorSetLayout()};
 
-    VkPipelineLayoutCreateInfo irradPipelineLayoutInfo{};
-    irradPipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    vk::PipelineLayoutCreateInfo irradPipelineLayoutInfo{};
     irradPipelineLayoutInfo.setLayoutCount = irradDescriptorLayouts.size();
     irradPipelineLayoutInfo.pSetLayouts = irradDescriptorLayouts.data();
     irradPipelineLayoutInfo.pushConstantRangeCount = 0;
     irradPipelineLayoutInfo.pPushConstantRanges = nullptr;
 
-    VkPipelineLayout irradePipelineLayout;
-    if(vkCreatePipelineLayout(m_logicalDevice->GetVkDevice(), &irradPipelineLayoutInfo, nullptr, &irradePipelineLayout) != VK_SUCCESS)
+    vk::PipelineLayout irradePipelineLayout;
+    if(m_logicalDevice->GetVkDevice().createPipelineLayout(&irradPipelineLayoutInfo, nullptr, &irradePipelineLayout) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create pipeline layout");
     }
 
-    std::array<VkDescriptorSetLayout, 2> prefiltDescriptorLayouts = {envLayout->GetDescriptorSetLayout(),
-                                                                     prefilteredLayout->GetDescriptorSetLayout()};
+    std::array<vk::DescriptorSetLayout, 2> prefiltDescriptorLayouts = {envLayout->GetDescriptorSetLayout(),
+                                                                       prefilteredLayout->GetDescriptorSetLayout()};
 
-    VkPushConstantRange range{};
+    vk::PushConstantRange range{};
     range.offset = 0;
     range.size = sizeof(PrefilteredData);
-    range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    range.stageFlags = vk::ShaderStageFlagBits::eCompute;
 
-    VkPipelineLayoutCreateInfo prefiltPipelineLayoutInfo{};
-    prefiltPipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    vk::PipelineLayoutCreateInfo prefiltPipelineLayoutInfo{};
     prefiltPipelineLayoutInfo.setLayoutCount = prefiltDescriptorLayouts.size();
     prefiltPipelineLayoutInfo.pSetLayouts = prefiltDescriptorLayouts.data();
     prefiltPipelineLayoutInfo.pushConstantRangeCount = 1;
     prefiltPipelineLayoutInfo.pPushConstantRanges = &range;
 
-    VkPipelineLayout prefiltPipelineLayout;
-    if(vkCreatePipelineLayout(m_logicalDevice->GetVkDevice(), &prefiltPipelineLayoutInfo, nullptr, &prefiltPipelineLayout) != VK_SUCCESS)
+    vk::PipelineLayout prefiltPipelineLayout;
+    if(m_logicalDevice->GetVkDevice().createPipelineLayout(&prefiltPipelineLayoutInfo, nullptr, &prefiltPipelineLayout) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create pipeline layout");
     }
 
-    std::array<VkDescriptorSetLayout, 1> brdfDescriptorLayouts = {brdfLayout->GetDescriptorSetLayout()};
+    std::array<vk::DescriptorSetLayout, 1> brdfDescriptorLayouts = {brdfLayout->GetDescriptorSetLayout()};
 
-    VkPipelineLayoutCreateInfo brdfPipelineLayoutInfo{};
-    brdfPipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    vk::PipelineLayoutCreateInfo brdfPipelineLayoutInfo{};
     brdfPipelineLayoutInfo.setLayoutCount = brdfDescriptorLayouts.size();
     brdfPipelineLayoutInfo.pSetLayouts = brdfDescriptorLayouts.data();
     brdfPipelineLayoutInfo.pushConstantRangeCount = 0;
     brdfPipelineLayoutInfo.pPushConstantRanges = nullptr;
 
-    VkPipelineLayout brdfPipelineLayout;
-    if(vkCreatePipelineLayout(m_logicalDevice->GetVkDevice(), &brdfPipelineLayoutInfo, nullptr, &brdfPipelineLayout) != VK_SUCCESS)
+    vk::PipelineLayout brdfPipelineLayout;
+    if(m_logicalDevice->GetVkDevice().createPipelineLayout(&brdfPipelineLayoutInfo, nullptr, &brdfPipelineLayout) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create pipeline layout");
     }
 
-    VkDescriptorSet envSet;
-    VkDescriptorSet irradSet;
-    VkDescriptorSet brdfSet;
+    vk::DescriptorSet envSet;
+    vk::DescriptorSet irradSet;
+    vk::DescriptorSet brdfSet;
 
     auto imgInfo = m_skybox->GetDescriptorInfo();
     auto irradianceInfo = m_irradiance->GetDescriptorInfo();
@@ -342,29 +334,26 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& pool)
 
     // Irradiance map
     {
-        VkPipelineShaderStageCreateInfo irradianceStage{};
-        irradianceStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        irradianceStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vk::PipelineShaderStageCreateInfo irradianceStage{};
+        irradianceStage.stage = vk::ShaderStageFlagBits::eCompute;
         irradianceStage.pName = "main";
         irradianceStage.module = irradianceMod;
 
-        VkComputePipelineCreateInfo compInfo{};
-        compInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        vk::ComputePipelineCreateInfo compInfo{};
         compInfo.layout = irradePipelineLayout;
         compInfo.stage = irradianceStage;
 
-        VkPipeline irradiancePipeline;
-        if(vkCreateComputePipelines(m_logicalDevice->GetVkDevice(), nullptr, 1, &compInfo, nullptr, &irradiancePipeline) != VK_SUCCESS)
+        vk::Pipeline irradiancePipeline;
+        if(m_logicalDevice->GetVkDevice().createComputePipelines(nullptr, 1, &compInfo, nullptr, &irradiancePipeline) != vk::Result::eSuccess)
         {
             HGFATAL("Failed to create irradiance compute pipeline!");
         }
         auto cmd = m_logicalDevice->BeginSingleTimeCommands();
 
-        std::array<VkDescriptorSet, 2> irradianceSets = {envSet, irradSet};
+        std::array<vk::DescriptorSet, 2> irradianceSets = {envSet, irradSet};
 
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, irradiancePipeline);
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, irradePipelineLayout, 0, irradianceSets.size(), irradianceSets.data(), 0,
-                                nullptr);
+        cmd.bindPipeline(vk::PipelineBindPoint::eCompute, irradiancePipeline);
+        cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, irradePipelineLayout, 0, irradianceSets.size(), irradianceSets.data(), 0, nullptr);
 
         n32 irradianceMapSize = 512;
         n32 irradianceGroupCountX = (irradianceMapSize + LOCAL_SIZE_X - 1) / LOCAL_SIZE_X;
@@ -374,31 +363,29 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& pool)
         vkCmdDispatch(cmd, irradianceGroupCountX, irradianceGroupCountY, irradianceGroupCountZ);
 
         m_logicalDevice->EndSingleTimeCommands(cmd);
-        vkDestroyPipeline(m_logicalDevice->GetVkDevice(), irradiancePipeline, nullptr);
+        m_logicalDevice->GetVkDevice().destroyPipeline(irradiancePipeline, nullptr);
     }
     // Prefiltered map
     {
-        VkPipelineShaderStageCreateInfo prefilteredStage{};
-        prefilteredStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        prefilteredStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vk::PipelineShaderStageCreateInfo prefilteredStage{};
+        prefilteredStage.stage = vk::ShaderStageFlagBits::eCompute;
         prefilteredStage.pName = "main";
         prefilteredStage.module = prefiltredMod;
 
-        VkComputePipelineCreateInfo compInfo{};
-        compInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        vk::ComputePipelineCreateInfo compInfo{};
         compInfo.layout = prefiltPipelineLayout;
         compInfo.stage = prefilteredStage;
 
-        VkPipeline prefilteredPipeline;
-        if(vkCreateComputePipelines(m_logicalDevice->GetVkDevice(), nullptr, 1, &compInfo, nullptr, &prefilteredPipeline) != VK_SUCCESS)
+        vk::Pipeline prefilteredPipeline;
+        if(m_logicalDevice->GetVkDevice().createComputePipelines(nullptr, 1, &compInfo, nullptr, &prefilteredPipeline) != vk::Result::eSuccess)
         {
             HGFATAL("Failed to create prefiltered compute pipeline!");
         }
 
-        std::array<VkDescriptorSet, 2> prefilteredSets = {envSet};
+        std::array<vk::DescriptorSet, 2> prefilteredSets = {envSet};
 
         auto cmd = m_logicalDevice->BeginSingleTimeCommands();
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, prefilteredPipeline);
+        cmd.bindPipeline(vk::PipelineBindPoint::eCompute, prefilteredPipeline);
 
         for(n32 mipLevel = 0; mipLevel < m_prefilteredMap->GetMipLevels(); mipLevel++)
         {
@@ -409,53 +396,51 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& pool)
             n32 prefilteredGroupCountY = (mipSize + LOCAL_SIZE_Y - 1) / LOCAL_SIZE_Y;
             n32 prefilteredGroupCountZ = (6 + LOCAL_SIZE_Z - 1) / LOCAL_SIZE_Z;
 
-            VkDescriptorImageInfo info;
-            info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+            vk::DescriptorImageInfo info;
+            info.imageLayout = vk::ImageLayout::eGeneral;
             info.imageView = m_prefilteredMipViews[mipLevel];
 
-            VkDescriptorSet s;
+            vk::DescriptorSet s;
             DescriptorWriter(*prefilteredLayout, &pool).WriteImage(0, &info).Build(s);
 
             prefilteredSets[1] = s;
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, prefiltPipelineLayout, 0, 2, prefilteredSets.data(), 0, nullptr);
+            cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, prefiltPipelineLayout, 0, 2, prefilteredSets.data(), 0, nullptr);
 
             PrefilteredData prefilterData;
             prefilterData.roughness = pow((float)mipLevel / (float)(m_prefilteredMap->GetMipLevels() - 1), 0.6);
             prefilterData.mipLevel = mipLevel;
 
-            vkCmdPushConstants(cmd, prefiltPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PrefilteredData), &prefilterData);
+            cmd.pushConstants(prefiltPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(PrefilteredData), &prefilterData);
 
             vkCmdDispatch(cmd, prefilteredGroupCountX, prefilteredGroupCountY, prefilteredGroupCountZ);
         }
 
         m_logicalDevice->EndSingleTimeCommands(cmd);
 
-        vkDestroyPipeline(m_logicalDevice->GetVkDevice(), prefilteredPipeline, nullptr);
+        m_logicalDevice->GetVkDevice().destroyPipeline(prefilteredPipeline, nullptr);
     }
     // BRDF LUT
     {
-        VkPipelineShaderStageCreateInfo brdfStage{};
-        brdfStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        brdfStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vk::PipelineShaderStageCreateInfo brdfStage{};
+        brdfStage.stage = vk::ShaderStageFlagBits::eCompute;
         brdfStage.pName = "main";
         brdfStage.module = brdfMod;
 
-        VkComputePipelineCreateInfo compInfo{};
-        compInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        vk::ComputePipelineCreateInfo compInfo{};
         compInfo.layout = brdfPipelineLayout;
         compInfo.stage = brdfStage;
 
-        VkPipeline brdfPipeline;
-        if(vkCreateComputePipelines(m_logicalDevice->GetVkDevice(), nullptr, 1, &compInfo, nullptr, &brdfPipeline) != VK_SUCCESS)
+        vk::Pipeline brdfPipeline;
+        if(m_logicalDevice->GetVkDevice().createComputePipelines(nullptr, 1, &compInfo, nullptr, &brdfPipeline) != vk::Result::eSuccess)
         {
             HGFATAL("Failed to create brdf compute pipeline!");
         }
         auto cmd = m_logicalDevice->BeginSingleTimeCommands();
 
-        std::array<VkDescriptorSet, 1> brdfSets = {brdfSet};
+        std::array<vk::DescriptorSet, 1> brdfSets = {brdfSet};
 
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, brdfPipeline);
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, brdfPipelineLayout, 0, brdfSets.size(), brdfSets.data(), 0, nullptr);
+        cmd.bindPipeline(vk::PipelineBindPoint::eCompute, brdfPipeline);
+        cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, brdfPipelineLayout, 0, brdfSets.size(), brdfSets.data(), 0, nullptr);
 
         n32 brdfMapSize = 512;
         n32 brdfGroupCountX = (brdfMapSize + LOCAL_SIZE_X - 1) / LOCAL_SIZE_X;
@@ -466,7 +451,7 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& pool)
 
         m_logicalDevice->EndSingleTimeCommands(cmd);
 
-        vkDestroyPipeline(m_logicalDevice->GetVkDevice(), brdfPipeline, nullptr);
+        m_logicalDevice->GetVkDevice().destroyPipeline(brdfPipeline, nullptr);
     }
 
     // auto cmd = m_logicalDevice->BeginSingleTimeCommands();
@@ -474,13 +459,13 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& pool)
     // m_logicalDevice->EndSingleTimeCommands(cmd);
 
     // Afterwork
-    vkDestroyShaderModule(m_logicalDevice->GetVkDevice(), irradianceMod, nullptr);
-    vkDestroyShaderModule(m_logicalDevice->GetVkDevice(), prefiltredMod, nullptr);
-    vkDestroyShaderModule(m_logicalDevice->GetVkDevice(), brdfMod, nullptr);
+    m_logicalDevice->GetVkDevice().destroyShaderModule(irradianceMod, nullptr);
+    m_logicalDevice->GetVkDevice().destroyShaderModule(prefiltredMod, nullptr);
+    m_logicalDevice->GetVkDevice().destroyShaderModule(brdfMod, nullptr);
 
-    vkDestroyPipelineLayout(m_logicalDevice->GetVkDevice(), irradePipelineLayout, nullptr);
-    vkDestroyPipelineLayout(m_logicalDevice->GetVkDevice(), prefiltPipelineLayout, nullptr);
-    vkDestroyPipelineLayout(m_logicalDevice->GetVkDevice(), brdfPipelineLayout, nullptr);
+    m_logicalDevice->GetVkDevice().destroyPipelineLayout(irradePipelineLayout, nullptr);
+    m_logicalDevice->GetVkDevice().destroyPipelineLayout(prefiltPipelineLayout, nullptr);
+    m_logicalDevice->GetVkDevice().destroyPipelineLayout(brdfPipelineLayout, nullptr);
 }
 
 } // namespace Humongous

@@ -27,16 +27,16 @@ namespace Humongous
  * @param minOffsetAlignment The minimum required alignment, in bytes, for the offset member (eg
  * minUniformBufferOffsetAlignment)
  *
- * @return VkResult of the buffer mapping call
+ * @return vk::Result of the buffer mapping call
  */
-VkDeviceSize Buffer::GetAlignment(VkDeviceSize m_instanceSize, VkDeviceSize minOffsetAlignment)
+vk::DeviceSize Buffer::GetAlignment(vk::DeviceSize m_instanceSize, vk::DeviceSize minOffsetAlignment)
 {
     if(minOffsetAlignment > 0) { return (m_instanceSize + minOffsetAlignment - 1) & ~(minOffsetAlignment - 1); }
     return m_instanceSize;
 }
 
-Buffer::Buffer(LogicalDevice* device, VkDeviceSize instanceSize, n32 instanceCount, VkBufferUsageFlags usageFlags,
-               VkMemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, VkDeviceSize minOffsetAlignment)
+Buffer::Buffer(LogicalDevice* device, vk::DeviceSize instanceSize, n32 instanceCount, vk::BufferUsageFlags usageFlags,
+               vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment)
     : m_logicalDevice{device}, m_instanceSize{instanceSize}, m_instanceCount{instanceCount}, m_usageFlags{usageFlags},
       m_memoryPropertyFlags{memoryPropertyFlags}
 {
@@ -45,8 +45,8 @@ Buffer::Buffer(LogicalDevice* device, VkDeviceSize instanceSize, n32 instanceCou
 
 Buffer::Buffer() : m_logicalDevice{nullptr}, m_instanceSize{0}, m_instanceCount{0}, m_usageFlags{0}, m_memoryPropertyFlags{0} {}
 
-void Buffer::Init(LogicalDevice* device, VkDeviceSize instanceSize, n32 instanceCount, VkBufferUsageFlags usageFlags,
-                  VkMemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, VkDeviceSize minOffsetAlignment)
+void Buffer::Init(LogicalDevice* device, vk::DeviceSize instanceSize, n32 instanceCount, vk::BufferUsageFlags usageFlags,
+                  vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment)
 {
     m_logicalDevice = device;
     m_instanceSize = instanceSize;
@@ -97,20 +97,20 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
         return;
     }
 
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    vk::BufferCreateInfo bufferInfo{};
     bufferInfo.size = createInfo.size;
     bufferInfo.usage = createInfo.bufferUsage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    bufferInfo.sharingMode = vk::SharingMode::eExclusive;
 
     VmaAllocationCreateInfo allocCreateInfo{};
     allocCreateInfo.usage = createInfo.memoryUsage;
-    allocCreateInfo.requiredFlags = createInfo.properties;
+    allocCreateInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(createInfo.properties);
 
-    VkResult result =
-        vmaCreateBuffer(createInfo.device->GetVmaAllocator(), &bufferInfo, &allocCreateInfo, createInfo.buffer, &createInfo.allocation, nullptr);
+    vk::Result result =
+        static_cast<vk::Result>(vmaCreateBuffer(createInfo.device->GetVmaAllocator(), reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo),
+                                                &allocCreateInfo, reinterpret_cast<VkBuffer*>(createInfo.buffer), &createInfo.allocation, nullptr));
 
-    if(result != VK_SUCCESS) { HGERROR("Failed to create buffer: %s", string_VkResult(result)); }
+    if(result != vk::Result::eSuccess) { HGERROR("Failed to create buffer: %s", vk::to_string(result).c_str()); }
 
     // Retrieve allocation info
     VmaAllocationInfo allocInfo = {};
@@ -132,14 +132,17 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
  * buffer range.
  * @param offset (Optional) Byte offset from beginning
  *
- * @return VkResult of the buffer mapping call
+ * @return vk::Result of the buffer mapping call
  */
-VkResult Buffer::Map(VkDeviceSize size, VkDeviceSize offset)
+vk::Result Buffer::Map(vk::DeviceSize size, vk::DeviceSize offset)
 {
     HGASSERT(m_buffer && m_allocationInfo.deviceMemory && "Called map on buffer before create");
 
-    if(!m_allocationInfo.pMappedData) { return vmaMapMemory(m_logicalDevice->GetVmaAllocator(), m_allocation, &m_allocationInfo.pMappedData); }
-    else { return VK_SUCCESS; }
+    if(!m_allocationInfo.pMappedData)
+    {
+        return static_cast<vk::Result>(vmaMapMemory(m_logicalDevice->GetVmaAllocator(), m_allocation, &m_allocationInfo.pMappedData));
+    }
+    else { return vk::Result::eSuccess; }
 }
 
 /**
@@ -151,7 +154,7 @@ void Buffer::UnMap()
 {
     if(m_allocationInfo.pMappedData)
     {
-        if(!(m_memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) { Invalidate(); }
+        if(!(m_memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) { Invalidate(); }
 
         if(m_allocationInfo.pMappedData) { vmaUnmapMemory(m_logicalDevice->GetVmaAllocator(), m_allocation); }
 
@@ -168,7 +171,7 @@ void Buffer::UnMap()
  * @param offset (Optional) Byte offset from beginning of m_mapped region
  *
  */
-void Buffer::WriteToBuffer(void* data, VkDeviceSize size, VkDeviceSize offset)
+void Buffer::WriteToBuffer(void* data, vk::DeviceSize size, vk::DeviceSize offset)
 {
     if(!m_allocationInfo.pMappedData) { HGERROR("Cannot copy to unmapped buffer"); }
 
@@ -188,16 +191,16 @@ void Buffer::WriteToBuffer(void* data, VkDeviceSize size, VkDeviceSize offset)
  * complete m_buffer range.
  * @param offset (Optional) Byte offset from beginning
  *
- * @return VkResult of the flush call
+ * @return vk::Result of the flush call
  */
-VkResult Buffer::Flush(VkDeviceSize size, VkDeviceSize offset)
+vk::Result Buffer::Flush(vk::DeviceSize size, vk::DeviceSize offset)
 {
-    VkMappedMemoryRange mappedRange = {};
-    mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+    vk::MappedMemoryRange mappedRange = {};
+    mappedRange.sType = vk::StructureType::eMappedMemoryRange;
     mappedRange.memory = m_allocationInfo.deviceMemory;
     mappedRange.offset = offset;
     mappedRange.size = size;
-    return vkFlushMappedMemoryRanges(m_logicalDevice->GetVkDevice(), 1, &mappedRange);
+    return m_logicalDevice->GetVkDevice().flushMappedMemoryRanges(1, &mappedRange);
 }
 
 /**
@@ -209,27 +212,26 @@ VkResult Buffer::Flush(VkDeviceSize size, VkDeviceSize offset)
  * the complete m_buffer range.
  * @param offset (Optional) Byte offset from beginning
  *
- * @return VkResult of the invalidate call
+ * @return vk::Result of the invalidate call
  */
-VkResult Buffer::Invalidate(VkDeviceSize size, VkDeviceSize offset)
+vk::Result Buffer::Invalidate(vk::DeviceSize size, vk::DeviceSize offset)
 {
-    VkMappedMemoryRange mappedRange = {};
-    mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+    vk::MappedMemoryRange mappedRange = {};
+    mappedRange.sType = vk::StructureType::eMappedMemoryRange;
     mappedRange.memory = m_allocationInfo.deviceMemory;
     mappedRange.offset = offset;
     mappedRange.size = size;
 
-    return vmaInvalidateAllocation(m_logicalDevice->GetVmaAllocator(), m_allocation, offset, size);
+    return static_cast<vk::Result>(vmaInvalidateAllocation(m_logicalDevice->GetVmaAllocator(), m_allocation, offset, size));
 }
 
-void Buffer::UpdateAddress(VkBufferUsageFlags usage)
+void Buffer::UpdateAddress(vk::BufferUsageFlags usage)
 {
-    if(!(usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)) { return; }
-    VkBufferDeviceAddressInfo bufferDeviceAddressInfo{};
-    bufferDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    if(!(usage & vk::BufferUsageFlagBits::eShaderDeviceAddress)) { return; }
+    vk::BufferDeviceAddressInfo bufferDeviceAddressInfo{};
     bufferDeviceAddressInfo.buffer = m_buffer;
 
-    m_deviceAddress = vkGetBufferDeviceAddress(m_logicalDevice->GetVkDevice(), &bufferDeviceAddressInfo);
+    m_deviceAddress = m_logicalDevice->GetVkDevice().getBufferAddress(&bufferDeviceAddressInfo);
 }
 
 /**
@@ -238,11 +240,11 @@ void Buffer::UpdateAddress(VkBufferUsageFlags usage)
  * @param size (Optional) Size of the m_memory range of the descriptor
  * @param offset (Optional) Byte offset from beginning
  *
- * @return VkDescriptorBufferInfo of specified offset and range
+ * @return vk::DescriptorBufferInfo of specified offset and range
  */
-VkDescriptorBufferInfo Buffer::DescriptorInfo(VkDeviceSize size, VkDeviceSize offset) const
+vk::DescriptorBufferInfo Buffer::DescriptorInfo(vk::DeviceSize size, vk::DeviceSize offset) const
 {
-    return VkDescriptorBufferInfo{
+    return vk::DescriptorBufferInfo{
         m_buffer,
         offset,
         size,
@@ -264,16 +266,16 @@ void Buffer::WriteToIndex(void* data, int index) { WriteToBuffer(data, m_instanc
  * @param index Used in offset calculation
  *
  */
-VkResult Buffer::FlushIndex(int index) { return Flush(m_alignmentSize, index * m_alignmentSize); }
+vk::Result Buffer::FlushIndex(int index) { return Flush(m_alignmentSize, index * m_alignmentSize); }
 
 /**
  * Create a m_buffer info descriptor
  *
  * @param index Specifies the region given by index * m_alignmentSize
  *
- * @return VkDescriptorBufferInfo for instance at index
+ * @return vk::DescriptorBufferInfo for instance at index
  */
-VkDescriptorBufferInfo Buffer::DescriptorInfoForIndex(int index) { return DescriptorInfo(m_alignmentSize, index * m_alignmentSize); }
+vk::DescriptorBufferInfo Buffer::DescriptorInfoForIndex(int index) { return DescriptorInfo(m_alignmentSize, index * m_alignmentSize); }
 
 /**
  * Invalidate a m_memory range of the m_buffer to make it visible to the host
@@ -282,30 +284,30 @@ VkDescriptorBufferInfo Buffer::DescriptorInfoForIndex(int index) { return Descri
  *
  * @param index Specifies the region to invalidate: index * m_alignmentSize
  *
- * @return VkResult of the invalidate call
+ * @return vk::Result of the invalidate call
  */
-VkResult Buffer::InvalidateIndex(int index) { return Invalidate(m_alignmentSize, index * m_alignmentSize); }
+vk::Result Buffer::InvalidateIndex(int index) { return Invalidate(m_alignmentSize, index * m_alignmentSize); }
 
-void Buffer::CopyBuffer(LogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, VkDeviceSize size)
+void Buffer::CopyBuffer(LogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size)
 {
-    VkCommandBuffer commandBuffer = device.BeginSingleTimeCommands();
+    vk::CommandBuffer commandBuffer = device.BeginSingleTimeCommands();
 
-    VkBufferCopy2 copyRegion{};
-    copyRegion.sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2;
+    vk::BufferCopy2 copyRegion{};
+    copyRegion.sType = vk::StructureType::eBufferCopy2;
     copyRegion.srcOffset = 0;
     copyRegion.dstOffset = 0;
     copyRegion.size = size;
     copyRegion.pNext = nullptr;
 
-    VkCopyBufferInfo2 copyBufferInfo{};
-    copyBufferInfo.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2;
+    vk::CopyBufferInfo2 copyBufferInfo{};
+    copyBufferInfo.sType = vk::StructureType::eCopyBufferInfo2;
     copyBufferInfo.srcBuffer = srcBuffer.GetBuffer();
     copyBufferInfo.dstBuffer = dstBuffer.GetBuffer();
     copyBufferInfo.regionCount = 1;
     copyBufferInfo.pRegions = &copyRegion;
     copyBufferInfo.pNext = nullptr;
 
-    vkCmdCopyBuffer2(commandBuffer, &copyBufferInfo);
+    commandBuffer.copyBuffer2(&copyBufferInfo);
 
     device.EndSingleTimeCommands(commandBuffer);
 

@@ -17,33 +17,33 @@ public:
     public:
         Builder(LogicalDevice& logicalDevice) : m_logicalDevice{logicalDevice} {}
 
-        Builder&                        AddPoolSize(VkDescriptorType descriptorType, n32 count);
-        Builder&                        SetPoolFlags(VkDescriptorPoolCreateFlags flags);
+        Builder&                        AddPoolSize(vk::DescriptorType descriptorType, n32 count);
+        Builder&                        SetPoolFlags(vk::DescriptorPoolCreateFlagBits flags);
         Builder&                        SetMaxSets(n32 count);
         std::unique_ptr<DescriptorPool> Build() const;
 
     private:
-        LogicalDevice&                    m_logicalDevice;
-        std::vector<VkDescriptorPoolSize> m_poolSizes{};
-        n32                               m_maxSets = 1000;
-        VkDescriptorPoolCreateFlags       m_poolFlags = 0;
+        LogicalDevice&                      m_logicalDevice;
+        std::vector<vk::DescriptorPoolSize> m_poolSizes{};
+        n32                                 m_maxSets = 1000;
+        vk::DescriptorPoolCreateFlagBits    m_poolFlags{};
     };
 
-    DescriptorPool(LogicalDevice& logicalDevice, n32 maxSets, VkDescriptorPoolCreateFlags poolFlags,
-                   const std::vector<VkDescriptorPoolSize>& poolSizes);
+    DescriptorPool(LogicalDevice& logicalDevice, n32 maxSets, vk::DescriptorPoolCreateFlagBits poolFlags,
+                   const std::vector<vk::DescriptorPoolSize>& poolSizes);
     ~DescriptorPool();
     DescriptorPool(const DescriptorPool&) = delete;
     DescriptorPool& operator=(const DescriptorPool&) = delete;
 
-    bool AllocateDescriptor(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptor) const;
-    void FreeDescriptors(std::vector<VkDescriptorSet>& descriptors) const;
+    bool AllocateDescriptor(const vk::DescriptorSetLayout descriptorSetLayout, vk::DescriptorSet& descriptor) const;
+    void FreeDescriptors(std::vector<vk::DescriptorSet>& descriptors) const;
     void ResetPool();
 
-    VkDescriptorPool GetRawPoolHandle() const { return m_descriptorPool; }
+    vk::DescriptorPool GetRawPoolHandle() const { return m_descriptorPool; }
 
 private:
-    LogicalDevice&   m_logicalDevice;
-    VkDescriptorPool m_descriptorPool;
+    LogicalDevice&     m_logicalDevice;
+    vk::DescriptorPool m_descriptorPool;
 
     friend class DescriptorWriter;
 };

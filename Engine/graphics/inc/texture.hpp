@@ -24,11 +24,11 @@ public:
 
     struct TexSamplerInfo
     {
-        VkFilter             magFilter;
-        VkFilter             minFilter;
-        VkSamplerAddressMode addressModeU;
-        VkSamplerAddressMode addressModeV;
-        VkSamplerAddressMode addressModeW;
+        vk::Filter             magFilter;
+        vk::Filter             minFilter;
+        vk::SamplerAddressMode addressModeU;
+        vk::SamplerAddressMode addressModeV;
+        vk::SamplerAddressMode addressModeW;
     };
 
     Texture(LogicalDevice* m_logicalDevice, const std::string& imagePath, const ImageType& imageType = ImageType::TEX2D,
@@ -37,12 +37,12 @@ public:
 
     void FillWithEmpty(LogicalDevice* m_logicalDevice, n32 width, n32 height, const bool& storage = false);
 
-    VkDescriptorImageInfo GetDescriptorInfo() const { return {m_textureSampler, m_textureImage.imageView, m_textureImage.imageLayout}; };
+    vk::DescriptorImageInfo GetDescriptorInfo() const { return {m_textureSampler, m_textureImage.imageView, m_textureImage.imageLayout}; };
 
-    VkImage       GetRawImageHandle() const { return m_textureImage.image; }
-    VkImageView   GetRawImageViewHandle() const { return m_textureImage.imageView; }
-    VkImageLayout GetRawImageLayout() const { return m_textureImage.imageLayout; }
-    VkSampler     GetRawSamplerHandle() const { return m_textureSampler; }
+    vk::Image       GetRawImageHandle() const { return m_textureImage.image; }
+    vk::ImageView   GetRawImageViewHandle() const { return m_textureImage.imageView; }
+    vk::ImageLayout GetRawImageLayout() const { return m_textureImage.imageLayout; }
+    vk::Sampler     GetRawSamplerHandle() const { return m_textureSampler; }
 
     AllocatedImage& GetAllocatedImage() { return m_textureImage; }
 
@@ -54,22 +54,22 @@ public:
 
     void Destroy();
 
-    void CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo textureSampler, LogicalDevice* device, VkQueue copyQueue);
+    void CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo textureSampler, LogicalDevice* device, vk::Queue copyQueue);
     void CreateFromFile(const std::string& path, LogicalDevice* device, const ImageType& imageType = ImageType::TEX2D, const bool& storage = false);
 
 private:
     struct SamplerCreateInfo
     {
-        VkFilter             magFilter;
-        VkFilter             minFilter;
-        VkSamplerAddressMode addressModeU;
-        VkSamplerAddressMode addressModeV;
-        VkSamplerAddressMode addressModeW;
+        vk::Filter             magFilter;
+        vk::Filter             minFilter;
+        vk::SamplerAddressMode addressModeU;
+        vk::SamplerAddressMode addressModeV;
+        vk::SamplerAddressMode addressModeW;
     };
 
     LogicalDevice* m_logicalDevice;
     AllocatedImage m_textureImage;
-    VkSampler      m_textureSampler;
+    vk::Sampler    m_textureSampler;
 
     n32 m_width, m_height, m_miplevels, m_layerCount, m_baseSize;
 
