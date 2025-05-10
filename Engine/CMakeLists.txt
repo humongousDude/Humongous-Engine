@@ -19,6 +19,7 @@ add_subdirectory(ThirdParty/glm EXCLUDE_FROM_ALL)
 add_subdirectory(ThirdParty/spdlog EXCLUDE_FROM_ALL)
 add_subdirectory(ThirdParty/VulkanMemoryAllocator EXCLUDE_FROM_ALL)
 add_subdirectory(ThirdParty/tinygltf EXCLUDE_FROM_ALL)
+add_subdirectory(ThirdParty/openal-soft EXCLUDE_FROM_ALL)
 
 # There has got to be a better way to do this
 
@@ -38,7 +39,7 @@ target_include_directories(
            systems/inc
            ThirdParty/imgui/
            ThirdParty/imgui/backends/
-           ThirdParty/SDL/include/SDL3/ 
+           ThirdParty/SDL/include/SDL3/
            ThirdParty/gli/gli/
            ThirdParty/gli/gli/core/
            ThirdParty/glm/glm/ext/
@@ -46,6 +47,7 @@ target_include_directories(
            ThirdParty/glm/glm/gtx/
            ThirdParty/glm/glm/simd/
            ThirdParty/glm/glm/detail/
+           ThirdParty/openal-soft/include/AL/
            ThirdParty/spdlog/include/spdlog/
            ThirdParty/spdlog/include/spdlog/cfg/
            ThirdParty/spdlog/include/spdlog/fmt/

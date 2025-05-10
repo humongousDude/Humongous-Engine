@@ -4,10 +4,11 @@
 #include "gameobject.hpp"
 #include "images.hpp"
 #include "logger.hpp"
-#include "render_systems/simple_render_system.hpp"
 #include <array>
 #include <renderer.hpp>
 #include <vulkan/vk_enum_string_helper.h>
+#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_enums.hpp>
 
 namespace Humongous
 {
@@ -17,10 +18,6 @@ Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice&
 {
     m_drawImage.imageFormat = drawFormat;
     m_depthImage.imageFormat = depthFormat;
-
-    m_boundingBoxBuffer.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    m_visibilityResults.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    m_rendererDataBuffer.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
     RecreateSwapChain();
     CreateCommandPool();
@@ -285,7 +282,6 @@ void Renderer::CreateComputePipeline()
     auto layout = m_computeLayout->GetDescriptorSetLayout();
 
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
-    // pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &layout;
     pipelineLayoutInfo.pushConstantRangeCount = 0;
@@ -299,7 +295,6 @@ void Renderer::CreateComputePipeline()
     auto compCode = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "occlusion.comp"));
 
     vk::ShaderModuleCreateInfo createInfo{};
-    // createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = compCode.size();
     createInfo.pCode = reinterpret_cast<const n32*>(compCode.data());
 
@@ -312,12 +307,10 @@ void Renderer::CreateComputePipeline()
 
     vk::PipelineShaderStageCreateInfo why{};
     why.stage = vk::ShaderStageFlagBits::eCompute;
-    // why.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     why.pName = "main";
     why.module = compModule;
 
     vk::ComputePipelineCreateInfo compInfo{};
-    // compInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     compInfo.layout = m_computePipelineLayout;
     compInfo.stage = why;
 
@@ -329,7 +322,58 @@ void Renderer::CreateComputePipeline()
     vkDestroyShaderModule(m_logicalDevice.GetVkDevice(), compModule, nullptr);
 }
 
-vk::CommandBuffer Renderer::BeginFrame()
+void Renderer::ReadyPerFrameData(std::vector<std::pair<n32, class GameObject*>>* gameObjects)
+{
+    auto&    visibilityResultsBuffer = GetCurrentFrame().visibilityResults;
+    uint32_t numObjectsCulledLastFrame = GetCurrentFrame().numObjectsDispatched;
+
+    if(!visibilityResultsBuffer || numObjectsCulledLastFrame == 0) { return; }
+
+    // Ensure the visibility results buffer is large enough
+    if(visibilityResultsBuffer->GetBufferSize() < numObjectsCulledLastFrame * sizeof(VisiblityResultSet))
+    {
+        HGERROR("Visibility results buffer size mismatch for frame %u! Expected at least %zu bytes, buffer is %zu.", m_currentFrameIndex,
+                numObjectsCulledLastFrame * sizeof(VisiblityResultSet), visibilityResultsBuffer->GetBufferSize());
+        return;
+    }
+
+    visibilityResultsBuffer->Map();
+    VisiblityResultSet* results = static_cast<VisiblityResultSet*>(visibilityResultsBuffer->GetMappedMemory());
+
+    std::unordered_map<uint32_t, bool> prevFrameVisibilityById;
+    prevFrameVisibilityById.reserve(numObjectsCulledLastFrame);
+
+    for(uint32_t i = 0; i < numObjectsCulledLastFrame; ++i)
+    {
+        uint32_t objectId = results[i].id;
+        bool     isVisible = results[i].visible;
+
+        prevFrameVisibilityById[objectId] = isVisible;
+    }
+
+    visibilityResultsBuffer->UnMap();
+
+    std::vector<std::pair<n32, GameObject*>> visibleObjectsForThisFrame;
+    visibleObjectsForThisFrame.reserve(gameObjects->size());
+
+    for(auto& pair: *gameObjects)
+    {
+        uint32_t    objectId = pair.first;
+        GameObject* object = pair.second;
+
+        auto it = prevFrameVisibilityById.find(objectId);
+
+        bool isVisibleThisFrame = false;
+
+        if(it != prevFrameVisibilityById.end()) { isVisibleThisFrame = it->second; }
+
+        if(isVisibleThisFrame) { visibleObjectsForThisFrame.push_back(pair); }
+    }
+
+    *gameObjects = std::move(visibleObjectsForThisFrame);
+}
+
+vk::CommandBuffer Renderer::BeginFrame(std::vector<std::pair<n32, class GameObject*>>* gameobjects)
 {
     vk::Result result = m_logicalDevice.GetVkDevice().waitForFences(1, &GetCurrentFrame().inFlightFence, vk::True, std::numeric_limits<n64>::max());
     if(result != vk::Result::eSuccess) { HGINFO("Failed to wait for fences: %s", vk::to_string(result).c_str()); }
@@ -348,6 +392,8 @@ vk::CommandBuffer Renderer::BeginFrame()
     }
 
     if(result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) { HGERROR("failed to acquire swap chain image!"); }
+
+    ReadyPerFrameData(gameobjects);
 
     vk::CommandBuffer cmd = GetCurrentFrame().commandBuffer;
     cmd.reset();
@@ -564,54 +610,60 @@ struct alignas(16) RendererData
     float     padding[2];
 };
 
-void Renderer::DoGPUOcclusionCulling(vk::CommandBuffer cmd, RenderData& data, const Camera& cam)
+struct OcclusionObjectData
+{
+    BoundingBox boundingBox;
+    n32         id;
+    float       padding_id[3]; // 3 * 4 = 12 bytes padding
+};
+
+void Renderer::DoGPUOcclusionCulling(vk::CommandBuffer cmd, std::vector<std::pair<n32, class GameObject*>>* gameObjects, const Camera& cam)
 {
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_computePipeline);
 
-    std::vector<BoundingBox> boundingBoxes;
+    std::vector<OcclusionObjectData> objectData{};
+    GetCurrentFrame().numObjectsDispatched = 0;
 
-    for(auto& [id, object]: data.gameObjects) { boundingBoxes.push_back(object->GetBoundingBox()); }
-    if(boundingBoxes.data() == nullptr) { return; }
+    for(auto& [id, object]: *gameObjects)
+    {
+        OcclusionObjectData data;
+        data.boundingBox = (object->GetBoundingBox());
+        data.id = id;
 
-    auto waitCmd = m_logicalDevice.BeginSingleTimeCommands();
-    WaitForCompute(waitCmd);
-    m_logicalDevice.EndSingleTimeCommands(waitCmd);
+        objectData.push_back(data);
+    }
+    if(objectData.empty()) { return; }
 
-    m_boundingBoxBuffer[m_currentFrameIndex].reset();
-    m_visibilityResults[m_currentFrameIndex].reset();
-    m_rendererDataBuffer[m_currentFrameIndex].reset();
+    GetCurrentFrame().numObjectsDispatched = objectData.size();
 
-    m_boundingBoxBuffer[m_currentFrameIndex] = std::make_unique<Buffer>();
-    m_visibilityResults[m_currentFrameIndex] = std::make_unique<Buffer>();
-    m_rendererDataBuffer[m_currentFrameIndex] = std::make_unique<Buffer>();
+    auto& objectDataBuffer = GetCurrentFrame().objectDataBuffer;
+    auto& visibilityResultsBuffer = GetCurrentFrame().visibilityResults;
+    auto& rendererDataBuffer = GetCurrentFrame().rendererDataBuffer;
 
-    auto alignment = m_logicalDevice.GetPhysicalDevice().GetProperties().properties.limits.minStorageBufferOffsetAlignment;
+    objectDataBuffer.reset();
+    visibilityResultsBuffer.reset();
+    rendererDataBuffer.reset();
 
-    auto   bbSize = boundingBoxes.size();
-    size_t bufferSize = bbSize * sizeof(BoundingBox);
-    size_t alignedSize = std::max(bufferSize, alignment) & ~(alignment - 1);
+    objectDataBuffer = std::make_unique<Buffer>();
+    visibilityResultsBuffer = std::make_unique<Buffer>();
+    rendererDataBuffer = std::make_unique<Buffer>();
 
-    m_boundingBoxBuffer[m_currentFrameIndex]->Init(&m_logicalDevice, bufferSize, 1, vk::BufferUsageFlagBits::eStorageBuffer,
-                                                   vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                                                   VMA_MEMORY_USAGE_AUTO);
+    objectDataBuffer->Init(&m_logicalDevice, objectData.size() * sizeof(OcclusionObjectData), 1, vk::BufferUsageFlagBits::eStorageBuffer,
+                           vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO);
 
-    m_visibilityResults[m_currentFrameIndex]->Init(&m_logicalDevice, bbSize * sizeof(b32), 1, vk::BufferUsageFlagBits::eStorageBuffer,
-                                                   vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                                                   VMA_MEMORY_USAGE_AUTO);
+    visibilityResultsBuffer->Init(&m_logicalDevice, objectData.size() * sizeof(VisiblityResultSet), 1, vk::BufferUsageFlagBits::eStorageBuffer,
+                                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO);
 
-    m_rendererDataBuffer[m_currentFrameIndex]->Init(&m_logicalDevice, sizeof(RendererData), 1, vk::BufferUsageFlagBits::eUniformBuffer,
-                                                    vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                                                    VMA_MEMORY_USAGE_AUTO);
+    rendererDataBuffer->Init(&m_logicalDevice, sizeof(RendererData), 1, vk::BufferUsageFlagBits::eUniformBuffer,
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO);
 
     vk::MemoryBarrier2 memoryBarrier{};
-    // memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
     memoryBarrier.srcStageMask = vk::PipelineStageFlagBits2::eLateFragmentTests;
     memoryBarrier.srcAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
     memoryBarrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
     memoryBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead;
 
     vk::DependencyInfo dependencyInfo{};
-    // dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
     dependencyInfo.memoryBarrierCount = 1;
     dependencyInfo.pMemoryBarriers = &memoryBarrier;
 
@@ -628,47 +680,46 @@ void Renderer::DoGPUOcclusionCulling(vk::CommandBuffer cmd, RenderData& data, co
 
     Utils::TransitionImageLayout(preComputeReadTransition);
 
-    m_boundingBoxBuffer[m_currentFrameIndex]->Map();
-    m_boundingBoxBuffer[m_currentFrameIndex]->WriteToBuffer((void*)boundingBoxes.data());
-    m_boundingBoxBuffer[m_currentFrameIndex]->UnMap();
+    objectDataBuffer->Map();
+    objectDataBuffer->WriteToBuffer((void*)objectData.data());
+    objectDataBuffer->UnMap();
 
     RendererData renderData{{m_swapChain->GetExtent().width, m_swapChain->GetExtent().height}};
-    m_rendererDataBuffer[m_currentFrameIndex]->Map();
-    m_rendererDataBuffer[m_currentFrameIndex]->WriteToBuffer((void*)&renderData);
-    m_rendererDataBuffer[m_currentFrameIndex]->UnMap();
+    rendererDataBuffer->Map();
+    rendererDataBuffer->WriteToBuffer((void*)&renderData);
+    rendererDataBuffer->UnMap();
 
     vk::DescriptorImageInfo  depthInfo = {m_depthImageSampler, m_depthImage.imageView, vk::ImageLayout::eShaderReadOnlyOptimal};
-    vk::DescriptorBufferInfo boundingBoxInfo = m_boundingBoxBuffer[m_currentFrameIndex]->DescriptorInfo();
-    vk::DescriptorBufferInfo visiblityInfo = m_visibilityResults[m_currentFrameIndex]->DescriptorInfo();
+    vk::DescriptorBufferInfo boundingBoxInfo = objectDataBuffer->DescriptorInfo();
+    vk::DescriptorBufferInfo visiblityInfo = visibilityResultsBuffer->DescriptorInfo();
     vk::DescriptorBufferInfo projectionInfo = cam.GetCombinedDataBufferHandle(m_currentFrameIndex).DescriptorInfo();
-    vk::DescriptorBufferInfo rendererDataInfo = m_rendererDataBuffer[m_currentFrameIndex]->DescriptorInfo();
+    vk::DescriptorBufferInfo rendererDataInfo = rendererDataBuffer->DescriptorInfo();
 
-    if(m_computeSet == VK_NULL_HANDLE)
+    vk::DescriptorSet& computeSet = GetCurrentFrame().computeSet;
+
+    if(computeSet == VK_NULL_HANDLE)
     {
-        DescriptorWriter writer{*m_computeLayout, m_computePool.get()};
-
-        writer.WriteImage(0, &depthInfo)
+        DescriptorWriter(*m_computeLayout, m_computePool.get())
+            .WriteImage(0, &depthInfo)
             .WriteBuffer(1, &boundingBoxInfo)
             .WriteBuffer(2, &visiblityInfo)
             .WriteBuffer(3, &projectionInfo)
-            .WriteBuffer(4, &rendererDataInfo);
-        writer.Build(m_computeSet);
+            .WriteBuffer(4, &rendererDataInfo)
+            .Build(computeSet);
     }
     else
     {
-        DescriptorWriter writer{*m_computeLayout, m_computePool.get()};
-
-        writer.WriteImage(0, &depthInfo)
+        DescriptorWriter(*m_computeLayout, m_computePool.get())
+            .WriteImage(0, &depthInfo)
             .WriteBuffer(1, &boundingBoxInfo)
             .WriteBuffer(2, &visiblityInfo)
             .WriteBuffer(3, &projectionInfo)
-            .WriteBuffer(4, &rendererDataInfo);
-        writer.Overwrite(m_computeSet);
+            .WriteBuffer(4, &rendererDataInfo)
+            .Overwrite(computeSet);
     }
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_computePipelineLayout, 0, 1, &computeSet, 0, nullptr);
 
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_computePipelineLayout, 0, 1, &m_computeSet, 0, nullptr);
-
-    vkCmdDispatch(cmd, (n32)(data.gameObjects.size() + 63) / 64, 1, 1);
+    vkCmdDispatch(cmd, (n32)(gameObjects->size() + 63) / 64, 1, 1);
 
     WaitForCompute(cmd);
 
@@ -680,25 +731,15 @@ void Renderer::DoGPUOcclusionCulling(vk::CommandBuffer cmd, RenderData& data, co
                                                           vk::ImageAspectFlagBits::eDepth};
 
     Utils::TransitionImageLayout(postComputeDepthTransition);
-
-    m_visibilityResults[m_currentFrameIndex]->Map();
-
-    b32* visibilityResults = static_cast<b32*>(m_visibilityResults[m_currentFrameIndex]->GetMappedMemory());
-
-    for(int i = 0; i < boundingBoxes.size(); i++)
-    {
-        if(!visibilityResults[i]) { data.gameObjects.erase(data.gameObjects.begin() + i); }
-    }
-    m_visibilityResults[m_currentFrameIndex]->UnMap();
 }
 
 void Renderer::WaitForCompute(vk::CommandBuffer cmd)
 {
     vk::MemoryBarrier2 visibilityBarrier{};
     visibilityBarrier.srcStageMask = vk::PipelineStageFlagBits2::eComputeShader;
-    visibilityBarrier.srcAccessMask = vk::AccessFlagBits2::eShaderWrite;
-    visibilityBarrier.dstStageMask = vk::PipelineStageFlagBits2::eVertexShader | vk::PipelineStageFlagBits2::eFragmentShader;
-    visibilityBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead;
+    visibilityBarrier.srcAccessMask = vk::AccessFlagBits2::eShaderStorageWrite;
+    visibilityBarrier.dstStageMask = vk::PipelineStageFlagBits2::eHost;
+    visibilityBarrier.dstAccessMask = vk::AccessFlagBits2::eHostRead;
 
     vk::DependencyInfo visibilityDependencyInfo{};
     visibilityDependencyInfo.memoryBarrierCount = 1;

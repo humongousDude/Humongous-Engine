@@ -128,13 +128,12 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
                                                 static_cast<n32>(Globals::DescriptorSetIndices::Debug), 1, &debugSet, 0, nullptr);
 
     n32 objectsDrawn = 0;
-    for(auto& [id, obj]: renderData.gameObjects)
+    for(auto& [id, obj]: *renderData.gameObjects)
     {
         Model::PushConstantData data{};
         data.model = obj->transform.Mat4();
         obj->model->GetVertexBuffer().UpdateAddress(obj->model->GetVertexBuffer().GetUsageFlags());
         data.vertexAddress = obj->model->GetVertexBuffer().GetDeviceAddress();
-        data.id = objectsDrawn;
 
         renderData.commandBuffer.pushConstants(m_pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Model::PushConstantData), &data);
 
@@ -143,15 +142,8 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
         objectsDrawn++;
     }
 
-    // For some reason, this just won't work. Clearing the debug buffer at the start of the frame cause this to return 0. If we don't clear it, it
-    // returns incorrect numbers
+    // temporary
     m_verticesDrawn = objectsDrawn;
-
-    // m_debugBuffer->Map();
-    // n32 v = *static_cast<n32*>(m_debugBuffer->GetMappedMemory());
-    // m_verticesDrawn = v;
-    // // HGINFO("%i", v);
-    // m_debugBuffer->UnMap();
 }
 
 } // namespace Humongous

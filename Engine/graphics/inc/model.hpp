@@ -57,7 +57,6 @@ public:
     {
         glm::mat4         model{1.f};
         vk::DeviceAddress vertexAddress;
-        n32               id;
     };
 
     struct alignas(16) Vertex

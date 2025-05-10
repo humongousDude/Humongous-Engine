@@ -22,3 +22,6 @@
 [submodule "Engine/ThirdParty/spdlog"]
 	path = Engine/ThirdParty/spdlog
 	url = https://github.com/gabime/spdlog
+[submodule "Engine/ThirdParty/openal-soft"]
+	path = Engine/ThirdParty/openal-soft
+	url = https://github.com/kcat/openal-soft

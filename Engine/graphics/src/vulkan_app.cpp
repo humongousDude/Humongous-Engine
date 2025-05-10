@@ -2,6 +2,7 @@
 #include "allocator.hpp"
 #include "camera.hpp"
 #include "extra.hpp"
+#include "gameobject.hpp"
 #include "globals.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -95,7 +96,7 @@ void VulkanApp::LoadGameObjects()
 
     GameObject wall = GameObject::CreateGameObject();
     wall.transform.translation = glm::vec3(0.0f, 0.0f, 50.f);
-    wall.transform.scale = glm::vec3(10, 10, 10);
+    wall.transform.scale = glm::vec3(10, 100, 10);
     wall.transform.rotation = glm::vec3(90, 0.0f, 0.0f);
     wall.SetModel(wallModel);
     wall.name = "Wall";
@@ -103,16 +104,16 @@ void VulkanApp::LoadGameObjects()
 
     // Sponza isn't available by default. This tests the Asset Manager's ability to load a default model. However, if sponza is provided, it'll be
     // loaded instead
-    auto employeeModel = ResourceManager::LoadModel("Sponza");
+    // auto employeeModel = ResourceManager::LoadModel("Sponza");
+    //
+    // GameObject employee = GameObject::CreateGameObject();
+    // employee.transform.translation = glm::vec3(5, 0, 0);
+    // employee.transform.scale = glm::vec3(0.1f);
+    // employee.transform.rotation = glm::vec3(0.0f);
+    // employee.name = "Sponza";
+    // employee.SetModel(employeeModel);
 
-    GameObject employee = GameObject::CreateGameObject();
-    employee.transform.translation = glm::vec3(5, 0, 0);
-    employee.transform.scale = glm::vec3(0.1f);
-    employee.transform.rotation = glm::vec3(0.0f);
-    employee.name = "Sponza";
-    employee.SetModel(employeeModel);
-
-    m_gameObjects.emplace(employee.GetId(), std::move(employee));
+    // m_gameObjects.emplace(employee.GetId(), std::move(employee));
 
     auto damagedHelmetModel = ResourceManager::LoadModel("DamagedHelmet");
 
@@ -123,6 +124,33 @@ void VulkanApp::LoadGameObjects()
     car.SetModel(damagedHelmetModel);
 
     m_gameObjects.emplace(car.GetId(), std::move(car));
+
+    auto employeeModel = ResourceManager::LoadModel("Sponza");
+    n32  start = 100;
+    n32  x, y, z = start;
+    for(n32 i = 0; i < 100; ++i)
+    {
+        x++;
+        if(x > start)
+        {
+            z++;
+            x = start;
+        }
+        if(z > start)
+        {
+            y++;
+            z = start;
+        }
+
+        GameObject mp = GameObject::CreateGameObject();
+        mp.transform.translation = glm::vec3(x, y, z);
+        mp.transform.scale = glm::vec3(0.1f);
+        mp.transform.rotation = glm::vec3(0.0f);
+        mp.name = "employeeStressTest";
+        mp.SetModel(employeeModel);
+
+        m_gameObjects.emplace(mp.GetId(), std::move(mp));
+    }
 
     m_mainDeletionQueue.PushDeletor([&]() { m_gameObjects.clear(); });
 
@@ -190,9 +218,9 @@ void VulkanApp::Run()
     for(auto& [id, obj]: m_gameObjects)
     {
         objectDataWidget.Add([&]() {
+            ImGui::PushID(id);
             if(ImGui::CollapsingHeader(obj.name.c_str()))
             {
-                ImGui::PushID(id);
                 ImGui::Text("ID: %i", id);
 
                 float position[3] = {obj.transform.translation.x, obj.transform.translation.y, obj.transform.translation.z};
@@ -223,9 +251,8 @@ void VulkanApp::Run()
 
                     ImGui::TreePop();
                 }
-
-                ImGui::PopID();
             }
+            ImGui::PopID();
         });
     }
 
@@ -276,15 +303,18 @@ void VulkanApp::Run()
         if(!minimized && focused)
         {
             for(auto& [k, v]: m_gameObjects) { v.Update(); }
+            m_cam->Update();
 
-            if(const auto cmd = m_renderer->BeginFrame())
+            auto sortedAndCulledObjs = Utils::SortAndCullGameObjects(*m_cam, m_gameObjects);
+            auto sortedObjs = sortedAndCulledObjs;
+
+            if(const auto cmd = m_renderer->BeginFrame(&sortedAndCulledObjs))
             {
-                m_cam->Update();
                 RenderData data{.commandBuffer = cmd,
                                 .uboSets = {m_cam->GetDescriptorSet(m_renderer->GetFrameIndex())},
                                 .sceneSets = {m_cam->GetParamDescriptorSet(m_renderer->GetFrameIndex())},
                                 .skyboxSets = {m_skyboxRenderSystem->GetSkybox()->GetDescriptorSet()},
-                                .gameObjects = Utils::SortAndCullGameObjects(*m_cam, m_gameObjects),
+                                .gameObjects = &sortedAndCulledObjs,
                                 .frameIndex = m_renderer->GetFrameIndex(),
                                 .cam = *m_cam,
                                 .renderer = *m_renderer,
@@ -296,7 +326,7 @@ void VulkanApp::Run()
 
                 m_renderer->EndDepthPrePass(cmd);
 
-                m_renderer->DoGPUOcclusionCulling(cmd, data, *m_cam);
+                m_renderer->DoGPUOcclusionCulling(cmd, &sortedObjs, *m_cam);
 
                 m_renderer->BeginRendering(cmd);
 

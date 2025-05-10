@@ -26,7 +26,6 @@ layout(push_constant) uniform MNV
 {
     mat4 modelMatrix;
     VertexBuffer vertexBuffer;
-    uint id;
 } mnv;
 
 layout(set = 0, binding = 0) uniform UBO

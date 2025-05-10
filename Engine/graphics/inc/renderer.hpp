@@ -9,12 +9,24 @@
 #include <logical_device.hpp>
 #include <memory>
 #include <swapchain.hpp>
+#include <vector>
 #include <vk_mem_alloc.h>
 
 namespace Humongous
 {
 class Renderer
 {
+private:
+    struct VisiblityResultSet;
+    //     struct OcclusionObjectData;
+
+    struct VisiblityResultSet
+    {
+        n32   id;
+        b32   visible;
+        float padding_end[2];
+    };
+
 public:
     struct Frame
     {
@@ -22,6 +34,17 @@ public:
         vk::Semaphore     imageAvailableSemaphore;
         vk::Semaphore     renderFinishedSemaphore;
         vk::Fence         inFlightFence;
+
+        std::unique_ptr<Buffer> objectDataBuffer;
+        std::unique_ptr<Buffer> visibilityResults;
+        std::unique_ptr<Buffer> rendererDataBuffer;
+        std::unique_ptr<Buffer> debugBuffer;
+
+        std::vector<VisiblityResultSet> visbilityResults;
+        n32                             numObjectsDispatched;
+
+        vk::DescriptorSet computeSet;
+        n32               boundingBoxCount;
     };
 
     // Set depthFormat to VK_FORMAT_UNDEFINED to not have depth
@@ -39,7 +62,9 @@ public:
     vk::CommandBuffer GetCommandBuffer() { return GetCurrentFrame().commandBuffer; }
 
     // Begin a frame, acquire the next swapchain image and prep command buffers
-    vk::CommandBuffer BeginFrame();
+    vk::CommandBuffer BeginFrame(std::vector<std::pair<n32, class GameObject*>>* gameobjects);
+
+    void ReadyPerFrameData(std::vector<std::pair<n32, class GameObject*>>* gameobjects);
 
     // End a frame and submit command buffers
     void EndFrame();
@@ -65,13 +90,7 @@ public:
 
     SwapChain* GetSwapChain() const { return m_swapChain.get(); }
 
-    void DoGPUOcclusionCulling(vk::CommandBuffer cmd, struct RenderData& objs, const Camera& cam);
-
-    vk::DescriptorBufferInfo VisibilityResultDescriptorData(const n32& index) const
-    {
-        if(!m_visibilityResults.empty()) { return m_visibilityResults[index]->DescriptorInfo(); }
-        else { return {}; }
-    }
+    void DoGPUOcclusionCulling(vk::CommandBuffer cmd, std::vector<std::pair<n32, class GameObject*>>* gameobjects, const Camera& cam);
 
     static void WaitForCompute(vk::CommandBuffer cmd);
 
@@ -86,7 +105,6 @@ private:
 
     std::unique_ptr<DescriptorPool>      m_computePool;
     std::unique_ptr<DescriptorSetLayout> m_computeLayout;
-    vk::DescriptorSet                    m_computeSet{VK_NULL_HANDLE};
 
     VmaAllocator m_allocator;
 
@@ -103,11 +121,6 @@ private:
     AllocatedImage m_depthImage;
     vk::Extent2D   m_depthImageExtent;
     vk::Sampler    m_depthImageSampler;
-
-    std::vector<std::unique_ptr<Buffer>> m_boundingBoxBuffer;
-    std::vector<std::unique_ptr<Buffer>> m_visibilityResults;
-    std::vector<std::unique_ptr<Buffer>> m_rendererDataBuffer;
-    std::vector<std::unique_ptr<Buffer>> m_debugBuffer;
 
     AllocatedImage m_debugImage;
     vk::Sampler    m_debugImageSampler;

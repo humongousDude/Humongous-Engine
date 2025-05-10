@@ -17,12 +17,22 @@ struct BoundingBox {
     int valid;
 };
 
-layout(std140, set = 0, binding = 1) readonly buffer ObjectData {
-    BoundingBox boundingBoxes[];
+struct BoundingData {
+    BoundingBox boundingBox;
+    uint id;
 };
 
-layout(set = 0, binding = 2) buffer VisibilityResults {
-    bool visible[];
+layout(std140, set = 0, binding = 1) readonly buffer ObjectData {
+    BoundingData data[];
+} objectData;
+
+struct VisibilityResultSet {
+    uint objId;
+    bool visible;
+};
+
+layout(std140, set = 0, binding = 2) writeonly buffer VisibilityResults {
+    VisibilityResultSet visible[];
 };
 
 layout(set = 0, binding = 3) uniform Matricies {
@@ -30,14 +40,15 @@ layout(set = 0, binding = 3) uniform Matricies {
     mat4 view;
     mat4 projectionView;
     vec3 camPos;
+    float padding_camPos;
 } matricies;
 
 layout(std140, set = 0, binding = 4) uniform RendererData {
     vec2 screenSize;
+    vec2 padding_screenSize;
 } rendererData;
 
 float getDepth(vec2 screenCoords) {
-    // Normalize before clamping
     vec2 texCoords = screenCoords / rendererData.screenSize;
     texCoords = clamp(texCoords, vec2(0.0), vec2(1.0));
     return texture(depthBuffer, texCoords).r;
@@ -49,11 +60,14 @@ float linearizeDepth(float ndcDepth, float near, float far) {
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
-    if (id >= boundingBoxes.length()) return;
+    if (id >= objectData.data.length()) return;
 
-    BoundingBox bb = boundingBoxes[id];
-    if (bb.valid == 0) {
-        visible[id] = false;
+    BoundingData bb = objectData.data[id];
+
+    visible[id].objId = bb.id;
+
+    if (bb.boundingBox.valid == 0) {
+        visible[id].visible = false;
         return;
     }
 
@@ -62,7 +76,7 @@ void main() {
 
     for (int i = 0; i < 8; i++)
     {
-        vec4 viewSpace = matricies.view * (bb.corners[i]);
+        vec4 viewSpace = matricies.view * (bb.boundingBox.corners[i]);
         vec4 clipSpace = matricies.projection * viewSpace;
         vec3 ndcSpace = clipSpace.xyz / clipSpace.w;
         screenCorners[i].x = (ndcSpace.x + 1.0) * 0.5 * rendererData.screenSize.x;
@@ -79,5 +93,5 @@ void main() {
         }
     }
 
-    visible[id] = !occluded;
+    visible[id].visible = !occluded;
 }

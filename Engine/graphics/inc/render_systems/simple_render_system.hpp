@@ -9,15 +9,15 @@ namespace Humongous
 {
 struct RenderData
 {
-    vk::CommandBuffer                                     commandBuffer;
-    std::vector<vk::DescriptorSet>                        uboSets;
-    std::vector<vk::DescriptorSet>                        sceneSets;
-    std::vector<vk::DescriptorSet>                        skyboxSets;
-    std::vector<std::pair<GameObject::id_t, GameObject*>> gameObjects;
-    n32                                                   frameIndex;
-    Camera&                                               cam;
-    const Renderer&                                       renderer;
-    const glm::vec3                                       camPos;
+    vk::CommandBuffer                                      commandBuffer;
+    std::vector<vk::DescriptorSet>                         uboSets;
+    std::vector<vk::DescriptorSet>                         sceneSets;
+    std::vector<vk::DescriptorSet>                         skyboxSets;
+    std::vector<std::pair<GameObject::id_t, GameObject*>>* gameObjects;
+    n32                                                    frameIndex;
+    Camera&                                                cam;
+    const Renderer&                                        renderer;
+    const glm::vec3                                        camPos;
 };
 
 struct ShaderSet
