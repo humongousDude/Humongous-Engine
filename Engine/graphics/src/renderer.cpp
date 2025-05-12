@@ -34,7 +34,6 @@ Renderer::~Renderer()
     for(Frame& frame: m_frames)
     {
         m_logicalDevice.GetVkDevice().destroySemaphore(frame.imageAvailableSemaphore, nullptr);
-        m_logicalDevice.GetVkDevice().destroySemaphore(frame.renderFinishedSemaphore, nullptr);
         m_logicalDevice.GetVkDevice().destroyFence(frame.inFlightFence, nullptr);
     }
 
@@ -214,7 +213,6 @@ void Renderer::InitSyncStructures()
 
     for(int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
     {
-
         if(m_logicalDevice.GetVkDevice().createFence(&fenceCreateInfo, nullptr, &m_frames[i].inFlightFence) != vk::Result::eSuccess)
         {
             HGERROR("Failed to create fence");
@@ -224,12 +222,6 @@ void Renderer::InitSyncStructures()
            vk::Result::eSuccess)
         {
             HGERROR("Failed to create image available semaphore");
-        }
-
-        if(m_logicalDevice.GetVkDevice().createSemaphore(&semaphoreCreateInfo, nullptr, &m_frames[i].renderFinishedSemaphore) !=
-           vk::Result::eSuccess)
-        {
-            HGERROR("Failed to render finished semaphore");
         }
     }
 
@@ -329,7 +321,6 @@ void Renderer::ReadyPerFrameData(std::vector<std::pair<n32, class GameObject*>>*
 
     if(!visibilityResultsBuffer || numObjectsCulledLastFrame == 0) { return; }
 
-    // Ensure the visibility results buffer is large enough
     if(visibilityResultsBuffer->GetBufferSize() < numObjectsCulledLastFrame * sizeof(VisiblityResultSet))
     {
         HGERROR("Visibility results buffer size mismatch for frame %u! Expected at least %zu bytes, buffer is %zu.", m_currentFrameIndex,
@@ -381,8 +372,7 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<std::pair<n32, class GameObje
     result = m_logicalDevice.GetVkDevice().resetFences(1, &GetCurrentFrame().inFlightFence);
     if(result != vk::Result::eSuccess) { HGINFO("Failed to reset fences: %s", vk::to_string(result).c_str()); }
 
-    result = m_logicalDevice.GetVkDevice().acquireNextImageKHR(m_swapChain->GetSwapChain(), 1000000000, GetCurrentFrame().imageAvailableSemaphore,
-                                                               VK_NULL_HANDLE, &m_currentImageIndex);
+    result = m_swapChain->AcquireNextImage(GetCurrentFrame().imageAvailableSemaphore, m_currentImageIndex);
     if(result != vk::Result::eSuccess) { HGINFO("Failed to acquire swapchain image: %s", vk::to_string(result).c_str()); }
 
     if(result == vk::Result::eErrorOutOfDateKHR)
@@ -391,7 +381,11 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<std::pair<n32, class GameObje
         return nullptr;
     }
 
-    if(result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) { HGERROR("failed to acquire swap chain image!"); }
+    if(result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
+    {
+        HGERROR("failed to acquire swap chain image!");
+        return nullptr;
+    }
 
     ReadyPerFrameData(gameobjects);
 
@@ -403,7 +397,7 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<std::pair<n32, class GameObje
 
     if(cmd.begin(&beginInfo) != vk::Result::eSuccess) { HGERROR("Failed to begin recording command buffer"); }
 
-    return static_cast<vk::CommandBuffer>(cmd);
+    return cmd;
 }
 
 void Renderer::EndFrame()
@@ -419,7 +413,7 @@ void Renderer::EndFrame()
     waitInfo.stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
 
     vk::SemaphoreSubmitInfo signalInfo{};
-    signalInfo.semaphore = GetCurrentFrame().renderFinishedSemaphore;
+    signalInfo.semaphore = m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex);
     signalInfo.stageMask = vk::PipelineStageFlagBits2::eAllGraphics;
 
     vk::SubmitInfo2 submit{};
@@ -440,7 +434,7 @@ void Renderer::EndFrame()
     presentInfo.pNext = nullptr;
     presentInfo.pSwapchains = &s;
     presentInfo.swapchainCount = 1;
-    presentInfo.pWaitSemaphores = &GetCurrentFrame().renderFinishedSemaphore;
+    presentInfo.pWaitSemaphores = &m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex);
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pImageIndices = &m_currentImageIndex;
 

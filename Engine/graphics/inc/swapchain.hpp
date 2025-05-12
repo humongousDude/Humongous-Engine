@@ -1,6 +1,5 @@
 #pragma once
 
-#include "images.hpp"
 #include "logical_device.hpp"
 #include "non_copyable.hpp"
 #include "physical_device.hpp"
@@ -23,7 +22,11 @@ public:
     vk::Format         GetSurfaceFormat() const { return m_surfaceFormat; }
     vk::PresentModeKHR GetPresentMode() const { return m_presentMode; }
 
-    vk::Result AcquireNextImage(n32* imageIndex);
+    /***
+     *  Input: imageAvailableSemaphore: the semaphore to signal when image is available
+     *  output: imageIndex: returns the swapchain image index acquired by acquireNextImageKHR
+     */
+    vk::Result AcquireNextImage(vk::Semaphore imageAvailableSemaphore, n32& imageIndex);
 
     vk::SwapchainKHR GetSwapChain() const { return m_swapChain; }
 
@@ -35,11 +38,14 @@ public:
     std::vector<vk::ImageView> GetImageViews() const { return m_imageViews; }
     std::vector<vk::Image>     GetImages() const { return m_images; }
 
-    // std::vector<AllocatedImage> GetDepthImages() const { return m_depthImages; }
+    vk::Semaphore& GetRenderFinishedSemaphoreAtIndex(const n32& index) { return m_renderFinishedSemaphore[index]; }
+
+    vk::Semaphore& GetRenderFinishedSemaphoreAtCurrentFrame() { return m_renderFinishedSemaphore[m_imageIndex]; }
 
 private:
     LogicalDevice&   m_logicalDevice;
     vk::SwapchainKHR m_swapChain;
+    n32              m_imageIndex{0};
 
     vk::Format         m_surfaceFormat;
     vk::PresentModeKHR m_presentMode;
@@ -48,7 +54,7 @@ private:
     std::vector<vk::Image>     m_images;
     std::vector<vk::ImageView> m_imageViews;
 
-    // std::vector<AllocatedImage> m_depthImages;
+    std::vector<vk::Semaphore> m_renderFinishedSemaphore;
 
     void CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, vk::SwapchainKHR* oldSwap = nullptr);
     void CreateImageViews();

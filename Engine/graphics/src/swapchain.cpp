@@ -18,6 +18,8 @@ SwapChain::~SwapChain()
 {
     for(auto imageView: m_imageViews) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), imageView, nullptr); }
 
+    for(int i = 0; i < m_images.size(); i++) { m_logicalDevice.GetVkDevice().destroySemaphore(m_renderFinishedSemaphore[i]); }
+
     vkDestroySwapchainKHR(m_logicalDevice.GetVkDevice(), m_swapChain, nullptr);
     HGINFO("Destroyed SwapChain");
 }
@@ -80,27 +82,29 @@ void SwapChain::CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, 
 
     if(m_logicalDevice.GetVkDevice().getSwapchainImagesKHR(m_swapChain, &imageCount, nullptr) != vk::Result::eSuccess)
     {
-        // throw error
+        HGFATAL("Failed to acquire swaphchain image count!");
     }
 
     m_images.resize(imageCount);
     if(m_logicalDevice.GetVkDevice().getSwapchainImagesKHR(m_swapChain, &imageCount, m_images.data()) != vk::Result::eSuccess)
     {
         // throw error
+        HGFATAL("Failed to acquire swaphchain images!");
     }
 
-    // for(auto& img: m_depthImages)
-    // {
-    //     Utils::AllocatedImageCreateInfo info{.logicalDevice = m_logicalDevice, .allocatedImage = img};
-    //     info.width = extent.width;
-    //     info.height = extent.height;
-    //     info.format = VK_FORMAT_D32_SFLOAT;
-    //     info.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
-    //
-    //     Utils::CreateAllocatedImage(info);
-    // }
-
     HGINFO("Got %d swapchain images", imageCount);
+
+    m_renderFinishedSemaphore.resize(imageCount);
+
+    vk::SemaphoreCreateInfo semaphoreCreateInfo{};
+
+    for(int i = 0; i < imageCount; i++)
+    {
+        if(m_logicalDevice.GetVkDevice().createSemaphore(&semaphoreCreateInfo, nullptr, &m_renderFinishedSemaphore[i]) != vk::Result::eSuccess)
+        {
+            HGERROR("Failed to create render finished semaphore");
+        }
+    }
 }
 
 void SwapChain::CreateImageViews()
@@ -180,4 +184,11 @@ vk::Extent2D SwapChain::ChooseExtent(const vk::SurfaceCapabilities2KHR& capabili
         return actualExtent;
     }
 }
+
+vk::Result SwapChain::AcquireNextImage(vk::Semaphore imageAvailableSemaphore, n32& imageIndex)
+{
+    auto result = m_logicalDevice.GetVkDevice().acquireNextImageKHR(m_swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+    return result;
+}
+
 } // namespace Humongous

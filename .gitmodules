@@ -25,3 +25,6 @@
 [submodule "Engine/ThirdParty/openal-soft"]
 	path = Engine/ThirdParty/openal-soft
 	url = https://github.com/kcat/openal-soft
+[submodule "Engine/ThirdParty/libsndfile"]
+	path = Engine/ThirdParty/libsndfile
+	url = https://github.com/libsndfile/libsndfile

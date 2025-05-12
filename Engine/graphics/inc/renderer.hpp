@@ -32,7 +32,6 @@ public:
     {
         vk::CommandBuffer commandBuffer;
         vk::Semaphore     imageAvailableSemaphore;
-        vk::Semaphore     renderFinishedSemaphore;
         vk::Fence         inFlightFence;
 
         std::unique_ptr<Buffer> objectDataBuffer;
