@@ -16,6 +16,7 @@ struct SkyboxCreateInfo
     DescriptorSetLayout&    descriptorSetLayout;
     DescriptorPoolGrowable& imagePool;
     DescriptorPoolGrowable& uniformPool;
+    DescriptorPoolGrowable& storageImagePool;
 };
 
 class Skybox
@@ -56,7 +57,8 @@ private:
     void LoadCubemap(const std::string& cubemapPath);
     void LoadDescriptorSet(DescriptorSetLayout& descriptorLayout, DescriptorPoolGrowable* pool);
 
-    void GeneratePBRImages(DescriptorPoolGrowable& pool);
+    void GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPoolGrowable& combinedImagePool,
+                           DescriptorPoolGrowable& storageImagePool);
     void CreatePrefilteredMipViews();
 };
 } // namespace Humongous

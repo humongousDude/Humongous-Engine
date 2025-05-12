@@ -2,6 +2,7 @@
 
 #include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool_growable.hpp"
+#include "audio_source.hpp"
 #include "logical_device.hpp"
 #include "model.hpp"
 #include "singleton.hpp"
@@ -22,6 +23,7 @@ public:
 
     static std::shared_ptr<Model>  LoadModel(const std::string& name) { return Get().Internal_LoadModel(name); };
     static std::shared_ptr<Skybox> LoadSkybox(const std::string& name) { return Get().Internal_LoadSkybox(name); }
+    static AudioSource             LoadAudioSource(const std::string& filePath) { return Get().Internal_LoadAudioSource(filePath); };
 
     static const ModelDescriptors& GetModelDescriptors() { return Get().m_modelDescriptors; }
     static const DescriptorPools&  GetDescriptorPools() { return Get().m_descriptorPools; }
@@ -48,7 +50,8 @@ private:
     {
         std::unique_ptr<DescriptorPoolGrowable> imagePool;
         std::unique_ptr<DescriptorPoolGrowable> uniformPool;
-        std::unique_ptr<DescriptorPoolGrowable> storagePool;
+        std::unique_ptr<DescriptorPoolGrowable> storageBufferPool;
+        std::unique_ptr<DescriptorPoolGrowable> storageImagePool;
         std::unique_ptr<DescriptorPoolGrowable> debugPool;
     } m_descriptorPools;
 
@@ -77,5 +80,7 @@ private:
 
     std::shared_ptr<Model>  Internal_LoadModel(const std::string& name);
     std::shared_ptr<Skybox> Internal_LoadSkybox(const std::string& name);
+
+    AudioSource Internal_LoadAudioSource(const std::string& filePath);
 };
 } // namespace Humongous

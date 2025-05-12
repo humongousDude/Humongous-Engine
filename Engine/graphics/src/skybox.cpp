@@ -13,7 +13,7 @@ Skybox::Skybox(const SkyboxCreateInfo& createInfo) : m_logicalDevice{createInfo.
 {
     LoadCube();
     LoadCubemap(createInfo.cubemapPath);
-    GeneratePBRImages(createInfo.uniformPool);
+    GeneratePBRImages(createInfo.uniformPool, createInfo.imagePool, createInfo.storageImagePool);
     LoadDescriptorSet(createInfo.descriptorSetLayout, &createInfo.imagePool);
 }
 
@@ -194,7 +194,8 @@ void Skybox::CreatePrefilteredMipViews()
     }
 }
 
-void Skybox::GeneratePBRImages(DescriptorPoolGrowable& pool)
+void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPoolGrowable& combinedImagePool,
+                               DescriptorPoolGrowable& storageImagePool)
 {
     // Prep work
     m_irradiance =
@@ -324,9 +325,9 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& pool)
     auto irradianceInfo = m_irradiance->GetDescriptorInfo();
     auto brdflutInfo = m_brdflut->GetDescriptorInfo();
 
-    DescriptorWriter(*envLayout, &pool).WriteImage(0, &imgInfo).Build(envSet);
-    DescriptorWriter(*irradLayout, &pool).WriteImage(0, &irradianceInfo).Build(irradSet);
-    DescriptorWriter(*brdfLayout, &pool).WriteImage(0, &brdflutInfo).Build(brdfSet);
+    DescriptorWriter(*envLayout, &combinedImagePool).WriteImage(0, &imgInfo).Build(envSet);
+    DescriptorWriter(*irradLayout, &storageImagePool).WriteImage(0, &irradianceInfo).Build(irradSet);
+    DescriptorWriter(*brdfLayout, &storageImagePool).WriteImage(0, &brdflutInfo).Build(brdfSet);
 
     const n32 LOCAL_SIZE_X = 16;
     const n32 LOCAL_SIZE_Y = 16;
@@ -401,7 +402,7 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& pool)
             info.imageView = m_prefilteredMipViews[mipLevel];
 
             vk::DescriptorSet s;
-            DescriptorWriter(*prefilteredLayout, &pool).WriteImage(0, &info).Build(s);
+            DescriptorWriter(*prefilteredLayout, &storageImagePool).WriteImage(0, &info).Build(s);
 
             prefilteredSets[1] = s;
             cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, prefiltPipelineLayout, 0, 2, prefilteredSets.data(), 0, nullptr);

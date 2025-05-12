@@ -1,7 +1,9 @@
 #include "resource_manager.hpp"
 #include "asset_manager.hpp"
+#include "audio_source.hpp"
 #include "logger.hpp"
 #include "skybox.hpp"
+#include <AL/al.h>
 
 namespace Humongous
 {
@@ -26,7 +28,8 @@ void ResourceManager::Internal_Shutdown()
 
     m_descriptorPools.imagePool.reset();
     m_descriptorPools.uniformPool.reset();
-    m_descriptorPools.storagePool.reset();
+    m_descriptorPools.storageBufferPool.reset();
+    m_descriptorPools.storageImagePool.reset();
     m_descriptorPools.debugPool.reset();
 
     m_skyboxLayout.reset();
@@ -39,13 +42,16 @@ void ResourceManager::InitDescriptors()
     std::vector<vk::DescriptorType> t1 = {vk::DescriptorType::eCombinedImageSampler};
     std::vector<vk::DescriptorType> t2 = {vk::DescriptorType::eUniformBuffer};
     std::vector<vk::DescriptorType> t3 = {vk::DescriptorType::eStorageBuffer};
+    std::vector<vk::DescriptorType> t4 = {vk::DescriptorType::eStorageImage};
 
     m_descriptorPools.imagePool =
         std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t1);
     m_descriptorPools.uniformPool =
         std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t2);
-    m_descriptorPools.storagePool =
+    m_descriptorPools.storageBufferPool =
         std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t3);
+    m_descriptorPools.storageImagePool =
+        std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t4);
     m_descriptorPools.debugPool =
         std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t3);
 
@@ -85,16 +91,26 @@ std::shared_ptr<Model> ResourceManager::Internal_LoadModel(const std::string& na
 {
     auto m = std::make_shared<Model>(m_logicalDevice, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, name), 1.0f);
     m->Init(m_modelDescriptors.materialLayout.get(), m_modelDescriptors.nodeLayout.get(), m_modelDescriptors.materialDataLayout.get(),
-            m_descriptorPools.imagePool.get(), m_descriptorPools.uniformPool.get(), m_descriptorPools.storagePool.get());
+            m_descriptorPools.imagePool.get(), m_descriptorPools.uniformPool.get(), m_descriptorPools.storageBufferPool.get());
     return m;
 }
 
 std::shared_ptr<Skybox> ResourceManager::Internal_LoadSkybox(const std::string& name)
 {
-    SkyboxCreateInfo info{m_logicalDevice, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::TEXTURE, name), *m_skyboxLayout,
-                          *m_descriptorPools.imagePool, *m_descriptorPools.uniformPool};
+    SkyboxCreateInfo info{.logicalDevice = m_logicalDevice,
+                          .cubemapPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::TEXTURE, name),
+                          .descriptorSetLayout = *m_skyboxLayout,
+                          .imagePool = *m_descriptorPools.imagePool,
+                          .uniformPool = *m_descriptorPools.uniformPool,
+                          .storageImagePool = *m_descriptorPools.storageImagePool};
     auto             s = std::make_shared<Skybox>(info);
     return s;
 }
+
+AudioSource ResourceManager::Internal_LoadAudioSource(const std::string& filePath)
+{
+    AudioSource s(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, filePath));
+    return s;
+};
 
 } // namespace Humongous
