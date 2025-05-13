@@ -721,13 +721,13 @@ void Model::Draw(vk::CommandBuffer cmd, vk::PipelineLayout& pipelineLayout)
 
     auto              bufInfo = m_nodeIDBuffer.DescriptorInfo();
     vk::DescriptorSet nodeIdSet;
-    DescriptorWriter(*ResourceManager::GetModelDescriptors().nodeIdLayout, ResourceManager::GetDescriptorPools().storagePool.get())
+    DescriptorWriter(*ResourceManager::GetModelDescriptors().nodeIdLayout, ResourceManager::GetDescriptorPools().storageBufferPool.get())
         .WriteBuffer(0, &bufInfo)
         .Build(nodeIdSet);
 
     vk::DescriptorSet nodeMatrixSet;
     bufInfo = m_nodeMatrixBuffer.DescriptorInfo();
-    DescriptorWriter(*ResourceManager::GetModelDescriptors().nodeLayout, ResourceManager::GetDescriptorPools().storagePool.get())
+    DescriptorWriter(*ResourceManager::GetModelDescriptors().nodeLayout, ResourceManager::GetDescriptorPools().storageBufferPool.get())
         .WriteBuffer(0, &bufInfo)
         .Build(nodeMatrixSet);
 

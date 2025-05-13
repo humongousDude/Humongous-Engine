@@ -25,12 +25,23 @@ PhysicalDevice::~PhysicalDevice()
 void PhysicalDevice::PickPhysicalDevice()
 {
     HGINFO("looking for a physical device...");
-    n32 deviceCount = 0;
-    m_instance.GetVkInstance().enumeratePhysicalDevices(&deviceCount, nullptr);
+    n32        deviceCount = 0;
+    vk::Result result;
+    result = m_instance.GetVkInstance().enumeratePhysicalDevices(&deviceCount, nullptr);
+    if(result != vk::Result::eSuccess)
+    {
+        HGFATAL("Failed to get number of physical devices! Error: %s", string_VkResult(static_cast<VkResult>(result)));
+    }
+
     if(deviceCount == 0) { HGFATAL("Failed to find GPUs with Vulkan support!"); }
     HGINFO("found %d devices", deviceCount);
     std::vector<vk::PhysicalDevice> devices(deviceCount);
-    m_instance.GetVkInstance().enumeratePhysicalDevices(&deviceCount, devices.data());
+    result = m_instance.GetVkInstance().enumeratePhysicalDevices(&deviceCount, devices.data());
+
+    if(result != vk::Result::eSuccess)
+    {
+        HGFATAL("Failed to enumerate physical devices! Error: %s", string_VkResult(static_cast<VkResult>(result)));
+    }
 
     for(const auto& device: devices)
     {

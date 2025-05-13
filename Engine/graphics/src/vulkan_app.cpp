@@ -1,5 +1,6 @@
 #include "vulkan_app.hpp"
 #include "allocator.hpp"
+#include "audio_engine.hpp"
 #include "camera.hpp"
 #include "extra.hpp"
 #include "gameobject.hpp"
@@ -21,6 +22,8 @@ VulkanApp::VulkanApp(const int argc, char* argv[])
 {
     Init(argc, argv);
     LoadGameObjects();
+
+    m_audioSource = ResourceManager::LoadAudioSource("song");
 }
 
 VulkanApp::~VulkanApp()
@@ -56,6 +59,8 @@ void VulkanApp::Init(const int argc, char* argv[])
 
     UI::Init(m_instance.get(), m_logicalDevice.get(), m_window.get());
 
+    AudioEngine::Init();
+
     m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator(),
                                             vk::Format::eR16G16B16A16Sfloat, vk::Format::eD32Sfloat);
 
@@ -81,6 +86,7 @@ void VulkanApp::Init(const int argc, char* argv[])
         UI::Shutdown();
         ResourceManager::Shutdown();
         Allocator::Shutdown();
+        AudioEngine::Shutdown();
         m_logicalDevice.reset();
         m_physicalDevice.reset();
         m_window.reset();
@@ -157,7 +163,7 @@ void VulkanApp::LoadGameObjects()
     HGINFO("Loaded game objects");
 }
 
-void VulkanApp::HandleInput(const float frameTime, SDL_Event* event) const
+void VulkanApp::HandleInput(const float frameTime, SDL_Event* event)
 {
     float deltaX = 0.0f, deltaY = 0.0f;
     auto  movementType = KeyboardHandler::Movements::NONE;
@@ -202,6 +208,7 @@ void VulkanApp::HandleInput(const float frameTime, SDL_Event* event) const
         if(movementType == KeyboardHandler::Movements::DOWN) { movementType = KeyboardHandler::Movements::NONE; }
         else { movementType = KeyboardHandler::Movements::UP; }
     }
+    if(keyboardState[SDL_SCANCODE_P]) { AudioEngine::PlaySound(m_audioSource); }
 
     const KeyboardHandler::InputData data{frameTime, movementType, deltaX, deltaY, *m_cam};
 

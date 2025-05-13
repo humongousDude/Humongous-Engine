@@ -11,6 +11,8 @@ Development is currently being done on Arch Linux, compiled with GCC. I don't ha
 * [TinyGLTF](https://github.com/syoyo/tinygltf)
 * [GLI](https://github.com/g-truc/gli)
 * [Spdlog](https://github.com/gabime/spdlog)
+* [OpenAL](https://github.com/kcat/openal-soft)
+* [libsndfile](https://github.com/libsndfile/libsndfile)
 
 
 ## Building

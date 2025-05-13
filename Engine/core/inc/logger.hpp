@@ -55,3 +55,22 @@ void LogOutput(LogLevel level, const char* message, ...);
 #else
 #define HGTRACE(message, ...)
 #endif
+
+// Basic error checking macro for OpenAL calls
+#ifndef AL_CHECK
+#define AL_CHECK(expr)                                                                                                                             \
+    do {                                                                                                                                           \
+        expr;                                                                                                                                      \
+        ALenum error = alGetError();                                                                                                               \
+        if(error != AL_NO_ERROR) { HGERROR("OpenAL Error: %s AT %s : %i", alGetString(error), __FILE__, __LINE__); }                               \
+    } while(false)
+#endif
+
+#ifndef ALC_CHECK
+#define ALC_CHECK(device, expr)                                                                                                                    \
+    do {                                                                                                                                           \
+        expr;                                                                                                                                      \
+        ALCenum error = alcGetError(device);                                                                                                       \
+        if(error != ALC_NO_ERROR) { HGERROR("OpenALC Error: %s AT %s : %i", alGetString(error), __FILE__, __LINE__); }                             \
+    } while(false)
+#endif

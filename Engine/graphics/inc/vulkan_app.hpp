@@ -1,15 +1,15 @@
 #pragma once
 
+#include "audio_source.hpp"
+#include "deque"
+#include "functional"
+#include "instance.hpp"
+#include "logical_device.hpp"
+#include "memory"
+#include "physical_device.hpp"
 #include "render_systems/simple_render_system.hpp"
 #include "render_systems/skybox_render_system.hpp"
 #include "window.hpp"
-#include <deque>
-#include <functional>
-#include <instance.hpp>
-#include <logical_device.hpp>
-#include <memory>
-#include <physical_device.hpp>
-#include <swapchain.hpp>
 
 namespace Humongous
 {
@@ -35,8 +35,8 @@ public:
     void Run();
 
 private:
-    DeletionQueue m_mainDeletionQueue;
-
+    DeletionQueue                       m_mainDeletionQueue;
+    AudioSource                         m_audioSource;
     std::unique_ptr<Instance>           m_instance;
     std::unique_ptr<Window>             m_window;
     std::unique_ptr<PhysicalDevice>     m_physicalDevice;
@@ -52,6 +52,6 @@ private:
     void Init(int argc, char* argv[]);
     void LoadGameObjects();
 
-    void HandleInput(float frameTime, SDL_Event* event) const;
+    void HandleInput(float frameTime, SDL_Event* event);
 };
 } // namespace Humongous

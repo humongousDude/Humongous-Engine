@@ -107,9 +107,9 @@ std::shared_ptr<Skybox> ResourceManager::Internal_LoadSkybox(const std::string& 
     return s;
 }
 
-AudioSource ResourceManager::Internal_LoadAudioSource(const std::string& filePath)
+AudioSource ResourceManager::Internal_LoadAudioSource(const std::string& name)
 {
-    AudioSource s(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, filePath));
+    AudioSource s(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, name));
     return s;
 };
 

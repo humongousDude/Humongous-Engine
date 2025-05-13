@@ -1,9 +1,9 @@
-#include "SDL3/SDL.h"
+#include "instance.hpp"
 #include "SDL3/SDL_vulkan.h"
-#include <instance.hpp>
-#include <logger.hpp>
-#include <vector>
-#include <vulkan/vk_enum_string_helper.h>
+#include "logger.hpp"
+#include "vector"
+#include "vulkan/vk_enum_string_helper.h"
+#include "vulkan/vulkan_core.h"
 
 namespace Humongous
 {
@@ -65,8 +65,7 @@ Instance::~Instance()
 
 void Instance::InitInstance()
 {
-
-    if(ENABLE_VALIDATION_LAYERS && !CheckValidationLayerSupport()) { HGERROR("Validation layers requested, but not available!"); }
+    if(ENABLE_VALIDATION_LAYERS && !CheckValidationLayerSupport()) { HGFATAL("Validation layers requested, but not available!"); }
 
     HGINFO("Initializing Vulkan Instance!");
 
@@ -76,7 +75,7 @@ void Instance::InitInstance()
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.pEngineName = "Humongous";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_3;
+    appInfo.apiVersion = VK_API_VERSION_1_4;
 
     vk::InstanceCreateInfo createInfo{};
     createInfo.sType = vk::StructureType::eInstanceCreateInfo;
@@ -124,9 +123,9 @@ void Instance::InitInstance()
 bool Instance::CheckValidationLayerSupport()
 {
     n32 layerCount;
-    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-    std::vector<VkLayerProperties> availableLayers(layerCount);
-    vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+    vk::enumerateInstanceLayerProperties(&layerCount, nullptr);
+    std::vector<vk::LayerProperties> availableLayers(layerCount);
+    vk::enumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
     for(const char* layerName: m_validationLayers)
     {

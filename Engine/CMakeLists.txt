@@ -11,7 +11,7 @@ cmake_path(GET cur_path PARENT_PATH CMAKE_PARENT_LIST_DIR)
 add_compile_definitions(HGASSERTIONS_ENABLED)
 add_definitions(-DHGASSETDIRPATH="${CMAKE_PARENT_LIST_DIR}/Assets/")
 
-file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS core/*.cpp gameplay/*.cpp graphics/*.cpp systems/*.cpp utils/*.cpp)
+file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS core/*.cpp gameplay/*.cpp graphics/*.cpp systems/*.cpp utils/*.cpp audio/*.cpp)
 
 add_subdirectory(ThirdParty/SDL EXCLUDE_FROM_ALL)
 add_subdirectory(ThirdParty/gli EXCLUDE_FROM_ALL)
@@ -20,6 +20,7 @@ add_subdirectory(ThirdParty/spdlog EXCLUDE_FROM_ALL)
 add_subdirectory(ThirdParty/VulkanMemoryAllocator EXCLUDE_FROM_ALL)
 add_subdirectory(ThirdParty/tinygltf EXCLUDE_FROM_ALL)
 add_subdirectory(ThirdParty/openal-soft EXCLUDE_FROM_ALL)
+add_subdirectory(ThirdParty/libsndfile EXCLUDE_FROM_ALL)
 
 # There has got to be a better way to do this
 
@@ -37,6 +38,7 @@ target_include_directories(
            graphics/inc
            utils/inc
            systems/inc
+           audio/inc
            ThirdParty/imgui/
            ThirdParty/imgui/backends/
            ThirdParty/SDL/include/SDL3/
@@ -48,6 +50,7 @@ target_include_directories(
            ThirdParty/glm/glm/simd/
            ThirdParty/glm/glm/detail/
            ThirdParty/openal-soft/include/AL/
+           ThirdParty/libsndfile/include/
            ThirdParty/spdlog/include/spdlog/
            ThirdParty/spdlog/include/spdlog/cfg/
            ThirdParty/spdlog/include/spdlog/fmt/
@@ -60,7 +63,7 @@ target_include_directories(
 
 find_package(Vulkan)
 
-target_link_libraries(Engine PUBLIC SDL3::SDL3 glm::glm gli spdlog::spdlog Vulkan::Vulkan Vulkan::Headers GPUOpen::VulkanMemoryAllocator)
+target_link_libraries(Engine PUBLIC SDL3::SDL3 glm::glm gli spdlog::spdlog Vulkan::Vulkan Vulkan::Headers GPUOpen::VulkanMemoryAllocator OpenAL::OpenAL SndFile::sndfile)
 # target_include_directories(Engine PUBLIC ThirdParty/tinygltf/)
 
 
