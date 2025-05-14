@@ -1,5 +1,4 @@
 #include "audio_engine.hpp"
-#include "audio_source.hpp"
 #include "logger.hpp"
 
 namespace Humongous
@@ -20,7 +19,7 @@ bool AudioEngine::Internal_Init()
     //     // You might need to set attributes for HRTF here
     // }
 
-    m_context = alcCreateContext(m_device, nullptr); // Default attributes
+    m_context = alcCreateContext(m_device, nullptr);
     if(!m_context)
     {
         HGERROR("Failed to create OpenAL m_context.");
@@ -38,7 +37,7 @@ bool AudioEngine::Internal_Init()
         m_device = nullptr;
         return false;
     }
-    ALC_CHECK(m_device, ); // Clear any old errors from alcMakeContextCurrent
+    ALC_CHECK(m_device, );
 
     HGINFO("OpenAL m_context created and made current.");
     HGINFO("OpenAL Vendor: %s", static_cast<const char*>(alGetString(AL_VENDOR)));
@@ -68,12 +67,6 @@ void AudioEngine::Internal_Shutdown()
         m_device = nullptr;
         HGINFO("OpenAL device closed.");
     }
-}
-
-void AudioEngine::Internal_PlaySound(AudioSource& audioSource)
-{
-    std::jthread audioThread(AudioSource::Play, std::ref(audioSource), false);
-    audioThread.detach();
 }
 
 } // namespace Humongous

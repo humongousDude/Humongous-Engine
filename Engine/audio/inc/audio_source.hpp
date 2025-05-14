@@ -12,8 +12,8 @@ public:
     AudioSource() {};
     ~AudioSource() {};
 
-    static void Play(AudioSource& src, const bool& loop = false);
-    void        Load(const std::string& filePath);
+    void Play(const bool& loop = false);
+    void Load(const std::string& filePath);
 
 private:
     static constexpr ALuint INVALID_BUFFER = 9999;

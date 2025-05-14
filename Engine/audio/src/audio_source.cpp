@@ -6,12 +6,20 @@
 #include <vector>
 namespace Humongous
 {
-void AudioSource::Play(AudioSource& src, const bool& loop)
+void AudioSource::Play(const bool& loop)
 {
-    if(src.m_playing) { return; }
-    if(src.m_sourceID == INVALID_BUFFER) { AL_CHECK(alGenSources(1, &src.m_sourceID)); }
+    if(m_sourceID == INVALID_BUFFER) { AL_CHECK(alGenSources(1, &m_sourceID)); }
+
+    ALint state;
+    alGetSourcei(m_sourceID, AL_SOURCE_STATE, &state);
+    if(state == AL_PLAYING) { m_playing = true; }
+    alGetSourcei(m_sourceID, AL_SOURCE_STATE, &state);
+    if(state == AL_STOPPED || state == AL_PAUSED) { m_playing = false; }
+
+    if(m_playing) { return; }
+
     ALenum error = alGetError(); // Check error more directly after alGenSources
-    if(error != AL_NO_ERROR || src.m_sourceID == 0)
+    if(error != AL_NO_ERROR || m_sourceID == 0)
     {
         HGERROR("PlaySound: Failed to generate OpenAL source. AL Error: %s (0x%x)", alGetString(error), error);
         return;
@@ -20,43 +28,33 @@ void AudioSource::Play(AudioSource& src, const bool& loop)
     n32 gain = 1;
 
     // Set basic source properties
-    AL_CHECK(alSourcef(src.m_sourceID, AL_PITCH, 1.0f));
-    AL_CHECK(alSourcef(src.m_sourceID, AL_GAIN, gain));
-    AL_CHECK(alSource3f(src.m_sourceID, AL_POSITION, 0.0f, 0.0f, 0.0f)); // At origin
-    AL_CHECK(alSource3f(src.m_sourceID, AL_VELOCITY, 0.0f, 0.0f, 0.0f));
-    AL_CHECK(alSourcei(src.m_sourceID, AL_LOOPING, loop ? AL_TRUE : AL_FALSE));
+    AL_CHECK(alSourcef(m_sourceID, AL_PITCH, 1.0f));
+    AL_CHECK(alSourcef(m_sourceID, AL_GAIN, gain));
+    AL_CHECK(alSource3f(m_sourceID, AL_POSITION, 0.0f, 0.0f, 0.0f)); // At origin
+    AL_CHECK(alSource3f(m_sourceID, AL_VELOCITY, 0.0f, 0.0f, 0.0f));
+    AL_CHECK(alSourcei(m_sourceID, AL_LOOPING, loop ? AL_TRUE : AL_FALSE));
 
     // Attach the buffer with the sound data to the source
-    AL_CHECK(alSourcei(src.m_sourceID, AL_BUFFER, src.m_alBuffer));
+    AL_CHECK(alSourcei(m_sourceID, AL_BUFFER, m_alBuffer));
     error = alGetError();
     if(error != AL_NO_ERROR)
     {
-        HGERROR("PlaySound: Failed to attach buffer %u to source %u. AL Error: %s (0x%x)", src.m_alBuffer, src.m_sourceID, alGetString(error),
-                error);
-        AL_CHECK(alDeleteSources(1, &src.m_sourceID)); // Clean up the generated source
+        HGERROR("PlaySound: Failed to attach buffer %u to source %u. AL Error: %s (0x%x)", m_alBuffer, m_sourceID, alGetString(error), error);
+        AL_CHECK(alDeleteSources(1, &m_sourceID)); // Clean up the generated source
         return;
     }
 
     // Play the source
-    AL_CHECK(alSourcePlay(src.m_sourceID));
+    AL_CHECK(alSourcePlay(m_sourceID));
     error = alGetError();
     if(error != AL_NO_ERROR)
     {
-        HGERROR("PlaySound: Failed to play source %u. AL Error: %s (0x%x)", src.m_sourceID, alGetString(error), error);
+        HGERROR("PlaySound: Failed to play source %u. AL Error: %s (0x%x)", m_sourceID, alGetString(error), error);
         // Source might still be valid but in an error state or failed to start.
-        // Depending on the error, we might still return the src.m_sourceID or clean it up.
+        // Depending on the error, we might still return the m_sourceID or clean it up.
         // For robustness, if play fails, we could consider the attempt failed.
-        AL_CHECK(alDeleteSources(1, &src.m_sourceID));
+        AL_CHECK(alDeleteSources(1, &m_sourceID));
         return;
-    }
-
-    ALint state;
-    alGetSourcei(src.m_sourceID, AL_SOURCE_STATE, &state);
-    if(state == AL_PLAYING || state == AL_INITIAL) { src.m_playing = true; }
-    while(src.m_playing)
-    {
-        alGetSourcei(src.m_sourceID, AL_SOURCE_STATE, &state);
-        if(state == AL_STOPPED) { src.m_playing = false; }
     }
 }
 
