@@ -80,7 +80,7 @@ void main() {
         vec4 clipSpace = matricies.projection * viewSpace;
         vec3 ndcSpace = clipSpace.xyz / clipSpace.w;
         screenCorners[i].x = (ndcSpace.x + 1.0) * 0.5 * rendererData.screenSize.x;
-        screenCorners[i].y = (1.0 - ndcSpace.y) * 0.5 * rendererData.screenSize.y;
+        screenCorners[i].y = (ndcSpace.y + 1.0) * 0.5 * rendererData.screenSize.y;
         screenCorners[i].z = ndcSpace.z;
 
         vec2 cornerScreenPos = screenCorners[i].xy;
