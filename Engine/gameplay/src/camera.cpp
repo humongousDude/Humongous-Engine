@@ -125,11 +125,15 @@ void Camera::SetPerspectiveProjection(float fovy, float aspect, float near, floa
 void Camera::UpdateViewMatrix()
 {
     glm::vec3 forwardDir = glm::vec3(0.0f, 0.0f, -1.0f);
+    glm::vec3 upDir = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::mat4 cameraRotationMatrix = glm::mat4(1.0f);
     cameraRotationMatrix = glm::rotate(cameraRotationMatrix, m_rotation.y, glm::vec3(0.0f, 1.0f, 0.0f)); // Yaw
     cameraRotationMatrix = glm::rotate(cameraRotationMatrix, m_rotation.x, glm::vec3(1.0f, 0.0f, 0.0f)); // Pitch
     cameraRotationMatrix = glm::rotate(cameraRotationMatrix, m_rotation.z, glm::vec3(0.0f, 0.0f, 1.0f)); // Roll
     forwardDir = glm::normalize(glm::vec3(cameraRotationMatrix * glm::vec4(forwardDir, 0.0f)));
+
+    m_forward = forwardDir;
+    m_up = glm ::normalize(glm::vec3(cameraRotationMatrix * glm::vec4(upDir, 0.0f)));
 
     glm::vec3 target = m_position + forwardDir;
 

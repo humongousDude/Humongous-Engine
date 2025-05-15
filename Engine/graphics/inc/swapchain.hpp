@@ -13,7 +13,7 @@ namespace Humongous
 class SwapChain : NonCopyable
 {
 public:
-    static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+    static constexpr int MAX_FRAMES_IN_FLIGHT = 3;
 
     SwapChain(Window& window, PhysicalDevice& physicalDevice, LogicalDevice& logicalDevice, std::shared_ptr<SwapChain> oldSwap = nullptr);
     ~SwapChain();

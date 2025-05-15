@@ -1,5 +1,8 @@
+#define VMA_IMPLEMENTATION
+
 #include "vulkan_app.hpp"
 #include "allocator.hpp"
+#include "asset_manager.hpp"
 #include "audio_engine.hpp"
 #include "camera.hpp"
 #include "extra.hpp"
@@ -10,11 +13,8 @@
 #include "keyboard_handler.hpp"
 #include "logger.hpp"
 #include "resource_manager.hpp"
-#define VMA_IMPLEMENTATION
-#include "asset_manager.hpp"
-#include "vk_mem_alloc.h"
-
 #include "ui/ui.hpp"
+#include "vk_mem_alloc.h"
 
 namespace Humongous
 {
@@ -85,8 +85,8 @@ void VulkanApp::Init(const int argc, char* argv[])
         m_cam.reset();
         UI::Shutdown();
         ResourceManager::Shutdown();
-        Allocator::Shutdown();
         AudioEngine::Shutdown();
+        Allocator::Shutdown();
         m_logicalDevice.reset();
         m_physicalDevice.reset();
         m_window.reset();
@@ -208,7 +208,7 @@ void VulkanApp::HandleInput(const float frameTime, SDL_Event* event)
         if(movementType == KeyboardHandler::Movements::DOWN) { movementType = KeyboardHandler::Movements::NONE; }
         else { movementType = KeyboardHandler::Movements::UP; }
     }
-    if(keyboardState[SDL_SCANCODE_P]) { AudioEngine::PlaySound(m_audioSource); }
+    if(keyboardState[SDL_SCANCODE_P]) { m_audioSource.Play(); }
 
     const KeyboardHandler::InputData data{frameTime, movementType, deltaX, deltaY, *m_cam};
 
@@ -311,6 +311,7 @@ void VulkanApp::Run()
         {
             for(auto& [k, v]: m_gameObjects) { v.Update(); }
             m_cam->Update();
+            AudioEngine::UpdateListener(m_cam->GetPosition(), {0, 0, 0}, m_cam->GetForward(), m_cam->GetUp());
 
             auto sortedAndCulledObjs = Utils::SortAndCullGameObjects(*m_cam, m_gameObjects);
             auto sortedObjs = sortedAndCulledObjs;
@@ -327,11 +328,14 @@ void VulkanApp::Run()
                                 .renderer = *m_renderer,
                                 .camPos = m_cam->GetPosition()};
 
+                data.gameObjects = &sortedObjs;
                 m_renderer->BeginDepthPrePass(cmd);
 
                 m_simpleRenderSystem->RenderObjects(data, true);
 
                 m_renderer->EndDepthPrePass(cmd);
+
+                data.gameObjects = &sortedAndCulledObjs;
 
                 m_renderer->DoGPUOcclusionCulling(cmd, &sortedObjs, *m_cam);
 

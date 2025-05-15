@@ -14,10 +14,7 @@ bool AudioEngine::Internal_Init()
 
     HGINFO("Opened OpenAL device: %s", static_cast<const char*>(alcGetString(m_device, ALC_DEVICE_SPECIFIER)));
 
-    // if (alcIsExtensionPresent(m_device, "ALC_SOFT_HRTF")) {
-    //     std::cout << "HRTF extension is available." << std::endl;
-    //     // You might need to set attributes for HRTF here
-    // }
+    if(alcIsExtensionPresent(m_device, "ALC_SOFT_HRTF")) { HGINFO("HRTF extension available!"); }
 
     m_context = alcCreateContext(m_device, nullptr);
     if(!m_context)
@@ -44,7 +41,7 @@ bool AudioEngine::Internal_Init()
     HGINFO("OpenAL Version: %s", static_cast<const char*>(alGetString(AL_VERSION)));
     HGINFO("OpenAL Renderer: %s", static_cast<const char*>(alGetString(AL_RENDERER)));
 
-    AL_CHECK(alListener3f(AL_POSITION, 0.0f, 0.0f, 0.0f));
+    AL_CHECK(alListener3f(AL_POSITION, 5.0f, 4.0f, 0.0f));
     AL_CHECK(alListener3f(AL_VELOCITY, 0.0f, 0.0f, 0.0f));
     float listenerOrientation[] = {0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f};
     AL_CHECK(alListenerfv(AL_ORIENTATION, listenerOrientation));
@@ -67,6 +64,15 @@ void AudioEngine::Internal_Shutdown()
         m_device = nullptr;
         HGINFO("OpenAL device closed.");
     }
+}
+
+void AudioEngine::Internal_UpdateListener(const glm::vec3& position, const glm::vec3& velocity, const glm::vec3& forward, const glm::vec3& up)
+{
+    AL_CHECK(alListener3f(AL_POSITION, position.x, position.y, position.z));
+    AL_CHECK(alListener3f(AL_VELOCITY, velocity.x, velocity.y, velocity.z));
+
+    float orient[6] = {forward.x, forward.y, forward.z, up.x, up.y, up.z};
+    AL_CHECK(alListenerfv(AL_ORIENTATION, orient));
 }
 
 } // namespace Humongous

@@ -88,6 +88,9 @@ public:
     glm::vec3 GetPosition() const { return m_position; }
     glm::vec3 GetRotation() const { return m_rotation; }
 
+    glm::vec3 GetForward() const { return m_forward; }
+    glm::vec3 GetUp() const { return m_up; }
+
 private:
     n32 m_index{0};
 
@@ -107,6 +110,8 @@ private:
     glm::mat4 m_viewMatrix{1.0f};
     glm::vec3 m_position;
     glm::vec3 m_rotation; // Store rotation as Euler angles (YXZ order - Yaw, Pitch, Roll) in radians
+    glm::vec3 m_forward;
+    glm::vec3 m_up;
 
     void InitDescriptorThings(LogicalDevice* logicalDevice);
 
