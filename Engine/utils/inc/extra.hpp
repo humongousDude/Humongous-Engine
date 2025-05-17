@@ -1,12 +1,13 @@
 #pragma once
-#include "gameobject.hpp"
+
+#include "camera.hpp"
+#include "model.hpp"
+#include "world.hpp"
 
 #include <functional>
-#include <model.hpp>
 #include <string>
 #include <vector>
 
-#include "gameobject.hpp"
 #include <algorithm>
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/hash.hpp"
@@ -18,7 +19,17 @@ namespace Utils
 
 std::vector<char> ReadFile(const std::string& filePath);
 
-std::vector<std::pair<GameObject::id_t, GameObject*>> SortAndCullGameObjects(Camera& camera, GameObject::Map& unsortedObjects);
+// old way, entities were called gameobjects
+// Structure to hold information about entities that are visible
+struct VisibleEntityInfo
+{
+    Humongous::EntityID id;               // The ID of the entity
+    float               distanceToCamera; // For sorting
+    // You could add pointers to components here if you need them immediately after sorting
+    // and want to avoid another lookup, but usually, the ID is sufficient.
+};
+
+std::vector<VisibleEntityInfo> SortAndCullEntities(Camera& camera, World& world);
 
 template <typename T, typename... Rest> void HashCombine(std::size_t& seed, const T& v, const Rest&... rest)
 {

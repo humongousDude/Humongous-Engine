@@ -1,10 +1,8 @@
 #pragma once
 
 #include "abstractions/buffer.hpp"
-
-#include <abstractions/descriptor_layout.hpp>
-#include <abstractions/descriptor_pool.hpp>
-#include <abstractions/descriptor_writer.hpp>
+#include "abstractions/descriptor_layout.hpp"
+#include "abstractions/descriptor_pool.hpp"
 
 #include <array>
 #include <memory>

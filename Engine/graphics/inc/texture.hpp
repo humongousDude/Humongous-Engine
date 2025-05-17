@@ -1,9 +1,8 @@
 #pragma once
 
+#include "images.hpp"
 #include "logical_device.hpp"
-#include <abstractions/buffer.hpp>
 #include <gli.hpp>
-#include <renderer.hpp>
 #include <string>
 
 namespace tinygltf

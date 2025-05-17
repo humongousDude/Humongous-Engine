@@ -9,6 +9,7 @@
 #include "physical_device.hpp"
 #include "render_systems/simple_render_system.hpp"
 #include "render_systems/skybox_render_system.hpp"
+#include "renderer.hpp"
 #include "window.hpp"
 
 namespace Humongous
@@ -46,8 +47,6 @@ private:
     std::unique_ptr<SimpleRenderSystem> m_simpleRenderSystem;
     std::unique_ptr<SkyboxRenderSystem> m_skyboxRenderSystem;
     std::unique_ptr<Camera>             m_cam;
-
-    GameObject::Map m_gameObjects;
 
     void Init(int argc, char* argv[]);
     void LoadGameObjects();

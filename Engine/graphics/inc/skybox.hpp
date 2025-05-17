@@ -1,5 +1,6 @@
 #pragma once
 
+#include "abstractions/buffer.hpp"
 #include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool_growable.hpp"
 #include "logical_device.hpp"

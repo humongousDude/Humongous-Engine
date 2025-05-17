@@ -1,11 +1,11 @@
+#include "renderer.hpp"
 #include "abstractions/descriptor_writer.hpp"
 #include "asset_manager.hpp"
 #include "extra.hpp"
-#include "gameobject.hpp"
 #include "images.hpp"
 #include "logger.hpp"
+#include "scene_handler.hpp"
 #include <array>
-#include <renderer.hpp>
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_enums.hpp>
@@ -314,8 +314,10 @@ void Renderer::CreateComputePipeline()
     vkDestroyShaderModule(m_logicalDevice.GetVkDevice(), compModule, nullptr);
 }
 
-void Renderer::ReadyPerFrameData(std::vector<std::pair<n32, class GameObject*>>* gameObjects)
+void Renderer::ReadyPerFrameData(std::vector<Utils::VisibleEntityInfo>& visibleEntities)
 {
+    auto world = SceneHandler::GetWorld();
+
     auto&    visibilityResultsBuffer = GetCurrentFrame().visibilityResults;
     uint32_t numObjectsCulledLastFrame = GetCurrentFrame().numObjectsDispatched;
 
@@ -323,48 +325,49 @@ void Renderer::ReadyPerFrameData(std::vector<std::pair<n32, class GameObject*>>*
 
     if(visibilityResultsBuffer->GetBufferSize() < numObjectsCulledLastFrame * sizeof(VisiblityResultSet))
     {
-        HGERROR("Visibility results buffer size mismatch for frame %u! Expected at least %zu bytes, buffer is %zu.", m_currentFrameIndex,
-                numObjectsCulledLastFrame * sizeof(VisiblityResultSet), visibilityResultsBuffer->GetBufferSize());
+        HGERROR("Visibility results buffer size mismatch for frame %u! Expected at least %zu bytes, buffer is %zu. VisiblityResultSet size: %zu",
+                m_currentFrameIndex, numObjectsCulledLastFrame * sizeof(VisiblityResultSet), visibilityResultsBuffer->GetBufferSize(),
+                sizeof(VisiblityResultSet));
         return;
     }
 
     visibilityResultsBuffer->Map();
     VisiblityResultSet* results = static_cast<VisiblityResultSet*>(visibilityResultsBuffer->GetMappedMemory());
 
-    std::unordered_map<uint32_t, bool> prevFrameVisibilityById;
-    prevFrameVisibilityById.reserve(numObjectsCulledLastFrame);
+    std::unordered_map<EntityID, bool> prevFrameVisibilityByEntityId;
+    prevFrameVisibilityByEntityId.reserve(numObjectsCulledLastFrame);
 
     for(uint32_t i = 0; i < numObjectsCulledLastFrame; ++i)
     {
-        uint32_t objectId = results[i].id;
+        EntityID entityId = results[i].id;
         bool     isVisible = results[i].visible;
 
-        prevFrameVisibilityById[objectId] = isVisible;
+        prevFrameVisibilityByEntityId[entityId] = isVisible;
     }
 
     visibilityResultsBuffer->UnMap();
 
-    std::vector<std::pair<n32, GameObject*>> visibleObjectsForThisFrame;
-    visibleObjectsForThisFrame.reserve(gameObjects->size());
+    std::vector<Utils::VisibleEntityInfo> filteredVisibleEntities;
+    filteredVisibleEntities.reserve(visibleEntities.size());
 
-    for(auto& pair: *gameObjects)
+    for(const auto& visibleEntityInfo: visibleEntities)
     {
-        uint32_t    objectId = pair.first;
-        GameObject* object = pair.second;
+        EntityID entityId = visibleEntityInfo.id;
 
-        auto it = prevFrameVisibilityById.find(objectId);
+        auto it = prevFrameVisibilityByEntityId.find(entityId);
 
-        bool isVisibleThisFrame = false;
+        bool wasVisibleLastFrame = false;
 
-        if(it != prevFrameVisibilityById.end()) { isVisibleThisFrame = it->second; }
+        if(it != prevFrameVisibilityByEntityId.end()) { wasVisibleLastFrame = it->second; }
+        else { wasVisibleLastFrame = true; }
 
-        if(isVisibleThisFrame) { visibleObjectsForThisFrame.push_back(pair); }
+        if(wasVisibleLastFrame) { filteredVisibleEntities.push_back(visibleEntityInfo); }
     }
 
-    *gameObjects = std::move(visibleObjectsForThisFrame);
+    visibleEntities = std::move(filteredVisibleEntities);
 }
 
-vk::CommandBuffer Renderer::BeginFrame(std::vector<std::pair<n32, class GameObject*>>* gameobjects)
+vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& visibleEntities)
 {
     vk::Result result = m_logicalDevice.GetVkDevice().waitForFences(1, &GetCurrentFrame().inFlightFence, vk::True, std::numeric_limits<n64>::max());
     if(result != vk::Result::eSuccess) { HGINFO("Failed to wait for fences: %s", vk::to_string(result).c_str()); }
@@ -387,7 +390,7 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<std::pair<n32, class GameObje
         return nullptr;
     }
 
-    ReadyPerFrameData(gameobjects);
+    ReadyPerFrameData(visibleEntities);
 
     vk::CommandBuffer cmd = GetCurrentFrame().commandBuffer;
     cmd.reset();
@@ -608,27 +611,37 @@ struct OcclusionObjectData
 {
     BoundingBox boundingBox;
     n32         id;
-    float       padding_id[3]; // 3 * 4 = 12 bytes padding
 };
 
-void Renderer::DoGPUOcclusionCulling(vk::CommandBuffer cmd, std::vector<std::pair<n32, class GameObject*>>* gameObjects, const Camera& cam)
+using namespace Utils;
+
+void Renderer::DoGPUOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils::VisibleEntityInfo>& frustumCulledEntities, World& world,
+                                     const Camera& cam)
 {
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_computePipeline);
 
-    std::vector<OcclusionObjectData> objectData{};
+    std::vector<OcclusionObjectData> objectDataForGPU;
+    objectDataForGPU.reserve(frustumCulledEntities.size());
+
     GetCurrentFrame().numObjectsDispatched = 0;
 
-    for(auto& [id, object]: *gameObjects)
+    for(const auto& entityInfo: frustumCulledEntities)
     {
-        OcclusionObjectData data;
-        data.boundingBox = (object->GetBoundingBox());
-        data.id = id;
+        BoundingBox* bbComponent = world.GetComponent<BoundingBox>(entityInfo.id);
 
-        objectData.push_back(data);
+        if(bbComponent && bbComponent->valid)
+        {
+            OcclusionObjectData data;
+            data.boundingBox = *bbComponent;
+            data.id = entityInfo.id;
+
+            objectDataForGPU.push_back(data);
+        }
     }
-    if(objectData.empty()) { return; }
 
-    GetCurrentFrame().numObjectsDispatched = objectData.size();
+    if(objectDataForGPU.empty()) { return; }
+
+    GetCurrentFrame().numObjectsDispatched = objectDataForGPU.size();
 
     auto& objectDataBuffer = GetCurrentFrame().objectDataBuffer;
     auto& visibilityResultsBuffer = GetCurrentFrame().visibilityResults;
@@ -642,88 +655,86 @@ void Renderer::DoGPUOcclusionCulling(vk::CommandBuffer cmd, std::vector<std::pai
     visibilityResultsBuffer = std::make_unique<Buffer>();
     rendererDataBuffer = std::make_unique<Buffer>();
 
-    objectDataBuffer->Init(&m_logicalDevice, objectData.size() * sizeof(OcclusionObjectData), 1, vk::BufferUsageFlagBits::eStorageBuffer,
+    objectDataBuffer->Init(&m_logicalDevice, objectDataForGPU.size() * sizeof(OcclusionObjectData), 1, vk::BufferUsageFlagBits::eStorageBuffer,
                            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO);
 
-    visibilityResultsBuffer->Init(&m_logicalDevice, objectData.size() * sizeof(VisiblityResultSet), 1, vk::BufferUsageFlagBits::eStorageBuffer,
+    visibilityResultsBuffer->Init(&m_logicalDevice, objectDataForGPU.size() * sizeof(VisiblityResultSet), 1,
+                                  vk::BufferUsageFlagBits::eStorageBuffer,
                                   vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO);
 
+    RendererData renderDataContent{{m_swapChain->GetExtent().width, m_swapChain->GetExtent().height}};
     rendererDataBuffer->Init(&m_logicalDevice, sizeof(RendererData), 1, vk::BufferUsageFlagBits::eUniformBuffer,
                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO);
 
     vk::MemoryBarrier2 memoryBarrier{};
-    memoryBarrier.srcStageMask = vk::PipelineStageFlagBits2::eLateFragmentTests;
+    memoryBarrier.srcStageMask = vk::PipelineStageFlagBits2::eLateFragmentTests; // Or eEarlyFragmentTests if depth was written earlier
     memoryBarrier.srcAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
     memoryBarrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
-    memoryBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead;
+    memoryBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead; // Compute shader reads depth
 
     vk::DependencyInfo dependencyInfo{};
     dependencyInfo.memoryBarrierCount = 1;
     dependencyInfo.pMemoryBarriers = &memoryBarrier;
-
     cmd.pipelineBarrier2(&dependencyInfo);
 
+    // Transition depth image layout for reading in compute shader
     Utils::ImageTransitionInfo preComputeReadTransition{
         cmd,
-        vk::ImageLayout::eDepthStencilAttachmentOptimal,
-        vk::ImageLayout::eShaderReadOnlyOptimal,
+        vk::ImageLayout::eDepthStencilAttachmentOptimal, // Current layout after main rendering pass
+        vk::ImageLayout::eShaderReadOnlyOptimal,         // Layout for compute shader to read
         &m_logicalDevice,
         m_depthImage.image,
         vk::ImageAspectFlagBits::eDepth,
     };
-
     Utils::TransitionImageLayout(preComputeReadTransition);
 
+    // Map and Write data to GPU buffers
     objectDataBuffer->Map();
-    objectDataBuffer->WriteToBuffer((void*)objectData.data());
+    objectDataBuffer->WriteToBuffer((void*)objectDataForGPU.data());
     objectDataBuffer->UnMap();
 
-    RendererData renderData{{m_swapChain->GetExtent().width, m_swapChain->GetExtent().height}};
     rendererDataBuffer->Map();
-    rendererDataBuffer->WriteToBuffer((void*)&renderData);
+    rendererDataBuffer->WriteToBuffer((void*)&renderDataContent);
     rendererDataBuffer->UnMap();
 
+    // --- Descriptor Set Configuration (largely the same) ---
     vk::DescriptorImageInfo  depthInfo = {m_depthImageSampler, m_depthImage.imageView, vk::ImageLayout::eShaderReadOnlyOptimal};
-    vk::DescriptorBufferInfo boundingBoxInfo = objectDataBuffer->DescriptorInfo();
-    vk::DescriptorBufferInfo visiblityInfo = visibilityResultsBuffer->DescriptorInfo();
-    vk::DescriptorBufferInfo projectionInfo = cam.GetCombinedDataBufferHandle(m_currentFrameIndex).DescriptorInfo();
-    vk::DescriptorBufferInfo rendererDataInfo = rendererDataBuffer->DescriptorInfo();
+    vk::DescriptorBufferInfo boundingBoxGpuInfo = objectDataBuffer->DescriptorInfo();      // Renamed to avoid conflict
+    vk::DescriptorBufferInfo visiblityGpuInfo = visibilityResultsBuffer->DescriptorInfo(); // Renamed
+    vk::DescriptorBufferInfo projectionGpuInfo = cam.GetCombinedDataBufferHandle(m_currentFrameIndex).DescriptorInfo();
+    vk::DescriptorBufferInfo rendererDataGpuInfo = rendererDataBuffer->DescriptorInfo(); // Renamed
 
     vk::DescriptorSet& computeSet = GetCurrentFrame().computeSet;
 
-    if(computeSet == VK_NULL_HANDLE)
-    {
-        DescriptorWriter(*m_computeLayout, m_computePool.get())
-            .WriteImage(0, &depthInfo)
-            .WriteBuffer(1, &boundingBoxInfo)
-            .WriteBuffer(2, &visiblityInfo)
-            .WriteBuffer(3, &projectionInfo)
-            .WriteBuffer(4, &rendererDataInfo)
-            .Build(computeSet);
-    }
+    DescriptorWriter writer(*m_computeLayout, m_computePool.get());
+    writer.WriteImage(0, &depthInfo)
+        .WriteBuffer(1, &boundingBoxGpuInfo)
+        .WriteBuffer(2, &visiblityGpuInfo)
+        .WriteBuffer(3, &projectionGpuInfo)
+        .WriteBuffer(4, &rendererDataGpuInfo);
+
+    if(computeSet == VK_NULL_HANDLE) { writer.Build(computeSet); }
     else
     {
-        DescriptorWriter(*m_computeLayout, m_computePool.get())
-            .WriteImage(0, &depthInfo)
-            .WriteBuffer(1, &boundingBoxInfo)
-            .WriteBuffer(2, &visiblityInfo)
-            .WriteBuffer(3, &projectionInfo)
-            .WriteBuffer(4, &rendererDataInfo)
-            .Overwrite(computeSet);
+        writer.Overwrite(computeSet); // Or Update if your DescriptorWriter has that
     }
+
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_computePipelineLayout, 0, 1, &computeSet, 0, nullptr);
 
-    vkCmdDispatch(cmd, (n32)(gameObjects->size() + 63) / 64, 1, 1);
+    uint32_t groupCountX = (static_cast<uint32_t>(objectDataForGPU.size()) + 63) / 64;
+    if(groupCountX > 0)
+    { // Only dispatch if there are objects
+        vkCmdDispatch(cmd, groupCountX, 1, 1);
+    }
 
     WaitForCompute(cmd);
 
     Utils::ImageTransitionInfo postComputeDepthTransition{cmd,
-                                                          vk::ImageLayout::eShaderReadOnlyOptimal,
-                                                          vk::ImageLayout::eDepthStencilAttachmentOptimal,
+                                                          vk::ImageLayout::eShaderReadOnlyOptimal, // Current layout after compute shader read
+                                                          vk::ImageLayout::eDepthStencilAttachmentOptimal, // Original layout for rendering
                                                           &m_logicalDevice,
                                                           m_depthImage.image,
                                                           vk::ImageAspectFlagBits::eDepth};
-
     Utils::TransitionImageLayout(postComputeDepthTransition);
 }
 

@@ -5,14 +5,12 @@
 #include "asset_manager.hpp"
 #include "audio_engine.hpp"
 #include "camera.hpp"
-#include "extra.hpp"
-#include "gameobject.hpp"
 #include "globals.hpp"
-#include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "keyboard_handler.hpp"
 #include "logger.hpp"
 #include "resource_manager.hpp"
+#include "scene_handler.hpp"
 #include "ui/ui.hpp"
 #include "vk_mem_alloc.h"
 
@@ -61,6 +59,8 @@ void VulkanApp::Init(const int argc, char* argv[])
 
     AudioEngine::Init();
 
+    SceneHandler::Init();
+
     m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator(),
                                             vk::Format::eR16G16B16A16Sfloat, vk::Format::eD32Sfloat);
 
@@ -98,67 +98,23 @@ void VulkanApp::LoadGameObjects()
 {
     HGINFO("Loading game objects...");
 
-    auto wallModel = ResourceManager::LoadModel("real_wall");
+    auto world = SceneHandler::GetWorld();
 
-    GameObject wall = GameObject::CreateGameObject();
-    wall.transform.translation = glm::vec3(0.0f, 0.0f, 50.f);
-    wall.transform.scale = glm::vec3(10, 100, 10);
-    wall.transform.rotation = glm::vec3(90, 0.0f, 0.0f);
-    wall.SetModel(wallModel);
-    wall.name = "Wall";
-    m_gameObjects.emplace(wall.GetId(), std::move(wall));
+    auto helmet = world->CreateEntity();
+    world->AddComponent<BoundingBox>(helmet);
+    world->AddComponent<ModelComponent>(helmet);
+    auto comp = world->GetComponent<ModelComponent>(helmet);
+    comp->modelHandle = ResourceManager::LoadModel("DamagedHelmet");
 
-    // Sponza isn't available by default. This tests the Asset Manager's ability to load a default model. However, if sponza is provided, it'll be
-    // loaded instead
-    // auto employeeModel = ResourceManager::LoadModel("Sponza");
-    //
-    // GameObject employee = GameObject::CreateGameObject();
-    // employee.transform.translation = glm::vec3(5, 0, 0);
-    // employee.transform.scale = glm::vec3(0.1f);
-    // employee.transform.rotation = glm::vec3(0.0f);
-    // employee.name = "Sponza";
-    // employee.SetModel(employeeModel);
+    auto wall = world->CreateEntity();
+    world->AddComponent<BoundingBox>(wall);
+    world->AddComponent<ModelComponent>(wall);
+    comp = world->GetComponent<ModelComponent>(wall);
+    comp->modelHandle = ResourceManager::LoadModel("real_wall");
 
-    // m_gameObjects.emplace(employee.GetId(), std::move(employee));
-
-    auto damagedHelmetModel = ResourceManager::LoadModel("DamagedHelmet");
-
-    GameObject car = GameObject::CreateGameObject();
-    car.transform.translation = glm::vec3(-5, 0, 0);
-    car.transform.scale = glm::vec3(5);
-    car.name = "Damaged Helmet";
-    car.SetModel(damagedHelmetModel);
-
-    m_gameObjects.emplace(car.GetId(), std::move(car));
-
-    auto employeeModel = ResourceManager::LoadModel("Sponza");
-    n32  start = 100;
-    n32  x, y, z = start;
-    for(n32 i = 0; i < 100; ++i)
-    {
-        x++;
-        if(x > start)
-        {
-            z++;
-            x = start;
-        }
-        if(z > start)
-        {
-            y++;
-            z = start;
-        }
-
-        GameObject mp = GameObject::CreateGameObject();
-        mp.transform.translation = glm::vec3(x, y, z);
-        mp.transform.scale = glm::vec3(0.1f);
-        mp.transform.rotation = glm::vec3(0.0f);
-        mp.name = "employeeStressTest";
-        mp.SetModel(employeeModel);
-
-        m_gameObjects.emplace(mp.GetId(), std::move(mp));
-    }
-
-    m_mainDeletionQueue.PushDeletor([&]() { m_gameObjects.clear(); });
+    auto transform = world->GetComponent<TransformComponent>(wall);
+    transform->SetTranslation(0, 0, 10);
+    transform->SetRotation(90, 0, 0);
 
     HGINFO("Loaded game objects");
 }
@@ -221,47 +177,54 @@ void VulkanApp::Run()
 
     auto currentTime = std::chrono::high_resolution_clock::now();
 
+    auto world = SceneHandler::GetWorld();
+    world->BoundingVolumeUpdateSystem();
+
     UiWidget objectDataWidget{"Object Data", true, {0, 0}, {400, 500}, 0};
-    for(auto& [id, obj]: m_gameObjects)
-    {
-        objectDataWidget.Add([&]() {
-            ImGui::PushID(id);
-            if(ImGui::CollapsingHeader(obj.name.c_str()))
+    objectDataWidget.Add([&]() {
+        for(n32 entityId = 0; entityId < 10; entityId++)
+        {
+            auto&        bbSparse = world->GetComponentStorage<BoundingBox>().GetSparse();
+            BoundingBox* bb = world->GetComponent<BoundingBox>(entityId);
+
+            if(!bb) { continue; }
+            if(!bb->valid) { continue; }
+
+            TransformComponent* transform = world->GetComponent<TransformComponent>(entityId);
+            if(!transform) { continue; }
+
+            ImGui::PushID(entityId);
+
+            if(ImGui::CollapsingHeader("entityId"))
             {
-                ImGui::Text("ID: %i", id);
+                ImGui::Text("ID: %i", entityId);
 
-                float position[3] = {obj.transform.translation.x, obj.transform.translation.y, obj.transform.translation.z};
-                ImGui::DragFloat3("Position", position, -100, 100);
-                obj.transform.translation.x = position[0];
-                obj.transform.translation.y = position[1];
-                obj.transform.translation.z = position[2];
+                float position[3] = {transform->GetTranslation().x, transform->GetTranslation().y, transform->GetTranslation().z};
+                ImGui::DragFloat3("Position", position);
+                transform->SetTranslation(position[0], position[1], position[2]);
 
-                float scale[3] = {obj.transform.scale.x, obj.transform.scale.y, obj.transform.scale.z};
-                ImGui::DragFloat3("scale", scale, -10, 10);
-                obj.transform.scale.x = scale[0];
-                obj.transform.scale.y = scale[1];
-                obj.transform.scale.z = scale[2];
+                float scale[3] = {transform->GetScale().x, transform->GetScale().y, transform->GetScale().z};
+                ImGui::DragFloat3("scale", scale);
+                transform->SetScale(scale[0], scale[1], scale[2]);
 
-                float rotate[3] = {obj.transform.rotation.x, obj.transform.rotation.y, obj.transform.rotation.z};
-                ImGui::DragFloat3("rotation", rotate, -360, 360);
-                obj.transform.rotation.x = rotate[0];
-                obj.transform.rotation.y = rotate[1];
-                obj.transform.rotation.z = rotate[2];
+                float rotate[3] = {transform->GetRotation().x, transform->GetRotation().y, transform->GetRotation().z};
+                ImGui::DragFloat3("rotation", rotate);
+                transform->SetRotation(rotate[0], rotate[1], rotate[2]);
 
                 if(ImGui::TreeNode("Bounding box Corners"))
                 {
-                    for(n32 i = 0; i < obj.GetBoundingBox().corners.size(); ++i)
+                    for(n32 i = 0; i < bb->corners.size(); ++i)
                     {
-                        auto box = obj.GetBoundingBox();
-                        ImGui::Text("Corner %i: %f, %f, %f", i, box.corners[i].x, box.corners[i].y, box.corners[i].z);
+                        ImGui::Text("Corner %i: %f, %f, %f", i, bb->corners[i].x, bb->corners[i].y, bb->corners[i].z);
                     }
 
                     ImGui::TreePop();
                 }
             }
+
             ImGui::PopID();
-        });
-    }
+        }
+    });
 
     HGINFO("Running...");
     bool      quit = false;
@@ -309,35 +272,38 @@ void VulkanApp::Run()
 
         if(!minimized && focused)
         {
-            for(auto& [k, v]: m_gameObjects) { v.Update(); }
             m_cam->Update();
             AudioEngine::UpdateListener(m_cam->GetPosition(), {0, 0, 0}, m_cam->GetForward(), m_cam->GetUp());
 
-            auto sortedAndCulledObjs = Utils::SortAndCullGameObjects(*m_cam, m_gameObjects);
-            auto sortedObjs = sortedAndCulledObjs;
+            auto world = SceneHandler::GetWorld();
+            world->BoundingVolumeUpdateSystem();
 
-            if(const auto cmd = m_renderer->BeginFrame(&sortedAndCulledObjs))
+            auto frustumCulledEntities = Utils::SortAndCullEntities(*m_cam, *world);
+            auto sortedObjs = frustumCulledEntities;
+
+            if(const auto cmd = m_renderer->BeginFrame(frustumCulledEntities))
             {
-                RenderData data{.commandBuffer = cmd,
-                                .uboSets = {m_cam->GetDescriptorSet(m_renderer->GetFrameIndex())},
-                                .sceneSets = {m_cam->GetParamDescriptorSet(m_renderer->GetFrameIndex())},
-                                .skyboxSets = {m_skyboxRenderSystem->GetSkybox()->GetDescriptorSet()},
-                                .gameObjects = &sortedAndCulledObjs,
-                                .frameIndex = m_renderer->GetFrameIndex(),
-                                .cam = *m_cam,
-                                .renderer = *m_renderer,
-                                .camPos = m_cam->GetPosition()};
+                RenderData data{
+                    .commandBuffer = cmd,
+                    .uboSets = {m_cam->GetDescriptorSet(m_renderer->GetFrameIndex())},
+                    .sceneSets = {m_cam->GetParamDescriptorSet(m_renderer->GetFrameIndex())},
+                    .skyboxSets = {m_skyboxRenderSystem->GetSkybox()->GetDescriptorSet()},
+                    .visibleEntities = &frustumCulledEntities,
+                    .world = *world,
+                    .frameIndex = m_renderer->GetFrameIndex(),
+                    .cam = *m_cam,
+                };
 
-                data.gameObjects = &sortedObjs;
+                data.visibleEntities = &sortedObjs;
                 m_renderer->BeginDepthPrePass(cmd);
 
                 m_simpleRenderSystem->RenderObjects(data, true);
 
                 m_renderer->EndDepthPrePass(cmd);
 
-                data.gameObjects = &sortedAndCulledObjs;
+                data.visibleEntities = &frustumCulledEntities;
 
-                m_renderer->DoGPUOcclusionCulling(cmd, &sortedObjs, *m_cam);
+                m_renderer->DoGPUOcclusionCulling(cmd, sortedObjs, *world, *m_cam);
 
                 m_renderer->BeginRendering(cmd);
 

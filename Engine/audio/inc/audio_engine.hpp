@@ -2,6 +2,7 @@
 
 #include "AL/al.h"
 #include "AL/alc.h"
+#include "audio_source.hpp"
 #include "glm/glm.hpp"
 #include "singleton.hpp"
 

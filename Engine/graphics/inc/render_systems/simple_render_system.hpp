@@ -1,23 +1,29 @@
 #pragma once
 
 #include "camera.hpp"
-#include <gameobject.hpp>
+#include "extra.hpp"
+#include "render_pipeline.hpp"
+#include "world.hpp"
+
 #include <memory>
-#include <render_pipeline.hpp>
 
 namespace Humongous
 {
 struct RenderData
 {
-    vk::CommandBuffer                                      commandBuffer;
-    std::vector<vk::DescriptorSet>                         uboSets;
-    std::vector<vk::DescriptorSet>                         sceneSets;
-    std::vector<vk::DescriptorSet>                         skyboxSets;
-    std::vector<std::pair<GameObject::id_t, GameObject*>>* gameObjects;
-    n32                                                    frameIndex;
-    Camera&                                                cam;
-    const Renderer&                                        renderer;
-    const glm::vec3                                        camPos;
+    vk::CommandBuffer              commandBuffer;
+    std::vector<vk::DescriptorSet> uboSets;    // Camera UBOs
+    std::vector<vk::DescriptorSet> sceneSets;  // Scene-wide parameters
+    std::vector<vk::DescriptorSet> skyboxSets; // Skybox specific (might not be used by object rendering)
+
+    // List of entities to render in this pass
+    const std::vector<Utils::VisibleEntityInfo>* visibleEntities;
+
+    Humongous::World& world; // Reference to the ECS World
+
+    n32     frameIndex;
+    Camera& cam;
+    // const glm::vec3 camPos; // Can get from cam.GetPosition() if needed
 };
 
 struct ShaderSet

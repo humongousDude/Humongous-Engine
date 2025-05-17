@@ -21,7 +21,9 @@ public:
     static void Init(LogicalDevice* logicalDevice) { Get().Internal_Init(logicalDevice); }
     static void Shutdown() { Get().Internal_Shutdown(); }
 
-    static std::shared_ptr<Model>  LoadModel(const std::string& name) { return Get().Internal_LoadModel(name); };
+    static n32                    LoadModel(const std::string& name) { return Get().Internal_LoadModel(name); };
+    static std::shared_ptr<Model> GetModel(const n32& index) { return Get().Internal_GetModel(index); }
+
     static std::shared_ptr<Skybox> LoadSkybox(const std::string& name) { return Get().Internal_LoadSkybox(name); }
     static AudioSource             LoadAudioSource(const std::string& name) { return Get().Internal_LoadAudioSource(name); };
 
@@ -78,7 +80,11 @@ private:
     void InitDescriptors();
     void Internal_Shutdown();
 
-    std::shared_ptr<Model>  Internal_LoadModel(const std::string& name);
+    std::unordered_map<n32, std::shared_ptr<Model>> m_modelMap;
+    n32                                             m_nextModelID{0};
+    n32                                             Internal_LoadModel(const std::string& name);
+    std::shared_ptr<Model>                          Internal_GetModel(const n32& index);
+
     std::shared_ptr<Skybox> Internal_LoadSkybox(const std::string& name);
 
     AudioSource Internal_LoadAudioSource(const std::string& name);

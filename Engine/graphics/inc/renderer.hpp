@@ -5,21 +5,20 @@
 #include "abstractions/descriptor_pool.hpp"
 #include "camera.hpp"
 #include "defines.hpp"
-#include <images.hpp>
-#include <logical_device.hpp>
+#include "extra.hpp"
+#include "images.hpp"
+#include "logical_device.hpp"
+#include "swapchain.hpp"
+#include "vk_mem_alloc.h"
+
 #include <memory>
-#include <swapchain.hpp>
 #include <vector>
-#include <vk_mem_alloc.h>
 
 namespace Humongous
 {
 class Renderer
 {
 private:
-    struct VisiblityResultSet;
-    //     struct OcclusionObjectData;
-
     struct VisiblityResultSet
     {
         n32   id;
@@ -46,7 +45,6 @@ public:
         n32               boundingBoxCount;
     };
 
-    // Set depthFormat to VK_FORMAT_UNDEFINED to not have depth
     Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator, vk::Format drawFormat,
              vk::Format depthFormat);
     ~Renderer();
@@ -61,9 +59,9 @@ public:
     vk::CommandBuffer GetCommandBuffer() { return GetCurrentFrame().commandBuffer; }
 
     // Begin a frame, acquire the next swapchain image and prep command buffers
-    vk::CommandBuffer BeginFrame(std::vector<std::pair<n32, class GameObject*>>* gameobjects);
+    vk::CommandBuffer BeginFrame(std::vector<Utils::VisibleEntityInfo>& visibleEntities);
 
-    void ReadyPerFrameData(std::vector<std::pair<n32, class GameObject*>>* gameobjects);
+    void ReadyPerFrameData(std::vector<Utils::VisibleEntityInfo>& visibleEntities);
 
     // End a frame and submit command buffers
     void EndFrame();
@@ -89,7 +87,8 @@ public:
 
     SwapChain* GetSwapChain() const { return m_swapChain.get(); }
 
-    void DoGPUOcclusionCulling(vk::CommandBuffer cmd, std::vector<std::pair<n32, class GameObject*>>* gameobjects, const Camera& cam);
+    void DoGPUOcclusionCulling(vk::CommandBuffer cmd, const std::vector<struct Utils::VisibleEntityInfo>& frustumCulledEntities, class World& world,
+                               const Camera& cam);
 
     static void WaitForCompute(vk::CommandBuffer cmd);
 

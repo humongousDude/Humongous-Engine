@@ -20,6 +20,8 @@ void ResourceManager::Internal_Shutdown()
 {
     HGINFO("Shutting down resource manager...");
 
+    for(auto& [key, model]: m_modelMap) { model.reset(); }
+
     m_modelDescriptors.materialLayout.reset();
     m_modelDescriptors.nodeIdLayout.reset();
     m_modelDescriptors.nodeLayout.reset();
@@ -87,13 +89,22 @@ void ResourceManager::InitDescriptors()
     m_skyboxLayout = builder.Build();
 }
 
-std::shared_ptr<Model> ResourceManager::Internal_LoadModel(const std::string& name)
+n32 ResourceManager::Internal_LoadModel(const std::string& name)
 {
+    HGINFO("Loading model %s with handle %i", name.c_str(), m_nextModelID);
     auto m = std::make_shared<Model>(m_logicalDevice, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, name), 1.0f);
     m->Init(m_modelDescriptors.materialLayout.get(), m_modelDescriptors.nodeLayout.get(), m_modelDescriptors.materialDataLayout.get(),
             m_descriptorPools.imagePool.get(), m_descriptorPools.uniformPool.get(), m_descriptorPools.storageBufferPool.get());
-    return m;
+
+    n32 handleToReturn = m_nextModelID;               // Store the current ID
+    m_modelMap.emplace(handleToReturn, std::move(m)); // Use the current ID as the key
+
+    HGINFO("Model %s loaded. Added to map with handle %i. Map size: %zu", name.c_str(), handleToReturn, m_modelMap.size());
+    m_nextModelID++;       // Increment for the *next* model
+    return handleToReturn; // Return the ID that was used
 }
+
+std::shared_ptr<Model> ResourceManager::Internal_GetModel(const n32& index) { return m_modelMap.at(index); }
 
 std::shared_ptr<Skybox> ResourceManager::Internal_LoadSkybox(const std::string& name)
 {

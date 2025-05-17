@@ -1,6 +1,6 @@
 #pragma once
 
-#include <gameobject.hpp>
+#include "camera.hpp"
 
 namespace Humongous
 {

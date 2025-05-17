@@ -1,9 +1,8 @@
-#include "gameobject.hpp"
-#include <algorithm>
-#include <extra.hpp>
-#include <fstream>
-#include <logger.hpp>
+#include "extra.hpp"
+#include "logger.hpp"
 
+#include <algorithm>
+#include <fstream>
 
 namespace Humongous::Utils
 {
@@ -22,28 +21,35 @@ std::vector<char> ReadFile(const std::string& filePath)
     return buffer;
 }
 
-std::vector<std::pair<GameObject::id_t, GameObject*>> SortAndCullGameObjects(Camera& camera, GameObject::Map& unsortedObjects)
+std::vector<VisibleEntityInfo> SortAndCullEntities(Camera& camera, World& world)
 {
-    std::vector<std::pair<GameObject::id_t, GameObject*>> sortedObjects;
-    sortedObjects.clear();
-    sortedObjects.reserve(unsortedObjects.size());
+    std::vector<VisibleEntityInfo> visibleEntities;
 
-    // Store key-pointer pairs
-    for(auto& [key, gameObject]: unsortedObjects)
+    for(n32 entityId = 0; entityId < MAX_ENTITIES; entityId++)
     {
-        if(!gameObject.model) { continue; }
-        if(!camera.IsAABBInsideFrustum(gameObject.GetBoundingBox().min, gameObject.GetBoundingBox().max)) { continue; }
-        sortedObjects.emplace_back(key, &gameObject);
+        BoundingBox* bb = world.GetComponent<BoundingBox>(entityId);
+        if(!bb || !bb->valid) // Bounding box must exist and be valid
+        {
+            continue;
+        }
+
+        ModelComponent* model = world.GetComponent<ModelComponent>(entityId);
+        if(!model) { continue; }
+
+        TransformComponent* transform = world.GetComponent<TransformComponent>(entityId);
+
+        if(!camera.IsAABBInsideFrustum(bb->min, bb->max)) { continue; }
+
+        float distance = glm::distance(camera.GetPosition(), transform->GetTranslation());
+
+        visibleEntities.push_back({entityId, distance});
     }
 
-    // Sort based on distance
-    std::ranges::sort(sortedObjects, [&camera](const auto& a, const auto& b) {
-        const float distA = glm::distance(glm::vec3(camera.GetPosition()), a.second->transform.translation);
-        const float distB = glm::distance(glm::vec3(camera.GetPosition()), b.second->transform.translation);
-        return distA < distB;
-    });
-    return sortedObjects;
+    // 4. Sort visible entities (closest to farthest, as in your original code)
+    std::ranges::sort(visibleEntities,
+                      [](const VisibleEntityInfo& a, const VisibleEntityInfo& b) { return a.distanceToCamera < b.distanceToCamera; });
+
+    return visibleEntities;
 }
 
 } // namespace Humongous::Utils
-

@@ -1,4 +1,5 @@
 #include "abstractions/buffer.hpp"
+#include "abstractions/descriptor_writer.hpp"
 #include "asset_manager.hpp"
 #include "globals.hpp"
 #include "logger.hpp"
@@ -71,10 +72,6 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.vertShaderPath = shaderSet.vertShaderPath;
     configInfo.fragShaderPath = shaderSet.fragShaderPath;
 
-    // configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_LINE;
-    // configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-    // configInfo.rasterizationInfo.lineWidth = 5.0f;
-
     m_renderPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
 
     configInfo.colorBlendInfo.attachmentCount = 0;
@@ -110,40 +107,53 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
     if(depthOnly) { m_depthOnlyPipeline->Bind(renderData.commandBuffer); }
     else { m_renderPipeline->Bind(renderData.commandBuffer); }
 
+    std::vector<vk::DescriptorSet> globalPassSets;
+    if(!renderData.uboSets.empty()) { globalPassSets.insert(globalPassSets.end(), renderData.uboSets.begin(), renderData.uboSets.end()); }
+    if(!renderData.sceneSets.empty()) { globalPassSets.insert(globalPassSets.end(), renderData.sceneSets.begin(), renderData.sceneSets.end()); }
+    if(!renderData.skyboxSets.empty()) { globalPassSets.insert(globalPassSets.end(), renderData.skyboxSets.begin(), renderData.skyboxSets.end()); }
+
+    if(!globalPassSets.empty())
+    {
+        renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
+                                                    static_cast<n32>(Globals::DescriptorSetIndices::Camera), // Start binding index
+                                                    static_cast<uint32_t>(globalPassSets.size()), globalPassSets.data(), 0, nullptr);
+    }
+
     vk::DescriptorSet debugSet;
-    auto              info = m_debugBuffer->DescriptorInfo();
-    DescriptorWriter  writer{*ResourceManager::GetModelDescriptors().debugLayout, ResourceManager::GetDescriptorPools().debugPool.get()};
-    writer.WriteBuffer(0, &info).Build(debugSet);
-
-    std::vector<vk::DescriptorSet> allSets{};
-    allSets.insert(allSets.begin(), renderData.uboSets.begin(), renderData.uboSets.end());
-    allSets.insert(allSets.begin() + allSets.size(), renderData.sceneSets.begin(), renderData.sceneSets.end());
-    allSets.insert(allSets.begin() + allSets.size(), renderData.skyboxSets.begin(), renderData.skyboxSets.end());
-
-    renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
-                                                static_cast<n32>(Globals::DescriptorSetIndices::Camera), allSets.size(), allSets.data(), 0,
-                                                nullptr);
+    auto              debugBufferInfo = m_debugBuffer->DescriptorInfo();
+    DescriptorWriter  debugWriter{*ResourceManager::GetModelDescriptors().debugLayout, ResourceManager::GetDescriptorPools().debugPool.get()};
+    debugWriter.WriteBuffer(0, &debugBufferInfo).Build(debugSet);
 
     renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
                                                 static_cast<n32>(Globals::DescriptorSetIndices::Debug), 1, &debugSet, 0, nullptr);
 
     n32 objectsDrawn = 0;
-    for(auto& [id, obj]: *renderData.gameObjects)
+    if(renderData.visibleEntities)
     {
-        Model::PushConstantData data{};
-        data.model = obj->transform.Mat4();
-        obj->model->GetVertexBuffer().UpdateAddress(obj->model->GetVertexBuffer().GetUsageFlags());
-        data.vertexAddress = obj->model->GetVertexBuffer().GetDeviceAddress();
+        for(const Utils::VisibleEntityInfo& entityInfo: *renderData.visibleEntities)
+        {
+            Humongous::EntityID entityId = entityInfo.id;
 
-        renderData.commandBuffer.pushConstants(m_pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Model::PushConstantData), &data);
+            TransformComponent* transformComp = renderData.world.GetComponent<TransformComponent>(entityId);
+            ModelComponent*     modelComp = renderData.world.GetComponent<ModelComponent>(entityId);
 
-        obj->model->Draw(renderData.commandBuffer, m_pipelineLayout);
+            auto modelAsset = ResourceManager::GetModel(modelComp->modelHandle);
 
-        objectsDrawn++;
+            Model::PushConstantData pushData{};
+            pushData.model = transformComp->Mat4();
+
+            pushData.vertexAddress = modelAsset->GetVertexBuffer().GetDeviceAddress();
+
+            renderData.commandBuffer.pushConstants(m_pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Model::PushConstantData),
+                                                   &pushData);
+
+            modelAsset->Draw(renderData.commandBuffer, m_pipelineLayout);
+
+            objectsDrawn++;
+        }
     }
 
-    // temporary
-    m_verticesDrawn = objectsDrawn;
+    m_verticesDrawn = objectsDrawn; // Or more accurately, sum of vertices from drawn objects
 }
 
 } // namespace Humongous

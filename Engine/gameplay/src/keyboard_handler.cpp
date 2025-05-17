@@ -1,5 +1,7 @@
 #include "keyboard_handler.hpp"
+#include "constants.hpp"
 #include "globals.hpp"
+#include "matrix_transform.hpp"
 
 namespace Humongous
 {
