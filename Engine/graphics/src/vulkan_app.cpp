@@ -20,8 +20,6 @@ VulkanApp::VulkanApp(const int argc, char* argv[])
 {
     Init(argc, argv);
     LoadGameObjects();
-
-    m_audioSource = ResourceManager::LoadAudioSource("song");
 }
 
 VulkanApp::~VulkanApp()
@@ -105,12 +103,15 @@ void VulkanApp::LoadGameObjects()
     world->AddComponent<ModelComponent>(helmet);
     auto comp = world->GetComponent<ModelComponent>(helmet);
     comp->modelHandle = ResourceManager::LoadModel("DamagedHelmet");
+    world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
 
     auto wall = world->CreateEntity();
     world->AddComponent<BoundingBox>(wall);
     world->AddComponent<ModelComponent>(wall);
     comp = world->GetComponent<ModelComponent>(wall);
     comp->modelHandle = ResourceManager::LoadModel("real_wall");
+
+    world->AddComponent<AudioSourceComponent>(wall, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
 
     auto transform = world->GetComponent<TransformComponent>(wall);
     transform->SetTranslation(0, 0, 10);
@@ -164,7 +165,15 @@ void VulkanApp::HandleInput(const float frameTime, SDL_Event* event)
         if(movementType == KeyboardHandler::Movements::DOWN) { movementType = KeyboardHandler::Movements::NONE; }
         else { movementType = KeyboardHandler::Movements::UP; }
     }
-    if(keyboardState[SDL_SCANCODE_P]) { m_audioSource.Play(); }
+    if(keyboardState[SDL_SCANCODE_P])
+    {
+        auto world = SceneHandler::GetWorld();
+        for(const auto& entityId: world->GetComponentStorage<AudioSourceComponent>().GetDense())
+        {
+            auto audio = world->GetComponent<AudioSourceComponent>(entityId);
+            AudioEngine::Play(*audio);
+        }
+    }
 
     const KeyboardHandler::InputData data{frameTime, movementType, deltaX, deltaY, *m_cam};
 
@@ -184,7 +193,6 @@ void VulkanApp::Run()
     objectDataWidget.Add([&]() {
         for(n32 entityId = 0; entityId < 10; entityId++)
         {
-            auto&        bbSparse = world->GetComponentStorage<BoundingBox>().GetSparse();
             BoundingBox* bb = world->GetComponent<BoundingBox>(entityId);
 
             if(!bb) { continue; }
@@ -277,6 +285,7 @@ void VulkanApp::Run()
 
             auto world = SceneHandler::GetWorld();
             world->BoundingVolumeUpdateSystem();
+            AudioEngine::UpdateSources();
 
             auto frustumCulledEntities = Utils::SortAndCullEntities(*m_cam, *world);
             auto sortedObjs = frustumCulledEntities;

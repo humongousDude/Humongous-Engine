@@ -356,10 +356,10 @@ void Renderer::ReadyPerFrameData(std::vector<Utils::VisibleEntityInfo>& visibleE
 
         auto it = prevFrameVisibilityByEntityId.find(entityId);
 
-        bool wasVisibleLastFrame = false;
+        bool wasVisibleLastFrame = true;
 
         if(it != prevFrameVisibilityByEntityId.end()) { wasVisibleLastFrame = it->second; }
-        else { wasVisibleLastFrame = true; }
+        // else { wasVisibleLastFrame = true; }
 
         if(wasVisibleLastFrame) { filteredVisibleEntities.push_back(visibleEntityInfo); }
     }

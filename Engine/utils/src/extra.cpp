@@ -25,7 +25,7 @@ std::vector<VisibleEntityInfo> SortAndCullEntities(Camera& camera, World& world)
 {
     std::vector<VisibleEntityInfo> visibleEntities;
 
-    for(n32 entityId = 0; entityId < MAX_ENTITIES; entityId++)
+    for(const auto& entityId: world.GetComponentStorage<ModelComponent>().GetDense())
     {
         BoundingBox* bb = world.GetComponent<BoundingBox>(entityId);
         if(!bb || !bb->valid) // Bounding box must exist and be valid

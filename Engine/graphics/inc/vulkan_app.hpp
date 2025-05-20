@@ -37,7 +37,6 @@ public:
 
 private:
     DeletionQueue                       m_mainDeletionQueue;
-    AudioSource                         m_audioSource;
     std::unique_ptr<Instance>           m_instance;
     std::unique_ptr<Window>             m_window;
     std::unique_ptr<PhysicalDevice>     m_physicalDevice;

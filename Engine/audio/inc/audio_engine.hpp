@@ -3,8 +3,9 @@
 #include "AL/al.h"
 #include "AL/alc.h"
 #include "audio_source.hpp"
-#include "glm/glm.hpp"
 #include "singleton.hpp"
+
+#include "glm/vec3.hpp"
 
 // #include <AL/alext.h>
 
@@ -21,6 +22,10 @@ public:
         Get().Internal_UpdateListener(position, velocity, forward, up);
     }
 
+    static void UpdateSources() { Get().Internal_UpdateSources(); };
+
+    static void Play(AudioSourceComponent& src, const bool& loop = false);
+
 private:
     ALCdevice*  m_device;
     ALCcontext* m_context;
@@ -30,5 +35,7 @@ private:
     void Internal_Shutdown();
 
     void Internal_UpdateListener(const glm::vec3& position, const glm::vec3& velocity, const glm::vec3& forward, const glm::vec3& up);
+
+    void Internal_UpdateSources();
 };
 } // namespace Humongous

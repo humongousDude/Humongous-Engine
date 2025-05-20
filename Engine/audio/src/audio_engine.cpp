@@ -1,5 +1,8 @@
 #include "audio_engine.hpp"
+#include "entity_component_system/components/transform_component.hpp"
+#include "glm/vec3.hpp"
 #include "logger.hpp"
+#include "scene_handler.hpp"
 
 namespace Humongous
 {
@@ -73,6 +76,70 @@ void AudioEngine::Internal_UpdateListener(const glm::vec3& position, const glm::
 
     float orient[6] = {forward.x, forward.y, forward.z, up.x, up.y, up.z};
     AL_CHECK(alListenerfv(AL_ORIENTATION, orient));
+}
+
+void AudioEngine::Play(AudioSourceComponent& src, const bool& loop)
+{
+    ALuint srcID;
+    if(src.GetSourceID() == AudioSourceComponent::INVALID_BUFFER)
+    {
+        AL_CHECK(alGenSources(1, &srcID));
+        src.SetSourceID(srcID);
+    }
+
+    ALint state;
+    alGetSourcei(src.GetSourceID(), AL_SOURCE_STATE, &state);
+    if(state == AL_PLAYING) { src.UnPause(); }
+    alGetSourcei(src.GetSourceID(), AL_SOURCE_STATE, &state);
+    if(state == AL_STOPPED || state == AL_PAUSED) { src.Pause(); }
+
+    if(src.IsPlaying()) { return; }
+
+    ALenum error = alGetError();
+    if(error != AL_NO_ERROR || src.GetSourceID() == 0)
+    {
+        HGERROR("PlaySound: Failed to generate OpenAL source. AL Error: %s (0x%x)", alGetString(error), error);
+        return;
+    }
+
+    n32 gain = 1;
+
+    AL_CHECK(alSourcei(src.GetSourceID(), AL_BUFFER, src.GetALBuffer()));
+    error = alGetError();
+    if(error != AL_NO_ERROR)
+    {
+        HGERROR("PlaySound: Failed to attach buffer %u to source %u. AL Error: %s (0x%x)", src.GetALBuffer(), src.GetSourceID(), alGetString(error),
+                error);
+        AL_CHECK(alDeleteSources(1, &src.GetSourceID())); // Clean up the generated source
+        return;
+    }
+
+    AL_CHECK(alSourcePlay(src.GetSourceID()));
+    error = alGetError();
+    if(error != AL_NO_ERROR)
+    {
+        HGERROR("PlaySound: Failed to play source %u. AL Error: %s (0x%x)", src.GetSourceID(), alGetString(error), error);
+        AL_CHECK(alDeleteSources(1, &src.GetSourceID()));
+        return;
+    }
+}
+
+void AudioEngine::Internal_UpdateSources()
+{
+    auto world = SceneHandler::GetWorld();
+    for(const auto& entityId: world->GetComponentStorage<AudioSourceComponent>().GetDense())
+    {
+        auto audio = world->GetComponent<AudioSourceComponent>(entityId);
+        auto transform = world->GetComponent<TransformComponent>(entityId);
+
+        auto translation = transform->GetTranslation();
+
+        if(audio->GetSourceID() != AudioSourceComponent::INVALID_BUFFER)
+        {
+            AL_CHECK(alSource3f(audio->GetSourceID(), AL_POSITION, translation.x, translation.y, translation.z));
+            AL_CHECK(alSource3f(audio->GetSourceID(), AL_VELOCITY, 1.1f, 0.5f, 8.0f));
+        }
+    }
 }
 
 } // namespace Humongous

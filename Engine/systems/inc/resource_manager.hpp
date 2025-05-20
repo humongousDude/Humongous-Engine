@@ -25,7 +25,7 @@ public:
     static std::shared_ptr<Model> GetModel(const n32& index) { return Get().Internal_GetModel(index); }
 
     static std::shared_ptr<Skybox> LoadSkybox(const std::string& name) { return Get().Internal_LoadSkybox(name); }
-    static AudioSource             LoadAudioSource(const std::string& name) { return Get().Internal_LoadAudioSource(name); };
+    n32                            LoadAudioSource(const std::string& name) { return Get().Internal_LoadAudioSource(name); };
 
     static const ModelDescriptors& GetModelDescriptors() { return Get().m_modelDescriptors; }
     static const DescriptorPools&  GetDescriptorPools() { return Get().m_descriptorPools; }
@@ -69,11 +69,6 @@ private:
 
     std::unique_ptr<DescriptorSetLayout> m_skyboxLayout;
 
-    struct WorldDescriptors
-    {
-
-    } m_worldDescritors;
-
     LogicalDevice* m_logicalDevice{nullptr};
 
     void Internal_Init(LogicalDevice* device);
@@ -85,8 +80,11 @@ private:
     n32                                             Internal_LoadModel(const std::string& name);
     std::shared_ptr<Model>                          Internal_GetModel(const n32& index);
 
-    std::shared_ptr<Skybox> Internal_LoadSkybox(const std::string& name);
+    std::unordered_map<n32, std::shared_ptr<AudioSourceComponent>> m_audioMap;
+    n32                                                            m_nextaudioID{0};
+    n32                                                            Internal_LoadAudioSource(const std::string& name);
+    std::shared_ptr<AudioSourceComponent>                          Internal_GetAudioSource(const n32& index);
 
-    AudioSource Internal_LoadAudioSource(const std::string& name);
+    std::shared_ptr<Skybox> Internal_LoadSkybox(const std::string& name);
 };
 } // namespace Humongous
