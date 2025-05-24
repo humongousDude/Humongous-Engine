@@ -16,7 +16,7 @@ enum class DescriptorSetIndices : n32
     Scene = 1,  // Scene gets 1 descriptor set
     Skybox = 2,
     Model = 3, // Model gets 4 descriptor sets
-    Debug = 7, // Debug gets 1 descriptor set
+    Debug = 6, // Debug gets 1 descriptor set
 };
 
 class Time : public Singleton<Time>, NonCopyable

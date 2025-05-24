@@ -36,18 +36,14 @@ layout(set = 0, binding = 0) uniform UBO
     vec3 cameraPos;
 } ubo;
 
-layout(set = 4, binding = 0) readonly buffer NodeID {
-    uint nodeID;
-} ids;
-
 // TODO : make this work again
-layout(set = 5, binding = 0) readonly buffer UBONode {
+layout(set = 4, binding = 0) readonly buffer UBONode {
     mat4 matrix[];
     // mat4 jointMatrix[MAX_NUM_JOINTS];
     // float jointCount;
 } node;
 
-layout(set = 7, binding = 0) writeonly buffer DebugData
+layout(set = 6, binding = 0) writeonly buffer DebugData
 {
     uint draws;
 } debug;

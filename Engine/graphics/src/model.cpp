@@ -719,19 +719,13 @@ void Model::Draw(vk::CommandBuffer cmd, vk::PipelineLayout& pipelineLayout)
 {
     vkCmdBindIndexBuffer(cmd, m_indices.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    auto              bufInfo = m_nodeIDBuffer.DescriptorInfo();
-    vk::DescriptorSet nodeIdSet;
-    DescriptorWriter(*ResourceManager::GetModelDescriptors().nodeIdLayout, ResourceManager::GetDescriptorPools().storageBufferPool.get())
-        .WriteBuffer(0, &bufInfo)
-        .Build(nodeIdSet);
-
     vk::DescriptorSet nodeMatrixSet;
-    bufInfo = m_nodeMatrixBuffer.DescriptorInfo();
+    auto              bufInfo = m_nodeMatrixBuffer.DescriptorInfo();
     DescriptorWriter(*ResourceManager::GetModelDescriptors().nodeLayout, ResourceManager::GetDescriptorPools().storageBufferPool.get())
         .WriteBuffer(0, &bufInfo)
         .Build(nodeMatrixSet);
 
-    std::vector<vk::DescriptorSet> sets = {m_materialDataDescriptor, nodeIdSet, nodeMatrixSet};
+    std::vector<vk::DescriptorSet> sets = {m_materialDataDescriptor, nodeMatrixSet};
 
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model), sets.size(),
                            sets.data(), 0, nullptr);
@@ -743,7 +737,7 @@ void Model::Draw(vk::CommandBuffer cmd, vk::PipelineLayout& pipelineLayout)
 
         vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstantData), sizeof(n32), &mat->index);
 
-        cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model) + 3, 1,
+        cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model) + 2, 1,
                                &mat->descriptorSet, 0, nullptr);
 
         vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer.GetBuffer(), written, m_indirectCommands[id].size(),

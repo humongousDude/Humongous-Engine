@@ -23,7 +23,6 @@ void ResourceManager::Internal_Shutdown()
     for(auto& [key, model]: m_modelMap) { model.reset(); }
 
     m_modelDescriptors.materialLayout.reset();
-    m_modelDescriptors.nodeIdLayout.reset();
     m_modelDescriptors.nodeLayout.reset();
     m_modelDescriptors.materialDataLayout.reset();
     m_modelDescriptors.debugLayout.reset();
@@ -60,10 +59,6 @@ void ResourceManager::InitDescriptors()
     DescriptorSetLayout::Builder materialBufferBuilder{*m_logicalDevice};
     materialBufferBuilder.addBinding(0, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eFragment);
     m_modelDescriptors.materialDataLayout = materialBufferBuilder.Build();
-
-    DescriptorSetLayout::Builder nodeIDBufferBuilder{*m_logicalDevice};
-    nodeIDBufferBuilder.addBinding(0, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex);
-    m_modelDescriptors.nodeIdLayout = nodeIDBufferBuilder.Build();
 
     DescriptorSetLayout::Builder nodeBuilder{*m_logicalDevice};
     nodeBuilder.addBinding(0, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex);

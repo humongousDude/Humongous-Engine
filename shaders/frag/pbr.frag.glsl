@@ -14,11 +14,11 @@ layout(set = 2, binding = 1) uniform samplerCube samplerIrradiance;
 layout(set = 2, binding = 2) uniform samplerCube prefilteredMap;
 layout(set = 2, binding = 3) uniform sampler2D samplerBRDFLUT;
 
-layout(set = 6, binding = 0) uniform sampler2D colorMap;
-layout(set = 6, binding = 1) uniform sampler2D physicalDescriptorMap;
-layout(set = 6, binding = 2) uniform sampler2D normalMap;
-layout(set = 6, binding = 3) uniform sampler2D aoMap;
-layout(set = 6, binding = 4) uniform sampler2D emissiveMap;
+layout(set = 5, binding = 0) uniform sampler2D colorMap;
+layout(set = 5, binding = 1) uniform sampler2D physicalDescriptorMap;
+layout(set = 5, binding = 2) uniform sampler2D normalMap;
+layout(set = 5, binding = 3) uniform sampler2D aoMap;
+layout(set = 5, binding = 4) uniform sampler2D emissiveMap;
 
 struct MaterialData {
     vec4 baseColorFactor;

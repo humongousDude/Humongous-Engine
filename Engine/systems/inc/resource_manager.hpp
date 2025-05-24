@@ -36,15 +36,14 @@ public:
     static std::vector<vk::DescriptorSetLayout> GetLayoutVector()
     {
         return {Get().m_modelDescriptors.materialDataLayout->GetDescriptorSetLayout(),
-                Get().m_modelDescriptors.nodeIdLayout->GetDescriptorSetLayout(), Get().m_modelDescriptors.nodeLayout->GetDescriptorSetLayout(),
-                Get().m_modelDescriptors.materialLayout->GetDescriptorSetLayout(), Get().m_modelDescriptors.debugLayout->GetDescriptorSetLayout()};
+                Get().m_modelDescriptors.nodeLayout->GetDescriptorSetLayout(), Get().m_modelDescriptors.materialLayout->GetDescriptorSetLayout(),
+                Get().m_modelDescriptors.debugLayout->GetDescriptorSetLayout()};
     }
 
     static n32 GetTotalModelBindingCount()
     {
         return Get().m_modelDescriptors.materialLayout->GetBindingCount() + Get().m_modelDescriptors.materialDataLayout->GetBindingCount() +
-               Get().m_modelDescriptors.nodeIdLayout->GetBindingCount() + Get().m_modelDescriptors.nodeLayout->GetBindingCount() +
-               Get().m_modelDescriptors.debugLayout->GetBindingCount();
+               Get().m_modelDescriptors.nodeLayout->GetBindingCount() + Get().m_modelDescriptors.debugLayout->GetBindingCount();
     }
 
 private:
@@ -60,7 +59,6 @@ private:
     struct ModelDescriptors
     {
         std::unique_ptr<DescriptorSetLayout> materialDataLayout;
-        std::unique_ptr<DescriptorSetLayout> nodeIdLayout;
         std::unique_ptr<DescriptorSetLayout> materialLayout;
         std::unique_ptr<DescriptorSetLayout> nodeLayout;
         std::unique_ptr<DescriptorSetLayout> debugLayout;
