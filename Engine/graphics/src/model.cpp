@@ -50,6 +50,7 @@ void Model::Destroy(vk::Device device)
 
 void Model::UpdateUBO(Node* node, glm::mat4 matrix)
 {
+
     // Might need this when I implement animations.
     // if(node->mesh)
     // {
@@ -726,13 +727,7 @@ void Model::Draw(vk::CommandBuffer cmd, vk::PipelineLayout& pipelineLayout)
 {
     vkCmdBindIndexBuffer(cmd, m_indices.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    vk::DescriptorSet nodeMatrixSet;
-    auto              bufInfo = m_nodeMatrixBuffer.DescriptorInfo();
-    DescriptorWriter(*ResourceManager::GetModelDescriptors().nodeLayout, ResourceManager::GetDescriptorPools().storageBufferPool.get())
-        .WriteBuffer(0, &bufInfo)
-        .Build(nodeMatrixSet);
-
-    std::vector<vk::DescriptorSet> sets = {nodeMatrixSet};
+    std::vector<vk::DescriptorSet> sets = {m_nodeMatrixSet};
 
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model) + 1,
                            sets.size(), sets.data(), 0, nullptr);
@@ -801,6 +796,11 @@ void Model::SetupIndirectDrawBuffer()
         stagingBuffer.UnMap();
 
         Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_nodeMatrixBuffer, nodeMatricies.size() * sizeof(glm::mat4));
+
+        auto bufInfo = m_nodeMatrixBuffer.DescriptorInfo();
+        DescriptorWriter(*ResourceManager::GetModelDescriptors().nodeLayout, ResourceManager::GetDescriptorPools().storageBufferPool.get())
+            .WriteBuffer(0, &bufInfo)
+            .Build(m_nodeMatrixSet);
     }
 
     // Indirect
