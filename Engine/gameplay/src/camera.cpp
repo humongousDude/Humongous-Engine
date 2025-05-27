@@ -27,11 +27,11 @@ void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
     m_projectionPool = builder.Build();
 
     DescriptorSetLayout::Builder builder2{*logicalDevice};
-    builder2.addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex);
+    builder2.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex);
     m_projectionDescriptorLayout = builder2.Build();
 
     DescriptorSetLayout::Builder builder3{*logicalDevice};
-    builder3.addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eFragment);
+    builder3.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eFragment);
     m_paramDescriptorLayout = builder3.Build();
 
     m_projectionBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);

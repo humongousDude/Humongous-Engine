@@ -82,7 +82,7 @@ void UI::InitDescriptorThings()
     }
     {
         DescriptorSetLayout::Builder builder{*m_logicalDevice};
-        builder.addBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eAll);
+        builder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eAll);
         m_setLayout = builder.Build();
     }
 }

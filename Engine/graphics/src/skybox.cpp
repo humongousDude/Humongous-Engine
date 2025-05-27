@@ -254,19 +254,19 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
     }
 
     DescriptorSetLayout::Builder envImageBuilder{*m_logicalDevice};
-    envImageBuilder.addBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
+    envImageBuilder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
     auto envLayout = envImageBuilder.Build();
 
     DescriptorSetLayout::Builder IrradImageBuilder{*m_logicalDevice};
-    IrradImageBuilder.addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute);
+    IrradImageBuilder.AddBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute);
     auto irradLayout = IrradImageBuilder.Build();
 
     DescriptorSetLayout::Builder PrefiltImageBuilder{*m_logicalDevice};
-    PrefiltImageBuilder.addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute);
+    PrefiltImageBuilder.AddBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute);
     auto prefilteredLayout = PrefiltImageBuilder.Build();
 
     DescriptorSetLayout::Builder brdfImageBuilder{*m_logicalDevice};
-    brdfImageBuilder.addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute);
+    brdfImageBuilder.AddBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute);
     auto brdfLayout = brdfImageBuilder.Build();
 
     std::array<vk::DescriptorSetLayout, 2> irradDescriptorLayouts = {envLayout->GetDescriptorSetLayout(), irradLayout->GetDescriptorSetLayout()};

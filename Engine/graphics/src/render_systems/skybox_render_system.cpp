@@ -28,7 +28,7 @@ void SkyboxRenderSystem::InitDescriptors()
     m_skyboxPool = std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 6, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, descs);
 
     DescriptorSetLayout::Builder builder{*m_logicalDevice};
-    builder.addBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment);
+    builder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment);
     m_skyboxSetLayout = builder.Build();
 }
 

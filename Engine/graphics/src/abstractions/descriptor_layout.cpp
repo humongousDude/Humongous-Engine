@@ -10,7 +10,7 @@ namespace Humongous
 
 // *************** Descriptor Set Layout Builder *********************
 
-DescriptorSetLayout::Builder& DescriptorSetLayout::Builder::addBinding(n32 binding, vk::DescriptorType descriptorType,
+DescriptorSetLayout::Builder& DescriptorSetLayout::Builder::AddBinding(n32 binding, vk::DescriptorType descriptorType,
                                                                        vk::ShaderStageFlags stageFlags, n32 count)
 {
     HGASSERT(m_bindings.count(binding) == 0 && "Binding already in use")
