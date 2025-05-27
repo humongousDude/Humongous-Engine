@@ -26,6 +26,11 @@ public:
         TransformComponent tc;
         tc.SetDirty(true);
         m_transforms.Add(id, tc);
+
+        NameComponent nc;
+        nc.name = "Entity " + std::to_string(id);
+        m_names.Add(id, nc);
+
         return id;
     }
 
@@ -69,6 +74,12 @@ public:
             return;
         }
 
+        if constexpr(std::is_same_v<T, NameComponent>)
+        {
+            HGERROR("NameComponent cannot be removed. It is a requirment for all entites");
+            return;
+        }
+
         SparseSet<T>& storage = GetComponentStorage<T>();
         storage.Remove(entity);
 
@@ -92,7 +103,7 @@ public:
 
     void BoundingVolumeUpdateSystem()
     {
-        for(Humongous::EntityID entity = 0; entity < 10; ++entity)
+        for(Humongous::EntityID entity: m_worldBoundingBoxes.GetDense())
         {
             TransformComponent* transform = GetComponent<TransformComponent>(entity);
 
