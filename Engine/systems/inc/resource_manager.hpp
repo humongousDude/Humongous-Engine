@@ -16,6 +16,7 @@ class ResourceManager : Singleton<ResourceManager>
 private:
     struct ModelDescriptors;
     struct DescriptorPools;
+    struct MaterialKey;
 
 public:
     static void Init(LogicalDevice* logicalDevice) { Get().Internal_Init(logicalDevice); }
@@ -32,19 +33,26 @@ public:
 
     static vk::DescriptorSetLayout GetSkyboxDescriptorLayout() { return Get().m_skyboxLayout->GetDescriptorSetLayout(); }
 
+    static void BindGlobalDescriptorSets(vk::CommandBuffer cmd, vk::PipelineLayout layout) { Get().Internal_BindGlobalDescriptorSets(cmd, layout); }
+
     // Material Textures, Material Data, Node, RendererBuffer
     static std::vector<vk::DescriptorSetLayout> GetLayoutVector()
     {
-        return {Get().m_modelDescriptors.materialDataLayout->GetDescriptorSetLayout(),
-                Get().m_modelDescriptors.nodeLayout->GetDescriptorSetLayout(), Get().m_modelDescriptors.materialLayout->GetDescriptorSetLayout(),
+        return {Get().m_bindlessLayout->GetDescriptorSetLayout(), Get().m_modelDescriptors.nodeLayout->GetDescriptorSetLayout(),
                 Get().m_modelDescriptors.debugLayout->GetDescriptorSetLayout()};
     }
 
     static n32 GetTotalModelBindingCount()
     {
-        return Get().m_modelDescriptors.materialLayout->GetBindingCount() + Get().m_modelDescriptors.materialDataLayout->GetBindingCount() +
-               Get().m_modelDescriptors.nodeLayout->GetBindingCount() + Get().m_modelDescriptors.debugLayout->GetBindingCount();
+        return Get().m_modelDescriptors.nodeLayout->GetBindingCount() + Get().m_modelDescriptors.debugLayout->GetBindingCount();
     }
+
+    static n32 RequestTexture(class tinygltf::Image img, struct Texture::TexSamplerInfo sampler)
+    {
+        return Get().Internal_RequestTexture(img, sampler);
+    };
+
+    static n32 RequestMaterial(const Model::ShaderMaterial& mat) { return Get().Internal_RequestMaterial(mat); }
 
 private:
     struct DescriptorPools
@@ -58,8 +66,6 @@ private:
 
     struct ModelDescriptors
     {
-        std::unique_ptr<DescriptorSetLayout> materialDataLayout;
-        std::unique_ptr<DescriptorSetLayout> materialLayout;
         std::unique_ptr<DescriptorSetLayout> nodeLayout;
         std::unique_ptr<DescriptorSetLayout> debugLayout;
         std::unique_ptr<DescriptorSetLayout> rendererBuffer;
@@ -82,6 +88,34 @@ private:
     n32                                                            m_nextaudioID{0};
     n32                                                            Internal_LoadAudioSource(const std::string& name);
     std::shared_ptr<AudioSourceComponent>                          Internal_GetAudioSource(const n32& index);
+
+    struct TextureBinding
+    {
+        Texture texture;
+        n32     bindlessIndex;
+    };
+
+    std::unordered_map<std::string, TextureBinding> m_textureMap;
+    std::vector<vk::DescriptorImageInfo>            m_bindlessImageInfos;
+    vk::DescriptorSet                               m_bindlessSet;
+    std::unique_ptr<DescriptorSetLayout>            m_bindlessLayout;
+    std::unique_ptr<DescriptorPoolGrowable>         m_bindlessTexturePool;
+    uint32_t                                        m_nextBindlessIndex = 0;
+    void                                            Internal_BindGlobalDescriptorSets(vk::CommandBuffer cmd, vk::PipelineLayout layout);
+
+    n32 Internal_RequestTexture(class tinygltf::Image img, struct Texture::TexSamplerInfo sampler);
+
+    struct MaterialBinding
+    {
+        Model::ShaderMaterial material;
+        n32                   bindlessIndex;
+    };
+
+    std::vector<MaterialBinding>         m_materials;
+    std::unordered_map<std::string, n32> m_materialMap;
+    std::unique_ptr<Buffer>              m_materialDataBuffer;
+
+    n32 Internal_RequestMaterial(const Model::ShaderMaterial& mat);
 
     std::shared_ptr<Skybox> Internal_LoadSkybox(const std::string& name);
 };

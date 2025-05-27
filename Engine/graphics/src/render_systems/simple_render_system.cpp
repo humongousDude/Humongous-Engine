@@ -127,6 +127,8 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
     renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
                                                 static_cast<n32>(Globals::DescriptorSetIndices::Debug), 1, &debugSet, 0, nullptr);
 
+    if(!depthOnly) { ResourceManager::BindGlobalDescriptorSets(renderData.commandBuffer, m_pipelineLayout); }
+
     n32 objectsDrawn = 0;
     if(renderData.visibleEntities)
     {

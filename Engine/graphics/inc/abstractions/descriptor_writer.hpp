@@ -20,6 +20,11 @@ public:
 
     DescriptorWriter& WriteBuffer(n32 binding, vk::DescriptorBufferInfo* bufferInfo);
     DescriptorWriter& WriteImage(n32 binding, vk::DescriptorImageInfo* imageInfo);
+    DescriptorWriter& Write(vk::WriteDescriptorSet write)
+    {
+        m_writes.push_back(write);
+        return *this;
+    };
 
     bool Build(vk::DescriptorSet& set);
     void Overwrite(vk::DescriptorSet& set);

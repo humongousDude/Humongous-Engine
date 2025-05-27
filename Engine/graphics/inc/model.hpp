@@ -59,6 +59,41 @@ public:
         vk::DeviceAddress vertexAddress;
     };
 
+    struct alignas(16) MaterialIndices
+    {
+        n32 baseColor;
+        n32 normal;
+    };
+
+    struct alignas(16) ShaderMaterial
+    {
+        glm::vec4 baseColorFactor; // 16 bytes
+        glm::vec4 emissiveFactor;  // 16 bytes
+        glm::vec4 diffuseFactor;   // 16 bytes
+        glm::vec4 specularFactor;  // 16 bytes
+
+        float workflow;                       // 4
+        int   baseColorTextureIndex;          // 4
+        int   baseColorTextureSet;            // 4
+        int   physicalDescriptorTextureIndex; // 4
+
+        int physicalDescriptorTextureSet; // 4
+        int normalTextureIndex;           // 4
+        int normalTextureSet;             // 4
+        int occlusionTextureIndex;        // 4
+
+        int   occlusionTextureSet;  // 4
+        int   emissiveTextureIndex; // 4
+        int   emissiveTextureSet;   // 4
+        float metallicFactor;       // 4
+
+        float roughnessFactor;  // 4
+        float alphaMask;        // 4
+        float alphaMaskCutoff;  // 4
+        float emissiveStrength; // 4
+    };
+    // static_assert(sizeof(ShaderMaterial) % 16 == 0, "Must be 16-byte aligned for std430");
+
     struct alignas(16) Vertex
     {
         alignas(16) glm::vec3 position; // 12 bytes (aligned to 16 bytes)
@@ -78,8 +113,8 @@ public:
 
     Buffer& GetVertexBuffer() { return m_vertices; }
 
-    void Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeLayout, DescriptorSetLayout* materialBufferLayout,
-              DescriptorPoolGrowable* imagePool, DescriptorPoolGrowable* uniformPool, DescriptorPoolGrowable* storagePool);
+    void Init(DescriptorSetLayout* nodeLayout, DescriptorPoolGrowable* imagePool, DescriptorPoolGrowable* uniformPool,
+              DescriptorPoolGrowable* storagePool);
 
     void Draw(vk::CommandBuffer commandBuffer, vk::PipelineLayout& pipelineLayout);
 
@@ -101,7 +136,7 @@ private:
     std::vector<Node*> m_linearNodes;
 
     Texture                                          m_emptyTexture;
-    std::vector<Texture>                             m_textures;
+    std::vector<n32>                                 m_textures;
     std::vector<Texture::TexSamplerInfo>             m_textureSamplers;
     std::vector<Material>                            m_materials;
     std::unordered_map<n32, std::vector<Primitive*>> m_materialBatches;
@@ -113,25 +148,6 @@ private:
         PBR_WORKFLOW_SPECULAR_GLOSSINESS = 1
     };
 
-    struct alignas(16) ShaderMaterial
-    {
-        glm::vec4 baseColorFactor;
-        glm::vec4 emissiveFactor;
-        glm::vec4 diffuseFactor;
-        glm::vec4 specularFactor;
-        float     workflow;
-        int       colorTextureSet;
-        int       PhysicalDescriptorTextureSet;
-        int       normalTextureSet;
-        int       occlusionTextureSet;
-        int       emissiveTextureSet;
-        float     metallicFactor;
-        float     roughnessFactor;
-        float     alphaMask;
-        float     alphaMaskCutoff;
-        float     emissiveStrength;
-        n32       _padding0;
-    };
     Buffer m_materialDataBuffer;
 
     void                                                                 SetupIndirectDrawBuffer();

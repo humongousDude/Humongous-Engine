@@ -42,11 +42,12 @@ public:
     // void DepthOnlyRender(RenderData& renderData);
     n32 GetObjectsDrawn() { return m_verticesDrawn; }
 
+    vk::PipelineLayout m_pipelineLayout{};
+
 private:
     LogicalDevice&                  m_logicalDevice;
     std::unique_ptr<RenderPipeline> m_renderPipeline;
     std::unique_ptr<RenderPipeline> m_depthOnlyPipeline;
-    vk::PipelineLayout              m_pipelineLayout{};
     n32                             m_verticesDrawn{0};
 
     std::unique_ptr<Buffer> m_debugBuffer;

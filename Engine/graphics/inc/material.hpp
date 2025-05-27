@@ -46,11 +46,11 @@ struct Material
     float     roughnessFactor = 1.0f;
     glm::vec4 baseColorFactor = glm::vec4(1.0f);
     glm::vec4 emissiveFactor = glm::vec4(0.0f);
-    Texture*  baseColorTexture;
-    Texture*  metallicRoughnessTexture;
-    Texture*  normalTexture;
-    Texture*  occlusionTexture;
-    Texture*  emissiveTexture;
+    n32       baseColorTextureIndex = -1;
+    n32       metallicRoughnessTextureIndex = -1;
+    n32       normalTextureIndex = -1;
+    n32       occlusionTextureIndex = -1;
+    n32       emissiveTextureIndex = -1;
     bool      doubleSided = false;
     struct TexCoordSets
     {
@@ -63,8 +63,8 @@ struct Material
     } texCoordSets;
     struct Extension
     {
-        Texture*  specularGlossinessTexture;
-        Texture*  diffuseTexture;
+        n32       specularGlossinessTextureIndex = -1;
+        n32       diffuseTextureIndex = -1;
         glm::vec4 diffuseFactor = glm::vec4(1.0f);
         glm::vec3 specularFactor = glm::vec3(0.0f);
     } extension;
@@ -73,11 +73,10 @@ struct Material
         bool metallicRoughness = true;
         bool specularGlossiness = false;
     } pbrWorkflows;
-    vk::DescriptorSet descriptorSet = VK_NULL_HANDLE;
-    int               index = 0;
-    std::string       name = "";
-    bool              unlit = false;
-    float             emissiveStrength = 1.0f;
+    int         index = 0;
+    std::string name = "";
+    bool        unlit = false;
+    float       emissiveStrength = 1.0f;
 };
 
 } // namespace Humongous

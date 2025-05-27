@@ -110,12 +110,18 @@ void VulkanApp::LoadGameObjects()
     world->AddComponent<ModelComponent>(wall);
     comp = world->GetComponent<ModelComponent>(wall);
     comp->modelHandle = ResourceManager::LoadModel("real_wall");
-
     world->AddComponent<AudioSourceComponent>(wall, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
 
     auto transform = world->GetComponent<TransformComponent>(wall);
     transform->SetTranslation(0, 0, 10);
     transform->SetRotation(90, 0, 0);
+
+    auto employee = world->CreateEntity();
+    world->AddComponent<BoundingBox>(employee);
+    world->AddComponent<ModelComponent>(employee);
+    comp = world->GetComponent<ModelComponent>(employee);
+    comp->modelHandle = ResourceManager::LoadModel("employee");
+    world->AddComponent<AudioSourceComponent>(employee, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
 
     HGINFO("Loaded game objects");
 }

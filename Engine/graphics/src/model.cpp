@@ -40,7 +40,7 @@ Model::~Model() { Destroy(m_logicalDevice->GetVkDevice()); }
 
 void Model::Destroy(vk::Device device)
 {
-    for(auto& t: m_textures) { t.Destroy(); }
+    // for(auto& t: m_textures) { t.Destroy(); }
     m_emptyTexture.Destroy();
 
     for(auto node: m_nodes) { delete node; }
@@ -398,9 +398,7 @@ void Model::LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, vk::
             textureSampler.addressModeW = vk::SamplerAddressMode::eRepeat;
         }
         else { textureSampler = m_textureSamplers[tex.sampler]; }
-        Texture texture;
-        texture.CreateFromGLTFImage(image, textureSampler, device, transferQueue);
-        m_textures.push_back(std::move(texture));
+        m_textures.push_back(ResourceManager::RequestTexture(image, textureSampler));
     }
 
     m_emptyTexture.CreateFromFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::TEXTURE, "empty"), device,
@@ -432,12 +430,12 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
 
         if(mat.values.find("baseColorTexture") != mat.values.end())
         {
-            material.baseColorTexture = &m_textures[mat.values["baseColorTexture"].TextureIndex()];
+            material.baseColorTextureIndex = m_textures[mat.values["baseColorTexture"].TextureIndex()];
             material.texCoordSets.baseColor = mat.values["baseColorTexture"].TextureTexCoord();
         }
         if(mat.values.find("metallicRoughnessTexture") != mat.values.end())
         {
-            material.metallicRoughnessTexture = &m_textures[mat.values["metallicRoughnessTexture"].TextureIndex()];
+            material.metallicRoughnessTextureIndex = m_textures[mat.values["metallicRoughnessTexture"].TextureIndex()];
             material.texCoordSets.metallicRoughness = mat.values["metallicRoughnessTexture"].TextureTexCoord();
         }
         if(mat.values.find("roughnessFactor") != mat.values.end())
@@ -454,17 +452,17 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         }
         if(mat.additionalValues.find("normalTexture") != mat.additionalValues.end())
         {
-            material.normalTexture = &m_textures[mat.additionalValues["normalTexture"].TextureIndex()];
+            material.normalTextureIndex = m_textures[mat.additionalValues["normalTexture"].TextureIndex()];
             material.texCoordSets.normal = mat.additionalValues["normalTexture"].TextureTexCoord();
         }
         if(mat.additionalValues.find("emissiveTexture") != mat.additionalValues.end())
         {
-            material.emissiveTexture = &m_textures[mat.additionalValues["emissiveTexture"].TextureIndex()];
+            material.emissiveTextureIndex = m_textures[mat.additionalValues["emissiveTexture"].TextureIndex()];
             material.texCoordSets.emissive = mat.additionalValues["emissiveTexture"].TextureTexCoord();
         }
         if(mat.additionalValues.find("occlusionTexture") != mat.additionalValues.end())
         {
-            material.occlusionTexture = &m_textures[mat.additionalValues["occlusionTexture"].TextureIndex()];
+            material.occlusionTextureIndex = m_textures[mat.additionalValues["occlusionTexture"].TextureIndex()];
             material.texCoordSets.occlusion = mat.additionalValues["occlusionTexture"].TextureTexCoord();
         }
         if(mat.additionalValues.find("alphaMode") != mat.additionalValues.end())
@@ -494,7 +492,7 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             if(ext->second.Has("specularGlossinessTexture"))
             {
                 auto index = ext->second.Get("specularGlossinessTexture").Get("index");
-                material.extension.specularGlossinessTexture = &m_textures[index.Get<int>()];
+                material.extension.specularGlossinessTextureIndex = m_textures[index.Get<int>()];
                 auto texCoordSet = ext->second.Get("specularGlossinessTexture").Get("texCoord");
                 material.texCoordSets.specularGlossiness = texCoordSet.Get<int>();
                 material.pbrWorkflows.specularGlossiness = true;
@@ -502,7 +500,7 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             if(ext->second.Has("diffuseTexture"))
             {
                 auto index = ext->second.Get("diffuseTexture").Get("index");
-                material.extension.diffuseTexture = &m_textures[index.Get<int>()];
+                material.extension.diffuseTextureIndex = m_textures[index.Get<int>()];
             }
             if(ext->second.Has("diffuseFactor"))
             {
@@ -563,10 +561,18 @@ void Model::CreateMaterialDataBuffer()
         shaderMaterial.emissiveFactor = material.emissiveFactor;
         // To save space, availabilty and texture coordinate set are combined
         // -1 = texture not used for this material, >= 0 texture used and index of texture coordinate set
-        shaderMaterial.colorTextureSet = material.baseColorTexture != nullptr ? material.texCoordSets.baseColor : -1;
-        shaderMaterial.normalTextureSet = material.normalTexture != nullptr ? material.texCoordSets.normal : -1;
-        shaderMaterial.occlusionTextureSet = material.occlusionTexture != nullptr ? material.texCoordSets.occlusion : -1;
-        shaderMaterial.emissiveTextureSet = material.emissiveTexture != nullptr ? material.texCoordSets.emissive : -1;
+        shaderMaterial.baseColorTextureSet = material.baseColorTextureIndex != -1 ? material.texCoordSets.baseColor : -1;
+        shaderMaterial.baseColorTextureIndex = material.baseColorTextureIndex;
+
+        shaderMaterial.normalTextureSet = material.normalTextureIndex != -1 ? material.texCoordSets.normal : -1;
+        shaderMaterial.normalTextureIndex = material.normalTextureIndex;
+
+        shaderMaterial.occlusionTextureSet = material.occlusionTextureIndex != -1 ? material.texCoordSets.occlusion : -1;
+        shaderMaterial.occlusionTextureIndex = material.occlusionTextureIndex;
+
+        shaderMaterial.emissiveTextureSet = material.emissiveTextureIndex != -1 ? material.texCoordSets.emissive : -1;
+        shaderMaterial.emissiveTextureIndex = material.emissiveTextureIndex;
+
         shaderMaterial.alphaMask = static_cast<float>(material.alphaMode == Material::ALPHAMODE_MASK);
         shaderMaterial.alphaMaskCutoff = material.alphaCutoff;
         shaderMaterial.emissiveStrength = material.emissiveStrength;
@@ -579,21 +585,22 @@ void Model::CreateMaterialDataBuffer()
             shaderMaterial.baseColorFactor = material.baseColorFactor;
             shaderMaterial.metallicFactor = material.metallicFactor;
             shaderMaterial.roughnessFactor = material.roughnessFactor;
-            shaderMaterial.PhysicalDescriptorTextureSet =
-                material.metallicRoughnessTexture != nullptr ? material.texCoordSets.metallicRoughness : -1;
-            shaderMaterial.colorTextureSet = material.baseColorTexture != nullptr ? material.texCoordSets.baseColor : -1;
+            shaderMaterial.physicalDescriptorTextureSet =
+                material.metallicRoughnessTextureIndex != -1 ? material.texCoordSets.metallicRoughness : -1;
+            shaderMaterial.baseColorTextureSet = material.baseColorTextureIndex != -1 ? material.texCoordSets.baseColor : -1;
         }
 
         if(material.pbrWorkflows.specularGlossiness)
         {
             shaderMaterial.workflow = static_cast<float>(PBR_WORKFLOW_SPECULAR_GLOSSINESS);
-            shaderMaterial.PhysicalDescriptorTextureSet =
-                material.extension.specularGlossinessTexture != nullptr ? material.texCoordSets.specularGlossiness : -1;
-            shaderMaterial.colorTextureSet = material.extension.diffuseTexture != nullptr ? material.texCoordSets.baseColor : -1;
+            shaderMaterial.physicalDescriptorTextureSet =
+                material.extension.specularGlossinessTextureIndex != -1 ? material.texCoordSets.specularGlossiness : -1;
+            shaderMaterial.baseColorTextureSet = material.extension.diffuseTextureIndex != -1 ? material.texCoordSets.baseColor : -1;
             shaderMaterial.diffuseFactor = material.extension.diffuseFactor;
             shaderMaterial.specularFactor = glm::vec4(material.extension.specularFactor, 1.0f);
         }
 
+        material.index = ResourceManager::RequestMaterial(shaderMaterial);
         shaderMaterials.push_back(shaderMaterial);
     }
 
@@ -725,10 +732,10 @@ void Model::Draw(vk::CommandBuffer cmd, vk::PipelineLayout& pipelineLayout)
         .WriteBuffer(0, &bufInfo)
         .Build(nodeMatrixSet);
 
-    std::vector<vk::DescriptorSet> sets = {m_materialDataDescriptor, nodeMatrixSet};
+    std::vector<vk::DescriptorSet> sets = {nodeMatrixSet};
 
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model), sets.size(),
-                           sets.data(), 0, nullptr);
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model) + 1,
+                           sets.size(), sets.data(), 0, nullptr);
 
     vk::DeviceSize written{0};
     for(auto& [id, prim]: m_materialBatches)
@@ -736,9 +743,6 @@ void Model::Draw(vk::CommandBuffer cmd, vk::PipelineLayout& pipelineLayout)
         auto mat = &m_materials[id];
 
         vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstantData), sizeof(n32), &mat->index);
-
-        cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model) + 2, 1,
-                               &mat->descriptorSet, 0, nullptr);
 
         vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer.GetBuffer(), written, m_indirectCommands[id].size(),
                                  sizeof(vk::DrawIndexedIndirectCommand));
@@ -848,68 +852,15 @@ void Model::SetupIndirectDrawBuffer()
     }
 }
 
-void Model::Init(DescriptorSetLayout* materialLayout, DescriptorSetLayout* nodeLayout, DescriptorSetLayout* materialBufferLayout,
-                 DescriptorPoolGrowable* imagePool, DescriptorPoolGrowable* uniformPool, DescriptorPoolGrowable* storagePool)
+void Model::Init(DescriptorSetLayout* nodeLayout, DescriptorPoolGrowable* imagePool, DescriptorPoolGrowable* uniformPool,
+                 DescriptorPoolGrowable* storagePool)
 {
     if(m_initialized) { return; }
     HGINFO("Initializing model...");
 
-    for(auto& [id, vec]: m_materialBatches)
-    {
-        auto material = &m_materials[id];
-
-        if(material->descriptorSet == VK_NULL_HANDLE)
-        {
-            material->descriptorSet = imagePool->AllocateDescriptor(materialLayout->GetDescriptorSetLayout());
-        }
-
-        std::vector<vk::DescriptorImageInfo> imageDescriptors = {
-            m_emptyTexture.GetDescriptorInfo(), m_emptyTexture.GetDescriptorInfo(),
-            material->normalTexture ? material->normalTexture->GetDescriptorInfo() : m_emptyTexture.GetDescriptorInfo(),
-            material->occlusionTexture ? material->occlusionTexture->GetDescriptorInfo() : m_emptyTexture.GetDescriptorInfo(),
-            material->emissiveTexture ? material->emissiveTexture->GetDescriptorInfo() : m_emptyTexture.GetDescriptorInfo()};
-
-        // TODO: glTF specs states that metallic roughness should be preferred, even if specular glosiness is present
-
-        if(material->pbrWorkflows.metallicRoughness)
-        {
-            if(material->baseColorTexture) { imageDescriptors[0] = material->baseColorTexture->GetDescriptorInfo(); }
-            if(material->metallicRoughnessTexture) { imageDescriptors[1] = material->metallicRoughnessTexture->GetDescriptorInfo(); }
-        }
-
-        if(material->pbrWorkflows.specularGlossiness)
-        {
-
-            if(material->extension.diffuseTexture) { imageDescriptors[0] = material->extension.diffuseTexture->GetDescriptorInfo(); }
-            if(material->extension.specularGlossinessTexture)
-            {
-                imageDescriptors[1] = material->extension.specularGlossinessTexture->GetDescriptorInfo();
-            }
-        }
-
-        std::array<vk::WriteDescriptorSet, 5> writeDescriptorSets{};
-        for(size_t i = 0; i < imageDescriptors.size(); i++)
-        {
-            writeDescriptorSets[i].sType = vk::StructureType::eWriteDescriptorSet;
-            writeDescriptorSets[i].descriptorType = vk::DescriptorType::eCombinedImageSampler;
-            writeDescriptorSets[i].descriptorCount = 1;
-            writeDescriptorSets[i].dstSet = material->descriptorSet;
-            writeDescriptorSets[i].dstBinding = static_cast<n32>(i);
-            writeDescriptorSets[i].pImageInfo = &imageDescriptors[i];
-
-            DescriptorWriter(*materialLayout, imagePool).WriteImage(static_cast<n32>(i), &imageDescriptors[i]).Overwrite(material->descriptorSet);
-        }
-    }
-
-    if(m_materialDataDescriptor == VK_NULL_HANDLE)
-    {
-        m_materialDataDescriptor = storagePool->AllocateDescriptor(materialBufferLayout->GetDescriptorSetLayout());
-    }
+    for(auto& [id, vec]: m_materialBatches) { auto material = &m_materials[id]; }
 
     CreateMaterialDataBuffer();
-
-    auto bufInfo = m_materialDataBuffer.DescriptorInfo();
-    DescriptorWriter(*materialBufferLayout, storagePool).WriteBuffer(0, &bufInfo).Overwrite(m_materialDataDescriptor);
 
     m_initialized = true;
 }
