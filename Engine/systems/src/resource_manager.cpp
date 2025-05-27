@@ -20,6 +20,9 @@ void ResourceManager::Internal_Shutdown()
 {
     HGINFO("Shutting down resource manager...");
 
+    HGINFO("Destroying %i models", m_modelMap.size());
+    HGINFO("Destroying %i textures", m_textureMap.size());
+
     for(auto& [key, model]: m_modelMap) { model.reset(); }
     for(auto& [key, texture]: m_textureMap) { texture.texture.Destroy(); }
 
@@ -87,16 +90,20 @@ void ResourceManager::InitDescriptors()
 
 n32 ResourceManager::Internal_LoadModel(const std::string& name)
 {
+    auto it = m_modelNameToHandle.find(name);
+    if(it != m_modelNameToHandle.end()) { return it->second; }
+
     HGINFO("Loading model %s with handle %i", name.c_str(), m_nextModelID);
     auto m = std::make_shared<Model>(m_logicalDevice, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, name), 1.0f);
     m->Init(m_modelDescriptors.nodeLayout.get(), m_descriptorPools.imagePool.get(), m_descriptorPools.uniformPool.get(),
             m_descriptorPools.storageBufferPool.get());
 
-    n32 handleToReturn = m_nextModelID;
+    n32 handleToReturn = m_nextModelID++;
     m_modelMap.emplace(handleToReturn, std::move(m));
 
     HGINFO("Model %s loaded. Added to map with handle %i. Map size: %zu", name.c_str(), handleToReturn, m_modelMap.size());
-    m_nextModelID++;
+    m_modelMap.emplace(handleToReturn, m);
+    m_modelNameToHandle.emplace(name, handleToReturn);
     return handleToReturn;
 }
 
@@ -184,7 +191,6 @@ n32 ResourceManager::Internal_RequestTexture(class tinygltf::Image img, struct T
 n32 ResourceManager::Internal_RequestMaterial(const Model::ShaderMaterial& mat)
 {
     std::string key = GenerateMaterialKey(mat);
-    HGINFO("KEY: %s", key.c_str());
 
     auto it = m_materialMap.find(key);
     if(it != m_materialMap.end()) { return it->second; }

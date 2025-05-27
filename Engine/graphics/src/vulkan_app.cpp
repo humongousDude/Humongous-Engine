@@ -116,12 +116,33 @@ void VulkanApp::LoadGameObjects()
     transform->SetTranslation(0, 0, 10);
     transform->SetRotation(90, 0, 0);
 
-    auto employee = world->CreateEntity();
-    world->AddComponent<BoundingBox>(employee);
-    world->AddComponent<ModelComponent>(employee);
-    comp = world->GetComponent<ModelComponent>(employee);
-    comp->modelHandle = ResourceManager::LoadModel("employee");
-    world->AddComponent<AudioSourceComponent>(employee, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    s32 x, y, z;
+    for(n32 i = 0; i < 1000; ++i)
+    {
+        x += 1;
+
+        if(x > 10)
+        {
+            x = 0;
+            z += 1;
+        }
+        if(z > 10)
+        {
+            z = 0;
+            y += 1;
+        }
+
+        auto employee = world->CreateEntity();
+        world->AddComponent<BoundingBox>(employee);
+        world->AddComponent<ModelComponent>(employee);
+        comp = world->GetComponent<ModelComponent>(employee);
+        comp->modelHandle = ResourceManager::LoadModel("employee");
+        // world->AddComponent<AudioSourceComponent>(employee, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+
+        transform = world->GetComponent<TransformComponent>(employee);
+        transform->SetTranslation(x, y, z);
+        transform->SetScale(0.01f, 0.01f, 0.01f);
+    }
 
     HGINFO("Loaded game objects");
 }
@@ -197,12 +218,21 @@ void VulkanApp::Run()
 
     UiWidget objectDataWidget{"Object Data", true, {0, 0}, {400, 500}, 0};
     objectDataWidget.Add([&]() {
-        for(n32 entityId = 0; entityId < 10; entityId++)
+        for(n32 entityId = 0; entityId < world->GetComponentStorage<TransformComponent>().GetDense().size(); entityId++)
         {
             BoundingBox* bb = world->GetComponent<BoundingBox>(entityId);
 
-            if(!bb) { continue; }
-            if(!bb->valid) { continue; }
+            if(!bb)
+            {
+                HGINFO("We somehow don't have a bounding box?");
+                continue;
+            }
+            if(!bb->valid)
+            {
+
+                HGINFO("We somehow don't have a valid bounding box?");
+                continue;
+            }
 
             TransformComponent* transform = world->GetComponent<TransformComponent>(entityId);
             if(!transform) { continue; }

@@ -80,6 +80,7 @@ private:
     void Internal_Shutdown();
 
     std::unordered_map<n32, std::shared_ptr<Model>> m_modelMap;
+    std::unordered_map<std::string, n32>            m_modelNameToHandle;
     n32                                             m_nextModelID{0};
     n32                                             Internal_LoadModel(const std::string& name);
     std::shared_ptr<Model>                          Internal_GetModel(const n32& index);
