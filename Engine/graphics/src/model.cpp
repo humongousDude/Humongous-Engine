@@ -744,6 +744,9 @@ void Model::Draw(vk::CommandBuffer cmd, vk::PipelineLayout& pipelineLayout)
 
         vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstantData), sizeof(n32), &mat->index);
 
+        // I don't know what's causing empty lists to be added.
+        if(m_indirectCommands[id].empty()) { continue; }
+
         vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer.GetBuffer(), written, m_indirectCommands[id].size(),
                                  sizeof(vk::DrawIndexedIndirectCommand));
 
@@ -754,7 +757,6 @@ void Model::Draw(vk::CommandBuffer cmd, vk::PipelineLayout& pipelineLayout)
 void Model::SetupIndirectDrawBuffer()
 {
     vk::DeviceSize         totalWritten = 0;
-    std::vector<n32>       nodeID;
     std::vector<glm::mat4> nodeMatricies;
 
     for(auto& [id, primitives]: m_materialBatches)
@@ -770,8 +772,8 @@ void Model::SetupIndirectDrawBuffer()
             command.vertexOffset = 0;
             command.firstInstance = 0;
 
-            nodeID.push_back(primitive->owner->index);
             nodeMatricies.push_back(primitive->owner->GetMatrix());
+
             if(command.indexCount == 0) { continue; }
 
             commands.push_back(command);
@@ -799,25 +801,6 @@ void Model::SetupIndirectDrawBuffer()
         stagingBuffer.UnMap();
 
         Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_nodeMatrixBuffer, nodeMatricies.size() * sizeof(glm::mat4));
-    }
-
-    // Node IDs
-    {
-        Buffer stagingBuffer{m_logicalDevice,
-                             nodeID.size() * sizeof(n32),
-                             1,
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU};
-        stagingBuffer.Map();
-        m_nodeIDBuffer.Init(m_logicalDevice, nodeID.size() * sizeof(n32), 1,
-                            vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
-                            vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_CPU_COPY);
-        stagingBuffer.WriteToBuffer((void*)nodeID.data());
-        stagingBuffer.Flush();
-        stagingBuffer.UnMap();
-
-        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_nodeIDBuffer, nodeID.size() * sizeof(n32));
     }
 
     // Indirect

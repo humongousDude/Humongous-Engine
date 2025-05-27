@@ -152,7 +152,6 @@ private:
 
     void                                                                 SetupIndirectDrawBuffer();
     Buffer                                                               m_indirectDrawBuffer;
-    Buffer                                                               m_nodeIDBuffer;
     Buffer                                                               m_nodeMatrixBuffer;
     std::unordered_map<n32, std::vector<vk::DrawIndexedIndirectCommand>> m_indirectCommands;
     std::vector<vk::DrawIndexedIndirectCommand>                          m_debugCommands;
