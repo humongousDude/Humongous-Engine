@@ -2,6 +2,7 @@
 
 #include "defines.hpp"
 #include "entity_component_system/components/model_component.hpp"
+#include "entity_component_system/components/name_component.hpp"
 #include "entity_component_system/components/transform_component.hpp"
 #include "entity_component_system/sparse_set.hpp"
 #include "logger.hpp"
@@ -32,6 +33,15 @@ public:
         m_names.Add(id, nc);
 
         return id;
+    }
+
+    id_t GetEntity(const std::string& entityName)
+    {
+        for(const auto& id: m_names.GetDense())
+        {
+            if(entityName == GetComponent<NameComponent>(id)->name) { return id; }
+        }
+        return -1;
     }
 
     void DestroyEntity(const id_t& entityId)
@@ -148,6 +158,7 @@ private:
     SparseSet<ModelComponent>       m_models{};
     SparseSet<BoundingBox>          m_worldBoundingBoxes{};
     SparseSet<AudioSourceComponent> m_audioSources{};
+    SparseSet<NameComponent>        m_names{};
     id_t                            m_nextEntity = 0;
 };
 

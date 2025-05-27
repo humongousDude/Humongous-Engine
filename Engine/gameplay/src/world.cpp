@@ -7,5 +7,6 @@ template <> SparseSet<TransformComponent>&   World::GetComponentStorage<Transfor
 template <> SparseSet<ModelComponent>&       World::GetComponentStorage<ModelComponent>() { return m_models; }
 template <> SparseSet<BoundingBox>&          World::GetComponentStorage<BoundingBox>() { return m_worldBoundingBoxes; }
 template <> SparseSet<AudioSourceComponent>& World::GetComponentStorage<AudioSourceComponent>() { return m_audioSources; }
+template <> SparseSet<NameComponent>&        World::GetComponentStorage<NameComponent>() { return m_names; }
 
 } // namespace Humongous
