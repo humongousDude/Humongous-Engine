@@ -326,7 +326,8 @@ void VulkanApp::Run()
             auto frustumCulledEntities = Utils::SortAndCullEntities(*m_cam, *world);
             auto sortedObjs = frustumCulledEntities;
 
-            if(const auto cmd = m_renderer->BeginFrame(frustumCulledEntities))
+            const auto cmd = m_renderer->BeginFrame(frustumCulledEntities);
+            if(cmd != VK_NULL_HANDLE)
             {
                 RenderData data{
                     .commandBuffer = cmd,
