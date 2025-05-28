@@ -98,8 +98,16 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
 
     HGINFO("logical device created");
 
-    m_logicalDevice.getQueue2(&queueCreateInfos[0], &m_graphicsQueue);
-    m_logicalDevice.getQueue2(&queueCreateInfos[1], &m_presentQueue);
+    if(m_graphicsQueueIndex == m_presentQueueIndex)
+    {
+        m_logicalDevice.getQueue2(&queueCreateInfos[0], &m_graphicsQueue);
+        m_logicalDevice.getQueue2(&queueCreateInfos[0], &m_presentQueue);
+    }
+    else
+    {
+        m_logicalDevice.getQueue2(&queueCreateInfos[0], &m_graphicsQueue);
+        m_logicalDevice.getQueue2(&queueCreateInfos[1], &m_presentQueue);
+    }
 
     HGINFO("logical device queues acquired");
 }
@@ -132,6 +140,7 @@ std::vector<vk::DeviceQueueInfo2> LogicalDevice::CreateQueues(PhysicalDevice& ph
     for(n32 queueFamily: uniqueQueueFamilies)
     {
         vk::DeviceQueueInfo2 queueCreateInfo{};
+        queueCreateInfo.sType = vk::StructureType::eDeviceQueueInfo2;
         queueCreateInfo.queueFamilyIndex = queueFamily;
         queueCreateInfo.queueIndex = 0;
         queueCreateInfos.push_back(queueCreateInfo);
@@ -157,12 +166,14 @@ vk::CommandBuffer LogicalDevice::BeginSingleTimeCommands()
     allocInfo.commandBufferCount = 1;
 
     vk::CommandBuffer commandBuffer{};
-    m_logicalDevice.allocateCommandBuffers(&allocInfo, &commandBuffer);
+    auto              result = m_logicalDevice.allocateCommandBuffers(&allocInfo, &commandBuffer);
+    if(result != vk::Result::eSuccess) { HGERROR("Failed to allocate single time command! Error: %s", vk::to_string(result).c_str()); }
 
     vk::CommandBufferBeginInfo beginInfo{};
     beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
 
-    commandBuffer.begin(&beginInfo);
+    result = commandBuffer.begin(&beginInfo);
+    if(result != vk::Result::eSuccess) { HGERROR("Failed to start single time command! Error: %s", vk::to_string(result).c_str()); }
     return commandBuffer;
 }
 
@@ -181,7 +192,8 @@ void LogicalDevice::EndSingleTimeCommands(vk::CommandBuffer commandBuffer)
     submitInfo.pSignalSemaphoreInfos = nullptr;
     submitInfo.waitSemaphoreInfoCount = 0;
     submitInfo.pWaitSemaphoreInfos = nullptr;
-    m_graphicsQueue.submit2(1, &submitInfo, VK_NULL_HANDLE);
+    auto r = m_graphicsQueue.submit2(1, &submitInfo, VK_NULL_HANDLE);
+    if(r != vk::Result::eSuccess) { HGERROR("Failed to submit single time command! Error: %s", vk::to_string(r).c_str()); }
 
     m_graphicsQueue.waitIdle();
     m_logicalDevice.freeCommandBuffers(m_commandPool, 1, &commandBuffer);

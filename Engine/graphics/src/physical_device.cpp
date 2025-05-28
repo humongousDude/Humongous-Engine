@@ -70,8 +70,9 @@ PhysicalDevice::SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(vk
         HGFATAL("Failed to get surface capabilities!");
     };
 
-    n32 formatCount;
-    physicalDevice.getSurfaceFormats2KHR(&surfaceInfo, &formatCount, nullptr);
+    n32  formatCount;
+    auto result = physicalDevice.getSurfaceFormats2KHR(&surfaceInfo, &formatCount, nullptr);
+    if(result != vk::Result::eSuccess) { HGFATAL("Failed to get surface format count! Error: %s", vk::to_string(result).c_str()); }
 
     if(formatCount != 0)
     {
@@ -79,16 +80,20 @@ PhysicalDevice::SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(vk
         // FIXME: this is probably not a good way to set the sType, but I can't figure out another way
         for(int i = 0; i < formatCount; i++) { details.formats[i].sType = vk::StructureType::eSurfaceFormat2KHR; }
 
-        physicalDevice.getSurfaceFormats2KHR(&surfaceInfo, &formatCount, details.formats.data());
+        result = physicalDevice.getSurfaceFormats2KHR(&surfaceInfo, &formatCount, details.formats.data());
+        if(result != vk::Result::eSuccess) { HGFATAL("Failed to get surface formats! Error: %s", vk::to_string(result).c_str()); }
     }
 
     n32 presentModeCount;
-    physicalDevice.getSurfacePresentModesKHR(m_surface, &presentModeCount, nullptr);
+    result = physicalDevice.getSurfacePresentModesKHR(m_surface, &presentModeCount, nullptr);
+    if(result != vk::Result::eSuccess) { HGFATAL("Failed to acquire present mode count! Error: %s", vk::to_string(result).c_str()); }
 
     if(presentModeCount != 0)
     {
         details.presentModes.resize(presentModeCount);
-        physicalDevice.getSurfacePresentModesKHR(m_surface, &presentModeCount, details.presentModes.data());
+        result = physicalDevice.getSurfacePresentModesKHR(m_surface, &presentModeCount, details.presentModes.data());
+
+        if(result != vk::Result::eSuccess) { HGFATAL("Failed to acquire present modes! Error: %s", vk::to_string(result).c_str()); }
     }
 
     return details;
@@ -122,10 +127,14 @@ bool PhysicalDevice::IsDeviceSuitable(vk::PhysicalDevice physicalDevice)
 
 bool PhysicalDevice::CheckDeviceExtensionSupport(vk::PhysicalDevice physicalDevice)
 {
-    n32 extensionCount;
-    physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr);
+    n32  extensionCount;
+    auto result = physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr);
+
+    if(result != vk::Result::eSuccess) { HGFATAL("Couldn't acquire device extension count! Error: %s", vk::to_string(result).c_str()); }
+
     std::vector<vk::ExtensionProperties> availableExtensions(extensionCount);
-    physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions.data());
+    result = physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions.data());
+    if(result != vk::Result::eSuccess) { HGFATAL("Couldn't acquire device extension properties! Error: %s", vk::to_string(result).c_str()); }
 
     std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 
@@ -152,7 +161,8 @@ PhysicalDevice::QueueFamilyData PhysicalDevice::FindQueueFamilies(vk::PhysicalDe
     for(const auto& queueFamily: queueFamilyProperties)
     {
         if(queueFamily.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics) { indices.graphicsFamily = i; }
-        physicalDevice.getSurfaceSupportKHR(i, m_surface, &presentSupport);
+        auto result = physicalDevice.getSurfaceSupportKHR(i, m_surface, &presentSupport);
+        if(result != vk::Result::eSuccess) { HGFATAL("Failed to get surface support! Error: %s", vk::to_string(result).c_str()); }
         if(presentSupport) { indices.presentFamily = i; }
         i++;
     }
