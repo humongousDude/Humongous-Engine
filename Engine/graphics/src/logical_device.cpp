@@ -44,6 +44,10 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     vk::PhysicalDeviceVulkan12Features vulkan12Features{};
     vulkan12Features.descriptorIndexing = VK_TRUE;
     vulkan12Features.bufferDeviceAddress = VK_TRUE;
+    vulkan12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    vulkan12Features.runtimeDescriptorArray = VK_TRUE;
+    vulkan12Features.descriptorBindingPartiallyBound = VK_TRUE;
+    vulkan12Features.descriptorBindingVariableDescriptorCount = VK_TRUE;
     vulkan12Features.pNext = &vulkan11Features;
 
     // vulkan 1.3 features
