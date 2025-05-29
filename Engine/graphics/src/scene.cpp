@@ -13,8 +13,8 @@ glm::mat4 Node::LocalMatrix() const
 {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, translation);
-    model = model * glm::toMat4(rotation);
     model = glm::scale(model, scale);
+    model = model * glm::toMat4(rotation);
     return model;
 }
 

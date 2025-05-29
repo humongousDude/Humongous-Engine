@@ -6,9 +6,9 @@ glm::mat4 TransformComponent::Mat4() const
 {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, translation);
+    model = glm::scale(model, scale);
     glm::quat rotationQuat = glm::quat(glm::radians(rotation));
     model = model * glm::toMat4(rotationQuat);
-    model = glm::scale(model, scale);
 
     return model;
 }
