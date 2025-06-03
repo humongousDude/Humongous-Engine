@@ -102,19 +102,20 @@ void VulkanApp::LoadGameObjects()
     world->AddComponent<BoundingBox>(helmet);
     world->AddComponent<ModelComponent>(helmet);
     auto comp = world->GetComponent<ModelComponent>(helmet);
-    comp->modelHandle = ResourceManager::LoadModel("DamagedHelmet");
+    comp->modelHandle = ResourceManager::RequestModel("DamagedHelmet");
     world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
 
     auto wall = world->CreateEntity();
     world->AddComponent<BoundingBox>(wall);
     world->AddComponent<ModelComponent>(wall);
     comp = world->GetComponent<ModelComponent>(wall);
-    comp->modelHandle = ResourceManager::LoadModel("real_wall");
+    comp->modelHandle = ResourceManager::RequestModel("real_wall");
     world->AddComponent<AudioSourceComponent>(wall, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
 
     auto transform = world->GetComponent<TransformComponent>(wall);
     transform->SetTranslation(0, 0, 10);
     transform->SetRotation(90, 0, 0);
+    transform->SetScale(1, 10, 1);
 
     s32 x, y, z;
     for(n32 i = 0; i < 1000; ++i)
@@ -136,7 +137,7 @@ void VulkanApp::LoadGameObjects()
         world->AddComponent<BoundingBox>(employee);
         world->AddComponent<ModelComponent>(employee);
         comp = world->GetComponent<ModelComponent>(employee);
-        comp->modelHandle = ResourceManager::LoadModel("employee");
+        comp->modelHandle = ResourceManager::RequestModel("employee");
         // world->AddComponent<AudioSourceComponent>(employee, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
 
         transform = world->GetComponent<TransformComponent>(employee);

@@ -30,7 +30,7 @@ build() {
 
     if [ $? -eq 0 ]; then
         echo "Ninja build successful"
-        ./App/App $1
+        ./App/App "$1"
     else
         echo "Ninja build failed!"
     fi

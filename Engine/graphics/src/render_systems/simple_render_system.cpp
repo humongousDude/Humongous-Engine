@@ -127,8 +127,7 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
     renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
                                                 static_cast<n32>(Globals::DescriptorSetIndices::Debug), 1, &debugSet, 0, nullptr);
 
-    if(!depthOnly) { ResourceManager::BindGlobalDescriptorSets(renderData.commandBuffer, m_pipelineLayout); }
-
+    ResourceManager::BindGlobalDescriptorSets(renderData.commandBuffer, m_pipelineLayout);
     n32 objectsDrawn = 0;
     if(renderData.visibleEntities)
     {
@@ -143,9 +142,8 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
 
             Model::PushConstantData pushData{};
             pushData.model = transformComp->Mat4();
-
             pushData.vertexAddress = modelAsset->GetVertexBuffer().GetDeviceAddress();
-
+            pushData.modelID = modelComp->modelHandle;
             renderData.commandBuffer.pushConstants(m_pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(Model::PushConstantData),
                                                    &pushData);
 

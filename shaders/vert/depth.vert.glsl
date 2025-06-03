@@ -19,7 +19,7 @@ layout(push_constant) uniform MNV
 {
     mat4 modelMatrix;
     VertexBuffer vertexBuffer;
-    uint id;
+    uint modelID;
 } mnv;
 
 layout(set = 0, binding = 0) uniform UBO
@@ -35,13 +35,13 @@ layout(set = 3, binding = 0) readonly buffer NodeID {
 } ids;
 
 // TODO : make this work again
-layout(set = 4, binding = 0) readonly buffer UBONode {
+layout(set = 3, binding = 2) readonly buffer UBONode {
     mat4 matrix[];
     // mat4 jointMatrix[MAX_NUM_JOINTS];
     // float jointCount;
 } node;
 
-layout(set = 6, binding = 0) buffer DebugData
+layout(set = 4, binding = 0) buffer DebugData
 {
     uint draws;
 } debug;
@@ -49,5 +49,5 @@ layout(set = 6, binding = 0) buffer DebugData
 void main()
 {
     Vertex v = mnv.vertexBuffer.vertices[gl_VertexIndex];
-    gl_Position = ubo.projectionView * mnv.modelMatrix * node.matrix[gl_DrawID] * vec4(v.position, 1.0);
+    gl_Position = ubo.projectionView * mnv.modelMatrix * node.matrix[gl_DrawID + mnv.modelID] * vec4(v.position, 1.0);
 }

@@ -1,10 +1,7 @@
 #include "model.hpp"
-#include "abstractions/descriptor_writer.hpp"
 #include "asserts.hpp"
 #include "asset_manager.hpp"
 #include "defines.hpp"
-#include "globals.hpp"
-#include "iostream"
 #include "logger.hpp"
 #include "resource_manager.hpp"
 
@@ -249,7 +246,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                                 }
                             default:
                                 // Not supported by spec
-                                std::cerr << "Joint component type " << jointComponentType << " not supported!" << std::endl;
+                                HGERROR("Joint component type %i not supported!", jointComponentType);
                                 break;
                         }
                     }
@@ -308,7 +305,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                             break;
                         }
                     default:
-                        std::cerr << "Index component type " << accessor.componentType << " not supported!" << std::endl;
+                        HGERROR("Index component type %i not supported!", accessor.componentType);
                         return;
                 }
             }
@@ -356,7 +353,7 @@ vk::SamplerAddressMode Model::GetVkWrapMode(s32 wrapMode)
             return vk::SamplerAddressMode::eMirroredRepeat;
     }
 
-    std::cerr << "Unknown wrap mode for getvk::WrapMode: " << wrapMode << std::endl;
+    HGERROR("Unknown wrap mode for getvk::WrapMode:  %i", wrapMode);
     return vk::SamplerAddressMode::eRepeat;
 }
 
@@ -379,7 +376,7 @@ vk::Filter Model::GetVkFilterMode(s32 filterMode)
             return vk::Filter::eLinear;
     }
 
-    std::cerr << "Unknown filter mode for getvk::FilterMode: " << filterMode << std::endl;
+    HGERROR("Unknown filter mode for getvk::FilterMode: %i", filterMode);
     return vk::Filter::eNearest;
 }
 
@@ -727,11 +724,6 @@ void Model::Draw(vk::CommandBuffer cmd, vk::PipelineLayout& pipelineLayout)
 {
     vkCmdBindIndexBuffer(cmd, m_indices.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    std::vector<vk::DescriptorSet> sets = {m_nodeMatrixSet};
-
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, static_cast<n32>(Globals::DescriptorSetIndices::Model) + 1,
-                           sets.size(), sets.data(), 0, nullptr);
-
     vk::DeviceSize written{0};
     for(auto& [id, prim]: m_materialBatches)
     {
@@ -751,8 +743,7 @@ void Model::Draw(vk::CommandBuffer cmd, vk::PipelineLayout& pipelineLayout)
 
 void Model::SetupIndirectDrawBuffer()
 {
-    vk::DeviceSize         totalWritten = 0;
-    std::vector<glm::mat4> nodeMatricies;
+    vk::DeviceSize totalWritten = 0;
 
     for(auto& [id, primitives]: m_materialBatches)
     {
@@ -767,7 +758,7 @@ void Model::SetupIndirectDrawBuffer()
             command.vertexOffset = 0;
             command.firstInstance = 0;
 
-            nodeMatricies.push_back(primitive->owner->GetMatrix());
+            m_nodeMatricies.push_back(primitive->owner->GetMatrix());
 
             if(command.indexCount == 0) { continue; }
 
@@ -780,28 +771,6 @@ void Model::SetupIndirectDrawBuffer()
     }
 
     // Node Matricies
-    {
-        Buffer stagingBuffer{m_logicalDevice,
-                             nodeMatricies.size() * sizeof(glm::mat4),
-                             1,
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU};
-        stagingBuffer.Map();
-        m_nodeMatrixBuffer.Init(m_logicalDevice, nodeMatricies.size() * sizeof(glm::mat4), 1,
-                                vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
-                                vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_CPU_COPY);
-        stagingBuffer.WriteToBuffer((void*)nodeMatricies.data());
-        stagingBuffer.Flush();
-        stagingBuffer.UnMap();
-
-        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_nodeMatrixBuffer, nodeMatricies.size() * sizeof(glm::mat4));
-
-        auto bufInfo = m_nodeMatrixBuffer.DescriptorInfo();
-        DescriptorWriter(*ResourceManager::GetModelDescriptors().nodeLayout, ResourceManager::GetDescriptorPools().storageBufferPool.get())
-            .WriteBuffer(0, &bufInfo)
-            .Build(m_nodeMatrixSet);
-    }
 
     // Indirect
     if(totalWritten == 0) { return; }

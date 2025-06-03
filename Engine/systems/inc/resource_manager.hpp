@@ -22,7 +22,8 @@ public:
     static void Init(LogicalDevice* logicalDevice) { Get().Internal_Init(logicalDevice); }
     static void Shutdown() { Get().Internal_Shutdown(); }
 
-    static n32                    LoadModel(const std::string& name) { return Get().Internal_LoadModel(name); };
+    static n32                    RequestModel(const std::string& name) { return Get().Internal_RequestModel(name); };
+    static n32                    RequestModelNodeMatriciesIndex(const n32& index) { return Get().Internal_RequestModelNodeMatriciesIndex(index); };
     static std::shared_ptr<Model> GetModel(const n32& index) { return Get().Internal_GetModel(index); }
 
     static std::shared_ptr<Skybox> LoadSkybox(const std::string& name) { return Get().Internal_LoadSkybox(name); }
@@ -81,8 +82,11 @@ private:
 
     std::unordered_map<n32, std::shared_ptr<Model>> m_modelMap;
     std::unordered_map<std::string, n32>            m_modelNameToHandle;
+    std::vector<glm::mat4>                          m_modelNodeMatricesFlat;
+    std::unique_ptr<Buffer>                         m_modelNodeMatriciesBuffer;
     n32                                             m_nextModelID{0};
-    n32                                             Internal_LoadModel(const std::string& name);
+    n32                                             Internal_RequestModel(const std::string& name);
+    n32                                             Internal_RequestModelNodeMatriciesIndex(const n32& index);
     std::shared_ptr<Model>                          Internal_GetModel(const n32& index);
 
     std::unordered_map<n32, std::shared_ptr<AudioSourceComponent>> m_audioMap;

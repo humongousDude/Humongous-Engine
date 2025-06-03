@@ -62,11 +62,12 @@ void SkyboxRenderSystem::CreatePipeline()
     RenderPipeline::PipelineConfigInfo ppCI = RenderPipeline::DefaultPipelineConfigInfo();
     ppCI.depthStencilInfo.depthTestEnable = VK_TRUE;
     ppCI.depthStencilInfo.depthWriteEnable = VK_FALSE;
+    ppCI.depthStencilInfo.depthCompareOp = vk::CompareOp::eLessOrEqual;
     ppCI.multisampleInfo.rasterizationSamples = vk::SampleCountFlagBits::e1;
     ppCI.multisampleInfo.sampleShadingEnable = VK_FALSE;
     ppCI.multisampleInfo.minSampleShading = 1.0;
-    ppCI.depthStencilInfo.depthCompareOp = vk::CompareOp::eLessOrEqual;
     ppCI.pipelineLayout = m_pipelineLayout;
+
     ppCI.vertShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.vert");
     ppCI.fragShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.frag");
 

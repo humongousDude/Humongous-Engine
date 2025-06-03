@@ -32,6 +32,7 @@ void ResourceManager::Internal_Shutdown()
     m_materialDataBuffer.reset();
     m_bindlessTexturePool.reset();
     m_bindlessLayout.reset();
+    m_modelNodeMatriciesBuffer.reset();
 
     m_descriptorPools.imagePool.reset();
     m_descriptorPools.uniformPool.reset();
@@ -67,7 +68,8 @@ void ResourceManager::InitDescriptors()
 
     DescriptorSetLayout::Builder bbbbbbbb{*m_logicalDevice};
     bbbbbbbb.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 1024)
-        .AddBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eFragment, 1);
+        .AddBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eFragment, 1)
+        .AddBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex, 1);
     m_bindlessLayout = bbbbbbbb.Build();
 
     m_bindlessSet = m_bindlessTexturePool->AllocateDescriptor(m_bindlessLayout->GetDescriptorSetLayout());
@@ -88,7 +90,7 @@ void ResourceManager::InitDescriptors()
     m_skyboxLayout = builder.Build();
 }
 
-n32 ResourceManager::Internal_LoadModel(const std::string& name)
+n32 ResourceManager::Internal_RequestModel(const std::string& name)
 {
     auto it = m_modelNameToHandle.find(name);
     if(it != m_modelNameToHandle.end()) { return it->second; }
@@ -99,11 +101,38 @@ n32 ResourceManager::Internal_LoadModel(const std::string& name)
             m_descriptorPools.storageBufferPool.get());
 
     n32 handleToReturn = m_nextModelID++;
-    m_modelMap.emplace(handleToReturn, std::move(m));
 
     HGINFO("Model %s loaded. Added to map with handle %i. Map size: %zu", name.c_str(), handleToReturn, m_modelMap.size());
-    m_modelMap.emplace(handleToReturn, m);
+
+    const auto& nodeMats = m->GetMatrixVector();
+
+    m_modelNodeMatricesFlat.insert(m_modelNodeMatricesFlat.end(), nodeMats.begin(), nodeMats.end());
+
+    if(!m_modelNodeMatriciesBuffer || m_modelNodeMatriciesBuffer->GetBufferSize() < m_modelNodeMatricesFlat.size() * sizeof(glm::mat4))
+    {
+        m_modelNodeMatriciesBuffer = std::make_unique<Buffer>(
+            m_logicalDevice, m_modelNodeMatricesFlat.size() * sizeof(glm::mat4), 1, vk::BufferUsageFlagBits::eStorageBuffer,
+            vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    }
+
+    m_modelNodeMatriciesBuffer->Map();
+    m_modelNodeMatriciesBuffer->WriteToBuffer(m_modelNodeMatricesFlat.data(), m_modelNodeMatricesFlat.size() * sizeof(glm::mat4));
+    m_modelNodeMatriciesBuffer->UnMap();
+
+    vk::WriteDescriptorSet write{};
+    write.dstSet = m_bindlessSet;
+    write.dstBinding = 2;
+    write.dstArrayElement = 0;
+    write.descriptorCount = 1;
+    write.descriptorType = vk::DescriptorType::eStorageBuffer;
+    auto info = m_modelNodeMatriciesBuffer->DescriptorInfo();
+    write.pBufferInfo = &info;
+
+    m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+
+    m_modelMap.emplace(handleToReturn, std::move(m));
     m_modelNameToHandle.emplace(name, handleToReturn);
+
     return handleToReturn;
 }
 

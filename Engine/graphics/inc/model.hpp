@@ -57,6 +57,7 @@ public:
     {
         glm::mat4         model{1.f};
         vk::DeviceAddress vertexAddress;
+        n32               modelID;
     };
 
     struct alignas(16) MaterialIndices
@@ -126,6 +127,8 @@ public:
 
     BoundingBox GetLocalBoundingBox() { return m_localAABB; }
 
+    std::vector<glm::mat4>& GetMatrixVector() { return m_nodeMatricies; }
+
 private:
     Buffer m_vertices;
     Buffer m_indices;
@@ -152,8 +155,7 @@ private:
 
     void                                                                 SetupIndirectDrawBuffer();
     Buffer                                                               m_indirectDrawBuffer;
-    vk::DescriptorSet                                                    m_nodeMatrixSet;
-    Buffer                                                               m_nodeMatrixBuffer;
+    std::vector<glm::mat4>                                               m_nodeMatricies{};
     std::unordered_map<n32, std::vector<vk::DrawIndexedIndirectCommand>> m_indirectCommands;
     std::vector<vk::DrawIndexedIndirectCommand>                          m_debugCommands;
 

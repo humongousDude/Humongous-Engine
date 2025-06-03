@@ -96,9 +96,11 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
 
     // pipelineInfo.subpass = configInfo.subpass;
 
-    if(m_logicalDevice.GetVkDevice().createGraphicsPipelines(VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline) != vk::Result::eSuccess)
+    auto result = m_logicalDevice.GetVkDevice().createGraphicsPipelines(VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline);
+    if(result != vk::Result::eSuccess)
     {
-        HGERROR("Failed to create graphics pipeline!");
+        ;
+        HGERROR("Failed to create graphics pipeline! Error: %s", vk::to_string(result).c_str());
     }
 
     HGINFO("Successfully created graphics pipeline");

@@ -381,13 +381,13 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
     if(result == vk::Result::eErrorOutOfDateKHR)
     {
         RecreateSwapChain();
-        return nullptr;
+        return VK_NULL_HANDLE;
     }
 
     if(result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
     {
         HGERROR("failed to acquire swap chain image!");
-        return nullptr;
+        return VK_NULL_HANDLE;
     }
 
     ReadyPerFrameData(visibleEntities);
