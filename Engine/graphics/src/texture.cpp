@@ -6,9 +6,9 @@
 #include "logger.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
+#include "texture.hpp"
 #include <gli/texture.hpp>
 #include <gli/texture_cube.hpp>
-#include <texture.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -124,7 +124,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     stagingBuffer.WriteToBuffer(buffer, bufferSize);
 
     // allocate image
-    Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = *m_logicalDevice, .allocatedImage = m_textureImage};
+    Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = *m_logicalDevice, .allocatedImage = &m_textureImage};
     createInfo.width = m_width;
     createInfo.height = m_height;
     createInfo.mipLevels = m_miplevels;
@@ -253,7 +253,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     m_logicalDevice->EndSingleTimeCommands(blitCmd);
 
     // sampler
-    SamplerCreateInfo samplerInfo{};
+    TexSamplerInfo samplerInfo{};
     samplerInfo.minFilter = textureSampler.minFilter;
     samplerInfo.magFilter = textureSampler.magFilter;
     samplerInfo.addressModeU = textureSampler.addressModeU;
@@ -266,7 +266,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
 
 void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& imageType, const bool& storage)
 {
-    SamplerCreateInfo samplerInfo{};
+    TexSamplerInfo samplerInfo{};
 
     if(imageType == ImageType::TEX2D)
     {
@@ -306,7 +306,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
             offset += static_cast<n32>(tex2D[i].size());
         }
 
-        Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = *m_logicalDevice, .allocatedImage = m_textureImage};
+        Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = *m_logicalDevice, .allocatedImage = &m_textureImage};
         createInfo.width = m_width;
         createInfo.height = m_height;
         createInfo.mipLevels = m_miplevels;
@@ -415,7 +415,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
             }
         }
 
-        Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = *m_logicalDevice, .allocatedImage = m_textureImage};
+        Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = *m_logicalDevice, .allocatedImage = &m_textureImage};
         createInfo.width = m_width;
         createInfo.height = m_height;
         createInfo.mipLevels = m_miplevels;
@@ -489,7 +489,7 @@ void Texture::FillWithEmpty(LogicalDevice* logicalDevice, n32 width, n32 height,
     m_layerCount = 1;
     m_logicalDevice = logicalDevice;
 
-    Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = *logicalDevice, .allocatedImage = m_textureImage};
+    Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = *logicalDevice, .allocatedImage = &m_textureImage};
     createInfo.width = width;
     createInfo.height = height;
     createInfo.mipLevels = 1;
@@ -523,7 +523,7 @@ void Texture::FillWithEmpty(LogicalDevice* logicalDevice, n32 width, n32 height,
 
     m_textureImage.imageLayout = storage ? vk::ImageLayout::eGeneral : vk::ImageLayout::eShaderReadOnlyOptimal;
 
-    SamplerCreateInfo samplerInfo{};
+    TexSamplerInfo samplerInfo{};
     samplerInfo.magFilter = vk::Filter::eLinear;
     samplerInfo.minFilter = vk::Filter::eLinear;
     samplerInfo.addressModeU = vk::SamplerAddressMode::eRepeat;
@@ -532,7 +532,7 @@ void Texture::FillWithEmpty(LogicalDevice* logicalDevice, n32 width, n32 height,
     CreateTextureImageSampler(samplerInfo);
 }
 
-void Texture::CreateTextureImageSampler(const SamplerCreateInfo& info, const ImageType& imageType)
+void Texture::CreateTextureImageSampler(const TexSamplerInfo& info, const ImageType& imageType)
 {
     vk::SamplerCreateInfo samplerInfo{};
     samplerInfo.magFilter = info.magFilter;

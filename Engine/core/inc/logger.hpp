@@ -2,7 +2,7 @@
 #include "defines.hpp"
 
 #define LOG_WARN_ENABLE 1
-#define LOG_TRACE_ENABLE 1
+#define LOG_TRACE_ENABLE 0
 #define LOG_DEBUG_ENABLE 1
 #define LOG_INFO_ENABLE 1
 

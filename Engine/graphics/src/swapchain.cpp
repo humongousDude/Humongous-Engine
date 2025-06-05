@@ -138,18 +138,26 @@ void SwapChain::CreateImageViews()
 
 vk::SurfaceFormat2KHR SwapChain::ChooseSurfaceFormat(const std::vector<vk::SurfaceFormat2KHR>& formats)
 {
-    vk::SurfaceFormat2KHR comp{};
-    comp.surfaceFormat = vk::Format::eR16G16B16A16Sfloat;
+    vk::SurfaceFormat2KHR desired{};
+    desired.surfaceFormat.format = vk::Format::eR16G16B16A16Sfloat;
+    desired.surfaceFormat.colorSpace = vk::ColorSpaceKHR::eSrgbNonlinear;
 
-    for(const auto& format: formats)
+    for(const auto& available: formats)
     {
-        if(format.surfaceFormat.format == comp.surfaceFormat.format && format.surfaceFormat.colorSpace == comp.surfaceFormat.colorSpace)
+        if(available.surfaceFormat.format == desired.surfaceFormat.format && available.surfaceFormat.colorSpace == desired.surfaceFormat.colorSpace)
         {
-            return format;
+            return available;
         }
     }
 
-    // TODO: some sort of error handling
+    vk::Format        fallbackFormat = vk::Format::eB8G8R8A8Srgb;
+    vk::ColorSpaceKHR fallbackCS = vk::ColorSpaceKHR::eSrgbNonlinear;
+    for(const auto& available: formats)
+    {
+        if(available.surfaceFormat.format == fallbackFormat && available.surfaceFormat.colorSpace == fallbackCS) { return available; }
+    }
+
+    HGWARN("Unable to find ideal or common surface format! falling back to default");
     return formats[0];
 }
 

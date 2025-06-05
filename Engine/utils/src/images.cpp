@@ -61,7 +61,7 @@ void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
     imageInfo.arrayLayers = createInfo.layerCount;
     imageInfo.format = createInfo.format;
     imageInfo.tiling = createInfo.tiling;
-    imageInfo.initialLayout = vk::ImageLayout::eUndefined;
+    imageInfo.initialLayout = createInfo.initialLayout;
     imageInfo.usage = createInfo.usage;
     imageInfo.sharingMode = vk::SharingMode::eExclusive;
     imageInfo.samples = createInfo.samples;
@@ -73,23 +73,46 @@ void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
     allocInfo.pool = (createInfo.imagePool == VK_NULL_HANDLE) ? nullptr : createInfo.imagePool;
 
     if(vmaCreateImage(createInfo.logicalDevice.GetVmaAllocator(), reinterpret_cast<const VkImageCreateInfo*>(&imageInfo), &allocInfo,
-                      reinterpret_cast<VkImage*>(&createInfo.allocatedImage.image), &createInfo.allocatedImage.allocation, nullptr) != VK_SUCCESS)
+                      reinterpret_cast<VkImage*>(&createInfo.allocatedImage->image), &createInfo.allocatedImage->allocation, nullptr) != VK_SUCCESS)
     {
         HGERROR("Failed to create image");
     }
 
     vk::ImageViewCreateInfo viewInfo{};
-    viewInfo.image = createInfo.allocatedImage.image;
+    viewInfo.image = createInfo.allocatedImage->image;
     viewInfo.viewType = createInfo.imageViewType;
     viewInfo.format = createInfo.format;
     viewInfo.components = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
-    viewInfo.subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, createInfo.mipLevels, 0, createInfo.layerCount};
+    viewInfo.subresourceRange = {createInfo.aspectFlags, 0, createInfo.mipLevels, 0, createInfo.layerCount};
     viewInfo.subresourceRange.aspectMask = createInfo.aspectFlags;
 
-    if(createInfo.logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &createInfo.allocatedImage.imageView) != vk::Result::eSuccess)
+    if(createInfo.logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &createInfo.allocatedImage->imageView) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create image view");
     }
+
+    if(!createInfo.createWithSampler) { return; }
+
+    vk::SamplerCreateInfo samplerInfo{};
+    samplerInfo.magFilter = createInfo.samplerInfo->magFilter;
+    samplerInfo.minFilter = createInfo.samplerInfo->minFilter;
+    samplerInfo.addressModeU = createInfo.samplerInfo->addressModeU;
+    samplerInfo.addressModeV = createInfo.samplerInfo->addressModeV;
+    samplerInfo.addressModeW = createInfo.samplerInfo->addressModeW;
+    samplerInfo.anisotropyEnable = createInfo.logicalDevice.GetPhysicalDevice().GetFeatures().features.samplerAnisotropy;
+    samplerInfo.maxAnisotropy =
+        samplerInfo.anisotropyEnable ? createInfo.logicalDevice.GetPhysicalDevice().GetProperties().properties.limits.maxSamplerAnisotropy : 1.0f;
+    samplerInfo.borderColor = vk::BorderColor::eIntOpaqueWhite;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = vk::CompareOp::eNever;
+    samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = static_cast<float>(createInfo.mipLevels);
+
+    createInfo.allocatedImage->sampler = new vk::Sampler;
+    *createInfo.allocatedImage->sampler = createInfo.logicalDevice.GetVkDevice().createSampler(samplerInfo);
 }
 
 void TransitionImageLayout(ImageTransitionInfo& info)
@@ -129,10 +152,7 @@ void TransitionImageLayout(ImageTransitionInfo& info)
     imageBarrier.oldLayout = currentLayout;
     imageBarrier.newLayout = newLayout;
 
-    vk::ImageAspectFlags aspectMask =
-        info.imageAspect
-            ? info.imageAspect
-            : ((newLayout == vk::ImageLayout::eDepthAttachmentOptimal) ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor);
+    vk::ImageAspectFlags aspectMask = info.imageAspect;
 
     imageBarrier.subresourceRange.aspectMask = aspectMask;
     imageBarrier.subresourceRange.baseMipLevel = info.baseMipLevel;

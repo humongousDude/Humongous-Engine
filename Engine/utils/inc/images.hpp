@@ -14,10 +14,33 @@ struct AllocatedImage
     vk::Extent3D    imageExtent;
     vk::Format      imageFormat;
     vk::ImageLayout imageLayout;
+    vk::Sampler*    sampler;
+
+    vk::DescriptorImageInfo GetDescriptorInfo() const
+    {
+        if(sampler) { return {*sampler, imageView, imageLayout}; }
+        else { return {VK_NULL_HANDLE, imageView, imageLayout}; }
+    };
+
+    void Destroy(LogicalDevice& logicalDevice)
+    {
+        logicalDevice.GetVkDevice().destroyImageView(imageView);
+        if(sampler) { logicalDevice.GetVkDevice().destroySampler(*sampler); }
+        vmaDestroyImage(logicalDevice.GetVmaAllocator(), image, allocation);
+    }
 };
 
 namespace Utils
 {
+
+struct SamplerCreateInfo
+{
+    vk::Filter             magFilter;
+    vk::Filter             minFilter;
+    vk::SamplerAddressMode addressModeU;
+    vk::SamplerAddressMode addressModeV;
+    vk::SamplerAddressMode addressModeW;
+};
 
 struct AllocatedImageCreateInfo
 {
@@ -27,7 +50,10 @@ struct AllocatedImageCreateInfo
     vk::ImageTiling         tiling;
     vk::ImageUsageFlags     usage;
     vk::MemoryPropertyFlags properties;
-    AllocatedImage&         allocatedImage;
+    AllocatedImage*         allocatedImage;
+    b32                     createWithSampler{false};
+    SamplerCreateInfo*      samplerInfo = nullptr;
+    vk::ImageLayout         initialLayout = vk::ImageLayout::eUndefined;
     vk::ImageAspectFlags    aspectFlags = vk::ImageAspectFlagBits::eColor;
     vk::ImageCreateFlags    flags{};
     vk::ImageViewType       imageViewType = vk::ImageViewType::e2D;
@@ -38,11 +64,11 @@ struct AllocatedImageCreateInfo
 struct ImageTransitionInfo
 {
     vk::CommandBuffer    cmd;
-    vk::ImageLayout      oldLayout;
-    vk::ImageLayout      newLayout;
+    vk::ImageLayout      oldLayout = vk::ImageLayout::eUndefined;
+    vk::ImageLayout      newLayout = vk::ImageLayout::eUndefined;
     LogicalDevice*       logicalDevice;
     vk::Image            image;
-    vk::ImageAspectFlags imageAspect = vk::ImageAspectFlagBits::eNone;
+    vk::ImageAspectFlags imageAspect = vk::ImageAspectFlagBits::eColor;
     n32                  baseMipLevel = 0;
     n32                  levelCount = 1;
     n32                  baseArrayLayer = 0;

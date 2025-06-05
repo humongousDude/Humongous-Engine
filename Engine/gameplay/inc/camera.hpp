@@ -18,7 +18,9 @@ namespace Humongous
 struct alignas(16) ProjectionUBO
 {
     glm::mat4 projection;
+    glm::mat4 invProjection;
     glm::mat4 view;
+    glm::mat4 invView;
     glm::mat4 projectionView;
     glm::vec3 cameraPos;
 };
@@ -28,7 +30,8 @@ struct alignas(16) UboParams
     glm::vec3 camPos{};
     f32       _padding0;
     glm::vec4 lightDir = glm::vec4(glm::normalize(glm::vec3(1.0f, -3.0f, 1.0f)), 0.0f);
-    f32       exposure = 2.0f, gamma = 2.2f, prefilteredCubeMipLevels = 9.f, scaleIBLAmbient = 0.05f, debugViewInputs = 0, debugViewEquation = 0;
+    f32       exposure = 1.0f, gamma = 1.0f, radiance = 0.5f, prefilteredCubeMipLevels = 9.f, scaleIBLAmbient = 0.05f, debugViewInputs = 0,
+        debugViewEquation = 0;
 };
 
 // Define a plane struct representing a plane in 3D space
@@ -56,6 +59,7 @@ public:
     void SetPerspectiveProjection(float fovy, float spect, float near, float far);
 
     VkDescriptorSet GetDescriptorSet(n32 index) const { return m_projectionMatrixSet[index]; };
+    VkDescriptorSet GetFragmentDescriptorSet(n32 index) const { return m_fragProjectionMatrixSet[index]; };
     VkDescriptorSet GetParamDescriptorSet(n32 index) const { return m_uboParamSet[index]; };
 
     void DrawUI();
@@ -63,9 +67,10 @@ public:
     VkDescriptorSetLayout              GetParamDescriptorSetLayout() const { return m_paramDescriptorLayout->GetDescriptorSetLayout(); };
     const std::vector<VkDescriptorSet> GetCombinedSets(n32 index) const { return {m_projectionMatrixSet[index], m_uboParamSet[index]}; };
     VkDescriptorSetLayout              GetDescriptorSetLayout() const { return m_projectionDescriptorLayout->GetDescriptorSetLayout(); };
-    VkBuffer                           GetProjectionBuffer(n32 index) const { return m_projectionBuffers[index]->GetBuffer(); };
-    Buffer&                            GetProjectionBufferHandle(n32 index) const { return *m_projectionBuffers[index]; }
-    Buffer&                            GetCombinedDataBufferHandle(n32 index) const { return *m_combinedCameraDataBuffers[index]; }
+    VkDescriptorSetLayout GetFragmentDescriptorSetLayout() const { return m_fragProjectionDescriptorLayout->GetDescriptorSetLayout(); };
+    VkBuffer              GetProjectionBuffer(n32 index) const { return m_projectionBuffers[index]->GetBuffer(); };
+    Buffer&               GetProjectionBufferHandle(n32 index) const { return *m_projectionBuffers[index]; }
+    Buffer&               GetCombinedDataBufferHandle(n32 index) const { return *m_combinedCameraDataBuffers[index]; }
 
     const glm::mat4& GetProjection() const { return m_projectionMatrix; };
     const glm::mat4& GetView() const { return m_viewMatrix; };
@@ -98,9 +103,11 @@ private:
 
     std::unique_ptr<DescriptorPool>      m_projectionPool;
     std::unique_ptr<DescriptorSetLayout> m_projectionDescriptorLayout;
+    std::unique_ptr<DescriptorSetLayout> m_fragProjectionDescriptorLayout;
     std::unique_ptr<DescriptorSetLayout> m_paramDescriptorLayout;
 
     std::vector<vk::DescriptorSet> m_projectionMatrixSet;
+    std::vector<vk::DescriptorSet> m_fragProjectionMatrixSet;
     std::vector<vk::DescriptorSet> m_uboParamSet;
     UboParams                      m_uboParams{};
 

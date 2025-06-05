@@ -98,6 +98,12 @@ void VulkanApp::LoadGameObjects()
 
     auto world = SceneHandler::GetWorld();
 
+    // auto house = world->CreateEntity();
+    // world->AddComponent<BoundingBox>(house);
+    // world->AddComponent<ModelComponent>(house);
+    // auto comp = world->GetComponent<ModelComponent>(house);
+    // comp->modelHandle = ResourceManager::RequestModel("wow");
+
     auto helmet = world->CreateEntity();
     world->AddComponent<BoundingBox>(helmet);
     world->AddComponent<ModelComponent>(helmet);
@@ -117,7 +123,7 @@ void VulkanApp::LoadGameObjects()
     transform->SetRotation(90, 0, 0);
     transform->SetScale(1, 10, 1);
 
-    s32 x, y, z;
+    s32 x, y, z = 0;
     for(n32 i = 0; i < 1000; ++i)
     {
         x += 1;
@@ -137,12 +143,12 @@ void VulkanApp::LoadGameObjects()
         world->AddComponent<BoundingBox>(employee);
         world->AddComponent<ModelComponent>(employee);
         comp = world->GetComponent<ModelComponent>(employee);
-        comp->modelHandle = ResourceManager::RequestModel("employee");
-        // world->AddComponent<AudioSourceComponent>(employee, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+        comp->modelHandle = ResourceManager::RequestModel("wow");
+        world->AddComponent<AudioSourceComponent>(employee, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
 
         transform = world->GetComponent<TransformComponent>(employee);
-        transform->SetTranslation(x, y, z);
-        transform->SetScale(0.01f, 0.01f, 0.01f);
+        transform->SetTranslation(00, 0, 5);
+        transform->SetScale(2.f, 2.f, 2.f);
     }
 
     HGINFO("Loaded game objects");
@@ -352,10 +358,21 @@ void VulkanApp::Run()
 
                 m_renderer->DoGPUOcclusionCulling(cmd, sortedObjs, *world, *m_cam);
 
-                m_renderer->BeginRendering(cmd);
+                m_renderer->BeginGeometryPass(cmd);
 
-                m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
                 m_simpleRenderSystem->RenderObjects(data, false);
+
+                m_renderer->EndGeometryPass(cmd);
+
+                m_renderer->DoLightingPass(cmd, m_cam->GetFragmentDescriptorSet(m_renderer->GetFrameIndex()),
+                                           m_cam->GetParamDescriptorSet(m_renderer->GetFrameIndex()),
+                                           m_skyboxRenderSystem->GetSkybox()->GetDescriptorSet());
+
+                m_renderer->BeginSkyboxPass(cmd);
+                m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
+                m_renderer->EndSkyboxPass(cmd);
+
+                m_renderer->BeginUIRendering(cmd);
 
                 UI::BeginUIFrame(cmd);
 
@@ -365,8 +382,8 @@ void VulkanApp::Run()
                 UI::Debug_DrawMetrics(m_simpleRenderSystem->GetObjectsDrawn(), m_cam->GetPosition());
 
                 UI::EndUIFrame(cmd);
+                m_renderer->EndUIRendering(cmd);
 
-                m_renderer->EndRendering(cmd);
                 m_renderer->EndFrame();
             }
         }

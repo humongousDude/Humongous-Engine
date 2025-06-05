@@ -7,11 +7,14 @@ layout(location = 1) out vec2 outUV1;
 layout(location = 2) out vec4 outColor;
 layout(location = 3) out vec3 worldPosition;
 layout(location = 4) out vec3 outNormal;
-layout(location = 5) out vec3 cameraPos;
+layout(location = 5) out vec3 outTangent;
+layout(location = 6) out vec3 outBitTangent;
 
 struct Vertex {
     vec3 position;
     vec3 normal;
+    vec3 tangent;
+    vec3 bitTangent;
     vec2 uv1;
     vec2 uv2;
     vec4 color;
@@ -32,7 +35,9 @@ layout(push_constant) uniform MNV
 layout(set = 0, binding = 0) uniform UBO
 {
     mat4 projection;
+    mat4 invProjection;
     mat4 view;
+    mat4 invView;
     mat4 projectionView;
     vec3 cameraPos;
 } ubo;
@@ -56,12 +61,14 @@ void main()
     vec4 locPos = ubo.projectionView * mnv.modelMatrix * node.matrix[nodeid] * vec4(v.position, 1.0);
     gl_Position = locPos;
 
-    worldPosition = (mnv.modelMatrix * vec4(v.position, 1.0)).xyz;
-    outNormal = normalize(transpose(inverse(mat3(mnv.modelMatrix * node.matrix[nodeid]))) * v.normal);
+    worldPosition = (mnv.modelMatrix * node.matrix[nodeid] * vec4(v.position, 1.0)).xyz;
+
+    outNormal = normalize(mat3(mnv.modelMatrix) * v.normal);
+    outTangent = normalize(mat3(mnv.modelMatrix) * v.tangent);
+    outBitTangent = normalize(mat3(mnv.modelMatrix) * v.bitTangent);
 
     outUV0 = v.uv1;
     outUV1 = v.uv2;
-    cameraPos = ubo.cameraPos;
     outColor = v.color;
 
     atomicAdd(debug.draws, 1);

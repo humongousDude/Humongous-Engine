@@ -26,12 +26,25 @@ private:
         float padding_end[2];
     };
 
+    struct GBuffer
+    {
+        vk::DescriptorSet imageSet;
+
+        AllocatedImage albedo;
+        AllocatedImage normalRough;
+        AllocatedImage materialParam;
+        AllocatedImage position;
+        AllocatedImage depth;
+    };
+
 public:
     struct Frame
     {
         vk::CommandBuffer commandBuffer;
         vk::Semaphore     imageAvailableSemaphore;
         vk::Fence         inFlightFence;
+
+        GBuffer gbuffer;
 
         std::unique_ptr<Buffer> objectDataBuffer;
         std::unique_ptr<Buffer> visibilityResults;
@@ -78,12 +91,20 @@ public:
      * commandBuffer: the command buffer we'll write the commands to
      *
      */
-    void BeginRendering(vk::CommandBuffer commandBuffer);
+    void BeginGeometryPass(vk::CommandBuffer commandBuffer);
 
     /***
      *  Stop listening for draw commands and copy the outputs to the final swapchain image
      */
-    void EndRendering(vk::CommandBuffer commandBuffer);
+    void EndGeometryPass(vk::CommandBuffer commandBuffer);
+
+    void DoLightingPass(vk::CommandBuffer cmd, vk::DescriptorSet camSet, vk::DescriptorSet sceneSet, vk::DescriptorSet skyboxSet);
+
+    void BeginUIRendering(vk::CommandBuffer cmd);
+    void EndUIRendering(vk::CommandBuffer cmd);
+
+    void BeginSkyboxPass(vk::CommandBuffer cmd);
+    void EndSkyboxPass(vk::CommandBuffer cmd);
 
     SwapChain* GetSwapChain() const { return m_swapChain.get(); }
 
@@ -104,6 +125,11 @@ private:
     std::unique_ptr<DescriptorPool>      m_computePool;
     std::unique_ptr<DescriptorSetLayout> m_computeLayout;
 
+    std::unique_ptr<class RenderPipeline> m_lightingPipeline;
+    vk::PipelineLayout                    m_lightingPipelineLayout;
+    std::unique_ptr<DescriptorSetLayout>  m_lightingLayout;
+    std::unique_ptr<DescriptorPool>       m_lightingPool;
+
     VmaAllocator m_allocator;
 
     vk::CommandPool    m_commandPool;
@@ -123,6 +149,11 @@ private:
     AllocatedImage m_debugImage;
     vk::Sampler    m_debugImageSampler;
 
+    void PreRenderTransitions(vk::CommandBuffer cmd);
+    void PostRenderTransitions(vk::CommandBuffer cmd);
+
+    void InitGBuffer();
+    void InitLightingPipeline();
     void InitImagesAndViews();
     void InitDepthImage();
     void InitSyncStructures();

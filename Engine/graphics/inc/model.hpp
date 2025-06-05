@@ -97,11 +97,13 @@ public:
 
     struct alignas(16) Vertex
     {
-        alignas(16) glm::vec3 position; // 12 bytes (aligned to 16 bytes)
-        alignas(16) glm::vec3 normal;   // 12 bytes (aligned to 16 bytes)
-        alignas(8) glm::vec2 uv0;       // 8 bytes
-        alignas(8) glm::vec2 uv1;       // 8 bytes
-        alignas(16) glm::vec4 color;    // 16 bytes
+        alignas(16) glm::vec3 position;   // 12 bytes (aligned to 16 bytes)
+        alignas(16) glm::vec3 normal;     // 12 bytes (aligned to 16 bytes)
+        alignas(16) glm::vec3 tangent;    // 12 bytes (aligned to 16 bytes)
+        alignas(16) glm::vec3 bitTangent; // 12 bytes (aligned to 16 bytes)
+        alignas(8) glm::vec2 uv0;         // 8 bytes
+        alignas(8) glm::vec2 uv1;         // 8 bytes
+        alignas(16) glm::vec4 color;      // 16 bytes
 
         bool operator==(const Vertex& other) const
         {

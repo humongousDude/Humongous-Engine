@@ -68,8 +68,13 @@ void SkyboxRenderSystem::CreatePipeline()
     ppCI.multisampleInfo.minSampleShading = 1.0;
     ppCI.pipelineLayout = m_pipelineLayout;
 
+    // ppCI.inputAssemblyInfo.topology = vk::PrimitiveTopology::eTriangleFan;
+
     ppCI.vertShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.vert");
     ppCI.fragShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.frag");
+
+    ppCI.colorAttachmentFormat = vk::Format::eR16G16B16A16Sfloat;
+    ppCI.renderingInfo.depthAttachmentFormat = vk::Format::eD32Sfloat;
 
     m_renderPipeline = std::make_unique<RenderPipeline>(*m_logicalDevice, ppCI);
 }

@@ -1,6 +1,7 @@
 #version 450
 
 layout(location = 0) in vec3 inUV;
+layout(location = 1) in vec3 inWorldDir;
 
 layout(set = 1, binding = 0) uniform samplerCube cubemap;
 
@@ -34,10 +35,16 @@ vec4 SRGBtoLINEAR(vec4 srgbIn)
     return vec4(linOut, srgbIn.w);
 }
 
-void main()
-{
-    vec4 param = textureLod(cubemap, inUV, 1.5);
-    vec4 param_1 = tonemap(param);
-    vec3 color = SRGBtoLINEAR(param_1).xyz;
-    outColor = vec4(color * 1.0, 1.0);
+void main() {
+    // Sample the “real” skybox texture:
+    vec3 col = texture(cubemap, inWorldDir).rgb;
+    outColor = vec4(col, 1.0);
 }
+//
+// void main()
+// {
+//     vec4 param = textureLod(cubemap, inUV, 1.5);
+//     vec4 param_1 = tonemap(param);
+//     vec3 color = SRGBtoLINEAR(param_1).xyz;
+//     outColor = vec4(color * 1.0, 1.0);
+// }

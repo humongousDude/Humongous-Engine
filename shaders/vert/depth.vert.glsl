@@ -5,6 +5,8 @@
 struct Vertex {
     vec3 position;
     vec3 normal;
+    vec3 tangent;
+    vec3 bitTangent;
     vec2 uv1;
     vec2 uv2;
     vec4 color;
@@ -25,7 +27,9 @@ layout(push_constant) uniform MNV
 layout(set = 0, binding = 0) uniform UBO
 {
     mat4 projection;
+    mat4 invProjection;
     mat4 view;
+    mat4 invView;
     mat4 projectionView;
     vec3 cameraPos;
 } ubo;

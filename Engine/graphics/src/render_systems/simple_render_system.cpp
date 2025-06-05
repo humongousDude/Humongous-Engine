@@ -72,13 +72,27 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.vertShaderPath = shaderSet.vertShaderPath;
     configInfo.fragShaderPath = shaderSet.fragShaderPath;
 
-    m_renderPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
+    std::array<vk::Format, 4> formats{
+        vk::Format::eR16G16B16A16Sfloat, // albedo
+        vk::Format::eR16G16B16A16Sfloat, // normal+roughness
+        vk::Format::eR16G16B16A16Sfloat, // material params
+        vk::Format::eR16G16B16A16Sfloat  // material params
+    };
 
-    configInfo.colorBlendInfo.attachmentCount = 0;
-    configInfo.colorBlendInfo.pAttachments = nullptr;
-    configInfo.colorAttachmentFormat = vk::Format::eUndefined;
-    configInfo.renderingInfo.colorAttachmentCount = 0;
-    configInfo.renderingInfo.pColorAttachmentFormats = nullptr;
+    std::array<vk::PipelineColorBlendAttachmentState, 4> attach{};
+    attach[0] = configInfo.colorBlendAttachment;
+    attach[1] = configInfo.colorBlendAttachment;
+    attach[2] = configInfo.colorBlendAttachment;
+    attach[3] = configInfo.colorBlendAttachment;
+
+    configInfo.renderingInfo.colorAttachmentCount = 4;
+    configInfo.renderingInfo.pColorAttachmentFormats = formats.data();
+    configInfo.colorBlendInfo.attachmentCount = 4;
+    configInfo.colorBlendInfo.pAttachments = attach.data();
+    configInfo.colorAttachmentFormat = vk::Format::eR16G16B16A16Sfloat;
+    configInfo.renderingInfo.depthAttachmentFormat = vk::Format::eD32Sfloat;
+
+    m_renderPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
 
     ShaderSet depthSet{Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "depth.vert"),
                        Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "nothing.frag")};
@@ -89,6 +103,12 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.rasterizationInfo.depthBiasClamp = 0.0f;           // Optional
     configInfo.rasterizationInfo.depthBiasConstantFactor = 0.01f; // Optional
     configInfo.rasterizationInfo.depthBiasSlopeFactor = 0.0f;     // Optional
+
+    configInfo.colorBlendInfo.attachmentCount = 0;
+    configInfo.colorBlendInfo.pAttachments = nullptr;
+    configInfo.colorAttachmentFormat = vk::Format::eUndefined;
+    configInfo.renderingInfo.colorAttachmentCount = 0;
+    configInfo.renderingInfo.pColorAttachmentFormats = nullptr;
 
     m_depthOnlyPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
     HGINFO("Created pipeline");

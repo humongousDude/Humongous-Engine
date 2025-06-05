@@ -15,7 +15,20 @@ namespace Humongous
 
 Camera::Camera(LogicalDevice* logicalDevice) : m_position(0), m_rotation(0) { InitDescriptorThings(logicalDevice); }
 
-Camera::~Camera() {}
+Camera::~Camera()
+{
+    for(n32 i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
+    {
+        m_projectionBuffers[i].reset();
+        m_paramBuffers[i].reset();
+        m_combinedCameraDataBuffers[i].reset();
+    }
+
+    m_projectionPool.reset();
+    m_projectionDescriptorLayout.reset();
+    m_fragProjectionDescriptorLayout.reset();
+    m_paramDescriptorLayout.reset();
+}
 
 void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
 {
@@ -32,10 +45,15 @@ void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
 
     DescriptorSetLayout::Builder builder3{*logicalDevice};
     builder3.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eFragment);
-    m_paramDescriptorLayout = builder3.Build();
+    m_fragProjectionDescriptorLayout = builder3.Build();
+
+    DescriptorSetLayout::Builder builder4{*logicalDevice};
+    builder4.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eFragment);
+    m_paramDescriptorLayout = builder4.Build();
 
     m_projectionBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_projectionMatrixSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_fragProjectionMatrixSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_uboParamSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_paramBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_combinedCameraDataBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -49,6 +67,7 @@ void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
 
         auto bufInfo = m_projectionBuffers[i]->DescriptorInfo();
         DescriptorWriter(*m_projectionDescriptorLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_projectionMatrixSet[i]);
+        DescriptorWriter(*m_fragProjectionDescriptorLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_fragProjectionMatrixSet[i]);
 
         m_paramBuffers[i] =
             std::make_unique<Buffer>(logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(UboParams), vk::BufferUsageFlagBits::eUniformBuffer,
@@ -77,7 +96,9 @@ void Camera::UpdateUBO(n32 index)
 {
     ProjectionUBO ubo{};
     ubo.projection = m_projectionMatrix;
+    ubo.invProjection = glm::inverse(m_projectionMatrix);
     ubo.view = m_viewMatrix;
+    ubo.invView = glm::inverse(m_viewMatrix);
     ubo.projectionView = GetProjectionViewMatrix();
     ubo.cameraPos = m_position;
 
@@ -122,6 +143,7 @@ void Camera::SetPerspectiveProjection(float fovy, float aspect, float near, floa
 {
     m_projectionMatrix = glm::perspectiveRH_NO(fovy, aspect, near, far);
 }
+
 void Camera::UpdateViewMatrix()
 {
     glm::vec3 forwardDir = glm::vec3(0.0f, 0.0f, -1.0f);
@@ -249,6 +271,7 @@ void Camera::DrawUI()
 
             ImGui::DragFloat("gamma", &m_uboParams.gamma);
             ImGui::DragFloat("exposure", &m_uboParams.exposure);
+            ImGui::DragFloat("radiance", &m_uboParams.radiance);
             ImGui::DragFloat("scaleIBLAmbient", &m_uboParams.scaleIBLAmbient);
             ImGui::SliderFloat("debug lighting", &m_uboParams.debugViewInputs, 0, 6);
             ImGui::SliderFloat("debug equation", &m_uboParams.debugViewEquation, 0, 5);

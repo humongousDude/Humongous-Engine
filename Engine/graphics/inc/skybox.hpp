@@ -31,8 +31,9 @@ public:
 
     void Draw(vk::CommandBuffer cmd)
     {
-        vkCmdBindIndexBuffer(cmd, m_indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer->GetBuffer(), 0, 1, sizeof(vk::DrawIndexedIndirectCommand));
+        // vkCmdBindIndexBuffer(cmd, m_indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+        // vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer->GetBuffer(), 0, 1, sizeof(vk::DrawIndexedIndirectCommand));
+        cmd.draw(6, 1, 0, 0);
     }
 
 private:

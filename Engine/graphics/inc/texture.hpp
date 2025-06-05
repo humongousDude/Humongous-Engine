@@ -57,15 +57,6 @@ public:
     void CreateFromFile(const std::string& path, LogicalDevice* device, const ImageType& imageType = ImageType::TEX2D, const bool& storage = false);
 
 private:
-    struct SamplerCreateInfo
-    {
-        vk::Filter             magFilter;
-        vk::Filter             minFilter;
-        vk::SamplerAddressMode addressModeU;
-        vk::SamplerAddressMode addressModeV;
-        vk::SamplerAddressMode addressModeW;
-    };
-
     LogicalDevice* m_logicalDevice;
     AllocatedImage m_textureImage;
     vk::Sampler    m_textureSampler;
@@ -73,6 +64,6 @@ private:
     n32 m_width, m_height, m_miplevels, m_layerCount, m_baseSize;
 
     void CreateTextureImage(const std::string& imagePath, const ImageType& imageType = ImageType::TEX2D, const bool& storage = false);
-    void CreateTextureImageSampler(const SamplerCreateInfo& samplerInfo, const ImageType& imageType = ImageType::TEX2D);
+    void CreateTextureImageSampler(const TexSamplerInfo& samplerInfo, const ImageType& imageType = ImageType::TEX2D);
 };
 }; // namespace Humongous
