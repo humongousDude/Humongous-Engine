@@ -1,10 +1,10 @@
-#define VMA_IMPLEMENTATION
 
 #include "vulkan_app.hpp"
 #include "allocator.hpp"
 #include "asset_manager.hpp"
 #include "audio_engine.hpp"
 #include "camera.hpp"
+#include "chrono"
 #include "globals.hpp"
 #include "imgui_impl_sdl3.h"
 #include "keyboard_handler.hpp"
@@ -12,7 +12,6 @@
 #include "resource_manager.hpp"
 #include "scene_handler.hpp"
 #include "ui/ui.hpp"
-#include "vk_mem_alloc.h"
 
 namespace Humongous
 {
@@ -98,58 +97,59 @@ void VulkanApp::LoadGameObjects()
 
     auto world = SceneHandler::GetWorld();
 
-    // auto house = world->CreateEntity();
-    // world->AddComponent<BoundingBox>(house);
-    // world->AddComponent<ModelComponent>(house);
-    // auto comp = world->GetComponent<ModelComponent>(house);
-    // comp->modelHandle = ResourceManager::RequestModel("wow");
+    auto house = world->CreateEntity();
+    world->AddComponent<BoundingBox>(house);
+    world->AddComponent<ModelComponent>(house);
+    auto comp = world->GetComponent<ModelComponent>(house);
+    comp->modelHandle = ResourceManager::RequestModel("DamagedHelmet");
 
+    auto transform = world->GetComponent<TransformComponent>(house);
+    transform->SetTranslation(0, 0, 10);
+    //
     auto helmet = world->CreateEntity();
     world->AddComponent<BoundingBox>(helmet);
     world->AddComponent<ModelComponent>(helmet);
-    auto comp = world->GetComponent<ModelComponent>(helmet);
-    comp->modelHandle = ResourceManager::RequestModel("DamagedHelmet");
+    comp = world->GetComponent<ModelComponent>(helmet);
+    comp->modelHandle = ResourceManager::RequestModel("AlphaBlendModeTest");
     world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
 
-    auto wall = world->CreateEntity();
-    world->AddComponent<BoundingBox>(wall);
-    world->AddComponent<ModelComponent>(wall);
-    comp = world->GetComponent<ModelComponent>(wall);
-    comp->modelHandle = ResourceManager::RequestModel("real_wall");
-    world->AddComponent<AudioSourceComponent>(wall, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-
-    auto transform = world->GetComponent<TransformComponent>(wall);
-    transform->SetTranslation(0, 0, 10);
-    transform->SetRotation(90, 0, 0);
-    transform->SetScale(1, 10, 1);
-
-    s32 x, y, z = 0;
-    for(n32 i = 0; i < 1000; ++i)
-    {
-        x += 1;
-
-        if(x > 10)
-        {
-            x = 0;
-            z += 1;
-        }
-        if(z > 10)
-        {
-            z = 0;
-            y += 1;
-        }
-
-        auto employee = world->CreateEntity();
-        world->AddComponent<BoundingBox>(employee);
-        world->AddComponent<ModelComponent>(employee);
-        comp = world->GetComponent<ModelComponent>(employee);
-        comp->modelHandle = ResourceManager::RequestModel("wow");
-        world->AddComponent<AudioSourceComponent>(employee, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-
-        transform = world->GetComponent<TransformComponent>(employee);
-        transform->SetTranslation(00, 0, 5);
-        transform->SetScale(2.f, 2.f, 2.f);
-    }
+    // auto wall = world->CreateEntity();
+    // world->AddComponent<BoundingBox>(wall);
+    // world->AddComponent<ModelComponent>(wall);
+    // comp = world->GetComponent<ModelComponent>(wall);
+    // comp->modelHandle = ResourceManager::RequestModel("silly thing");
+    // world->AddComponent<AudioSourceComponent>(wall, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    //
+    // transform = world->GetComponent<TransformComponent>(wall);
+    // transform->SetTranslation(0, 0, -10);
+    //
+    // s32 x, y, z = 0;
+    // for(n32 i = 0; i < 1000; ++i)
+    // {
+    //     x += 1;
+    //
+    //     if(x > 10)
+    //     {
+    //         x = 0;
+    //         z += 1;
+    //     }
+    //     if(z > 10)
+    //     {
+    //         z = 0;
+    //         y += 1;
+    //     }
+    //
+    //     auto employee = world->CreateEntity();
+    //     world->AddComponent<BoundingBox>(employee);
+    //     world->AddComponent<ModelComponent>(employee);
+    //     comp = world->GetComponent<ModelComponent>(employee);
+    //     comp->modelHandle = ResourceManager::RequestModel("default");
+    //     world->AddComponent<AudioSourceComponent>(employee, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    //
+    //     transform = world->GetComponent<TransformComponent>(employee);
+    //     transform->SetTranslation(00, 0, 5);
+    //     transform->SetScale(2.f, 2.f, 2.f);
+    // }
 
     HGINFO("Loaded game objects");
 }
@@ -246,7 +246,7 @@ void VulkanApp::Run()
 
             ImGui::PushID(entityId);
 
-            if(ImGui::CollapsingHeader("entityId"))
+            if(ImGui::CollapsingHeader(world->GetComponent<NameComponent>(entityId)->name.c_str()))
             {
                 ImGui::Text("ID: %i", entityId);
 
@@ -369,7 +369,9 @@ void VulkanApp::Run()
                                            m_skyboxRenderSystem->GetSkybox()->GetDescriptorSet());
 
                 m_renderer->BeginSkyboxPass(cmd);
+
                 m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
+
                 m_renderer->EndSkyboxPass(cmd);
 
                 m_renderer->BeginUIRendering(cmd);

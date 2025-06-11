@@ -9,19 +9,17 @@ layout(location = 3) in vec3 inWorldPos;
 layout(location = 4) in vec3 inNormal;
 layout(location = 5) in vec3 inTangent;
 layout(location = 6) in vec3 inBitTangent;
+layout(location = 7) flat in uint inMaterialIndex;
 
-// → G-Buffer outputs:
 layout(location = 0) out vec4 outAlbedo; // RGBA: base‐color.rgb, alpha = opacity
 layout(location = 1) out vec4 outNormalRoughness; // RGBA: normal.xyz (0..1), roughness = w
 layout(location = 2) out vec4 outMaterialParams; // RGBA: emissive.rgb, metallic = a
-layout(location = 3) out vec4 outPosition; // RGBA: emissive.rgb, metallic = a
+layout(location = 3) out vec4 outPosition;
 
-// (IBL samplers are unused here; only a placeholder)
 layout(set = 2, binding = 1) uniform samplerCube samplerIrradiance;
 layout(set = 2, binding = 2) uniform samplerCube prefilteredMap;
 layout(set = 2, binding = 3) uniform sampler2D samplerBRDFLUT;
 
-// → Bindless 2D textures
 layout(set = 3, binding = 0) uniform sampler2D textures[];
 
 struct MaterialData {
@@ -69,10 +67,6 @@ layout(set = 1, binding = 0) uniform UBOParams {
     float debugViewEquation;
 } uboParams;
 
-layout(push_constant) uniform PushConstants {
-    layout(offset = 80) uint materialIndex;
-} pushConstants;
-
 // Converts sRGB to linear color
 vec4 SRGBtoLINEAR(vec4 srgbIn)
 {
@@ -112,7 +106,7 @@ vec3 getNormal(MaterialData material, int normalMap)
 
 void main()
 {
-    MaterialData material = materials[pushConstants.materialIndex];
+    MaterialData material = materials[inMaterialIndex];
 
     // 1) Base color (albedo)
     vec4 baseColorLinear = material.baseColorFactor;
@@ -157,17 +151,13 @@ void main()
 
     // Write to G-Buffer:
 
-    // → outAlbedo: linear base color (RGB) + alpha
     outAlbedo = vec4(baseColorLinear.rgb, baseColorLinear.a);
 
-    // → outNormalRoughness: pack normal (0..1) and roughness
     N = getNormal(material, material.normalTextureIndex);
     vec3 n01 = N * 0.5 + 0.5; // pack into 0..1
     outNormalRoughness = vec4(n01, roughness);
 
-    // → outMaterialParams: pack emissive.rgb and metallic
     outMaterialParams = vec4(emissiveCol, metallic);
 
-    // → outPosition: output the world position directly
-    outPosition = vec4(inWorldPos, 1.0); // Store world position in RGB, alpha can be 1.0 or unused
+    outPosition = vec4(inWorldPos, 1.0);
 }

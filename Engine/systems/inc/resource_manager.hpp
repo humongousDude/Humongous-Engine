@@ -1,5 +1,6 @@
 #pragma once
 
+#include "abstractions/buffer.hpp"
 #include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool_growable.hpp"
 #include "audio_source.hpp"
@@ -11,7 +12,7 @@
 namespace Humongous
 {
 
-class ResourceManager : Singleton<ResourceManager>
+class ResourceManager : public Singleton<ResourceManager>
 {
 private:
     struct ModelDescriptors;
@@ -22,8 +23,18 @@ public:
     static void Init(LogicalDevice* logicalDevice) { Get().Internal_Init(logicalDevice); }
     static void Shutdown() { Get().Internal_Shutdown(); }
 
-    static n32                    RequestModel(const std::string& name) { return Get().Internal_RequestModel(name); };
-    static n32                    RequestModelNodeMatriciesIndex(const n32& index) { return Get().Internal_RequestModelNodeMatriciesIndex(index); };
+    static n32 RequestModel(const std::string& name) { return Get().Internal_RequestModel(name); };
+    static n32 RequestModelNodeMatriciesIndex(const n32& index) { return Get().Internal_RequestModelNodeMatriciesIndex(index); };
+
+    static void AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives)
+    {
+        Get().Internal_AddIndicesToModel(modelIndices, modelPrimitives);
+    }
+    static void AddVerticesToModel(const std::vector<Model::Vertex>& modelVertices, const std::vector<Mesh*>& modelMeshes)
+    {
+        Get().Internal_AddVerticesToModel(modelVertices, modelMeshes);
+    }
+
     static std::shared_ptr<Model> GetModel(const n32& index) { return Get().Internal_GetModel(index); }
 
     static std::shared_ptr<Skybox> LoadSkybox(const std::string& name) { return Get().Internal_LoadSkybox(name); }
@@ -39,14 +50,16 @@ public:
     // Material Textures, Material Data, Node, RendererBuffer
     static std::vector<vk::DescriptorSetLayout> GetLayoutVector()
     {
-        return {Get().m_bindlessLayout->GetDescriptorSetLayout(), Get().m_modelDescriptors.nodeLayout->GetDescriptorSetLayout(),
-                Get().m_modelDescriptors.debugLayout->GetDescriptorSetLayout()};
+        return {Get().m_bindlessLayout->GetDescriptorSetLayout(), Get().m_modelDescriptors.nodeMatricies->GetDescriptorSetLayout(),
+                Get().m_modelDescriptors.vertices->GetDescriptorSetLayout(), Get().m_modelDescriptors.debugLayout->GetDescriptorSetLayout()};
     }
 
     static n32 GetTotalModelBindingCount()
     {
-        return Get().m_modelDescriptors.nodeLayout->GetBindingCount() + Get().m_modelDescriptors.debugLayout->GetBindingCount();
+        return Get().m_modelDescriptors.nodeMatricies->GetBindingCount() + Get().m_modelDescriptors.debugLayout->GetBindingCount();
     }
+
+    static vk::DescriptorSet GetVertexDescriptor() { return Get().m_modelDescriptors.vertexDescriptor; }
 
     static n32 RequestTexture(class tinygltf::Image img, struct Texture::TexSamplerInfo sampler)
     {
@@ -54,6 +67,13 @@ public:
     };
 
     static n32 RequestMaterial(const Model::ShaderMaterial& mat) { return Get().Internal_RequestMaterial(mat); }
+
+    std::unique_ptr<Buffer>      m_modelIndexBuffer;
+    std::unordered_map<n32, n32> m_modelHandleToIndexStart;
+    std::unique_ptr<Buffer>      m_modelVertexBuffer;
+    std::vector<n32>             m_modelIndicies;
+    std::vector<Model::Vertex>   m_modelVertices;
+    std::unordered_map<n32, n32> m_modelHandleToMatrixStart;
 
 private:
     struct DescriptorPools
@@ -67,7 +87,9 @@ private:
 
     struct ModelDescriptors
     {
-        std::unique_ptr<DescriptorSetLayout> nodeLayout;
+        std::unique_ptr<DescriptorSetLayout> nodeMatricies;
+        vk::DescriptorSet                    vertexDescriptor;
+        std::unique_ptr<DescriptorSetLayout> vertices;
         std::unique_ptr<DescriptorSetLayout> debugLayout;
         std::unique_ptr<DescriptorSetLayout> rendererBuffer;
     } m_modelDescriptors;
@@ -82,12 +104,18 @@ private:
 
     std::unordered_map<n32, std::shared_ptr<Model>> m_modelMap;
     std::unordered_map<std::string, n32>            m_modelNameToHandle;
-    std::vector<glm::mat4>                          m_modelNodeMatricesFlat;
-    std::unique_ptr<Buffer>                         m_modelNodeMatriciesBuffer;
-    n32                                             m_nextModelID{0};
-    n32                                             Internal_RequestModel(const std::string& name);
-    n32                                             Internal_RequestModelNodeMatriciesIndex(const n32& index);
-    std::shared_ptr<Model>                          Internal_GetModel(const n32& index);
+
+    std::vector<glm::mat4>  m_modelNodeMatricesFlat;
+    std::unique_ptr<Buffer> m_modelNodeMatriciesBuffer;
+
+    void Internal_AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives);
+
+    void Internal_AddVerticesToModel(const std::vector<Model::Vertex>& modelVertices, const std::vector<Mesh*>& modelMeshes);
+
+    n32                    m_nextModelID{0};
+    n32                    Internal_RequestModel(const std::string& name);
+    n32                    Internal_RequestModelNodeMatriciesIndex(const n32& index);
+    std::shared_ptr<Model> Internal_GetModel(const n32& index);
 
     std::unordered_map<n32, std::shared_ptr<AudioSourceComponent>> m_audioMap;
     n32                                                            m_nextaudioID{0};

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "abstractions/buffer.hpp"
 #include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool_growable.hpp"
 #include "logical_device.hpp"
@@ -27,14 +26,8 @@ public:
     ~Skybox();
 
     vk::DescriptorSet GetDescriptorSet() const { return m_cubeMapSet; }
-    vk::DeviceAddress GetVertexBufferAddress() const { return m_vertexBuffer->GetDeviceAddress(); }
 
-    void Draw(vk::CommandBuffer cmd)
-    {
-        // vkCmdBindIndexBuffer(cmd, m_indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
-        // vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer->GetBuffer(), 0, 1, sizeof(vk::DrawIndexedIndirectCommand));
-        cmd.draw(6, 1, 0, 0);
-    }
+    void Draw(vk::CommandBuffer cmd) { cmd.draw(6, 1, 0, 0); }
 
 private:
     LogicalDevice* m_logicalDevice = nullptr;
@@ -48,10 +41,6 @@ private:
     n32 m_vertexCount;
     n32 m_indexCount;
 
-    std::unique_ptr<Buffer> m_vertexBuffer;
-    std::unique_ptr<Buffer> m_indexBuffer;
-
-    std::unique_ptr<Buffer>        m_indirectDrawBuffer;
     vk::DrawIndexedIndirectCommand m_command;
     vk::DescriptorSet              m_cubeMapSet;
 

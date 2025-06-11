@@ -13,6 +13,7 @@ namespace Humongous
 {
 struct Node;
 
+// EntityComponent doesn't add anything
 struct alignas(16) BoundingBox : public EntityComponent
 {
     glm::vec3 min{std::numeric_limits<f32>::max()}; // 12 bytes

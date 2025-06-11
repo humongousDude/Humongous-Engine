@@ -1,8 +1,6 @@
-// Original from Brendan Galea's vulkan tutorial, adapted to use VMA
 #include "asserts.hpp"
 #include <abstractions/descriptor_writer.hpp>
 
-// TODO: Change this to use vulkan.hpp
 namespace Humongous
 {
 
@@ -21,11 +19,13 @@ DescriptorWriter& DescriptorWriter::WriteBuffer(n32 binding, vk::DescriptorBuffe
 
     HGASSERT(bindingDescription.descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple")
 
+    m_bufferInfos.push_back(*bufferInfo);
+
     vk::WriteDescriptorSet write{};
     write.sType = vk::StructureType::eWriteDescriptorSet;
     write.descriptorType = bindingDescription.descriptorType;
     write.dstBinding = binding;
-    write.pBufferInfo = bufferInfo;
+    write.pBufferInfo = &m_bufferInfos.back();
     write.descriptorCount = 1;
 
     m_writes.push_back(write);
@@ -40,11 +40,13 @@ DescriptorWriter& DescriptorWriter::WriteImage(n32 binding, vk::DescriptorImageI
 
     HGASSERT(bindingDescription.descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple")
 
+    m_imageInfos.push_back(*imageInfo);
+
     vk::WriteDescriptorSet write{};
     write.sType = vk::StructureType::eWriteDescriptorSet;
     write.descriptorType = bindingDescription.descriptorType;
     write.dstBinding = binding;
-    write.pImageInfo = imageInfo;
+    write.pImageInfo = &m_imageInfos.back();
     write.descriptorCount = 1;
 
     m_writes.push_back(write);

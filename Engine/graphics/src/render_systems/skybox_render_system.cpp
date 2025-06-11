@@ -13,7 +13,6 @@ SkyboxRenderSystem::SkyboxRenderSystem(LogicalDevice* logicalDevice, const std::
     : m_logicalDevice{logicalDevice}
 {
     HGINFO("Initializing skybox render system...");
-    InitDescriptors();
     CreatePipelineLayout(globalLayouts);
     CreatePipeline();
     InitSkybox(skyboxImgPath);
@@ -21,16 +20,6 @@ SkyboxRenderSystem::SkyboxRenderSystem(LogicalDevice* logicalDevice, const std::
 }
 
 SkyboxRenderSystem::~SkyboxRenderSystem() { vkDestroyPipelineLayout(m_logicalDevice->GetVkDevice(), m_pipelineLayout, nullptr); }
-
-void SkyboxRenderSystem::InitDescriptors()
-{
-    std::vector<vk::DescriptorType> descs = {vk::DescriptorType::eCombinedImageSampler};
-    m_skyboxPool = std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 6, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, descs);
-
-    DescriptorSetLayout::Builder builder{*m_logicalDevice};
-    builder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment);
-    m_skyboxSetLayout = builder.Build();
-}
 
 void SkyboxRenderSystem::CreatePipelineLayout(const std::vector<vk::DescriptorSetLayout>& globalLayouts)
 {
@@ -48,8 +37,8 @@ void SkyboxRenderSystem::CreatePipelineLayout(const std::vector<vk::DescriptorSe
     // layoutCI.flags = 0;
     layoutCI.pSetLayouts = layouts.data();
     layoutCI.setLayoutCount = layouts.size();
-    layoutCI.pPushConstantRanges = &range;
-    layoutCI.pushConstantRangeCount = 1;
+    layoutCI.pPushConstantRanges = nullptr;
+    layoutCI.pushConstantRangeCount = 0;
 
     if(m_logicalDevice->GetVkDevice().createPipelineLayout(&layoutCI, nullptr, &m_pipelineLayout) != vk::Result::eSuccess)
     {
@@ -84,9 +73,6 @@ void SkyboxRenderSystem::InitSkybox(const std::string& skyBoxImgPath) { m_skybox
 void SkyboxRenderSystem::RenderSkybox(const n32& frameIndex, std::vector<vk::DescriptorSet>& globalSets, vk::CommandBuffer cmd)
 {
     m_renderPipeline->Bind(cmd);
-
-    auto devAddress = m_skybox->GetVertexBufferAddress();
-    cmd.pushConstants(m_pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(vk::DeviceAddress), &devAddress);
 
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout, 0, 1, globalSets.data(), 0, nullptr);
 

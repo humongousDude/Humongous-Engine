@@ -1,10 +1,8 @@
 #pragma once
-#include <defines.hpp>
-#include <non_copyable.hpp>
-
-#include "vulkan/vulkan.hpp"
-#include <instance.hpp>
-#include <physical_device.hpp>
+#include "defines.hpp"
+#include "instance.hpp"
+#include "non_copyable.hpp"
+#include "physical_device.hpp"
 
 #include "vk_mem_alloc.h"
 
@@ -30,6 +28,12 @@ public:
     vk::CommandBuffer BeginSingleTimeCommands();
     void              EndSingleTimeCommands(vk::CommandBuffer cmd);
 
+    struct VMAData
+    {
+        n32 allocationCount = 0;
+        n32 freeCount = 0;
+    };
+
 private:
     Instance& m_instance;
 
@@ -42,6 +46,8 @@ private:
     n32       m_presentQueueIndex;
 
     VmaAllocator m_allocator;
+
+    VMAData m_vmaData;
 
     vk::CommandPool m_commandPool;
 

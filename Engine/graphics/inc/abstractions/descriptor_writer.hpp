@@ -3,6 +3,7 @@
 
 #include "abstractions/descriptor_pool_growable.hpp"
 #include "defines.hpp"
+#include <list>
 #include <logical_device.hpp>
 #include <non_copyable.hpp>
 
@@ -34,5 +35,8 @@ private:
     DescriptorPool*                     m_pool{nullptr};
     DescriptorPoolGrowable*             m_poolGrowable{nullptr};
     std::vector<vk::WriteDescriptorSet> m_writes;
+
+    std::list<vk::DescriptorBufferInfo> m_bufferInfos;
+    std::list<vk::DescriptorImageInfo>  m_imageInfos;
 };
 } // namespace Humongous

@@ -1,8 +1,8 @@
 #version 450
 
-layout(location = 0) in vec2 inUV; // from fullscreen‐triangle VS
+layout(location = 0) in vec2 inUV;
 
-layout(location = 0) out vec4 outColor; // final lit color
+layout(location = 0) out vec4 outColor;
 
 layout(set = 0, binding = 0) uniform UBO
 {
@@ -56,13 +56,11 @@ vec3 ReconstructWorldPos(vec2 uv, float depth) // depth is Vulkan NDC Z [0,1]
     return worldPosH.xyz;
 }
 
-// Simple Fresnel Schlick
 vec3 FresnelSchlick(float cosTheta, vec3 F0)
 {
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
-// GGX Normal Distribution Function
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
     float a = roughness * roughness;
@@ -72,7 +70,6 @@ float DistributionGGX(vec3 N, vec3 H, float roughness)
     return a2 / (PI * denom * denom);
 }
 
-// Smith’s Schlick-GGX Geometry term
 float GeometrySchlickGGX(float NdotV, float roughness)
 {
     float r = roughness + 1.0;
@@ -97,27 +94,18 @@ void main()
     vec4 nrSample = texture(gNormalRough, inUV);
     vec4 mpSample = texture(gMatParams, inUV);
     float depth = texture(gDepth, inUV).r;
-    // If using Sascha's position attachment:
-    // vec3 fragPos = texture(gPosition, inUV).rgb; // Assuming world-space position is stored here
 
-    // Albedo & alpha
     vec3 albedo = albSample.rgb;
     float alpha = albSample.a; // Note: Sascha uses albedo.a for specular map
 
-    // Unpack normal (0..1 → −1..+1) and roughness
     vec3 N = normalize(nrSample.xyz * 2.0 - 1.0);
     float roughness = nrSample.w;
 
-    // Unpack emissive and metallic
     vec3 emissive = mpSample.rgb;
     float metallic = mpSample.a;
 
-    // Reconstruct world position
-    // If using Sascha's position attachment, replace this with 'fragPos' from texture lookup
-    // vec3 worldPos = ReconstructWorldPos(inUV, depth);
     vec3 worldPos = texture(gPosition, inUV).rgb;
 
-    // Compute view and light vectors
     vec3 V = normalize(uboParams.camPos - worldPos);
     vec3 L = normalize(-uboParams.lightDir.xyz); // Singular directional light
     vec3 H = normalize(V + L);
@@ -127,37 +115,23 @@ void main()
     float NdotH = max(dot(N, H), 0.0);
     float VdotH = max(dot(V, H), 0.0);
 
-    // Sascha's ambient equivalent (simplified for single light)
-    float ambient = 0.01; // Or some small constant to provide minimal global illumination
+    float ambient = 0.01;
 
-    // Initialize fragment color with ambient term
     vec3 fragcolor = albedo * ambient; // Sascha's ambient
 
-    // --- Sascha's Direct Lighting (adapted for singular directional light) ---
-    // Note: Sascha uses albedo.a for specular intensity/power
-    // If your gAlbedo.a is just alpha, you might need a dedicated specular map or a constant value.
     float specularStrength = alpha; // Assuming albedo.a holds specular strength (like Sascha's example)
-    // If not, use a constant like 1.0 or derive from roughness/metallic.
 
-    // No distance attenuation for directional light
-    // Light to fragment vector L is already normalized
-
-    // Diffuse part (Blinn-Phong style)
     vec3 singularLightColor = vec3(1);
     float singularLightIntensity = 1;
     vec3 diff = singularLightColor * albedo.rgb * NdotL * singularLightIntensity;
 
-    // Specular part (Blinn-Phong style)
     vec3 R = reflect(-L, N); // Reflection vector for specular
     float RdotV = max(0.0, dot(R, V));
-    // Use a fixed shininess or derive from roughness (e.g., pow(RdotV, 1.0/roughness))
-    float shininess = 16.0; // Matches Sascha's example
+    float shininess = 16.0;
     vec3 spec = singularLightColor * specularStrength * pow(RdotV, shininess) * singularLightIntensity;
 
     fragcolor += diff + spec;
 
-    // --- Original IBL Calculations (Keep this if you want PBR-like reflections/global illumination) ---
-    // PBR's F0 for IBL
     vec3 F0_PBR = mix(vec3(0.04), albedo, metallic);
 
     vec3 irradiance = texture(samplerIrradiance, N).rgb;
@@ -180,11 +154,9 @@ void main()
 
     vec3 ambient_PBR = (diffuse_ibl_component + specular_ibl_component) * uboParams.scaleIBLAmbient;
 
-    // Combine Sascha's direct lighting with your PBR IBL
     fragcolor += ambient_PBR; // Add PBR-based ambient (IBL)
     fragcolor += emissive; // Add emissive from your G-buffer
 
-    // 5) Tone‐map & gamma‐correct
     vec3 color = vec3(1.0) - exp(-fragcolor * uboParams.exposure);
     color = pow(color, vec3(1.0 / uboParams.gamma));
 

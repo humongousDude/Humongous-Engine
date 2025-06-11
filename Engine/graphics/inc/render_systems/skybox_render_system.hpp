@@ -26,12 +26,8 @@ private:
     std::unique_ptr<RenderPipeline> m_renderPipeline;
     vk::PipelineLayout              m_pipelineLayout;
 
-    std::unique_ptr<DescriptorPoolGrowable> m_skyboxPool;
-    std::unique_ptr<DescriptorSetLayout>    m_skyboxSetLayout;
-
     std::shared_ptr<Skybox> m_skybox;
 
-    void InitDescriptors();
     void CreatePipelineLayout(const std::vector<vk::DescriptorSetLayout>& globalLayouts);
     void CreatePipeline();
     void InitSkybox(const std::string& skyBoxImgPath);

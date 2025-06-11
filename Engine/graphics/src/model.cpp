@@ -4,6 +4,7 @@
 #include "defines.hpp"
 #include "logger.hpp"
 #include "resource_manager.hpp"
+#include <set>
 
 #define TINYGLTF_IMPLEMENTATION
 #define STBI_MSC_SECURE_CRT
@@ -12,12 +13,11 @@
 
 namespace Humongous
 {
-Primitive::Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, Material& material)
-    : firstIndex(firstIndex), indexCount(indexCount), vertexCount(vertexCount), material(material)
-{
-    hasIndices = indexCount > 0;
-};
-
+// Primitive::Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, Material& material)
+//     : firstIndex(firstIndex), indexCount(indexCount), vertexCount(vertexCount), material(material)
+// {
+// };
+//
 // Mesh
 Mesh::Mesh(LogicalDevice* device, glm::mat4 matrix) { this->logicalDevice = device; };
 
@@ -35,9 +35,106 @@ Model::Model(LogicalDevice* device, const std::string& modelPath, float scale)
 
 Model::~Model() { Destroy(m_logicalDevice->GetVkDevice()); }
 
+void Model::Init(DescriptorSetLayout* nodeLayout, DescriptorPoolGrowable* imagePool, DescriptorPoolGrowable* uniformPool,
+                 DescriptorPoolGrowable* storagePool)
+{
+    if(m_initialized) { return; }
+    HGINFO("Initializing model...");
+
+    LoadMaterialData();
+
+    m_initialized = true;
+}
+
+void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk::Queue transferQueue, float scale)
+{
+    tinygltf::Model    gltfModel;
+    tinygltf::TinyGLTF gltfContext;
+
+    std::string error;
+    std::string warning;
+
+    this->m_logicalDevice = logicalDevice;
+
+    bool   binary = false;
+    size_t extpos = filePath.rfind('.', filePath.length());
+    if(extpos != std::string::npos) { binary = (filePath.substr(extpos + 1, filePath.length() - extpos) == "glb"); }
+
+    bool       fileLoaded = binary ? gltfContext.LoadBinaryFromFile(&gltfModel, &error, &warning, filePath.c_str())
+                                   : gltfContext.LoadASCIIFromFile(&gltfModel, &error, &warning, filePath.c_str());
+    LoaderInfo loaderInfo{};
+    size_t     vertexCount = 0;
+    size_t     indexCount = 0;
+
+    if(fileLoaded)
+    {
+        LoadTextureSamplers(gltfModel);
+        LoadTextures(gltfModel, logicalDevice, transferQueue);
+        LoadMaterials(gltfModel);
+
+        const tinygltf::Scene& scene = gltfModel.scenes[gltfModel.defaultScene > -1 ? gltfModel.defaultScene : 0];
+
+        for(size_t i = 0; i < scene.nodes.size(); i++) { GetNodeProps(gltfModel.nodes[scene.nodes[i]], gltfModel, vertexCount, indexCount); }
+        loaderInfo.vertexBuffer.resize(vertexCount);
+        loaderInfo.indexBuffer.resize(indexCount);
+
+        m_indices.resize(indexCount);
+
+        // TODO: scene handling with no default scene
+        for(size_t i = 0; i < scene.nodes.size(); i++)
+        {
+            const tinygltf::Node node = gltfModel.nodes[scene.nodes[i]];
+            LoadNode(nullptr, node, scene.nodes[i], gltfModel, loaderInfo, scale, glm::identity<glm::mat4>());
+        }
+        /* if(gltfModel.animations.size() > 0) { loadAnimations(gltfModel); }
+        loadSkins(gltfModel); */
+
+        for(auto node: m_linearNodes)
+        {
+            // // Assign skins
+            // if(node->m_skinIndex > -1) { node->m_skin = skins[node->m_skinIndex]; }
+            // Initial pose
+            if(node->mesh) { node->Update(); }
+        }
+    }
+    else
+    {
+        HGERROR(error.c_str());
+        return;
+    }
+
+    // extensions = gltfModel.extensionsUsed;
+
+    m_indices = loaderInfo.indexBuffer;
+
+    for(auto& node: m_nodes) { UpdateMaterialBatches(node); }
+
+    std::set<Mesh*> uniqueMeshes;
+    for(Node* node: m_linearNodes)
+    {
+        if(node->mesh) { uniqueMeshes.insert(node->mesh); }
+    }
+
+    std::vector<Mesh*>      allMeshesForThisModel(uniqueMeshes.begin(), uniqueMeshes.end());
+    std::vector<Primitive*> allPrimitivesForThisModel;
+    for(Node* node: m_linearNodes)
+    {
+        if(node->mesh)
+        {
+            allPrimitivesForThisModel.insert(allPrimitivesForThisModel.end(), node->mesh->primitives.begin(), node->mesh->primitives.end());
+        }
+    }
+
+    m_vertices = loaderInfo.vertexBuffer;
+
+    m_localAABB = CalculateModelAABB(m_nodes, loaderInfo.vertexBuffer, loaderInfo.indexBuffer);
+
+    ResourceManager::AddVerticesToModel(m_vertices, allMeshesForThisModel);
+    ResourceManager::AddIndicesToModel(m_indices, allPrimitivesForThisModel);
+}
+
 void Model::Destroy(vk::Device device)
 {
-    // for(auto& t: m_textures) { t.Destroy(); }
     m_emptyTexture.Destroy();
 
     for(auto node: m_nodes) { delete node; }
@@ -57,45 +154,53 @@ void Model::UpdateUBO(Node* node, glm::mat4 matrix)
 }
 
 void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo,
-                     float globalscale, glm::mat4 parentTransform) // Add parentTransform as parameter
+                     float globalscale, glm::mat4 parentTransform)
 {
     Node* newNode = new Node{};
     newNode->index = nodeIndex;
     newNode->parent = parent;
     newNode->name = node.name;
     // newNode->skinIndex = node.skin;
-    newNode->matrix = glm::mat4(1.0f);
 
-    // Generate local node matrix
-    glm::vec3 translation = glm::vec3(0.0f);
-    if(node.translation.size() == 3)
-    {
-        translation = glm::make_vec3(node.translation.data());
-        newNode->translation = translation;
-    }
-    glm::mat4 rotation = glm::mat4(1.0f);
-    if(node.rotation.size() == 4)
-    {
-        glm::quat q = glm::make_quat(node.rotation.data());
-        newNode->rotation = glm::mat4(q);
-    }
-    glm::vec3 scale = glm::vec3(1.0f);
-    if(node.scale.size() == 3)
-    {
-        scale = glm::make_vec3(node.scale.data());
-        newNode->scale = scale;
-    }
-    if(node.matrix.size() == 16) { newNode->matrix = glm::make_mat4x4(node.matrix.data()); };
+    glm::mat4 localMatrix = glm::mat4(1.0f);
 
-    glm::mat4 currentTransform = parentTransform * newNode->matrix; // Calculate current transform
+    // Determine the local node transform: EITHER from an explicit matrix OR from TRS
+    if(node.matrix.size() == 16) { localMatrix = glm::make_mat4x4(node.matrix.data()); }
+    else
+    {
+        glm::vec3 translation = glm::vec3(0.0f);
+        if(node.translation.size() == 3)
+        {
+            translation = glm::make_vec3(node.translation.data());
+            newNode->translation = translation;
+        }
 
-    // Node with children
-    if(node.children.size() > 0)
+        glm::quat rotationQuat = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        if(node.rotation.size() == 4)
+        {
+            rotationQuat = glm::make_quat(node.rotation.data());
+            newNode->rotation = rotationQuat;
+        }
+
+        glm::vec3 scale = glm::vec3(1.0f);
+        if(node.scale.size() == 3)
+        {
+            scale = glm::make_vec3(node.scale.data());
+            newNode->scale = scale;
+        }
+
+        localMatrix = glm::translate(glm::mat4(1.0f), translation) * glm::mat4(rotationQuat) * glm::scale(glm::mat4(1.0f), scale);
+    }
+
+    newNode->matrix = localMatrix;
+
+    glm::mat4 currentWorldTransform = parentTransform * newNode->matrix;
+
+    if(!node.children.empty())
     {
         for(size_t i = 0; i < node.children.size(); i++)
         {
-            LoadNode(newNode, model.nodes[node.children[i]], node.children[i], model, loaderInfo, globalscale,
-                     currentTransform); // Pass currentTransform
+            LoadNode(newNode, model.nodes[node.children[i]], node.children[i], model, loaderInfo, globalscale, currentWorldTransform);
         }
     }
 
@@ -107,14 +212,11 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
         Mesh*                newMesh = new Mesh(m_logicalDevice, newNode->matrix);
         for(size_t j = 0; j < mesh.primitives.size(); j++)
         {
-
             const tinygltf::Primitive& primitive = mesh.primitives[j];
             n32                        vertexStart = static_cast<n32>(loaderInfo.vertexPos);
             n32                        indexStart = static_cast<n32>(loaderInfo.indexPos);
             n32                        indexCount = 0;
             n32                        vertexCount = 0;
-            glm::vec3                  posMin{}; // Not needed anymore, using m_localAABB directly
-            glm::vec3                  posMax{}; // Not needed anymore, using m_localAABB directly
             bool                       hasSkin = false;
             bool                       hasIndices = primitive.indices > -1;
             // Vertices
@@ -143,32 +245,36 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                 // Position attribute is required
                 HGASSERT(primitive.attributes.find("POSITION") != primitive.attributes.end());
 
-                const tinygltf::Accessor&   posAccessor = model.accessors[primitive.attributes.find("POSITION")->second];
+                const tinygltf::Accessor&   posAccessor = model.accessors[primitive.attributes.at("POSITION")];
                 const tinygltf::BufferView& posView = model.bufferViews[posAccessor.bufferView];
-                bufferPos = reinterpret_cast<const float*>(model.buffers[posView.buffer].data.data() + posView.byteOffset + posAccessor.byteOffset);
-                vertexCount = static_cast<n32>(posAccessor.count);
-                posByteStride = posAccessor.ByteStride(posView) ? (posAccessor.ByteStride(posView) / sizeof(float))
-                                                                : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3);
 
+                posByteStride = posAccessor.ByteStride(posView) ? posAccessor.ByteStride(posView)
+                                                                : (sizeof(float) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
+
+                const unsigned char* rawPosBase = model.buffers[posView.buffer].data.data() + posView.byteOffset + posAccessor.byteOffset;
+
+                // Normals (if present)
+                normByteStride = 0;
+                const unsigned char* rawNormBase = nullptr;
                 if(primitive.attributes.find("NORMAL") != primitive.attributes.end())
                 {
-                    const tinygltf::Accessor&   normAccessor = model.accessors[primitive.attributes.find("NORMAL")->second];
+                    const tinygltf::Accessor&   normAccessor = model.accessors[primitive.attributes.at("NORMAL")];
                     const tinygltf::BufferView& normView = model.bufferViews[normAccessor.bufferView];
-                    bufferNormals =
-                        reinterpret_cast<const float*>(&(model.buffers[normView.buffer].data[normAccessor.byteOffset + normView.byteOffset]));
-                    normByteStride = normAccessor.ByteStride(normView) ? (normAccessor.ByteStride(normView) / sizeof(float))
-                                                                       : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3);
+                    normByteStride = normAccessor.ByteStride(normView) ? normAccessor.ByteStride(normView)
+                                                                       : (sizeof(float) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
+                    rawNormBase = model.buffers[normView.buffer].data.data() + normView.byteOffset + normAccessor.byteOffset;
                 }
 
-                // UVs
+                // UV0 (if present)
+                uv0ByteStride = 0;
+                const unsigned char* rawUv0Base = nullptr;
                 if(primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end())
                 {
-                    const tinygltf::Accessor&   uvAccessor = model.accessors[primitive.attributes.find("TEXCOORD_0")->second];
+                    const tinygltf::Accessor&   uvAccessor = model.accessors[primitive.attributes.at("TEXCOORD_0")];
                     const tinygltf::BufferView& uvView = model.bufferViews[uvAccessor.bufferView];
-                    bufferTexCoordSet0 =
-                        reinterpret_cast<const float*>(&(model.buffers[uvView.buffer].data[uvAccessor.byteOffset + uvView.byteOffset]));
-                    uv0ByteStride = uvAccessor.ByteStride(uvView) ? (uvAccessor.ByteStride(uvView) / sizeof(float))
-                                                                  : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2);
+                    uv0ByteStride = uvAccessor.ByteStride(uvView) ? uvAccessor.ByteStride(uvView)
+                                                                  : (sizeof(float) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
+                    rawUv0Base = model.buffers[uvView.buffer].data.data() + uvView.byteOffset + uvAccessor.byteOffset;
                 }
 
                 if(primitive.attributes.find("TEXCOORD_1") != primitive.attributes.end())
@@ -224,68 +330,104 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
 
                 hasSkin = (bufferJoints && bufferWeights);
 
+                HGASSERT(loaderInfo.vertexPos + posAccessor.count <= loaderInfo.vertexBuffer.size() &&
+                         "Not enough space in loaderInfo.vertexBuffer to hold all positions!");
                 for(size_t v = 0; v < posAccessor.count; v++)
                 {
                     Vertex& vert = loaderInfo.vertexBuffer[loaderInfo.vertexPos];
-                    vert.position = glm::vec4(glm::make_vec3(&bufferPos[v * posByteStride]), 1.0f);
-                    vert.normal = glm::normalize(glm::vec3(bufferNormals ? glm::make_vec3(&bufferNormals[v * normByteStride]) : glm::vec3(0.0f)));
-                    vert.uv0 = bufferTexCoordSet0 ? glm::make_vec2(&bufferTexCoordSet0[v * uv0ByteStride]) : glm::vec3(0.0f);
-                    vert.uv1 = bufferTexCoordSet1 ? glm::make_vec2(&bufferTexCoordSet1[v * uv1ByteStride]) : glm::vec3(0.0f);
-                    vert.color = bufferColorSet0 ? glm::make_vec4(&bufferColorSet0[v * color0ByteStride]) : glm::vec4(1.0f);
 
-                    glm::mat4 coordinateTransform =
-                        glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Rotate -90 degrees around X-axis
-                    glm::vec4 transformedPos = coordinateTransform * glm::vec4(vert.position, 1.0f);
-                    vert.position = glm::vec3(transformedPos);
-
-                    if(bufferTangents)
+                    // POSITION is guaranteed to be present and of type FLOAT.
                     {
-                        glm::vec4 tan4 = glm::make_vec4(&bufferTangents[v * (tangentByteStride / sizeof(float))]);
-                        glm::vec3 tangent = glm::normalize(glm::vec3(tan4));
-                        glm::vec3 bitangent = glm::normalize(glm::cross(vert.normal, tangent) * tan4.w);
-
-                        vert.tangent = tangent;
-                        vert.bitTangent = bitangent;
-                    }
-                    else
-                    {
-                        vert.tangent = glm::vec3(1.0f, 0.0f, 0.0f);    // fallback
-                        vert.bitTangent = glm::vec3(0.0f, 1.0f, 0.0f); // fallback
+                        const float* p = reinterpret_cast<const float*>(rawPosBase + (v * posByteStride));
+                        vert.position = glm::vec4(glm::make_vec3(p), 1.0f);
+                        if(loaderInfo.vertexPos < 5) { HGINFO("  [Pos%zu] = (%.3f, %.3f, %.3f)", v, p[0], p[1], p[2]); }
                     }
 
-                    if(hasSkin)
+                    // NORMAL (if it exists)
+                    if(rawNormBase)
                     {
-                        switch(jointComponentType)
+                        const float* n = reinterpret_cast<const float*>(rawNormBase + (v * normByteStride));
+                        vert.normal = glm::vec4(glm::normalize(glm::make_vec3(n)), 1.0f);
+                    }
+                    else { vert.normal = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f); }
+
+                    // UV0
+                    if(rawUv0Base)
+                    {
+                        const float* uv = reinterpret_cast<const float*>(rawUv0Base + (v * uv0ByteStride));
+                        vert.uv0 = glm::vec4(glm::make_vec2(uv), 1.0f, 1.0f);
+                    }
+                    else { vert.uv0 = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }
+
+                    // … repeat for UV1, COLOR_0, TANGENT in exactly the same “byte‐based” style …
+
+                    // JOINTS_0 / WEIGHTS_0 (if present)
+                    if(primitive.attributes.find("JOINTS_0") != primitive.attributes.end())
+                    {
+                        const tinygltf::Accessor&   jointAccessor = model.accessors[primitive.attributes.at("JOINTS_0")];
+                        const tinygltf::BufferView& jointView = model.bufferViews[jointAccessor.bufferView];
+                        const unsigned char*        rawJointBase =
+                            model.buffers[jointView.buffer].data.data() + jointView.byteOffset + jointAccessor.byteOffset;
+                        size_t jointByteStride = jointAccessor.ByteStride(jointView)
+                                                     ? jointAccessor.ByteStride(jointView)
+                                                     : (tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4) *
+                                                        tinygltf::GetComponentSizeInBytes(jointAccessor.componentType));
+
+                        if(jointAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
                         {
-                            case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
-                                {
-                                    const uint16_t* buf = static_cast<const uint16_t*>(bufferJoints);
-                                    // vert.joint0 = glm::vec4(glm::make_vec4(&buf[v * jointByteStride]));
-                                    break;
-                                }
-                            case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
-                                {
-                                    const uint8_t* buf = static_cast<const uint8_t*>(bufferJoints);
-                                    // vert.joint0 = glm::vec4(glm::make_vec4(&buf[v * jointByteStride]));
-                                    break;
-                                }
-                            default:
-                                // Not supported by spec
-                                HGERROR("Joint component type %i not supported!", jointComponentType);
-                                break;
+                            const uint16_t* j = reinterpret_cast<const uint16_t*>(rawJointBase + (v * jointByteStride));
+                            // vert.joint0 = glm::vec4(float(j[0]), float(j[1]), float(j[2]), float(j[3]));
                         }
+                        else if(jointAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
+                        {
+                            const uint8_t* j = reinterpret_cast<const uint8_t*>(rawJointBase + (v * jointByteStride));
+                            // vert.joint0 = glm::vec4(float(j[0]), float(j[1]), float(j[2]), float(j[3]));
+                        }
+                        else { HGERROR("Unexpected JOINTS_0 componentType = %d", jointAccessor.componentType); }
+                    }
+                    else { /* vert.joint0 = glm::vec4(0.0f); */ }
+
+                    if(primitive.attributes.find("WEIGHTS_0") != primitive.attributes.end())
+                    {
+                        const tinygltf::Accessor&   weightAccessor = model.accessors[primitive.attributes.at("WEIGHTS_0")];
+                        const tinygltf::BufferView& weightView = model.bufferViews[weightAccessor.bufferView];
+                        const unsigned char*        rawWeightBase =
+                            model.buffers[weightView.buffer].data.data() + weightView.byteOffset + weightAccessor.byteOffset;
+                        size_t       weightByteStride = weightAccessor.ByteStride(weightView)
+                                                            ? weightAccessor.ByteStride(weightView)
+                                                            : (sizeof(float) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4));
+                        const float* w = reinterpret_cast<const float*>(rawWeightBase + (v * weightByteStride));
+                        // vert.weight0 = glm::make_vec4(w);
+                        // (optional) fix degenerate all‐zero weights:
+                        // if(glm::length(glm::vec3(vert.weight0)) == 0.0f) { vert.weight0 = glm::vec4(1, 0, 0, 0); }
+                    }
+                    else { /*  vert.weight0 = glm::vec4(0.0f); */ }
+
+                    // Tangent (if present)
+                    if(primitive.attributes.find("TANGENT") != primitive.attributes.end())
+                    {
+                        const tinygltf::Accessor&   tanAccessor = model.accessors[primitive.attributes.at("TANGENT")];
+                        const tinygltf::BufferView& tanView = model.bufferViews[tanAccessor.bufferView];
+                        const unsigned char* rawTanBase = model.buffers[tanView.buffer].data.data() + tanView.byteOffset + tanAccessor.byteOffset;
+                        size_t               tanByteStride = tanAccessor.ByteStride(tanView)
+                                                                 ? tanAccessor.ByteStride(tanView)
+                                                                 : (sizeof(float) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4));
+                        const float*         t = reinterpret_cast<const float*>(rawTanBase + (v * tanByteStride));
+                        glm::vec3            tangent = glm::normalize(glm::make_vec3(t));
+                        // the w‐component in glTF TANGENT is the sign for the bitangent
+                        float     sign = t[3];
+                        glm::vec3 bitan = glm::normalize(glm::cross(glm::vec3(vert.normal), tangent) * sign);
+                        vert.tangent = glm::vec4(tangent, 1.0f);
+                        vert.bitTangent = glm::vec4(bitan, 1.0f);
                     }
                     else
                     {
-                        // vert.joint0 = glm::vec4(0.0f);
+                        vert.tangent = glm::vec4(1, 0, 0, 0);
+                        vert.bitTangent = glm::vec4(0, 1, 0, 0);
                     }
-                    // vert.weight0 = hasSkin ? glm::make_vec4(&bufferWeights[v * weightByteStride]) : glm::vec4(0.0f);
-                    // Fix for all zero weights
-                    // if (glm::length(vert.weight0) == 0.0f) {
-                    //     vert.weight0 = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
-                    // }
+
                     loaderInfo.vertexPos++;
-                }
+                } // end for v in posAccessor.count
             }
             // Indices
             if(hasIndices)
@@ -302,9 +444,12 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT:
                         {
                             const n32* buf = static_cast<const n32*>(dataPtr);
+                            HGASSERT(loaderInfo.indexPos + accessor.count <= loaderInfo.indexBuffer.size() &&
+                                     "Not enough space in loaderInfo.indexBuffer to hold all indices!");
                             for(size_t index = 0; index < accessor.count; index++)
                             {
-                                loaderInfo.indexBuffer[loaderInfo.indexPos] = buf[index] + vertexStart;
+
+                                loaderInfo.indexBuffer[loaderInfo.indexPos] = buf[index];
                                 loaderInfo.indexPos++;
                             }
                             break;
@@ -314,7 +459,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                             const uint16_t* buf = static_cast<const uint16_t*>(dataPtr);
                             for(size_t index = 0; index < accessor.count; index++)
                             {
-                                loaderInfo.indexBuffer[loaderInfo.indexPos] = buf[index] + vertexStart;
+                                loaderInfo.indexBuffer[loaderInfo.indexPos] = buf[index];
                                 loaderInfo.indexPos++;
                             }
                             break;
@@ -324,7 +469,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                             const uint8_t* buf = static_cast<const uint8_t*>(dataPtr);
                             for(size_t index = 0; index < accessor.count; index++)
                             {
-                                loaderInfo.indexBuffer[loaderInfo.indexPos] = buf[index] + vertexStart;
+                                loaderInfo.indexBuffer[loaderInfo.indexPos] = buf[index];
                                 loaderInfo.indexPos++;
                             }
                             break;
@@ -334,8 +479,10 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                         return;
                 }
             }
-            Primitive* newPrimitive =
-                new Primitive(indexStart, indexCount, vertexCount, primitive.material > -1 ? m_materials[primitive.material] : m_materials.back());
+            Primitive* newPrimitive = new Primitive(indexStart, // firstIndex (local index offset)
+                                                    indexCount, vertexCount,
+                                                    vertexStart, // **local** start of this primitive’s vertices
+                                                    primitive.material > -1 ? m_materials[primitive.material] : m_materials.back());
             newPrimitive->owner = newNode;
             newMesh->primitives.push_back(newPrimitive);
         }
@@ -446,11 +593,9 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
 {
     for(const auto& gltfMat: gltfModel.materials)
     {
-
         Material mat{};
         mat.doubleSided = gltfMat.doubleSided;
 
-        // --- 1) Base Color Factor & Texture ---
         if(gltfMat.values.find("baseColorFactor") != gltfMat.values.end())
         {
             auto fc = gltfMat.values.at("baseColorFactor").ColorFactor();
@@ -462,10 +607,8 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             int texIndex = gltfMat.values.at("baseColorTexture").TextureIndex();
             mat.baseColorTextureIndex = ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[texIndex].source],
                                                                         m_textureSamplers[gltfModel.textures[texIndex].sampler]);
-            // mat.baseColorTextureIndex = gltfMat.values.at("baseColorTexture").TextureTexCoord();
         }
 
-        // --- 2) Metallic‐Roughness Factor & Texture ---
         if(gltfMat.values.find("metallicFactor") != gltfMat.values.end())
         {
             mat.metallicFactor = static_cast<float>(gltfMat.values.at("metallicFactor").Factor());
@@ -479,31 +622,24 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             int mrIndex = gltfMat.values.at("metallicRoughnessTexture").TextureIndex();
             mat.metallicRoughnessTextureIndex = ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[mrIndex].source],
                                                                                 m_textureSamplers[gltfModel.textures[mrIndex].sampler]);
-            // mat.metallicRoughnessTexCoord = gltfMat.values.at("metallicRoughnessTexture").TextureTexCoord();
         }
 
-        // --- 3) Normal Texture & UV Set ---
         if(gltfMat.additionalValues.find("normalTexture") != gltfMat.additionalValues.end())
         {
             auto& nv = gltfMat.additionalValues.at("normalTexture");
             int   normalIndex = nv.TextureIndex();
             mat.normalTextureIndex = ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[normalIndex].source],
                                                                      m_textureSamplers[gltfModel.textures[normalIndex].sampler]);
-            // mat.normalTexCoord = nv.TextureTexCoord();
         }
 
-        // --- 4) Occlusion Texture & UV Set ---
         if(gltfMat.additionalValues.find("occlusionTexture") != gltfMat.additionalValues.end())
         {
             auto& ov = gltfMat.additionalValues.at("occlusionTexture");
             int   occIndex = ov.TextureIndex();
             mat.occlusionTextureIndex = ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[occIndex].source],
                                                                         m_textureSamplers[gltfModel.textures[occIndex].sampler]);
-            // mat.occlusionTexCoord = ov.TextureTexCoord();
         }
 
-        // --- 5) Emissive Factor & Texture & Strength ---
-        // (glTF default for emissiveFactor is (0,0,0))
         if(gltfMat.additionalValues.find("emissiveFactor") != gltfMat.additionalValues.end())
         {
             auto ef = gltfMat.additionalValues.at("emissiveFactor").ColorFactor();
@@ -513,18 +649,16 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         {
             auto& ev = gltfMat.additionalValues.at("emissiveTexture");
             int   emIndex = ev.TextureIndex();
+
             mat.emissiveTextureIndex = ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[emIndex].source],
                                                                        m_textureSamplers[gltfModel.textures[emIndex].sampler]);
-            // mat.emissiveTexCoord = ev.TextureTexCoord();
         }
-        // glTF “emissiveStrength” extension (if present)
         if(gltfMat.extensions.find("KHR_materials_emissive_strength") != gltfMat.extensions.end())
         {
             auto& ext = gltfMat.extensions.at("KHR_materials_emissive_strength");
             if(ext.Has("emissiveStrength")) { mat.emissiveStrength = static_cast<float>(ext.Get("emissiveStrength").Get<double>()); }
         }
 
-        // --- 6) Alpha Mode / Cutoff ---
         if(gltfMat.additionalValues.find("alphaMode") != gltfMat.additionalValues.end())
         {
             auto& am = gltfMat.additionalValues.at("alphaMode");
@@ -539,25 +673,19 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             else if(am.string_value == "BLEND") { mat.alphaMode = Material::ALPHAMODE_BLEND; }
         }
 
-        // --- 7) Extensions (spec/gloss, unlit, etc.) if needed …
-        //     For brevity, I’ll skip them here, but you’d follow the same pattern:
-        //     check mat.extensions["KHR_materials_pbrSpecularGlossiness"], etc.
-
-        // Finally, add to your Model’s material list:
         mat.index = static_cast<int>(m_materials.size());
         mat.name = gltfMat.name;
         m_materials.push_back(mat);
         m_materialBatches.emplace(mat.index, std::vector<Primitive*>());
     }
 
-    // Push a “default” material at the end (if you need one)
     Material defaultMat{};
     defaultMat.index = static_cast<int>(m_materials.size());
     m_materials.push_back(defaultMat);
     m_materialBatches.emplace(defaultMat.index, std::vector<Primitive*>());
 }
 
-void Model::CreateMaterialDataBuffer()
+void Model::LoadMaterialData()
 {
     std::vector<ShaderMaterial> shaderMaterials{};
     for(auto& material: m_materials)
@@ -579,18 +707,15 @@ void Model::CreateMaterialDataBuffer()
         shaderMaterial.emissiveTextureSet = material.emissiveTextureIndex != -1 ? material.texCoordSets.emissive : -1;
         shaderMaterial.emissiveTextureIndex = material.emissiveTextureIndex;
 
-        shaderMaterial.alphaMask = static_cast<float>(material.alphaMode == Material::ALPHAMODE_MASK);
+        shaderMaterial.alphaMask = static_cast<f32>(material.alphaMode == Material::ALPHAMODE_MASK);
         shaderMaterial.alphaMaskCutoff = material.alphaCutoff;
         shaderMaterial.emissiveStrength = material.emissiveStrength;
 
         // TODO: glTF specs states that metallic roughness should be preferred, even if specular glosiness is present
 
-        HGINFO("Loaded material %s with emissive factor %f, %f, %f", material.name.c_str(), material.emissiveFactor.x, material.emissiveFactor.y,
-               material.emissiveFactor.z);
-
         if(material.pbrWorkflows.metallicRoughness)
         {
-            shaderMaterial.workflow = static_cast<float>(PBR_WORKFLOW_METALLIC_ROUGHNESS);
+            shaderMaterial.workflow = static_cast<f32>(PBR_WORKFLOW_METALLIC_ROUGHNESS);
             shaderMaterial.baseColorFactor = material.baseColorFactor;
             shaderMaterial.metallicFactor = material.metallicFactor;
             shaderMaterial.roughnessFactor = material.roughnessFactor;
@@ -601,7 +726,7 @@ void Model::CreateMaterialDataBuffer()
 
         if(material.pbrWorkflows.specularGlossiness)
         {
-            shaderMaterial.workflow = static_cast<float>(PBR_WORKFLOW_SPECULAR_GLOSSINESS);
+            shaderMaterial.workflow = static_cast<f32>(PBR_WORKFLOW_SPECULAR_GLOSSINESS);
             shaderMaterial.physicalDescriptorTextureSet =
                 material.extension.specularGlossinessTextureIndex != -1 ? material.texCoordSets.specularGlossiness : -1;
             shaderMaterial.baseColorTextureSet = material.extension.diffuseTextureIndex != -1 ? material.texCoordSets.baseColor : -1;
@@ -612,220 +737,21 @@ void Model::CreateMaterialDataBuffer()
         material.index = ResourceManager::RequestMaterial(shaderMaterial);
         shaderMaterials.push_back(shaderMaterial);
     }
-
-    vk::DeviceSize bufferSize = shaderMaterials.size() * sizeof(ShaderMaterial);
-    Buffer         stagingBuffer{m_logicalDevice,
-                         bufferSize,
-                         1,
-                         vk::BufferUsageFlagBits::eTransferSrc,
-                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                         VMA_MEMORY_USAGE_CPU_TO_GPU};
-    stagingBuffer.Map();
-    stagingBuffer.WriteToBuffer((void*)shaderMaterials.data(), bufferSize);
-
-    m_materialDataBuffer.Init(m_logicalDevice, bufferSize, 1, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
-                              vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
-
-    Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_materialDataBuffer, bufferSize);
 }
 
-void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk::Queue transferQueue, float scale)
+void AccumulateWorldMatrices(Node* node, const glm::mat4& parentWorld, std::vector<glm::mat4>& out)
 {
-    tinygltf::Model    gltfModel;
-    tinygltf::TinyGLTF gltfContext;
+    glm::mat4 world = parentWorld * node->matrix;
+    out[node->index] = world;
 
-    std::string error;
-    std::string warning;
-
-    this->m_logicalDevice = logicalDevice;
-
-    bool   binary = false;
-    size_t extpos = filePath.rfind('.', filePath.length());
-    if(extpos != std::string::npos) { binary = (filePath.substr(extpos + 1, filePath.length() - extpos) == "glb"); }
-
-    bool       fileLoaded = binary ? gltfContext.LoadBinaryFromFile(&gltfModel, &error, &warning, filePath.c_str())
-                                   : gltfContext.LoadASCIIFromFile(&gltfModel, &error, &warning, filePath.c_str());
-    LoaderInfo loaderInfo{};
-    size_t     vertexCount = 0;
-    size_t     indexCount = 0;
-
-    if(fileLoaded)
-    {
-        LoadTextureSamplers(gltfModel);
-        LoadTextures(gltfModel, logicalDevice, transferQueue);
-        LoadMaterials(gltfModel);
-
-        const tinygltf::Scene& scene = gltfModel.scenes[gltfModel.defaultScene > -1 ? gltfModel.defaultScene : 0];
-
-        for(size_t i = 0; i < scene.nodes.size(); i++) { GetNodeProps(gltfModel.nodes[scene.nodes[i]], gltfModel, vertexCount, indexCount); }
-        loaderInfo.vertexBuffer.resize(vertexCount);
-        loaderInfo.indexBuffer.resize(indexCount);
-
-        // TODO: scene handling with no default scene
-        for(size_t i = 0; i < scene.nodes.size(); i++)
-        {
-            const tinygltf::Node node = gltfModel.nodes[scene.nodes[i]];
-            LoadNode(nullptr, node, scene.nodes[i], gltfModel, loaderInfo, scale, glm::identity<glm::mat4>());
-        }
-        /* if(gltfModel.animations.size() > 0) { loadAnimations(gltfModel); }
-        loadSkins(gltfModel); */
-
-        for(auto node: m_linearNodes)
-        {
-            // // Assign skins
-            // if(node->m_skinIndex > -1) { node->m_skin = skins[node->m_skinIndex]; }
-            // Initial pose
-            if(node->mesh) { node->Update(); }
-        }
-    }
-    else
-    {
-        HGERROR(error.c_str());
-        return;
-    }
-
-    // extensions = gltfModel.extensionsUsed;
-
-    size_t vertexBufferSize = vertexCount * sizeof(Vertex);
-    size_t indexBufferSize = indexCount * sizeof(n32);
-
-    HGASSERT(vertexBufferSize > 0);
-
-    Buffer vertexStaging{logicalDevice,
-                         vertexBufferSize,
-                         1,
-                         vk::BufferUsageFlagBits::eTransferSrc,
-                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                         VMA_MEMORY_USAGE_CPU_TO_GPU};
-    vertexStaging.Map();
-
-    vertexStaging.WriteToBuffer((void*)loaderInfo.vertexBuffer.data());
-    Buffer indexStaging{};
-    if(indexBufferSize > 0)
-    {
-        indexStaging.Init(logicalDevice, indexBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                          vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
-        indexStaging.Map();
-        indexStaging.WriteToBuffer((void*)loaderInfo.indexBuffer.data());
-    }
-
-    m_vertices.Init(logicalDevice, vertexBufferSize, 1, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                    vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
-
-    if(indexBufferSize > 0)
-    {
-        m_indices.Init(logicalDevice, indexBufferSize, 1, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                       vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
-    }
-
-    Buffer::CopyBuffer(*logicalDevice, indexStaging, m_indices, indexBufferSize);
-    Buffer::CopyBuffer(*logicalDevice, vertexStaging, m_vertices, vertexBufferSize);
-
-    // delete[] loaderInfo.vertexBuffer;
-    // delete[] loaderInfo.indexBuffer;
-
-    for(auto& node: m_nodes) { UpdateMaterialBatches(node); }
-
-    SetupIndirectDrawBuffer();
-
-    m_localAABB = CalculateModelAABB(m_nodes, loaderInfo.vertexBuffer, loaderInfo.indexBuffer);
+    for(Node* child: node->children) { AccumulateWorldMatrices(child, world, out); }
 }
 
-void Model::Draw(vk::CommandBuffer cmd, vk::PipelineLayout& pipelineLayout)
+std::vector<glm::mat4> Model::GetMatrixVector()
 {
-    vkCmdBindIndexBuffer(cmd, m_indices.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
-
-    vk::DeviceSize written{0};
-    for(auto& [id, prim]: m_materialBatches)
-    {
-        auto mat = &m_materials[id];
-
-        vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushConstantData), sizeof(n32), &mat->index);
-
-        // I don't know what's causing empty lists to be added.
-        if(m_indirectCommands[id].empty()) { continue; }
-
-        vkCmdDrawIndexedIndirect(cmd, m_indirectDrawBuffer.GetBuffer(), written, m_indirectCommands[id].size(),
-                                 sizeof(vk::DrawIndexedIndirectCommand));
-
-        written += m_indirectCommands[id].size() * sizeof(vk::DrawIndexedIndirectCommand);
-    }
-}
-
-void Model::SetupIndirectDrawBuffer()
-{
-    vk::DeviceSize totalWritten = 0;
-
-    for(auto& [id, primitives]: m_materialBatches)
-    {
-        std::vector<vk::DrawIndexedIndirectCommand> commands;
-
-        for(auto* primitive: primitives)
-        {
-            vk::DrawIndexedIndirectCommand command{};
-            command.indexCount = primitive->indexCount;
-            command.instanceCount = 1;
-            command.firstIndex = primitive->firstIndex;
-            command.vertexOffset = 0;
-            command.firstInstance = 0;
-
-            m_nodeMatricies.push_back(primitive->owner->GetMatrix());
-
-            if(command.indexCount == 0) { continue; }
-
-            commands.push_back(command);
-        }
-
-        totalWritten += commands.size() * sizeof(vk::DrawIndexedIndirectCommand);
-
-        m_indirectCommands.emplace(id, std::move(commands));
-    }
-
-    // Node Matricies
-
-    // Indirect
-    if(totalWritten == 0) { return; }
-    {
-        Buffer stagingBuffer{m_logicalDevice,
-                             totalWritten,
-                             1,
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU,
-                             4};
-        stagingBuffer.Map();
-
-        m_indirectDrawBuffer.Init(m_logicalDevice, totalWritten, 1,
-                                  vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                  vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_CPU_COPY, 4);
-
-        vk::DeviceSize writtenOffset = 0;
-        for(auto& [id, prim]: m_materialBatches)
-        {
-            stagingBuffer.WriteToBuffer((void*)m_indirectCommands[id].data(),
-                                        m_indirectCommands[id].size() * sizeof(vk::DrawIndexedIndirectCommand), writtenOffset);
-
-            writtenOffset += m_indirectCommands[id].size() * sizeof(vk::DrawIndexedIndirectCommand);
-        }
-
-        stagingBuffer.Flush();
-        stagingBuffer.UnMap();
-
-        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, m_indirectDrawBuffer, totalWritten);
-    }
-}
-
-void Model::Init(DescriptorSetLayout* nodeLayout, DescriptorPoolGrowable* imagePool, DescriptorPoolGrowable* uniformPool,
-                 DescriptorPoolGrowable* storagePool)
-{
-    if(m_initialized) { return; }
-    HGINFO("Initializing model...");
-
-    for(auto& [id, vec]: m_materialBatches) { auto material = &m_materials[id]; }
-
-    CreateMaterialDataBuffer();
-
-    m_initialized = true;
+    std::vector<glm::mat4> flat(m_nodes.size());
+    for(Node* root: m_nodes) { AccumulateWorldMatrices(root, glm::mat4(1.0f), flat); }
+    return flat;
 }
 
 void Model::UpdateMaterialBatches(Node* node)
@@ -837,17 +763,14 @@ void Model::UpdateMaterialBatches(Node* node)
     for(auto& c: node->children) { UpdateMaterialBatches(c); }
 }
 
-void CalculateNodeBoundsRecursive(BoundingBox&                      bounds,       // Input/Output: The AABB
-                                  const Node*                       node,         // The current node to process
-                                  const std::vector<Model::Vertex>& vertexBuffer, // Reference to your vertex data
-                                  const std::vector<uint32_t>&      indexBuffer)       // Reference to your index data
+void CalculateNodeBoundsRecursive(BoundingBox& bounds, const Node* node, const std::vector<Model::Vertex>& vertexBufferLocal,
+                                  const std::vector<uint32_t>& indexBufferLocal)
 {
     if(!node) { return; }
 
-    // Calculate the final world matrix for this node
-    glm::mat4 nodeWorldMatrix = node->GetMatrix(); // Use your existing GetMatrix()
+    // Compute this node's world‐transform
+    glm::mat4 nodeWorldMatrix = node->GetMatrix();
 
-    // --- Process Mesh Vertices ---
     if(node->mesh)
     {
         for(const Primitive* primitive: node->mesh->primitives)
@@ -856,89 +779,56 @@ void CalculateNodeBoundsRecursive(BoundingBox&                      bounds,     
 
             if(primitive->hasIndices)
             {
-                // Indexed geometry
-                if(primitive->indexCount > 0)
+                // For indexed geometry: primitive->firstIndex/ indexCount refer into indexBufferLocal
+                for(int i = 0; i < primitive->indexCount; ++i)
                 {
-                    // Iterate through the indices for this primitive
-                    for(n32 i = 0; i < primitive->indexCount; ++i)
+                    // localIndex = indexBufferLocal[firstIndex + i]
+                    uint32_t localIndex = indexBufferLocal[primitive->firstIndex + i];
+                    // That localIndex indexes directly into vertexBufferLocal
+                    if(localIndex < vertexBufferLocal.size())
                     {
-                        // Get the index from the index buffer
-                        uint32_t vertexIndex = indexBuffer[primitive->firstIndex + i];
+                        const glm::vec3& localPos = glm::vec3(vertexBufferLocal[localIndex].position);
+                        glm::vec4        worldPos = nodeWorldMatrix * glm::vec4(localPos, 1.0f);
 
-                        // Get the vertex position from the vertex buffer
-                        // Add bounds check for safety if needed
-                        if(vertexIndex < vertexBuffer.size())
-                        {
-                            const glm::vec3& localPos = vertexBuffer[vertexIndex].position;
-
-                            // Transform the vertex position
-                            glm::vec4 worldPos = nodeWorldMatrix * glm::vec4(localPos, 1.0f);
-
-                            // Update the bounding box
-                            bounds.min = glm::min(bounds.min, glm::vec3(worldPos));
-                            bounds.max = glm::max(bounds.max, glm::vec3(worldPos));
-                            bounds.valid = true;
-                        }
-                        else
-                        {
-                            // Handle invalid index if necessary
-                        }
+                        bounds.min = glm::min(bounds.min, glm::vec3(worldPos));
+                        bounds.max = glm::max(bounds.max, glm::vec3(worldPos));
+                        bounds.valid = true;
                     }
+                    else { HGWARN("Invalid localIndex %u (vertexBufferLocal has %zu elements)", localIndex, vertexBufferLocal.size()); }
                 }
             }
             else
             {
-                // Non-indexed geometry (less common for GLTF, but handle it)
-                // Assume m_firstIndex is the start vertex offset
-                if(primitive->vertexCount > 0)
+                // Non‐indexed: firstIndex is actually a vertex‐offset into vertexBufferLocal
+                for(int i = 0; i < primitive->vertexCount; ++i)
                 {
-                    for(n32 i = 0; i < primitive->vertexCount; ++i)
+                    uint32_t vertexIndex = primitive->firstIndex + i;
+                    if(vertexIndex < vertexBufferLocal.size())
                     {
-                        // Calculate the vertex index directly
-                        uint32_t vertexIndex = primitive->firstIndex + i; // Assuming m_firstIndex is vertex offset here
+                        const glm::vec3& localPos = glm::vec3(vertexBufferLocal[vertexIndex].position);
+                        glm::vec4        worldPos = nodeWorldMatrix * glm::vec4(localPos, 1.0f);
 
-                        // Get the vertex position
-                        if(vertexIndex < vertexBuffer.size())
-                        {
-                            const glm::vec3& localPos = vertexBuffer[vertexIndex].position;
-
-                            // Transform the vertex position
-                            glm::vec4 worldPos = nodeWorldMatrix * glm::vec4(localPos, 1.0f);
-
-                            // Update the bounding box
-                            bounds.min = glm::min(bounds.min, glm::vec3(worldPos));
-                            bounds.max = glm::max(bounds.max, glm::vec3(worldPos));
-                            bounds.valid = true;
-                        }
-                        else
-                        {
-                            // Handle invalid index if necessary
-                        }
+                        bounds.min = glm::min(bounds.min, glm::vec3(worldPos));
+                        bounds.max = glm::max(bounds.max, glm::vec3(worldPos));
+                        bounds.valid = true;
                     }
+                    else { HGWARN("Invalid vertexIndex %u (vertexBufferLocal has %zu elements)", vertexIndex, vertexBufferLocal.size()); }
                 }
             }
         }
     }
 
-    // --- Recurse for Children ---
-    for(const Node* child: node->children) { CalculateNodeBoundsRecursive(bounds, child, vertexBuffer, indexBuffer); }
+    // Recurse into children
+    for(const Node* child: node->children) { CalculateNodeBoundsRecursive(bounds, child, vertexBufferLocal, indexBufferLocal); }
 }
 
-BoundingBox Model::CalculateModelAABB(const std::vector<Node*>&         rootNodes,    // Pass the root nodes of your model hierarchy
-                                      const std::vector<Model::Vertex>& vertexBuffer, // Your flat vertex buffer
-                                      const std::vector<uint32_t>&      indexBuffer)       // Your flat index buffer
+BoundingBox Model::CalculateModelAABB(const std::vector<Node*>& rootNodes, const std::vector<Model::Vertex>& vertexBuffer,
+                                      const std::vector<uint32_t>& indexBuffer)
 {
-    BoundingBox boundingBox{}; // Initialized with invalid state
 
-    // Process all root nodes in the scene
-    for(const Node* rootNode: rootNodes)
-    {
-        // Start recursion from each root. No initial parent matrix needed
-        // as node->GetMatrix() calculates the full world matrix internally.
-        CalculateNodeBoundsRecursive(boundingBox, rootNode, vertexBuffer, indexBuffer);
-    }
+    BoundingBox boundingBox{};
+    for(const Node* rootNode: rootNodes) { CalculateNodeBoundsRecursive(boundingBox, rootNode, vertexBuffer, indexBuffer); }
 
-    // --- Finalize Corners (Optional) ---
     if(boundingBox.valid)
     {
         boundingBox.corners[0] = glm::vec4(boundingBox.min.x, boundingBox.min.y, boundingBox.min.z, 1.0f);

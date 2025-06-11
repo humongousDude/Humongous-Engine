@@ -1,6 +1,3 @@
-// BUG: up/down edges of screen have quite big areas where objects are reported not occluded incorrectly
-// BUG: when adding a closer object suddenly, some objects can flicker
-
 #version 460
 #extension GL_EXT_nonuniform_qualifier : enable
 
@@ -22,7 +19,7 @@ struct BoundingData {
     uint id;
 };
 
-layout(std140, set = 0, binding = 1) readonly buffer ObjectData {
+layout(std430, set = 0, binding = 1) readonly buffer ObjectData {
     BoundingData data[];
 } objectData;
 
@@ -31,9 +28,13 @@ struct VisibilityResultSet {
     bool visible;
 };
 
-layout(std140, set = 0, binding = 2) writeonly buffer VisibilityResults {
+layout(std430, set = 0, binding = 2) writeonly buffer VisibilityResults {
     VisibilityResultSet visible[];
 };
+
+layout(push_constant) uniform PC {
+    uint objCount;
+} pc;
 
 layout(set = 0, binding = 3) uniform Matricies {
     mat4 projection;
@@ -60,14 +61,15 @@ float linearizeDepth(float ndcDepth, float near, float far) {
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
-    if (id >= objectData.data.length()) return;
+    uint idx = nonuniformEXT(id);
+    if (idx >= pc.objCount) return;
 
-    BoundingData bb = objectData.data[id];
+    BoundingData bb = objectData.data[idx];
 
-    visible[id].objId = bb.id;
+    visible[idx].objId = bb.id;
 
     if (bb.boundingBox.valid == 0) {
-        visible[id].visible = false;
+        visible[idx].visible = false;
         return;
     }
 
@@ -93,5 +95,5 @@ void main() {
         }
     }
 
-    visible[id].visible = !occluded;
+    visible[idx].visible = !occluded;
 }

@@ -3,15 +3,12 @@
 #include "asset_manager.hpp"
 #include "extra.hpp"
 #include "logger.hpp"
-#include "model.hpp"
-#include "tiny_gltf.h"
 
 namespace Humongous
 {
 
 Skybox::Skybox(const SkyboxCreateInfo& createInfo) : m_logicalDevice{createInfo.logicalDevice}
 {
-    LoadCube();
     LoadCubemap(createInfo.cubemapPath);
     GeneratePBRImages(createInfo.uniformPool, createInfo.imagePool, createInfo.storageImagePool);
     LoadDescriptorSet(createInfo.descriptorSetLayout, &createInfo.imagePool);
@@ -26,122 +23,6 @@ Skybox::~Skybox()
 
     m_prefilteredMap->Destroy();
     m_brdflut->Destroy();
-}
-
-void Skybox::LoadCube()
-{
-    // These are hardcoded, as we will always create a cube
-
-    // source: https://pastebin.com/4T10MFgb
-    std::vector<n32> indices = {0,  1,  2,  0,  3,  1,  4,  5,  6,  4,  7,  5,  8,  9,  10, 8,  11, 9,
-                                12, 13, 14, 12, 15, 13, 16, 17, 18, 16, 19, 17, 20, 21, 22, 20, 23, 21};
-
-    std::vector<Model::Vertex> vertices = {
-        // left face (white)
-        {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-        {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-        {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
-        {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
-
-        // right face (yellow)
-        {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-        {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
-        {{.5f, -.5f, .5f}, {.8f, .8f, .1f}},
-        {{.5f, .5f, -.5f}, {.8f, .8f, .1f}},
-
-        // top face (orange, remember y axis points down)
-        {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-        {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-        {{-.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-        {{.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-
-        // bottom face (red)
-        {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-        {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-        {{-.5f, .5f, .5f}, {.8f, .1f, .1f}},
-        {{.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-
-        // nose face (blue)
-        {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-        {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-        {{-.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-        {{.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-
-        // tail face (green)
-        {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-        {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-        {{-.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-        {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-    };
-
-    m_vertexCount = static_cast<n32>(vertices.size());
-    m_indexCount = static_cast<n32>(indices.size());
-
-    // Vertex buffer
-    {
-        vk::DeviceSize bufferSize = sizeof(Model::Vertex) * m_vertexCount;
-
-        Buffer stagingBuffer{m_logicalDevice,
-                             bufferSize,
-                             1,
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU};
-        stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer((void*)vertices.data());
-
-        m_vertexBuffer = std::make_unique<Buffer>(m_logicalDevice, bufferSize, 1,
-                                                  vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                                                  vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
-
-        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_vertexBuffer, bufferSize);
-    }
-
-    // Index Buffer
-    {
-        vk::DeviceSize bufferSize = sizeof(n32) * m_indexCount;
-
-        Buffer stagingBuffer{m_logicalDevice,
-                             bufferSize,
-                             1,
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU};
-        stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer((void*)indices.data());
-
-        m_indexBuffer =
-            std::make_unique<Buffer>(m_logicalDevice, bufferSize, 1, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
-                                     vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_CPU_COPY);
-
-        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_indexBuffer, bufferSize);
-    }
-
-    // Indirect Draw buffer
-    {
-        vk::DeviceSize bufferSize = sizeof(vk::DrawIndexedIndirectCommand);
-
-        Buffer stagingBuffer{m_logicalDevice,
-                             bufferSize,
-                             1,
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU,
-                             4};
-        m_command.firstIndex = 0;
-        m_command.indexCount = m_indexCount;
-        m_command.vertexOffset = 0;
-        m_command.instanceCount = 1;
-        m_command.firstInstance = 0;
-        stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer((void*)&m_command);
-
-        m_indirectDrawBuffer = std::make_unique<Buffer>(m_logicalDevice, bufferSize, 1,
-                                                        vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndirectBuffer,
-                                                        vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_CPU_COPY, 4);
-
-        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_indirectDrawBuffer, bufferSize);
-    }
 }
 
 void Skybox::LoadCubemap(const std::string& cubemapPath)

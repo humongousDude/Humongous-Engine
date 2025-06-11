@@ -94,14 +94,10 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
     pipelineInfo.layout = configInfo.pipelineLayout;
     pipelineInfo.renderPass = VK_NULL_HANDLE;
 
-    // pipelineInfo.subpass = configInfo.subpass;
+    HGINFO("Created pipeline with %i render attachments", configInfo.colorBlendInfo.attachmentCount);
 
     auto result = m_logicalDevice.GetVkDevice().createGraphicsPipelines(VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline);
-    if(result != vk::Result::eSuccess)
-    {
-        ;
-        HGERROR("Failed to create graphics pipeline! Error: %s", vk::to_string(result).c_str());
-    }
+    if(result != vk::Result::eSuccess) { HGERROR("Failed to create graphics pipeline! Error: %s", vk::to_string(result).c_str()); }
 
     HGINFO("Successfully created graphics pipeline");
 

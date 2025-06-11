@@ -9,14 +9,15 @@ layout(location = 3) out vec3 worldPosition;
 layout(location = 4) out vec3 outNormal;
 layout(location = 5) out vec3 outTangent;
 layout(location = 6) out vec3 outBitTangent;
+layout(location = 7) out uint materialID;
 
 struct Vertex {
-    vec3 position;
-    vec3 normal;
-    vec3 tangent;
-    vec3 bitTangent;
-    vec2 uv1;
-    vec2 uv2;
+    vec4 position;
+    vec4 normal;
+    vec4 tangent;
+    vec4 bitTangent;
+    vec4 uv1;
+    vec4 uv2;
     vec4 color;
 };
 
@@ -25,12 +26,12 @@ layout(buffer_reference, std140) readonly buffer VertexBuffer
     Vertex vertices[];
 };
 
-layout(push_constant) uniform MNV
-{
+struct DrawData {
     mat4 modelMatrix;
-    VertexBuffer vertexBuffer;
     uint modelID;
-} mnv;
+    uint materialID;
+    uint nodeIndex;
+};
 
 layout(set = 0, binding = 0) uniform UBO
 {
@@ -44,32 +45,43 @@ layout(set = 0, binding = 0) uniform UBO
 
 layout(set = 3, binding = 2) readonly buffer UBONode {
     mat4 matrix[];
-    // mat4 jointMatrix[MAX_NUM_JOINTS];
-    // float jointCount;
 } node;
 
-layout(set = 4, binding = 0) writeonly buffer DebugData
+layout(set = 4, binding = 0) readonly buffer rrawData {
+    DrawData drawData[];
+} drawData;
+
+layout(set = 5, binding = 0) readonly buffer Vertices {
+    Vertex vertices[];
+} globalVertices;
+
+layout(set = 6, binding = 0) writeonly buffer DebugData
 {
     uint draws;
 } debug;
 
 void main()
 {
-    Vertex v = mnv.vertexBuffer.vertices[gl_VertexIndex];
-    uint nodeid = gl_DrawID + mnv.modelID;
+    Vertex v = globalVertices.vertices[gl_VertexIndex];
+    uint nodeIndex = drawData.drawData[gl_DrawID].nodeIndex;
 
-    vec4 locPos = ubo.projectionView * mnv.modelMatrix * node.matrix[nodeid] * vec4(v.position, 1.0);
+    mat4 nodeTransform = node.matrix[nodeIndex];
+
+    vec4 locPos = ubo.projectionView * drawData.drawData[gl_DrawID].modelMatrix * nodeTransform * vec4(v.position.xyz, 1.0);
     gl_Position = locPos;
 
-    worldPosition = (mnv.modelMatrix * node.matrix[nodeid] * vec4(v.position, 1.0)).xyz;
+    worldPosition = (drawData.drawData[gl_DrawID].modelMatrix * node.matrix[nodeIndex] * vec4(v.position.xyz, 1.0)).xyz;
 
-    outNormal = normalize(mat3(mnv.modelMatrix) * v.normal);
-    outTangent = normalize(mat3(mnv.modelMatrix) * v.tangent);
-    outBitTangent = normalize(mat3(mnv.modelMatrix) * v.bitTangent);
+    mat3 normalMat = mat3(drawData.drawData[gl_DrawID].modelMatrix * nodeTransform);
+    outNormal = normalize(normalMat * v.normal.xyz);
 
-    outUV0 = v.uv1;
-    outUV1 = v.uv2;
+    outTangent = normalize(mat3(drawData.drawData[gl_DrawID].modelMatrix) * v.tangent.xyz);
+    outBitTangent = normalize(mat3(drawData.drawData[gl_DrawID].modelMatrix) * v.bitTangent.xyz);
+
+    outUV0 = v.uv1.xy;
+    outUV1 = v.uv2.xy;
     outColor = v.color;
+    materialID = drawData.drawData[gl_DrawID].materialID;
 
-    atomicAdd(debug.draws, 1);
+    // atomicAdd(debug.draws, 1);
 }

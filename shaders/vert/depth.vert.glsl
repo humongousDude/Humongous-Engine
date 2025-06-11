@@ -3,26 +3,14 @@
 #extension GL_GOOGLE_include_directive : require
 
 struct Vertex {
-    vec3 position;
-    vec3 normal;
-    vec3 tangent;
-    vec3 bitTangent;
-    vec2 uv1;
-    vec2 uv2;
+    vec4 position;
+    vec4 normal;
+    vec4 tangent;
+    vec4 bitTangent;
+    vec4 uv1;
+    vec4 uv2;
     vec4 color;
 };
-
-layout(buffer_reference, std140) readonly buffer VertexBuffer
-{
-    Vertex vertices[];
-};
-
-layout(push_constant) uniform MNV
-{
-    mat4 modelMatrix;
-    VertexBuffer vertexBuffer;
-    uint modelID;
-} mnv;
 
 layout(set = 0, binding = 0) uniform UBO
 {
@@ -34,24 +22,39 @@ layout(set = 0, binding = 0) uniform UBO
     vec3 cameraPos;
 } ubo;
 
-layout(set = 3, binding = 0) readonly buffer NodeID {
-    uint nodeID;
-} ids;
-
-// TODO : make this work again
 layout(set = 3, binding = 2) readonly buffer UBONode {
     mat4 matrix[];
     // mat4 jointMatrix[MAX_NUM_JOINTS];
     // float jointCount;
 } node;
 
-layout(set = 4, binding = 0) buffer DebugData
+struct DrawData {
+    mat4 modelMatrix;
+    uint modelID;
+    uint materialID;
+    uint nodeIndex;
+};
+
+layout(set = 4, binding = 0) readonly buffer rrawData {
+    DrawData drawData[];
+} drawData;
+
+layout(set = 5, binding = 0) readonly buffer Vertices {
+    Vertex vertices[];
+} globalVertices;
+
+layout(set = 6, binding = 0) buffer DebugData
 {
     uint draws;
 } debug;
 
 void main()
 {
-    Vertex v = mnv.vertexBuffer.vertices[gl_VertexIndex];
-    gl_Position = ubo.projectionView * mnv.modelMatrix * node.matrix[gl_DrawID + mnv.modelID] * vec4(v.position, 1.0);
+    Vertex v = globalVertices.vertices[gl_VertexIndex];
+    uint nodeIndex = drawData.drawData[gl_DrawID].nodeIndex;
+
+    mat4 nodeTransform = node.matrix[nodeIndex];
+
+    vec4 locPos = ubo.projectionView * drawData.drawData[gl_DrawID].modelMatrix * nodeTransform * vec4(v.position.xyz, 1.0);
+    gl_Position = locPos;
 }

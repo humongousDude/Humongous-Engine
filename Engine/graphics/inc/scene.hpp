@@ -20,6 +20,7 @@ struct Node
     n32                index;
     std::vector<Node*> children;
     glm::mat4          matrix;
+    glm::mat4          worldMatrix;
     std::string        name;
     Mesh*              mesh;
     glm::vec3          translation{};

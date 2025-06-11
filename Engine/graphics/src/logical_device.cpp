@@ -1,12 +1,37 @@
+#define VMA_IMPLEMENTATION
+
+#include "logical_device.hpp"
 #include "asserts.hpp"
 #include "logger.hpp"
-#include <logical_device.hpp>
 #include <set>
-
-// FIXME: No discard warnings
 
 namespace Humongous
 {
+
+/// Callback function called after successful vkAllocateMemory.
+// Custom user data structure (optional)
+
+// Callback function called after successful vkAllocateMemory.
+void VKAPI_PTR VmaAllocateDeviceMemoryFunction(VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size,
+                                               void* pUserData)
+{
+    LogicalDevice::VMAData* myUserData = static_cast<LogicalDevice::VMAData*>(pUserData);
+    if(myUserData) { myUserData->allocationCount++; }
+
+    HGTRACE("VMA_ALLOC_CB: Allocated memoryType=%u, memory=0x%p, size=%llu bytes. Total allocations: %d", memoryType, (void*)memory,
+            (unsigned long long)size, myUserData ? myUserData->allocationCount : -1);
+}
+
+// Callback function called before vkFreeMemory.
+void VKAPI_PTR VmaFreeDeviceMemoryFunction(VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size, void* pUserData)
+{
+    LogicalDevice::VMAData* myUserData = static_cast<LogicalDevice::VMAData*>(pUserData);
+    if(myUserData) { myUserData->freeCount++; }
+
+    HGTRACE("VMA_FREE_CB: Freeing memoryType=%u, memory=0x%p, size=%llu bytes. Total frees: %d", memoryType, (void*)memory,
+            (unsigned long long)size, myUserData ? myUserData->freeCount : -1);
+}
+
 LogicalDevice::LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice)
     : m_logicalDevice{VK_NULL_HANDLE}, m_instance{instance}, m_physicalDevice{&physicalDevice}
 {
@@ -21,7 +46,13 @@ LogicalDevice::~LogicalDevice()
 {
     HGINFO("Destroying logical device...");
     vkDestroyCommandPool(m_logicalDevice, m_commandPool, nullptr);
+
     vmaDestroyAllocator(m_allocator);
+
+    if(m_vmaData.freeCount < m_vmaData.allocationCount)
+    {
+        HGERROR("We didn't free every allocation! Allocations: %i, Frees: %i", m_vmaData.allocationCount, m_vmaData.freeCount);
+    }
     vkDestroyDevice(m_logicalDevice, nullptr);
     HGINFO("Destroyed logical device");
 }
@@ -118,12 +149,18 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
 
 void LogicalDevice::CreateVmaAllocator(Instance& instance, PhysicalDevice& physicalDevice)
 {
+    VmaDeviceMemoryCallbacks memoryCallbacks = {};
+    memoryCallbacks.pfnAllocate = VmaAllocateDeviceMemoryFunction;
+    memoryCallbacks.pfnFree = VmaFreeDeviceMemoryFunction;
+    memoryCallbacks.pUserData = &m_vmaData;
+
     VmaAllocatorCreateInfo allocatorInfo{};
     allocatorInfo.physicalDevice = physicalDevice.GetVkPhysicalDevice();
     allocatorInfo.device = m_logicalDevice;
     allocatorInfo.instance = instance.GetVkInstance();
     allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
     allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    allocatorInfo.pDeviceMemoryCallbacks = &memoryCallbacks;
     vmaCreateAllocator(&allocatorInfo, &m_allocator);
 }
 

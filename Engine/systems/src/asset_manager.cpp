@@ -151,7 +151,7 @@ std::string AssetManager::Internal_GetAsset(const AssetType type, const std::str
             else
             {
                 HGWARN("Unable to find requested model! returning default model!");
-                return GetAsset(AssetType::MODEL, "employee");
+                return GetAsset(AssetType::MODEL, "default");
             }
             break;
 

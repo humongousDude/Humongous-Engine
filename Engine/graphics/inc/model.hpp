@@ -4,7 +4,6 @@
 
 // based on Sascha Willems' tinyGltf vulkan example
 
-#include "abstractions/buffer.hpp"
 #include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool_growable.hpp"
 #include "logical_device.hpp"
@@ -34,11 +33,19 @@ struct Primitive
 {
     Node*     owner;
     n32       firstIndex;
+    n32       localVertexStart;
+    n32       vertexOffset;
     n32       indexCount;
     n32       vertexCount;
     Material& material;
     bool      hasIndices;
-    Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, Material& material);
+    Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, n32 localVertexStart, Material& material)
+        : firstIndex(firstIndex), indexCount(indexCount), vertexCount(vertexCount), localVertexStart(localVertexStart),
+          vertexOffset(0) // we’ll fill this in _after_ we know the global base
+          ,
+          material(material), hasIndices(indexCount > 0)
+    {
+    }
 };
 
 struct Mesh
@@ -46,6 +53,8 @@ struct Mesh
     Mesh(LogicalDevice* device, glm::mat4 matrix);
     ~Mesh();
 
+    n32                     baseVertex = 0;
+    n32                     baseIndex = 0;
     LogicalDevice*          logicalDevice;
     std::vector<Primitive*> primitives;
 };
@@ -97,13 +106,13 @@ public:
 
     struct alignas(16) Vertex
     {
-        alignas(16) glm::vec3 position;   // 12 bytes (aligned to 16 bytes)
-        alignas(16) glm::vec3 normal;     // 12 bytes (aligned to 16 bytes)
-        alignas(16) glm::vec3 tangent;    // 12 bytes (aligned to 16 bytes)
-        alignas(16) glm::vec3 bitTangent; // 12 bytes (aligned to 16 bytes)
-        alignas(8) glm::vec2 uv0;         // 8 bytes
-        alignas(8) glm::vec2 uv1;         // 8 bytes
-        alignas(16) glm::vec4 color;      // 16 bytes
+        glm::vec4 position;   // 12 bytes (aligned to 16 bytes)
+        glm::vec4 normal;     // 12 bytes (aligned to 16 bytes)
+        glm::vec4 tangent;    // 12 bytes (aligned to 16 bytes)
+        glm::vec4 bitTangent; // 12 bytes (aligned to 16 bytes)
+        glm::vec4 uv0;        // 8 bytes
+        glm::vec4 uv1;        // 8 bytes
+        glm::vec4 color;      // 16 bytes
 
         bool operator==(const Vertex& other) const
         {
@@ -114,12 +123,10 @@ public:
     Model(LogicalDevice* device, const std::string& modelPath, float scale);
     ~Model();
 
-    Buffer& GetVertexBuffer() { return m_vertices; }
+    std::vector<n32>& GetIndices() { return m_indices; }
 
     void Init(DescriptorSetLayout* nodeLayout, DescriptorPoolGrowable* imagePool, DescriptorPoolGrowable* uniformPool,
               DescriptorPoolGrowable* storagePool);
-
-    void Draw(vk::CommandBuffer commandBuffer, vk::PipelineLayout& pipelineLayout);
 
     struct Dimensions
     {
@@ -129,37 +136,33 @@ public:
 
     BoundingBox GetLocalBoundingBox() { return m_localAABB; }
 
-    std::vector<glm::mat4>& GetMatrixVector() { return m_nodeMatricies; }
+    std::vector<glm::mat4> GetMatrixVector();
+
+    std::unordered_map<n32, std::vector<Primitive*>> m_materialBatches;
 
 private:
-    Buffer m_vertices;
-    Buffer m_indices;
+    std::vector<n32>    m_indices;
+    std::vector<Vertex> m_vertices;
 
     LogicalDevice* m_logicalDevice;
 
     std::vector<Node*> m_nodes;
     std::vector<Node*> m_linearNodes;
 
-    Texture                                          m_emptyTexture;
-    std::vector<n32>                                 m_textures;
-    std::vector<Texture::TexSamplerInfo>             m_textureSamplers;
-    std::vector<Material>                            m_materials;
-    std::unordered_map<n32, std::vector<Primitive*>> m_materialBatches;
+    BoundingBox m_localAABB{};
 
-    vk::DescriptorSet m_materialDataDescriptor{VK_NULL_HANDLE};
+    Texture                              m_emptyTexture;
+    std::vector<n32>                     m_textures;
+    std::vector<Texture::TexSamplerInfo> m_textureSamplers;
+    std::vector<Material>                m_materials;
+
     enum PBRWorkflows
     {
         PBR_WORKFLOW_METALLIC_ROUGHNESS = 0,
         PBR_WORKFLOW_SPECULAR_GLOSSINESS = 1
     };
 
-    Buffer m_materialDataBuffer;
-
-    void                                                                 SetupIndirectDrawBuffer();
-    Buffer                                                               m_indirectDrawBuffer;
-    std::vector<glm::mat4>                                               m_nodeMatricies{};
-    std::unordered_map<n32, std::vector<vk::DrawIndexedIndirectCommand>> m_indirectCommands;
-    std::vector<vk::DrawIndexedIndirectCommand>                          m_debugCommands;
+    std::vector<glm::mat4> m_nodeMatricies{};
 
     struct LoaderInfo
     {
@@ -171,13 +174,12 @@ private:
 
     BoundingBox CalculateModelAABB(const std::vector<Node*>& rootNodes, const std::vector<Model::Vertex>& vertexBuffer,
                                    const std::vector<n32>& indexBuffer);
-    BoundingBox m_localAABB{};
 
     bool m_initialized{false};
     void LoadFromFile(std::string filepath, LogicalDevice* device, vk::Queue transferQueue, float scale = 1.0f);
     void Destroy(vk::Device m_device);
 
-    void CreateMaterialDataBuffer();
+    void LoadMaterialData();
 
     void UpdateUBO(Node* node, glm::mat4 matrix);
     void UpdateMaterialBatches(Node* node);
@@ -192,8 +194,5 @@ private:
 
     void LoadTextureSamplers(tinygltf::Model& gltfModel);
     void LoadMaterials(tinygltf::Model& gltfModel);
-
-    void SetupDescriptorSet(Node* node);
-    void SetupNodeDescriptorSet(Node* node, DescriptorPoolGrowable* descriptorPool, DescriptorSetLayout* layout);
 };
 } // namespace Humongous

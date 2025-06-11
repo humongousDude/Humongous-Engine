@@ -21,10 +21,10 @@ class Renderer
 private:
     struct VisiblityResultSet
     {
-        n32   id;
-        b32   visible;
-        float padding_end[2];
+        n32 id;
+        n32 visible;
     };
+    static_assert(sizeof(VisiblityResultSet) == 8, "Must be 8 bytes to match GLSL std430");
 
     struct GBuffer
     {
@@ -47,11 +47,11 @@ public:
         GBuffer gbuffer;
 
         std::unique_ptr<Buffer> objectDataBuffer;
-        std::unique_ptr<Buffer> visibilityResults;
+        std::unique_ptr<Buffer> visiblityResultBuffer;
         std::unique_ptr<Buffer> rendererDataBuffer;
         std::unique_ptr<Buffer> debugBuffer;
 
-        std::vector<VisiblityResultSet> visbilityResults;
+        std::vector<VisiblityResultSet> visiblityResults;
         n32                             numObjectsDispatched;
 
         vk::DescriptorSet computeSet;
@@ -140,21 +140,20 @@ private:
     Frame& GetCurrentFrame() { return m_frames[m_currentFrameIndex]; }
 
     AllocatedImage m_drawImage;
-    vk::Extent2D   m_drawImageExtent;
+    vk::Extent2D   m_screenImageExtent;
 
     AllocatedImage m_depthImage;
-    vk::Extent2D   m_depthImageExtent;
     vk::Sampler    m_depthImageSampler;
 
     AllocatedImage m_debugImage;
     vk::Sampler    m_debugImageSampler;
 
-    void PreRenderTransitions(vk::CommandBuffer cmd);
-    void PostRenderTransitions(vk::CommandBuffer cmd);
+    void PreGeometryPassTransitions(vk::CommandBuffer cmd);
+    void PostGeometryPassTransitions(vk::CommandBuffer cmd);
 
     void InitGBuffer();
     void InitLightingPipeline();
-    void InitImagesAndViews();
+    void InitDrawImage();
     void InitDepthImage();
     void InitSyncStructures();
     void CreateComputePipeline();

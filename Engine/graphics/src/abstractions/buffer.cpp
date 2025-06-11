@@ -36,37 +36,37 @@ vk::DeviceSize Buffer::GetAlignment(vk::DeviceSize m_instanceSize, vk::DeviceSiz
 }
 
 Buffer::Buffer(LogicalDevice* device, vk::DeviceSize instanceSize, n32 instanceCount, vk::BufferUsageFlags usageFlags,
-               vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment)
+               vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment, const std::string& name)
     : m_logicalDevice{device}, m_instanceSize{instanceSize}, m_instanceCount{instanceCount}, m_usageFlags{usageFlags},
       m_memoryPropertyFlags{memoryPropertyFlags}
 {
-    Init(device, instanceSize, instanceCount, usageFlags, memoryPropertyFlags, memoryUsage, minOffsetAlignment);
+    Init(device, instanceSize, instanceCount, usageFlags, memoryPropertyFlags, memoryUsage, minOffsetAlignment, name);
 }
 
 Buffer::Buffer() : m_logicalDevice{nullptr}, m_instanceSize{0}, m_instanceCount{0}, m_usageFlags{0}, m_memoryPropertyFlags{0} {}
 
 void Buffer::Init(LogicalDevice* device, vk::DeviceSize instanceSize, n32 instanceCount, vk::BufferUsageFlags usageFlags,
-                  vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment)
+                  vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment,
+                  const std::string& name)
 {
     m_logicalDevice = device;
     m_instanceSize = instanceSize;
     m_instanceCount = instanceCount;
     m_usageFlags = usageFlags;
     m_memoryPropertyFlags = memoryPropertyFlags;
-
     m_alignmentSize = GetAlignment(m_instanceSize, minOffsetAlignment);
     m_bufferSize = m_alignmentSize * m_instanceCount;
+    m_name = name;
 
-    CreateInfo createInfo{
-        .device = m_logicalDevice,
-        .size = m_bufferSize,
-        .bufferUsage = m_usageFlags,
-        .properties = m_memoryPropertyFlags,
-        .buffer = &m_buffer,
-        .memory = m_allocationInfo.deviceMemory,
-        .allocation = m_allocation,
-        .minOffsetAlignment = minOffsetAlignment,
-    };
+    CreateInfo createInfo{.device = m_logicalDevice,
+                          .size = m_bufferSize,
+                          .bufferUsage = m_usageFlags,
+                          .properties = m_memoryPropertyFlags,
+                          .buffer = &m_buffer,
+                          .memory = m_allocationInfo.deviceMemory,
+                          .allocation = m_allocation,
+                          .minOffsetAlignment = minOffsetAlignment,
+                          .name = m_name};
 
     CreateBuffer(createInfo);
 
@@ -112,6 +112,8 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
 
     if(result != vk::Result::eSuccess) { HGERROR("Failed to create buffer: %s", vk::to_string(result).c_str()); }
 
+    vmaSetAllocationName(createInfo.device->GetVmaAllocator(), createInfo.allocation, createInfo.name.c_str());
+
     // Retrieve allocation info
     VmaAllocationInfo allocInfo = {};
     vmaGetAllocationInfo(createInfo.device->GetVmaAllocator(), createInfo.allocation, &allocInfo);
@@ -119,10 +121,6 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
     if(!createInfo.allocation) { HGERROR("Failed to get allocation info"); }
 
     m_allocationInfo = allocInfo;
-
-    // Log allocation details
-    // std::cout << "Buffer created: size=" << bufferInfo.size << ", offset=" << allocInfo.offset << ", deviceMemory=" << allocInfo.deviceMemory
-    //           << std::endl;
 }
 
 /**

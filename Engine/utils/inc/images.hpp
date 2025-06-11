@@ -14,7 +14,7 @@ struct AllocatedImage
     vk::Extent3D    imageExtent;
     vk::Format      imageFormat;
     vk::ImageLayout imageLayout;
-    vk::Sampler*    sampler;
+    vk::Sampler*    sampler{nullptr};
 
     vk::DescriptorImageInfo GetDescriptorInfo() const
     {
@@ -25,8 +25,8 @@ struct AllocatedImage
     void Destroy(LogicalDevice& logicalDevice)
     {
         logicalDevice.GetVkDevice().destroyImageView(imageView);
-        if(sampler) { logicalDevice.GetVkDevice().destroySampler(*sampler); }
         vmaDestroyImage(logicalDevice.GetVmaAllocator(), image, allocation);
+        if(sampler) { logicalDevice.GetVkDevice().destroySampler(*sampler); }
     }
 };
 

@@ -13,21 +13,23 @@ namespace Humongous
 class Buffer : NonCopyable
 {
 public:
-    Buffer(LogicalDevice* device, vk::DeviceSize m_instanceSize, n32 m_instanceCount, vk::BufferUsageFlags usageFlags,
-           vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment = 1);
+    Buffer(LogicalDevice* device, vk::DeviceSize instanceSize, n32 instanceCount, vk::BufferUsageFlags usageFlags,
+           vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment = 1,
+           const std::string& name = "");
     Buffer();
     ~Buffer();
 
     vk::Result Map(vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0);
     void       UnMap();
 
-    void Init(LogicalDevice* device, vk::DeviceSize m_instanceSize, n32 m_instanceCount, vk::BufferUsageFlags usageFlags,
-              vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment = 1);
+    void Init(LogicalDevice* device, vk::DeviceSize instanceSize, n32 instanceCount, vk::BufferUsageFlags usageFlags,
+              vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment = 1,
+              const std::string& name = "");
 
-    void                     WriteToBuffer(void* data, vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0);
-    vk::Result               Flush(vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0);
-    vk::DescriptorBufferInfo DescriptorInfo(vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0) const;
-    vk::Result               Invalidate(vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0);
+    void                     WriteToBuffer(void* data, vk::DeviceSize size = vk::WholeSize, vk::DeviceSize offset = 0);
+    vk::Result               Flush(vk::DeviceSize size = vk::WholeSize, vk::DeviceSize offset = 0);
+    vk::DescriptorBufferInfo DescriptorInfo(vk::DeviceSize size = vk::WholeSize, vk::DeviceSize offset = 0) const;
+    vk::Result               Invalidate(vk::DeviceSize size = vk::WholeSize, vk::DeviceSize offset = 0);
 
     void                     WriteToIndex(void* data, int index);
     vk::Result               FlushIndex(int index);
@@ -67,6 +69,7 @@ private:
         void*                   data;
         VmaAllocation&          allocation;
         vk::DeviceSize          minOffsetAlignment = 1;
+        std::string             name = "";
     };
     static vk::DeviceSize GetAlignment(vk::DeviceSize instanceSize, vk::DeviceSize minOffsetAlignment);
     void                  CreateBuffer(CreateInfo& createInfo);
@@ -83,6 +86,7 @@ private:
     vk::DeviceSize          m_alignmentSize;
     vk::BufferUsageFlags    m_usageFlags;
     vk::MemoryPropertyFlags m_memoryPropertyFlags;
+    std::string             m_name = "";
 
     // safe gaurd, in case Buffer::Map() gets called more than once
     int m_mapCallCount{0};

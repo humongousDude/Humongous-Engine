@@ -19,11 +19,9 @@ struct RenderData
     // List of entities to render in this pass
     const std::vector<Utils::VisibleEntityInfo>* visibleEntities;
 
-    Humongous::World& world; // Reference to the ECS World
-
-    n32     frameIndex;
-    Camera& cam;
-    // const glm::vec3 camPos; // Can get from cam.GetPosition() if needed
+    Humongous::World& world;
+    n32               frameIndex;
+    Camera&           cam;
 };
 
 struct ShaderSet
@@ -39,22 +37,31 @@ public:
     ~SimpleRenderSystem();
 
     void RenderObjects(RenderData& renderData, const bool& depthOnly);
-    // void DepthOnlyRender(RenderData& renderData);
-    n32 GetObjectsDrawn() { return m_verticesDrawn; }
+    n32  GetObjectsDrawn() { return m_verticesDrawn; }
 
     vk::PipelineLayout m_pipelineLayout{};
 
 private:
     LogicalDevice&                  m_logicalDevice;
-    std::unique_ptr<RenderPipeline> m_renderPipeline;
+    std::unique_ptr<RenderPipeline> m_geometryPipeline;
     std::unique_ptr<RenderPipeline> m_depthOnlyPipeline;
     n32                             m_verticesDrawn{0};
 
-    std::unique_ptr<Buffer> m_debugBuffer;
+    std::unique_ptr<Buffer>              m_debugBuffer;
+    std::unique_ptr<DescriptorSetLayout> m_layout;
 
-    void CreateModelDescriptorSetPool();
-    void CreateModelDescriptorSetLayout();
-    void AllocateDescriptorSet(n32 identifier, n32 index);
+    std::vector<std::unique_ptr<DescriptorPool>> m_pool;
+    std::vector<std::unique_ptr<DescriptorPool>> m_depthPool;
+
+    std::vector<std::unique_ptr<Buffer>> m_indirectDrawBuffers;
+    std::vector<std::unique_ptr<Buffer>> m_drawDataBuffers;
+    std::vector<vk::DescriptorSet>       m_set = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE};
+
+    std::vector<std::unique_ptr<Buffer>> m_depthIndirectDrawBuffers;
+    std::vector<std::unique_ptr<Buffer>> m_depthDrawDataBuffers;
+    std::vector<vk::DescriptorSet>       m_depthSet = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE};
+
+    void AllocateDescriptorSet();
     void CreatePipelineLayout(const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts);
     void CreatePipeline(const ShaderSet& shaderSet);
 };
