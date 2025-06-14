@@ -33,8 +33,6 @@ void SkyboxRenderSystem::CreatePipelineLayout(const std::vector<vk::DescriptorSe
     layouts.push_back(ResourceManager::GetSkyboxDescriptorLayout());
 
     vk::PipelineLayoutCreateInfo layoutCI{};
-    // layoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    // layoutCI.flags = 0;
     layoutCI.pSetLayouts = layouts.data();
     layoutCI.setLayoutCount = layouts.size();
     layoutCI.pPushConstantRanges = nullptr;
@@ -51,13 +49,10 @@ void SkyboxRenderSystem::CreatePipeline()
     RenderPipeline::PipelineConfigInfo ppCI = RenderPipeline::DefaultPipelineConfigInfo();
     ppCI.depthStencilInfo.depthTestEnable = VK_TRUE;
     ppCI.depthStencilInfo.depthWriteEnable = VK_FALSE;
-    ppCI.depthStencilInfo.depthCompareOp = vk::CompareOp::eLessOrEqual;
     ppCI.multisampleInfo.rasterizationSamples = vk::SampleCountFlagBits::e1;
     ppCI.multisampleInfo.sampleShadingEnable = VK_FALSE;
     ppCI.multisampleInfo.minSampleShading = 1.0;
     ppCI.pipelineLayout = m_pipelineLayout;
-
-    // ppCI.inputAssemblyInfo.topology = vk::PrimitiveTopology::eTriangleFan;
 
     ppCI.vertShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.vert");
     ppCI.fragShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.frag");

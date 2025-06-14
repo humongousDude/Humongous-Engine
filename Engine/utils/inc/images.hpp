@@ -15,6 +15,7 @@ struct AllocatedImage
     vk::Format      imageFormat;
     vk::ImageLayout imageLayout;
     vk::Sampler*    sampler{nullptr};
+    n32             width = 1, height = 1, mipLevels = 1, layerCount = 1;
 
     vk::DescriptorImageInfo GetDescriptorInfo() const
     {

@@ -49,23 +49,12 @@ layout(std140, set = 0, binding = 4) uniform RendererData {
     vec2 padding_screenSize;
 } rendererData;
 
-float getDepth(vec2 screenCoords) {
-    vec2 texCoords = screenCoords / rendererData.screenSize;
-    texCoords = clamp(texCoords, vec2(0.0), vec2(1.0));
-    return texture(depthBuffer, texCoords).r;
-}
-
-float linearizeDepth(float ndcDepth, float near, float far) {
-    return (2.0 * near * far) / (ndcDepth * (near - far) + far + near);
-}
-
 void main() {
     uint id = gl_GlobalInvocationID.x;
     uint idx = nonuniformEXT(id);
     if (idx >= pc.objCount) return;
 
     BoundingData bb = objectData.data[idx];
-
     visible[idx].objId = bb.id;
 
     if (bb.boundingBox.valid == 0) {
@@ -73,27 +62,62 @@ void main() {
         return;
     }
 
-    vec3 screenCorners[8];
-    bool occluded = true;
+    vec2 minScreenNDC = vec2(1.0);
+    vec2 maxScreenNDC = vec2(-1.0);
+    float maxZ = 0.0;
+    bool fullyBehind = true;
 
-    for (int i = 0; i < 8; i++)
-    {
-        vec4 viewSpace = matricies.view * (bb.boundingBox.corners[i]);
-        vec4 clipSpace = matricies.projection * viewSpace;
-        vec3 ndcSpace = clipSpace.xyz / clipSpace.w;
-        screenCorners[i].x = (ndcSpace.x + 1.0) * 0.5 * rendererData.screenSize.x;
-        screenCorners[i].y = (ndcSpace.y + 1.0) * 0.5 * rendererData.screenSize.y;
-        screenCorners[i].z = ndcSpace.z;
+    for (int i = 0; i < 8; ++i) {
+        vec4 worldPos = bb.boundingBox.corners[i];
+        vec4 clipSpace = matricies.projectionView * worldPos;
 
-        vec2 cornerScreenPos = screenCorners[i].xy;
-        float cornerDepth = linearizeDepth(screenCorners[i].z, 0.1f, 1000);
-        float depthBufferDepth = linearizeDepth(getDepth(cornerScreenPos), 0.1f, 1000);
+        if (clipSpace.w > 0) {
+            fullyBehind = false;
+            vec3 ndc = clipSpace.xyz / clipSpace.w;
+            minScreenNDC = min(minScreenNDC, ndc.xy);
+            maxScreenNDC = max(maxScreenNDC, ndc.xy);
 
-        if (cornerDepth < depthBufferDepth + 0.001f) {
-            occluded = false;
+            maxZ = max(maxZ, ndc.z);
+        }
+    }
+
+    if (fullyBehind ||
+            maxScreenNDC.x < -1.0 || maxScreenNDC.y < -1.0 ||
+            minScreenNDC.x > 1.0 || minScreenNDC.y > 1.0) {
+        visible[idx].visible = false;
+        return;
+    }
+
+    minScreenNDC = clamp(minScreenNDC, -1.0, 1.0);
+    maxScreenNDC = clamp(maxScreenNDC, -1.0, 1.0);
+
+    vec2 minUV = minScreenNDC * 0.5 + 0.5;
+    vec2 maxUV = maxScreenNDC * 0.5 + 0.5;
+
+    vec2 uvBoxSize = maxUV - minUV;
+
+    vec2 screenPixelSize = uvBoxSize * rendererData.screenSize;
+    float baseLod = floor(log2(max(1.0, max(screenPixelSize.x, screenPixelSize.y))));
+    float targetLod = clamp(baseLod, 0.0, float(textureQueryLevels(depthBuffer) - 1));
+
+    bool isVisible = false;
+    const int gridSize = 8;
+    vec2 sampleStep = uvBoxSize / (gridSize - 1);
+
+    for (int y = 0; y < gridSize; ++y) {
+        for (int x = 0; x < gridSize; ++x) {
+            vec2 sampleUV = minUV + vec2(x, y) * sampleStep;
+            float occluderDepth = textureLod(depthBuffer, sampleUV, targetLod).r;
+
+            if (maxZ >= occluderDepth - 0.00001) {
+                isVisible = true;
+                break;
+            }
+        }
+        if (isVisible) {
             break;
         }
     }
 
-    visible[idx].visible = !occluded;
+    visible[idx].visible = isVisible;
 }

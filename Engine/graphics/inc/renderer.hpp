@@ -24,7 +24,7 @@ private:
         n32 id;
         n32 visible;
     };
-    static_assert(sizeof(VisiblityResultSet) == 8, "Must be 8 bytes to match GLSL std430");
+    // static_assert(sizeof(VisiblityResultSet) == 8, "Must be 8 bytes to match GLSL std430");
 
     struct GBuffer
     {
@@ -54,7 +54,7 @@ public:
         std::vector<VisiblityResultSet> visiblityResults;
         n32                             numObjectsDispatched;
 
-        vk::DescriptorSet computeSet;
+        vk::DescriptorSet occlusionSet;
         n32               boundingBoxCount;
     };
 
@@ -108,8 +108,8 @@ public:
 
     SwapChain* GetSwapChain() const { return m_swapChain.get(); }
 
-    void DoGPUOcclusionCulling(vk::CommandBuffer cmd, const std::vector<struct Utils::VisibleEntityInfo>& frustumCulledEntities, class World& world,
-                               const Camera& cam);
+    void DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<struct Utils::VisibleEntityInfo>& frustumCulledEntities, class World& world,
+                            const Camera& cam);
 
     static void WaitForCompute(vk::CommandBuffer cmd);
 
@@ -119,11 +119,14 @@ private:
     LogicalDevice&             m_logicalDevice;
     PhysicalDevice&            m_physicalDevice;
 
-    vk::Pipeline       m_computePipeline;
-    vk::PipelineLayout m_computePipelineLayout;
+    vk::Pipeline       m_occlusionPipeline;
+    vk::PipelineLayout m_occlusionPipelineLayout;
+    vk::Pipeline       m_mipPipeline;
+    vk::PipelineLayout m_mipPipelineLayout;
 
     std::unique_ptr<DescriptorPool>      m_computePool;
-    std::unique_ptr<DescriptorSetLayout> m_computeLayout;
+    std::unique_ptr<DescriptorSetLayout> m_occlusionDescriptorLayout;
+    std::unique_ptr<DescriptorSetLayout> m_mipDescriptorLayout;
 
     std::unique_ptr<class RenderPipeline> m_lightingPipeline;
     vk::PipelineLayout                    m_lightingPipelineLayout;
@@ -143,7 +146,15 @@ private:
     vk::Extent2D   m_screenImageExtent;
 
     AllocatedImage m_depthImage;
-    vk::Sampler    m_depthImageSampler;
+    struct DepthMip
+    {
+        vk::ImageView     sampledView;
+        vk::ImageView     storageView;
+        vk::DescriptorSet set;
+        vk::ImageLayout   layout;
+    };
+    std::vector<DepthMip> m_depthMips;
+    vk::Sampler           m_depthImageSampler;
 
     AllocatedImage m_debugImage;
     vk::Sampler    m_debugImageSampler;
@@ -151,14 +162,14 @@ private:
     void PreGeometryPassTransitions(vk::CommandBuffer cmd);
     void PostGeometryPassTransitions(vk::CommandBuffer cmd);
 
-    void InitGBuffer();
-    void InitLightingPipeline();
-    void InitDrawImage();
-    void InitDepthImage();
-    void InitSyncStructures();
+    void CreateGBuffer();
+    void CreateLightingPipeline();
+    void CreateDrawImage();
+    void CreateDepthImage();
+    void CreateSyncStructures();
     void CreateComputePipeline();
     void CreateCommandPool();
-    void AllocateCommandBuffers();
+    void CreateCommandBuffers();
     void RecreateSwapChain();
     void UpdateDepthBuffer();
 };

@@ -24,11 +24,11 @@ Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice&
     m_depthImage.imageFormat = depthFormat;
 
     CreateCommandPool();
-    AllocateCommandBuffers();
-    InitSyncStructures();
-    InitLightingPipeline();
-    RecreateSwapChain();
+    CreateCommandBuffers();
     CreateComputePipeline();
+    CreateSyncStructures();
+    CreateLightingPipeline();
+    RecreateSwapChain();
 }
 
 Renderer::~Renderer()
@@ -53,6 +53,12 @@ Renderer::~Renderer()
         frame.rendererDataBuffer.reset();
     }
 
+    for(auto& mip: m_depthMips)
+    {
+        m_logicalDevice.GetVkDevice().destroyImageView(mip.sampledView);
+        m_logicalDevice.GetVkDevice().destroyImageView(mip.storageView);
+    }
+
     if(m_drawImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_drawImage.image, m_drawImage.allocation); }
     if(m_depthImage.imageView != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyImageView(m_drawImage.imageView, nullptr); }
     if(m_depthImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_depthImage.image, m_depthImage.allocation); }
@@ -60,8 +66,11 @@ Renderer::~Renderer()
     if(m_depthImageSampler != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroySampler(m_depthImageSampler); }
     if(m_debugImageSampler != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroySampler(m_debugImageSampler); }
 
-    m_logicalDevice.GetVkDevice().destroyPipeline(m_computePipeline, nullptr);
-    m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_computePipelineLayout, nullptr);
+    m_logicalDevice.GetVkDevice().destroyPipeline(m_occlusionPipeline, nullptr);
+    m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_occlusionPipelineLayout, nullptr);
+
+    m_logicalDevice.GetVkDevice().destroyPipeline(m_mipPipeline, nullptr);
+    m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_mipPipelineLayout, nullptr);
 
     m_lightingPipeline.reset();
     m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_lightingPipelineLayout, nullptr);
@@ -69,7 +78,7 @@ Renderer::~Renderer()
     m_lightingLayout.reset();
     m_lightingPool.reset();
 
-    m_computeLayout.reset();
+    m_occlusionDescriptorLayout.reset();
     m_computePool.reset();
 
     m_swapChain.reset();
@@ -98,15 +107,14 @@ void Renderer::RecreateSwapChain()
     m_logicalDevice.GetVkDevice().waitIdle();
 
     m_screenImageExtent = m_swapChain->GetExtent();
-    HGINFO("SCREEN IS %i by %i", m_screenImageExtent.width, m_screenImageExtent.height);
     m_drawImage.imageExtent = vk::Extent3D(m_screenImageExtent.width, m_screenImageExtent.height, 0.0);
 
-    InitDrawImage();
-    InitDepthImage();
-    InitGBuffer();
+    CreateDrawImage();
+    CreateDepthImage();
+    CreateGBuffer();
 }
 
-void Renderer::InitDrawImage()
+void Renderer::CreateDrawImage()
 {
     if(m_drawImage.imageView != VK_NULL_HANDLE) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), m_drawImage.imageView, nullptr); }
     if(m_drawImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_drawImage.image, m_drawImage.allocation); }
@@ -156,7 +164,7 @@ void Renderer::InitDrawImage()
     HGINFO("Created draw image and view");
 }
 
-void Renderer::InitDepthImage()
+void Renderer::CreateDepthImage()
 {
     if(m_depthImage.imageView != VK_NULL_HANDLE) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), m_depthImage.imageView, nullptr); }
     if(m_depthImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_depthImage.image, m_depthImage.allocation); }
@@ -172,6 +180,9 @@ void Renderer::InitDepthImage()
     vk::ImageUsageFlags depthImageUsages{};
     depthImageUsages |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
     depthImageUsages |= vk::ImageUsageFlagBits::eSampled;
+    depthImageUsages |= vk::ImageUsageFlagBits::eStorage;
+    depthImageUsages |= vk::ImageUsageFlagBits::eTransferSrc;
+    depthImageUsages |= vk::ImageUsageFlagBits::eTransferDst;
 
     Utils::AllocatedImageCreateInfo imgCI{.logicalDevice = m_logicalDevice, .allocatedImage = &m_depthImage};
     imgCI.layerCount = 1;
@@ -182,24 +193,61 @@ void Renderer::InitDepthImage()
     imgCI.aspectFlags = vk::ImageAspectFlagBits::eDepth;
     imgCI.width = m_screenImageExtent.width;
     imgCI.height = m_screenImageExtent.height;
-    imgCI.mipLevels = 1;
+    imgCI.mipLevels = floor(log2(std::max(imgCI.width, imgCI.height))) + 1;
     imgCI.usage = depthImageUsages;
     imgCI.format = vk::Format::eD32Sfloat;
     imgCI.imagePool = VK_NULL_HANDLE;
     imgCI.samples = vk::SampleCountFlagBits::e1;
 
-    auto cmd = m_logicalDevice.BeginSingleTimeCommands();
-
     Utils::CreateAllocatedImage(imgCI);
 
-    Utils::ImageTransitionInfo postComputeDepthTransition{cmd,
-                                                          vk::ImageLayout::eUndefined,
-                                                          vk::ImageLayout::eDepthAttachmentOptimal,
-                                                          &m_logicalDevice,
-                                                          m_depthImage.image,
-                                                          vk::ImageAspectFlagBits::eDepth};
+    auto cmd = m_logicalDevice.BeginSingleTimeCommands();
 
-    Utils::TransitionImageLayout(postComputeDepthTransition);
+    vk::ImageViewCreateInfo viewInfo{};
+    viewInfo.image = m_depthImage.image;
+    viewInfo.format = vk::Format::eD32Sfloat;
+    viewInfo.viewType = vk::ImageViewType::e2D;
+    viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+    viewInfo.subresourceRange.levelCount = 1; // Each view targets a single mip level
+
+    for(auto& mip: m_depthMips)
+    {
+        m_logicalDevice.GetVkDevice().destroyImageView(mip.sampledView);
+        m_logicalDevice.GetVkDevice().destroyImageView(mip.storageView);
+    }
+
+    m_depthMips.resize(imgCI.mipLevels);
+    for(n32 level = 0; level < imgCI.mipLevels; ++level)
+    {
+        Utils::ImageTransitionInfo transition{.cmd = cmd, .logicalDevice = &m_logicalDevice, .image = m_depthImage.image};
+        transition.oldLayout = vk::ImageLayout::eUndefined;
+        transition.newLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+        transition.imageAspect = vk::ImageAspectFlagBits::eDepth;
+        transition.baseMipLevel = level;
+        transition.levelCount = 1;
+        transition.baseArrayLayer = 0;
+        transition.layerCount = 1;
+        Utils::TransitionImageLayout(transition);
+        viewInfo.subresourceRange.baseMipLevel = level;
+
+        if(m_logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &m_depthMips[level].sampledView) != vk::Result::eSuccess)
+        {
+            HGFATAL("Failed to create sampled depthMip");
+        }
+        if(m_logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &m_depthMips[level].storageView) != vk::Result::eSuccess)
+        {
+            HGFATAL("Failed to create storage depthMip");
+        }
+
+        if(m_depthMips[level].set == VK_NULL_HANDLE)
+        {
+            m_computePool->AllocateDescriptor(m_mipDescriptorLayout->GetDescriptorSetLayout(), m_depthMips[level].set);
+        }
+
+        m_depthMips[level].layout = vk::ImageLayout::eDepthAttachmentOptimal;
+    }
 
     m_logicalDevice.EndSingleTimeCommands(cmd);
 
@@ -208,7 +256,7 @@ void Renderer::InitDepthImage()
     HGINFO("Created depth image and view");
 }
 
-void Renderer::InitGBuffer()
+void Renderer::CreateGBuffer()
 {
     HGINFO("Initializing G-Buffer (resize or first‐time)…");
 
@@ -340,7 +388,7 @@ void Renderer::InitGBuffer()
     HGINFO("Initialized G-Buffer (resized to %d x %d)", m_screenImageExtent.width, m_screenImageExtent.height);
 }
 
-void Renderer::InitLightingPipeline()
+void Renderer::CreateLightingPipeline()
 {
     HGINFO("Creating pipeline layout...");
     DescriptorSetLayout::Builder builder{m_logicalDevice};
@@ -413,7 +461,7 @@ void Renderer::CreateCommandPool()
     HGINFO("Created command pool");
 }
 
-void Renderer::AllocateCommandBuffers()
+void Renderer::CreateCommandBuffers()
 {
     HGINFO("Allocating command buffers...");
 
@@ -435,7 +483,7 @@ void Renderer::AllocateCommandBuffers()
     HGINFO("Allocated command buffers");
 }
 
-void Renderer::InitSyncStructures()
+void Renderer::CreateSyncStructures()
 {
     HGINFO("Initializing synchronization structures...");
 
@@ -467,11 +515,11 @@ void Renderer::CreateComputePipeline()
 {
     HGINFO("Creating compute pipeline...");
     DescriptorPool::Builder builder{m_logicalDevice};
-    builder.AddPoolSize(vk::DescriptorType::eCombinedImageSampler, 5);
-    builder.AddPoolSize(vk::DescriptorType::eStorageBuffer, 5);
-    builder.AddPoolSize(vk::DescriptorType::eUniformBuffer, 5);
-    builder.AddPoolSize(vk::DescriptorType::eStorageImage, 5);
-    builder.SetMaxSets(100);
+    builder.AddPoolSize(vk::DescriptorType::eCombinedImageSampler, 100);
+    builder.AddPoolSize(vk::DescriptorType::eStorageBuffer, 100);
+    builder.AddPoolSize(vk::DescriptorType::eUniformBuffer, 100);
+    builder.AddPoolSize(vk::DescriptorType::eStorageImage, 100);
+    builder.SetMaxSets(1000);
     m_computePool = builder.Build();
 
     DescriptorSetLayout::Builder builder2{m_logicalDevice};
@@ -481,8 +529,14 @@ void Renderer::CreateComputePipeline()
     builder2.AddBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute);
     builder2.AddBinding(4, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute);
     builder2.AddBinding(5, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
-    m_computeLayout = builder2.Build();
+    m_occlusionDescriptorLayout = builder2.Build();
 
+    DescriptorSetLayout::Builder builder3{m_logicalDevice};
+    builder3.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
+    builder3.AddBinding(1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute);
+    m_mipDescriptorLayout = builder3.Build();
+
+    for(auto& frame: m_frames) { m_computePool->AllocateDescriptor(m_occlusionDescriptorLayout->GetDescriptorSetLayout(), frame.occlusionSet); }
     vk::SamplerCreateInfo samplerInfo{};
     // samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter = vk::Filter::eNearest;
@@ -507,49 +561,97 @@ void Renderer::CreateComputePipeline()
         HGERROR("Failed to create texture sampler");
     }
 
-    auto layout = m_computeLayout->GetDescriptorSetLayout();
-
-    vk::PushConstantRange range{vk::ShaderStageFlagBits::eCompute, 0, sizeof(n32)};
-
-    vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = &layout;
-    pipelineLayoutInfo.pushConstantRangeCount = 1;
-    pipelineLayoutInfo.pPushConstantRanges = &range;
-
-    if(m_logicalDevice.GetVkDevice().createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_computePipelineLayout) != vk::Result::eSuccess)
+    // Occlusion
     {
-        HGERROR("Failed to create pipeline layout");
+        auto layout = m_occlusionDescriptorLayout->GetDescriptorSetLayout();
+
+        vk::PushConstantRange range{vk::ShaderStageFlagBits::eCompute, 0, sizeof(n32)};
+
+        vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
+        pipelineLayoutInfo.setLayoutCount = 1;
+        pipelineLayoutInfo.pSetLayouts = &layout;
+        pipelineLayoutInfo.pushConstantRangeCount = 1;
+        pipelineLayoutInfo.pPushConstantRanges = &range;
+
+        if(m_logicalDevice.GetVkDevice().createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_occlusionPipelineLayout) != vk::Result::eSuccess)
+        {
+            HGERROR("Failed to create pipeline layout");
+        }
+
+        auto compCode = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "occlusion.comp"));
+
+        vk::ShaderModuleCreateInfo createInfo{};
+        createInfo.codeSize = compCode.size();
+        createInfo.pCode = reinterpret_cast<const n32*>(compCode.data());
+
+        vk::ShaderModule compModule;
+
+        if(m_logicalDevice.GetVkDevice().createShaderModule(&createInfo, nullptr, &compModule) != vk::Result::eSuccess)
+        {
+            HGERROR("Failed to create shader module!");
+        }
+
+        vk::PipelineShaderStageCreateInfo why{};
+        why.stage = vk::ShaderStageFlagBits::eCompute;
+        why.pName = "main";
+        why.module = compModule;
+
+        vk::ComputePipelineCreateInfo compInfo{};
+        compInfo.layout = m_occlusionPipelineLayout;
+        compInfo.stage = why;
+
+        if(m_logicalDevice.GetVkDevice().createComputePipelines(nullptr, 1, &compInfo, nullptr, &m_occlusionPipeline) != vk::Result::eSuccess)
+        {
+            HGFATAL("Failed to create renderer compute pipeline!");
+        }
+
+        vkDestroyShaderModule(m_logicalDevice.GetVkDevice(), compModule, nullptr);
     }
 
-    auto compCode = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "occlusion.comp"));
-
-    vk::ShaderModuleCreateInfo createInfo{};
-    createInfo.codeSize = compCode.size();
-    createInfo.pCode = reinterpret_cast<const n32*>(compCode.data());
-
-    vk::ShaderModule compModule;
-
-    if(m_logicalDevice.GetVkDevice().createShaderModule(&createInfo, nullptr, &compModule) != vk::Result::eSuccess)
+    // Mipmap
     {
-        HGERROR("Failed to create shader module!");
+        auto layout = m_mipDescriptorLayout->GetDescriptorSetLayout();
+
+        vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
+        pipelineLayoutInfo.setLayoutCount = 1;
+        pipelineLayoutInfo.pSetLayouts = &layout;
+        pipelineLayoutInfo.pushConstantRangeCount = 0;
+        pipelineLayoutInfo.pPushConstantRanges = nullptr;
+
+        if(m_logicalDevice.GetVkDevice().createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_mipPipelineLayout) != vk::Result::eSuccess)
+        {
+            HGERROR("Failed to create pipeline layout");
+        }
+
+        auto compCode = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "mip.comp"));
+
+        vk::ShaderModuleCreateInfo createInfo{};
+        createInfo.codeSize = compCode.size();
+        createInfo.pCode = reinterpret_cast<const n32*>(compCode.data());
+
+        vk::ShaderModule compModule;
+
+        if(m_logicalDevice.GetVkDevice().createShaderModule(&createInfo, nullptr, &compModule) != vk::Result::eSuccess)
+        {
+            HGERROR("Failed to create shader module!");
+        }
+
+        vk::PipelineShaderStageCreateInfo why{};
+        why.stage = vk::ShaderStageFlagBits::eCompute;
+        why.pName = "main";
+        why.module = compModule;
+
+        vk::ComputePipelineCreateInfo compInfo{};
+        compInfo.layout = m_mipPipelineLayout;
+        compInfo.stage = why;
+
+        if(m_logicalDevice.GetVkDevice().createComputePipelines(nullptr, 1, &compInfo, nullptr, &m_mipPipeline) != vk::Result::eSuccess)
+        {
+            HGFATAL("Failed to create renderer compute pipeline!");
+        }
+
+        vkDestroyShaderModule(m_logicalDevice.GetVkDevice(), compModule, nullptr);
     }
-
-    vk::PipelineShaderStageCreateInfo why{};
-    why.stage = vk::ShaderStageFlagBits::eCompute;
-    why.pName = "main";
-    why.module = compModule;
-
-    vk::ComputePipelineCreateInfo compInfo{};
-    compInfo.layout = m_computePipelineLayout;
-    compInfo.stage = why;
-
-    if(m_logicalDevice.GetVkDevice().createComputePipelines(nullptr, 1, &compInfo, nullptr, &m_computePipeline) != vk::Result::eSuccess)
-    {
-        HGFATAL("Failed to create renderer compute pipeline!");
-    }
-
-    vkDestroyShaderModule(m_logicalDevice.GetVkDevice(), compModule, nullptr);
     HGINFO("Created compute pipeline");
 }
 
@@ -557,8 +659,8 @@ void Renderer::ReadyPerFrameData(std::vector<Utils::VisibleEntityInfo>& visibleE
 {
     auto world = SceneHandler::GetWorld();
 
-    auto&    visibilityResultsBuffer = GetCurrentFrame().visiblityResultBuffer;
-    uint32_t numObjectsCulledLastFrame = GetCurrentFrame().numObjectsDispatched;
+    auto& visibilityResultsBuffer = GetCurrentFrame().visiblityResultBuffer;
+    n32   numObjectsCulledLastFrame = GetCurrentFrame().numObjectsDispatched;
 
     if(!visibilityResultsBuffer || numObjectsCulledLastFrame == 0) { return; }
 
@@ -576,7 +678,7 @@ void Renderer::ReadyPerFrameData(std::vector<Utils::VisibleEntityInfo>& visibleE
     std::unordered_map<EntityID, bool> prevFrameVisibilityByEntityId;
     prevFrameVisibilityByEntityId.reserve(numObjectsCulledLastFrame);
 
-    for(uint32_t i = 0; i < numObjectsCulledLastFrame; ++i)
+    for(n32 i = 0; i < numObjectsCulledLastFrame; ++i)
     {
         EntityID entityId = results[i].id;
         bool     isVisible = results[i].visible;
@@ -610,6 +712,7 @@ void Renderer::PreGeometryPassTransitions(vk::CommandBuffer cmd)
 {
     auto& currentFrame = GetCurrentFrame();
 
+    // Don't think this is needed
     // check for first frame, only need the first image because all images should be transitioned at the same time
     // if(currentFrame.gbuffer.albedo.imageLayout == vk::ImageLayout::eColorAttachmentOptimal &&
     //    currentFrame.gbuffer.normalRough.imageLayout == vk::ImageLayout::eColorAttachmentOptimal &&
@@ -858,7 +961,7 @@ void Renderer::BeginGeometryPass(vk::CommandBuffer cmd)
 
     std::array<vk::ClearValue, 2> clearValues{};
     clearValues[0].color = {0.0f, 0.0f, 0.0f, 0.0f};
-    clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
+    clearValues[1].depthStencil = vk::ClearDepthStencilValue(0.0f, 0);
 
     vk::RenderingAttachmentInfo attach{};
     attach.sType = vk::StructureType::eRenderingAttachmentInfo;
@@ -959,7 +1062,7 @@ void Renderer::BeginSkyboxPass(vk::CommandBuffer cmd)
 {
     std::array<vk::ClearValue, 2> clearValues{};
     clearValues[0].color = {0.0f, 0.0f, 0.0f, 0.0f};
-    clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
+    clearValues[1].depthStencil = vk::ClearDepthStencilValue(0.0f, 0);
 
     vk::RenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = vk::StructureType::eRenderingAttachmentInfo;
@@ -971,7 +1074,7 @@ void Renderer::BeginSkyboxPass(vk::CommandBuffer cmd)
 
     vk::RenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = vk::StructureType::eRenderingAttachmentInfo;
-    depthAttachment.imageView = m_depthImage.imageView;
+    depthAttachment.imageView = GetCurrentFrame().gbuffer.depth.imageView;
     depthAttachment.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
     depthAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
     depthAttachment.storeOp = vk::AttachmentStoreOp::eStore;
@@ -1026,7 +1129,7 @@ void Renderer::EndUIRendering(vk::CommandBuffer cmd) { cmd.endRendering(); }
 void Renderer::BeginDepthPrePass(vk::CommandBuffer cmd)
 {
     vk::ClearValue clearValue{};
-    clearValue.depthStencil = vk::ClearDepthStencilValue{1.0f, 0};
+    clearValue.depthStencil = vk::ClearDepthStencilValue{0.0f, 0};
 
     vk::RenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = vk::StructureType::eRenderingAttachmentInfo;
@@ -1068,13 +1171,99 @@ static_assert(sizeof(OcclusionObjectData) == 192 && "Size mismatch");
 
 using namespace Utils;
 
-void Renderer::DoGPUOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils::VisibleEntityInfo>& frustumCulledEntities, World& world,
-                                     const Camera& cam)
+void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils::VisibleEntityInfo>& frustumCulledEntities, World& world,
+                                  const Camera& cam)
 {
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_computePipeline);
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_mipPipeline);
+    {
+        Utils::ImageTransitionInfo initialTransition{};
+        initialTransition.cmd = cmd;
+        initialTransition.oldLayout = m_depthMips[0].layout;
+        initialTransition.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        initialTransition.image = m_depthImage.image;
+        initialTransition.logicalDevice = &m_logicalDevice;
+        initialTransition.imageAspect = vk::ImageAspectFlagBits::eDepth;
+        initialTransition.baseMipLevel = 0; // Only mip 0
+        initialTransition.levelCount = 1;
+        initialTransition.baseArrayLayer = 0;
+        initialTransition.layerCount = 1;
+        Utils::TransitionImageLayout(initialTransition);
+
+        m_depthMips[0].layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    }
+    for(n32 i = 0; i < m_depthImage.mipLevels - 1; ++i)
+    {
+
+        Utils::ImageTransitionInfo srcTransition{};
+        srcTransition.cmd = cmd;
+        srcTransition.oldLayout = m_depthMips[i].layout;
+        srcTransition.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        srcTransition.image = m_depthImage.image;
+        srcTransition.baseMipLevel = i;
+        srcTransition.imageAspect = vk::ImageAspectFlagBits::eDepth;
+        srcTransition.logicalDevice = &m_logicalDevice;
+        srcTransition.levelCount = 1;
+        srcTransition.baseArrayLayer = 0;
+        srcTransition.layerCount = 1;
+        Utils::TransitionImageLayout(srcTransition);
+
+        m_depthMips[i].layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+        Utils::ImageTransitionInfo destTransition{};
+        destTransition.cmd = cmd;
+        destTransition.oldLayout = m_depthMips[i + 1].layout;
+        destTransition.newLayout = vk::ImageLayout::eGeneral;
+        destTransition.image = m_depthImage.image;
+        destTransition.baseMipLevel = i + 1;
+        destTransition.imageAspect = vk::ImageAspectFlagBits::eDepth;
+        destTransition.logicalDevice = &m_logicalDevice;
+        destTransition.levelCount = 1;
+        destTransition.baseArrayLayer = 0;
+        destTransition.layerCount = 1;
+
+        Utils::TransitionImageLayout(destTransition);
+
+        m_depthMips[i + 1].layout = vk::ImageLayout::eGeneral;
+
+        vk::ImageView sourceMipView = m_depthMips[i].sampledView;
+        vk::ImageView destMipView = m_depthMips[i + 1].storageView;
+
+        DescriptorWriter writer(*m_mipDescriptorLayout, m_computePool.get());
+
+        vk::DescriptorImageInfo sourceImageInfo(m_depthImageSampler, sourceMipView, vk::ImageLayout::eShaderReadOnlyOptimal);
+        vk::DescriptorImageInfo destImageInfo({}, destMipView, vk::ImageLayout::eGeneral);
+
+        writer.WriteImage(0, &sourceImageInfo).WriteImage(1, &destImageInfo).Overwrite(m_depthMips[i].set);
+
+        cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_mipPipelineLayout, 0, 1, &m_depthMips[i].set, 0, nullptr);
+
+        n32 destMipWidth = std::max(1u, m_depthImage.width >> (i + 1));
+        n32 destMipHeight = std::max(1u, m_depthImage.height >> (i + 1));
+
+        cmd.dispatch((destMipWidth + 7) / 8, (destMipHeight + 7) / 8, 1);
+
+        Utils::ImageTransitionInfo sourceNextIterTransition{};
+        sourceNextIterTransition.cmd = cmd;
+        sourceNextIterTransition.oldLayout = m_depthMips[i + 1].layout;
+        sourceNextIterTransition.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        sourceNextIterTransition.image = m_depthImage.image;
+        sourceNextIterTransition.baseMipLevel = i + 1;
+        sourceNextIterTransition.imageAspect = vk::ImageAspectFlagBits::eDepth;
+        sourceNextIterTransition.logicalDevice = &m_logicalDevice;
+        sourceNextIterTransition.levelCount = 1;
+        sourceNextIterTransition.baseArrayLayer = 0;
+        sourceNextIterTransition.layerCount = 1;
+        Utils::TransitionImageLayout(sourceNextIterTransition);
+        m_depthMips[i + 1].layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    }
+    m_depthImage.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_occlusionPipeline);
 
     std::vector<OcclusionObjectData> objectDataForGPU;
     objectDataForGPU.reserve(frustumCulledEntities.size());
+
+    auto& currentFrame = GetCurrentFrame();
 
     GetCurrentFrame().numObjectsDispatched = 0;
 
@@ -1093,11 +1282,11 @@ void Renderer::DoGPUOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Ut
 
     if(objectDataForGPU.empty()) { return; }
 
-    GetCurrentFrame().numObjectsDispatched = objectDataForGPU.size();
+    currentFrame.numObjectsDispatched = objectDataForGPU.size();
 
-    auto& objectDataBuffer = GetCurrentFrame().objectDataBuffer;
-    auto& visibilityResultsBuffer = GetCurrentFrame().visiblityResultBuffer;
-    auto& rendererDataBuffer = GetCurrentFrame().rendererDataBuffer;
+    auto& objectDataBuffer = currentFrame.objectDataBuffer;
+    auto& visibilityResultsBuffer = currentFrame.visiblityResultBuffer;
+    auto& rendererDataBuffer = currentFrame.rendererDataBuffer;
 
     objectDataBuffer.reset();
     visibilityResultsBuffer.reset();
@@ -1115,30 +1304,9 @@ void Renderer::DoGPUOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Ut
 
     rendererDataBuffer = std::make_unique<Buffer>(&m_logicalDevice, sizeof(RendererData), 1, vk::BufferUsageFlagBits::eUniformBuffer,
                                                   vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                                                  VMA_MEMORY_USAGE_AUTO, 1, "renderer data buffer");
+                                                  VMA_MEMORY_USAGE_AUTO, 1, "occlusion renderer data buffer");
 
     RendererData renderDataContent{{m_swapChain->GetExtent().width, m_swapChain->GetExtent().height}};
-
-    vk::MemoryBarrier2 memoryBarrier{};
-    memoryBarrier.srcStageMask = vk::PipelineStageFlagBits2::eLateFragmentTests;
-    memoryBarrier.srcAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
-    memoryBarrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
-    memoryBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead;
-
-    vk::DependencyInfo dependencyInfo{};
-    dependencyInfo.memoryBarrierCount = 1;
-    dependencyInfo.pMemoryBarriers = &memoryBarrier;
-    cmd.pipelineBarrier2(&dependencyInfo);
-
-    Utils::ImageTransitionInfo preComputeReadTransition{
-        cmd,
-        vk::ImageLayout::eDepthAttachmentOptimal,
-        vk::ImageLayout::eShaderReadOnlyOptimal,
-        &m_logicalDevice,
-        m_depthImage.image,
-        vk::ImageAspectFlagBits::eDepth,
-    };
-    Utils::TransitionImageLayout(preComputeReadTransition);
 
     objectDataBuffer->Map();
     objectDataBuffer->WriteToBuffer((void*)objectDataForGPU.data());
@@ -1150,42 +1318,48 @@ void Renderer::DoGPUOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Ut
 
     vk::DescriptorImageInfo  depthInfo = {m_depthImageSampler, m_depthImage.imageView, vk::ImageLayout::eShaderReadOnlyOptimal};
     vk::DescriptorBufferInfo boundingBoxGpuInfo = objectDataBuffer->DescriptorInfo();
-    vk::DescriptorBufferInfo visiblityGpuInfo = {visibilityResultsBuffer->GetBuffer(), 0, VK_WHOLE_SIZE};
+    vk::DescriptorBufferInfo visiblityGpuInfo = visibilityResultsBuffer->DescriptorInfo();
     vk::DescriptorBufferInfo projectionGpuInfo = cam.GetCombinedDataBufferHandle(m_currentFrameIndex).DescriptorInfo();
     vk::DescriptorBufferInfo rendererDataGpuInfo = rendererDataBuffer->DescriptorInfo();
 
-    vk::DescriptorSet& computeSet = GetCurrentFrame().computeSet;
+    vk::DescriptorSet& computeSet = currentFrame.occlusionSet;
 
-    size_t actualSize = visibilityResultsBuffer->GetBufferSize();
-    size_t bindRange = sizeof(VisiblityResultSet) * objectDataForGPU.size();
-
-    DescriptorWriter writer(*m_computeLayout, m_computePool.get());
+    DescriptorWriter writer(*m_occlusionDescriptorLayout, m_computePool.get());
     writer.WriteImage(0, &depthInfo)
         .WriteBuffer(1, &boundingBoxGpuInfo)
         .WriteBuffer(2, &visiblityGpuInfo)
         .WriteBuffer(3, &projectionGpuInfo)
-        .WriteBuffer(4, &rendererDataGpuInfo);
+        .WriteBuffer(4, &rendererDataGpuInfo)
+        .Overwrite(computeSet);
 
-    if(computeSet == VK_NULL_HANDLE) { writer.Build(computeSet); }
-    else { writer.Overwrite(computeSet); }
-
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_computePipelineLayout, 0, 1, &computeSet, 0, nullptr);
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_occlusionPipelineLayout, 0, 1, &computeSet, 0, nullptr);
 
     n32 size = objectDataForGPU.size();
-    cmd.pushConstants(m_computePipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(n32), &size);
+    cmd.pushConstants(m_occlusionPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(n32), &size);
 
-    uint32_t groupCountX = (static_cast<uint32_t>(objectDataForGPU.size()) + 63) / 64;
+    n32 groupCountX = (size + 63) / 64;
     if(groupCountX > 0) { cmd.dispatch(groupCountX, 1, 1); }
 
     WaitForCompute(cmd);
 
-    Utils::ImageTransitionInfo postComputeDepthTransition{cmd,
-                                                          vk::ImageLayout::eShaderReadOnlyOptimal,
-                                                          vk::ImageLayout::eDepthAttachmentOptimal,
-                                                          &m_logicalDevice,
-                                                          m_depthImage.image,
-                                                          vk::ImageAspectFlagBits::eDepth};
-    Utils::TransitionImageLayout(postComputeDepthTransition);
+    {
+        Utils::ImageTransitionInfo postComputeDepthTransition{};
+        postComputeDepthTransition.image = m_depthImage.image;
+        postComputeDepthTransition.baseMipLevel = 0;
+        postComputeDepthTransition.levelCount = 1;
+        postComputeDepthTransition.cmd = cmd;
+        postComputeDepthTransition.baseArrayLayer = 0;
+
+        postComputeDepthTransition.oldLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        postComputeDepthTransition.newLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+        postComputeDepthTransition.logicalDevice = &m_logicalDevice;
+        postComputeDepthTransition.imageAspect = vk::ImageAspectFlagBits::eDepth;
+
+        Utils::TransitionImageLayout(postComputeDepthTransition);
+
+        m_depthMips[0].layout = vk::ImageLayout::eDepthAttachmentOptimal;
+    }
+    m_depthImage.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
 }
 
 void Renderer::WaitForCompute(vk::CommandBuffer cmd)

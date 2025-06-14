@@ -48,6 +48,11 @@ void CreateAllocatedImage(LogicalDevice& logicalDevice, n32 width, n32 height, v
     {
         HGERROR("Failed to create image view");
     }
+
+    allocatedImage.width = width;
+    allocatedImage.height = height;
+    allocatedImage.mipLevels = 1;
+    allocatedImage.layerCount = 1;
 }
 
 void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
@@ -93,6 +98,11 @@ void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
         return;
     }
 
+    createInfo.allocatedImage->width = createInfo.width;
+    createInfo.allocatedImage->height = createInfo.height;
+    createInfo.allocatedImage->mipLevels = createInfo.mipLevels;
+    createInfo.allocatedImage->layerCount = createInfo.layerCount;
+
     if(!createInfo.createWithSampler) { return; }
 
     vk::SamplerCreateInfo samplerInfo{};
@@ -120,10 +130,10 @@ void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
 void TransitionImageLayout(ImageTransitionInfo& info)
 {
     vk::ImageMemoryBarrier2 imageBarrier{};
-    imageBarrier.oldLayout = info.oldLayout;
-    imageBarrier.newLayout = info.newLayout;
     imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageBarrier.oldLayout = info.oldLayout;
+    imageBarrier.newLayout = info.newLayout;
     imageBarrier.image = info.image;
     imageBarrier.subresourceRange.aspectMask = info.imageAspect;
     imageBarrier.subresourceRange.baseMipLevel = info.baseMipLevel;
@@ -131,68 +141,96 @@ void TransitionImageLayout(ImageTransitionInfo& info)
     imageBarrier.subresourceRange.baseArrayLayer = info.baseArrayLayer;
     imageBarrier.subresourceRange.layerCount = info.layerCount;
 
-    // ——— Case A: eUndefined → eColorAttachmentOptimal (brand‐new image) ———
-    if(info.oldLayout == vk::ImageLayout::eUndefined && info.newLayout == vk::ImageLayout::eColorAttachmentOptimal)
+    switch(info.oldLayout)
     {
-        imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe;
-        imageBarrier.srcAccessMask = vk::AccessFlagBits2::eNone;
-        imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-        imageBarrier.dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
+        case vk::ImageLayout::eUndefined:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eNone;
+            break;
+
+        case vk::ImageLayout::eColorAttachmentOptimal:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
+            break;
+
+        case vk::ImageLayout::eDepthAttachmentOptimal:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eLateFragmentTests;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+            break;
+
+        case vk::ImageLayout::eTransferSrcOptimal:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eTransfer;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eTransferRead;
+            break;
+
+        case vk::ImageLayout::eTransferDstOptimal:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eTransfer;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eTransferWrite;
+            break;
+
+        case vk::ImageLayout::eShaderReadOnlyOptimal:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eFragmentShader | vk::PipelineStageFlagBits2::eComputeShader;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eShaderRead;
+            break;
+
+        case vk::ImageLayout::eGeneral:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eComputeShader;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eShaderWrite;
+            break;
+
+        default:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eAllCommands;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eMemoryWrite;
+            break;
     }
-    // ——— Case B: eTransferSrcOptimal → eColorAttachmentOptimal (post‐blit) ———
-    else if(info.oldLayout == vk::ImageLayout::eTransferSrcOptimal && info.newLayout == vk::ImageLayout::eColorAttachmentOptimal)
+
+    switch(info.newLayout)
     {
-        imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eTransfer;
-        imageBarrier.srcAccessMask = vk::AccessFlagBits2::eTransferRead;
-        imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-        imageBarrier.dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
-    }
-    // ——— Case C: eUndefined → eDepthAttachmentOptimal (fresh depth) ———
-    else if(info.oldLayout == vk::ImageLayout::eUndefined && info.newLayout == vk::ImageLayout::eDepthAttachmentOptimal)
-    {
-        imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe;
-        imageBarrier.srcAccessMask = vk::AccessFlagBits2::eNone;
-        imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests;
-        imageBarrier.dstAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
-    }
-    // ——— Case D: eTransferSrcOptimal → eDepthAttachmentOptimal (post‐blit) ———
-    else if(info.oldLayout == vk::ImageLayout::eTransferSrcOptimal && info.newLayout == vk::ImageLayout::eDepthAttachmentOptimal)
-    {
-        imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eTransfer;
-        imageBarrier.srcAccessMask = vk::AccessFlagBits2::eTransferRead;
-        imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests;
-        imageBarrier.dstAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
-    }
-    // ——— Case E: eColorAttachmentOptimal → eShaderReadOnlyOptimal ———
-    else if(info.oldLayout == vk::ImageLayout::eColorAttachmentOptimal && info.newLayout == vk::ImageLayout::eShaderReadOnlyOptimal)
-    {
-        imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-        imageBarrier.srcAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
-        // make available to BOTH fragment and compute shaders:
-        imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader | vk::PipelineStageFlagBits2::eComputeShader;
-        imageBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderSampledRead;
-    }
-    // ——— Case F: eDepthAttachmentOptimal → eShaderReadOnlyOptimal ———
-    else if(info.oldLayout == vk::ImageLayout::eDepthAttachmentOptimal && info.newLayout == vk::ImageLayout::eShaderReadOnlyOptimal)
-    {
-        imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eLateFragmentTests;
-        imageBarrier.srcAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
-        // make available to BOTH fragment and compute shaders:
-        imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader | vk::PipelineStageFlagBits2::eComputeShader;
-        imageBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderSampledRead;
-    }
-    // ——— Fallback catch‐all (not recommended unless you truly don’t care) ———
-    else
-    {
-        imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eAllCommands;
-        imageBarrier.srcAccessMask = vk::AccessFlagBits2::eMemoryWrite;
-        imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eAllCommands;
-        imageBarrier.dstAccessMask = vk::AccessFlagBits2::eMemoryWrite | vk::AccessFlagBits2::eMemoryRead;
+        case vk::ImageLayout::eColorAttachmentOptimal:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
+            break;
+
+        case vk::ImageLayout::eDepthAttachmentOptimal:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+            break;
+
+        case vk::ImageLayout::eTransferSrcOptimal:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eTransfer;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eTransferRead;
+            break;
+
+        case vk::ImageLayout::eTransferDstOptimal:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eTransfer;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eTransferWrite;
+            break;
+
+        case vk::ImageLayout::eShaderReadOnlyOptimal:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader | vk::PipelineStageFlagBits2::eComputeShader;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead;
+            break;
+
+        case vk::ImageLayout::eGeneral:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
+            break;
+
+        case vk::ImageLayout::ePresentSrcKHR:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eAllCommands;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eNone;
+            break;
+
+        default:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eAllCommands;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eMemoryWrite | vk::AccessFlagBits2::eMemoryRead;
+            break;
     }
 
     vk::DependencyInfo depInfo{};
     depInfo.imageMemoryBarrierCount = 1;
     depInfo.pImageMemoryBarriers = &imageBarrier;
+
     info.cmd.pipelineBarrier2(depInfo);
 }
 

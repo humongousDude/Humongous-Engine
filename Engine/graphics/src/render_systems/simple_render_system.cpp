@@ -109,8 +109,6 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 
     configInfo.vertShaderPath = shaderSet.vertShaderPath;
     configInfo.fragShaderPath = shaderSet.fragShaderPath;
-    // configInfo.depthStencilInfo.depthCompareOp = vk::CompareOp::eAlways;
-    // configInfo.depthStencilInfo.depthTestEnable = VK_FALSE;
 
     std::array<vk::Format, 4> formats{
         vk::Format::eR16G16B16A16Sfloat, // albedo
@@ -267,7 +265,7 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
 
         indirectBufferToUse->Init(&m_logicalDevice, totalWritten, 1,
                                   vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                  vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 4, "draw indiret commmand buffer");
+                                  vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw indiret commmand buffer");
 
         stagingBuffer.Map();
 
@@ -334,9 +332,7 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
     writer.WriteBuffer(0, &buferInfo);
     writer.Build(setToUse);
 
-    // Fails on this line
     auto globalIndexBuffer = ResourceManager::Get().m_modelIndexBuffer.get();
-    if(!globalIndexBuffer) { return; }
 
     renderData.commandBuffer.bindIndexBuffer(globalIndexBuffer->GetBuffer(), 0, vk::IndexType::eUint32);
 

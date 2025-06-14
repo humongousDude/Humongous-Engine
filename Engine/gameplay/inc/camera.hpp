@@ -1,16 +1,16 @@
 #pragma once
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_ENABLE_EXPERIMENTAL
 
 #include "abstractions/buffer.hpp"
 #include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool.hpp"
 
 #include <array>
-#include <memory>
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 #include <glm/gtx/norm.hpp> // For glm::length2
+#include <memory>
 
 namespace Humongous
 {

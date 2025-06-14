@@ -104,8 +104,7 @@ void VulkanApp::LoadGameObjects()
     comp->modelHandle = ResourceManager::RequestModel("DamagedHelmet");
 
     auto transform = world->GetComponent<TransformComponent>(house);
-    transform->SetTranslation(0, 0, 10);
-    //
+    transform->SetTranslation(5, 0, -10);
     auto helmet = world->CreateEntity();
     world->AddComponent<BoundingBox>(helmet);
     world->AddComponent<ModelComponent>(helmet);
@@ -113,43 +112,47 @@ void VulkanApp::LoadGameObjects()
     comp->modelHandle = ResourceManager::RequestModel("AlphaBlendModeTest");
     world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
 
-    // auto wall = world->CreateEntity();
-    // world->AddComponent<BoundingBox>(wall);
-    // world->AddComponent<ModelComponent>(wall);
-    // comp = world->GetComponent<ModelComponent>(wall);
-    // comp->modelHandle = ResourceManager::RequestModel("silly thing");
-    // world->AddComponent<AudioSourceComponent>(wall, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-    //
-    // transform = world->GetComponent<TransformComponent>(wall);
-    // transform->SetTranslation(0, 0, -10);
-    //
-    // s32 x, y, z = 0;
-    // for(n32 i = 0; i < 1000; ++i)
-    // {
-    //     x += 1;
-    //
-    //     if(x > 10)
-    //     {
-    //         x = 0;
-    //         z += 1;
-    //     }
-    //     if(z > 10)
-    //     {
-    //         z = 0;
-    //         y += 1;
-    //     }
-    //
-    //     auto employee = world->CreateEntity();
-    //     world->AddComponent<BoundingBox>(employee);
-    //     world->AddComponent<ModelComponent>(employee);
-    //     comp = world->GetComponent<ModelComponent>(employee);
-    //     comp->modelHandle = ResourceManager::RequestModel("default");
-    //     world->AddComponent<AudioSourceComponent>(employee, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-    //
-    //     transform = world->GetComponent<TransformComponent>(employee);
-    //     transform->SetTranslation(00, 0, 5);
-    //     transform->SetScale(2.f, 2.f, 2.f);
-    // }
+    transform = world->GetComponent<TransformComponent>(helmet);
+    transform->SetTranslation(-5, 0, -10);
+
+    auto wall = world->CreateEntity();
+    world->AddComponent<BoundingBox>(wall);
+    world->AddComponent<ModelComponent>(wall);
+    comp = world->GetComponent<ModelComponent>(wall);
+    comp->modelHandle = ResourceManager::RequestModel("silly thing");
+    world->AddComponent<AudioSourceComponent>(wall, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+
+    transform = world->GetComponent<TransformComponent>(wall);
+    transform->SetTranslation(0, 0, -10);
+
+    f32 start = 0;
+    f32 end = 1000;
+    f32 step = 2;
+    f32 border = 15;
+    f32 x = start, y = start, z = start;
+    for(n32 i = 0; i < end; i++)
+    {
+        x += step;
+
+        if(x > border)
+        {
+            x = start;
+            z += step;
+        }
+        if(z > border)
+        {
+            z = start;
+            y += step;
+        }
+
+        auto model = world->CreateEntity();
+        world->AddComponent<ModelComponent>(model);
+        comp = world->GetComponent<ModelComponent>(model);
+        comp->modelHandle = ResourceManager::RequestModel("DamagedHelmet");
+
+        transform = world->GetComponent<TransformComponent>(model);
+        transform->SetTranslation(x, y, z);
+    }
 
     HGINFO("Loaded game objects");
 }
@@ -161,7 +164,6 @@ void VulkanApp::HandleInput(const float frameTime, SDL_Event* event)
 
     KeyboardHandler handler;
 
-    // Handle cursor visibility (This part is fine as is)
     const bool* keyboardState = SDL_GetKeyboardState(nullptr);
     if(keyboardState[SDL_SCANCODE_I] && !m_window->IsCursorHidden()) { m_window->HideCursor(); }
     if((keyboardState[SDL_SCANCODE_O] || keyboardState[SDL_SCANCODE_ESCAPE]) && m_window->IsCursorHidden()) { m_window->ShowCursor(); }
@@ -330,10 +332,10 @@ void VulkanApp::Run()
             world->BoundingVolumeUpdateSystem();
             AudioEngine::UpdateSources();
 
-            auto frustumCulledEntities = Utils::SortAndCullEntities(*m_cam, *world);
-            auto sortedObjs = frustumCulledEntities;
+            auto frustumAndSortedEntities = Utils::SortAndCullEntities(*m_cam, *world);
+            auto sortedObjs = frustumAndSortedEntities;
 
-            const auto cmd = m_renderer->BeginFrame(frustumCulledEntities);
+            const auto cmd = m_renderer->BeginFrame(frustumAndSortedEntities);
             if(cmd != VK_NULL_HANDLE)
             {
                 RenderData data{
@@ -341,7 +343,7 @@ void VulkanApp::Run()
                     .uboSets = {m_cam->GetDescriptorSet(m_renderer->GetFrameIndex())},
                     .sceneSets = {m_cam->GetParamDescriptorSet(m_renderer->GetFrameIndex())},
                     .skyboxSets = {m_skyboxRenderSystem->GetSkybox()->GetDescriptorSet()},
-                    .visibleEntities = &frustumCulledEntities,
+                    .visibleEntities = &frustumAndSortedEntities,
                     .world = *world,
                     .frameIndex = m_renderer->GetFrameIndex(),
                     .cam = *m_cam,
@@ -354,9 +356,9 @@ void VulkanApp::Run()
 
                 m_renderer->EndDepthPrePass(cmd);
 
-                data.visibleEntities = &frustumCulledEntities;
+                m_renderer->DoOcclusionCulling(cmd, sortedObjs, *world, *m_cam);
 
-                m_renderer->DoGPUOcclusionCulling(cmd, sortedObjs, *world, *m_cam);
+                data.visibleEntities = &frustumAndSortedEntities;
 
                 m_renderer->BeginGeometryPass(cmd);
 

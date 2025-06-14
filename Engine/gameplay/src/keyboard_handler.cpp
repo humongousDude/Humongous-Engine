@@ -15,7 +15,7 @@ void KeyboardHandler::ProcessInput(const InputData& inputData)
     static float accumulatedYaw = currentRotation.y;
 
     accumulatedYaw -= (inputData.mouseDeltaX * lookSpeed * static_cast<float>(Globals::Time::AverageDeltaTime()));
-    accumulatedPitch += (inputData.mouseDeltaY * lookSpeed * static_cast<float>(Globals::Time::AverageDeltaTime()));
+    accumulatedPitch -= (inputData.mouseDeltaY * lookSpeed * static_cast<float>(Globals::Time::AverageDeltaTime()));
 
     accumulatedPitch = glm::clamp(accumulatedPitch, -glm::radians(89.0f), glm::radians(89.0f));
     accumulatedYaw = glm::mod(accumulatedYaw, glm::two_pi<float>());
@@ -52,10 +52,10 @@ void KeyboardHandler::ProcessInput(const InputData& inputData)
             moveDir += rightDir;
             break;
         case Movements::UP:
-            moveDir -= upDir;
+            moveDir += upDir;
             break;
         case Movements::DOWN:
-            moveDir += upDir;
+            moveDir -= upDir;
             break;
         case Movements::FORWARD_LEFT:
             moveDir += forwardDir;

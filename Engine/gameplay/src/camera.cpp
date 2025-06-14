@@ -1,12 +1,10 @@
+#include "camera.hpp"
 #include "abstractions/descriptor_writer.hpp"
 #include "imgui.h"
 #include "logger.hpp"
+#include "swapchain.hpp"
 #include "ui/widget.hpp"
-#include <camera.hpp>
-
 #include <glm/ext/matrix_transform.hpp>
-#include <swapchain.hpp>
-
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -141,7 +139,8 @@ void Camera::SetOrthographicProjection(float left, float right, float top, float
 
 void Camera::SetPerspectiveProjection(float fovy, float aspect, float near, float far)
 {
-    m_projectionMatrix = glm::perspectiveRH_NO(fovy, aspect, near, far);
+    m_projectionMatrix = glm::perspectiveRH_ZO(fovy, aspect, far, near);
+    m_projectionMatrix[1][1] *= -1.0f;
 }
 
 void Camera::UpdateViewMatrix()
@@ -165,10 +164,10 @@ void Camera::UpdateViewMatrix()
 void Camera::ExtractFrustumPlanes(const glm::mat4& projectionViewMatrix, std::array<Plane, 6>& frustumPlanes)
 {
     // Extract rows from the matrix
-    glm::vec4 row0 = glm::row(projectionViewMatrix, 0); // First row
-    glm::vec4 row1 = glm::row(projectionViewMatrix, 1); // Second row
-    glm::vec4 row2 = glm::row(projectionViewMatrix, 2); // Third row
-    glm::vec4 row3 = glm::row(projectionViewMatrix, 3); // Fourth row
+    glm::vec4 row0 = glm::row(projectionViewMatrix, 0);
+    glm::vec4 row1 = glm::row(projectionViewMatrix, 1);
+    glm::vec4 row2 = glm::row(projectionViewMatrix, 2);
+    glm::vec4 row3 = glm::row(projectionViewMatrix, 3);
 
     // Left plane
     glm::vec4 left = row3 + row0;

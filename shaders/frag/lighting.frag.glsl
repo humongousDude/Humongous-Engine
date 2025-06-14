@@ -14,7 +14,6 @@ layout(set = 0, binding = 0) uniform UBO
     vec3 cameraPos;
 } ubo;
 
-// 1) UBO with camera + light + debug settings
 layout(set = 1, binding = 0) uniform UBOParams {
     vec3 camPos;
     float _padding0;
@@ -28,12 +27,10 @@ layout(set = 1, binding = 0) uniform UBOParams {
     float debugViewEquation;
 } uboParams;
 
-// 2) IBL samplers
 layout(set = 2, binding = 1) uniform samplerCube samplerIrradiance;
 layout(set = 2, binding = 2) uniform samplerCube prefilteredMap;
 layout(set = 2, binding = 3) uniform sampler2D samplerBRDFLUT;
 
-// 3) G-Buffer samplers (one sampler2D per G-buffer target)
 layout(set = 3, binding = 0) uniform sampler2D gAlbedo;
 layout(set = 3, binding = 1) uniform sampler2D gNormalRough;
 layout(set = 3, binding = 2) uniform sampler2D gMatParams;
@@ -96,6 +93,7 @@ void main()
     float depth = texture(gDepth, inUV).r;
 
     vec3 albedo = albSample.rgb;
+
     float alpha = albSample.a; // Note: Sascha uses albedo.a for specular map
 
     vec3 N = normalize(nrSample.xyz * 2.0 - 1.0);
@@ -107,7 +105,7 @@ void main()
     vec3 worldPos = texture(gPosition, inUV).rgb;
 
     vec3 V = normalize(uboParams.camPos - worldPos);
-    vec3 L = normalize(-uboParams.lightDir.xyz); // Singular directional light
+    vec3 L = normalize(-uboParams.lightDir.xyz);
     vec3 H = normalize(V + L);
 
     float NdotL = max(dot(N, L), 0.0);
@@ -117,15 +115,15 @@ void main()
 
     float ambient = 0.01;
 
-    vec3 fragcolor = albedo * ambient; // Sascha's ambient
+    vec3 fragcolor = albedo * ambient;
 
-    float specularStrength = alpha; // Assuming albedo.a holds specular strength (like Sascha's example)
+    float specularStrength = alpha;
 
     vec3 singularLightColor = vec3(1);
     float singularLightIntensity = 1;
     vec3 diff = singularLightColor * albedo.rgb * NdotL * singularLightIntensity;
 
-    vec3 R = reflect(-L, N); // Reflection vector for specular
+    vec3 R = reflect(-L, N);
     float RdotV = max(0.0, dot(R, V));
     float shininess = 16.0;
     vec3 spec = singularLightColor * specularStrength * pow(RdotV, shininess) * singularLightIntensity;

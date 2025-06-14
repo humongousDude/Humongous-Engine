@@ -16,6 +16,28 @@ layout(location = 1) out vec4 outNormalRoughness; // RGBA: normal.xyz (0..1), ro
 layout(location = 2) out vec4 outMaterialParams; // RGBA: emissive.rgb, metallic = a
 layout(location = 3) out vec4 outPosition;
 
+layout(set = 0, binding = 0) uniform UBO
+{
+    mat4 projection;
+    mat4 invProjection;
+    mat4 view;
+    mat4 invView;
+    mat4 projectionView;
+    vec3 cameraPos;
+} ubo;
+
+layout(set = 1, binding = 0) uniform UBOParams {
+    vec3 camPos;
+    float _padding0;
+    vec4 lightDir;
+    float exposure;
+    float gamma;
+    float prefilteredCubeMipLevels;
+    float scaleIBLAmbient;
+    float debugViewInputs;
+    float debugViewEquation;
+} uboParams;
+
 layout(set = 2, binding = 1) uniform samplerCube samplerIrradiance;
 layout(set = 2, binding = 2) uniform samplerCube prefilteredMap;
 layout(set = 2, binding = 3) uniform sampler2D samplerBRDFLUT;
@@ -54,18 +76,6 @@ layout(std430, set = 3, binding = 1) readonly buffer SSBO
 {
     MaterialData materials[];
 };
-
-layout(set = 1, binding = 0) uniform UBOParams {
-    vec3 camPos;
-    float _padding0;
-    vec4 lightDir;
-    float exposure;
-    float gamma;
-    float prefilteredCubeMipLevels;
-    float scaleIBLAmbient;
-    float debugViewInputs;
-    float debugViewEquation;
-} uboParams;
 
 // Converts sRGB to linear color
 vec4 SRGBtoLINEAR(vec4 srgbIn)
