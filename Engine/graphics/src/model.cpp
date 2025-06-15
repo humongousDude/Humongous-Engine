@@ -35,21 +35,12 @@ Model::Model(LogicalDevice* device, const std::string& modelPath, float scale)
 
 Model::~Model() { Destroy(m_logicalDevice->GetVkDevice()); }
 
-void Model::Init()
+void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk::Queue transferQueue, float scale)
 {
     if(m_initialized) { return; }
 
-    HGINFO("Initializing model...");
+    HGINFO("Creating model...");
 
-    LoadMaterialData();
-
-    HGINFO("Initialized model!");
-
-    m_initialized = true;
-}
-
-void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk::Queue transferQueue, float scale)
-{
     tinygltf::Model    gltfModel;
     tinygltf::TinyGLTF gltfContext;
 
@@ -133,6 +124,11 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
 
     ResourceManager::AddVerticesToModel(m_vertices, allMeshesForThisModel);
     ResourceManager::AddIndicesToModel(m_indices, allPrimitivesForThisModel);
+
+    LoadMaterialData();
+
+    m_initialized = true;
+    HGINFO("Initialized model!");
 }
 
 void Model::Destroy(vk::Device device)

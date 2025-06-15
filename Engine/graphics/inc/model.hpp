@@ -125,8 +125,6 @@ public:
 
     std::vector<n32>& GetIndices() { return m_indices; }
 
-    void Init();
-
     struct Dimensions
     {
         glm::vec3 min = glm::vec3(FLT_MAX);
@@ -137,11 +135,15 @@ public:
 
     std::vector<glm::mat4> GetMatrixVector();
 
-    std::unordered_map<n32, std::vector<Primitive*>> m_materialBatches;
+    std::string GetName() const { return name; }
 
 private:
+    std::string name = "";
+
     std::vector<n32>    m_indices;
     std::vector<Vertex> m_vertices;
+
+    std::unordered_map<n32, std::vector<Primitive*>> m_materialBatches;
 
     LogicalDevice* m_logicalDevice;
 

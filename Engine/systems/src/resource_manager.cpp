@@ -114,7 +114,6 @@ n32 ResourceManager::Internal_RequestModel(const std::string& name)
 
     HGINFO("Loading model %s with handle %i", name.c_str(), m_nextModelID);
     auto m = std::make_shared<Model>(m_logicalDevice, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, name), 1.0f);
-    m->Init();
 
     n32 handleToReturn = m_nextModelID++;
 
