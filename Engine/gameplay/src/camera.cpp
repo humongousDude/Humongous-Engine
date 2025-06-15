@@ -23,8 +23,9 @@ Camera::~Camera()
     }
 
     m_projectionPool.reset();
-    m_projectionDescriptorLayout.reset();
-    m_fragProjectionDescriptorLayout.reset();
+    m_vertProjectionLayout.reset();
+    m_fragProjectionLayout.reset();
+    m_compProjectionLayout.reset();
     m_paramDescriptorLayout.reset();
 }
 
@@ -33,25 +34,30 @@ void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
     HGINFO("Initializing descriptor things...");
 
     DescriptorPool::Builder builder{*logicalDevice};
-    builder.SetMaxSets(6);
-    builder.AddPoolSize(vk::DescriptorType::eUniformBuffer, 6);
+    builder.SetMaxSets(25);
+    builder.AddPoolSize(vk::DescriptorType::eUniformBuffer, 25);
     m_projectionPool = builder.Build();
 
     DescriptorSetLayout::Builder builder2{*logicalDevice};
     builder2.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex);
-    m_projectionDescriptorLayout = builder2.Build();
+    m_vertProjectionLayout = builder2.Build();
 
     DescriptorSetLayout::Builder builder3{*logicalDevice};
     builder3.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eFragment);
-    m_fragProjectionDescriptorLayout = builder3.Build();
+    m_fragProjectionLayout = builder3.Build();
 
     DescriptorSetLayout::Builder builder4{*logicalDevice};
-    builder4.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eFragment);
-    m_paramDescriptorLayout = builder4.Build();
+    builder4.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute);
+    m_compProjectionLayout = builder4.Build();
+
+    DescriptorSetLayout::Builder builder5{*logicalDevice};
+    builder5.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute);
+    m_paramDescriptorLayout = builder5.Build();
 
     m_projectionBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    m_projectionMatrixSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_vertProjectionMatrixSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_fragProjectionMatrixSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_compProjectionMatrixSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_uboParamSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_paramBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_combinedCameraDataBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -64,8 +70,9 @@ void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
         m_projectionBuffers[i]->Map();
 
         auto bufInfo = m_projectionBuffers[i]->DescriptorInfo();
-        DescriptorWriter(*m_projectionDescriptorLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_projectionMatrixSet[i]);
-        DescriptorWriter(*m_fragProjectionDescriptorLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_fragProjectionMatrixSet[i]);
+        DescriptorWriter(*m_vertProjectionLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_vertProjectionMatrixSet[i]);
+        DescriptorWriter(*m_fragProjectionLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_fragProjectionMatrixSet[i]);
+        DescriptorWriter(*m_compProjectionLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_compProjectionMatrixSet[i]);
 
         m_paramBuffers[i] =
             std::make_unique<Buffer>(logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(UboParams), vk::BufferUsageFlagBits::eUniformBuffer,

@@ -4,14 +4,14 @@
 #include "extra.hpp"
 #include "images.hpp"
 #include "logger.hpp"
-#include "render_pipeline.hpp"
-#include "render_systems/simple_render_system.hpp"
 #include "scene_handler.hpp"
 
 #include <array>
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_enums.hpp>
+
+// TODO: compute pipeline abstraction
 
 namespace Humongous
 {
@@ -20,7 +20,6 @@ Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice&
                    vk::Format depthFormat)
     : m_window{window}, m_logicalDevice{logicalDevice}, m_physicalDevice{physicalDevice}, m_allocator{allocator}
 {
-    m_drawImage.imageFormat = drawFormat;
     m_depthImage.imageFormat = depthFormat;
 
     CreateCommandPool();
@@ -51,6 +50,8 @@ Renderer::~Renderer()
         frame.debugBuffer.reset();
         frame.objectDataBuffer.reset();
         frame.rendererDataBuffer.reset();
+
+        frame.drawImage.Destroy(m_logicalDevice);
     }
 
     for(auto& mip: m_depthMips)
@@ -59,8 +60,6 @@ Renderer::~Renderer()
         m_logicalDevice.GetVkDevice().destroyImageView(mip.storageView);
     }
 
-    if(m_drawImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_drawImage.image, m_drawImage.allocation); }
-    if(m_depthImage.imageView != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyImageView(m_drawImage.imageView, nullptr); }
     if(m_depthImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_depthImage.image, m_depthImage.allocation); }
     if(m_depthImage.imageView != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyImageView(m_depthImage.imageView, nullptr); }
     if(m_depthImageSampler != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroySampler(m_depthImageSampler); }
@@ -72,10 +71,10 @@ Renderer::~Renderer()
     m_logicalDevice.GetVkDevice().destroyPipeline(m_mipPipeline, nullptr);
     m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_mipPipelineLayout, nullptr);
 
-    m_lightingPipeline.reset();
+    m_logicalDevice.GetVkDevice().destroyPipeline(m_lightingPipeline, nullptr);
     m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_lightingPipelineLayout, nullptr);
 
-    m_lightingLayout.reset();
+    m_lightingDescriptorLayout.reset();
     m_lightingPool.reset();
 
     m_occlusionDescriptorLayout.reset();
@@ -107,7 +106,7 @@ void Renderer::RecreateSwapChain()
     m_logicalDevice.GetVkDevice().waitIdle();
 
     m_screenImageExtent = m_swapChain->GetExtent();
-    m_drawImage.imageExtent = vk::Extent3D(m_screenImageExtent.width, m_screenImageExtent.height, 0.0);
+    GetCurrentFrame().drawImage.imageExtent = vk::Extent3D(m_screenImageExtent.width, m_screenImageExtent.height, 0.0);
 
     CreateDrawImage();
     CreateDepthImage();
@@ -116,14 +115,9 @@ void Renderer::RecreateSwapChain()
 
 void Renderer::CreateDrawImage()
 {
-    if(m_drawImage.imageView != VK_NULL_HANDLE) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), m_drawImage.imageView, nullptr); }
-    if(m_drawImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_drawImage.image, m_drawImage.allocation); }
-
     HGINFO("Creating draw image and view...");
 
     vk::Extent3D drawImageExtent = {m_swapChain->GetExtent().width, m_swapChain->GetExtent().height, 1};
-
-    m_drawImage.imageExtent = drawImageExtent;
 
     vk::ImageUsageFlags drawImageUsages{};
     drawImageUsages |= vk::ImageUsageFlagBits::eTransferSrc;
@@ -131,7 +125,7 @@ void Renderer::CreateDrawImage()
     drawImageUsages |= vk::ImageUsageFlagBits::eStorage;
     drawImageUsages |= vk::ImageUsageFlagBits::eColorAttachment;
 
-    Utils::AllocatedImageCreateInfo imgCI{.logicalDevice = m_logicalDevice, .allocatedImage = &m_drawImage};
+    Utils::AllocatedImageCreateInfo imgCI{.logicalDevice = m_logicalDevice};
     imgCI.layerCount = 1;
     imgCI.imageViewType = vk::ImageViewType::e2D;
     imgCI.tiling = vk::ImageTiling::eOptimal;
@@ -142,22 +136,29 @@ void Renderer::CreateDrawImage()
     imgCI.mipLevels = 1;
     imgCI.usage = drawImageUsages;
     imgCI.layerCount = 1;
-    imgCI.format = m_drawImage.imageFormat == vk::Format::eUndefined ? vk::Format::eR16G16B16A16Sfloat : m_drawImage.imageFormat;
+    imgCI.format = vk::Format::eR16G16B16A16Sfloat;
     imgCI.imagePool = VK_NULL_HANDLE;
     imgCI.samples = vk::SampleCountFlagBits::e1;
 
-    Utils::CreateAllocatedImage(imgCI);
+    auto cmd = m_logicalDevice.BeginSingleTimeCommands();
+    for(auto& frame: m_frames)
+    {
+        if(frame.drawImage.imageView != VK_NULL_HANDLE) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), frame.drawImage.imageView, nullptr); }
+        if(frame.drawImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, frame.drawImage.image, frame.drawImage.allocation); }
 
-    auto                       cmd = m_logicalDevice.BeginSingleTimeCommands();
-    Utils::ImageTransitionInfo transInfo{};
-    transInfo.image = m_drawImage.image;
-    transInfo.oldLayout = vk::ImageLayout::eUndefined;
-    transInfo.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
-    transInfo.cmd = cmd;
-    transInfo.imageAspect = vk::ImageAspectFlagBits::eColor;
-    Utils::TransitionImageLayout(transInfo);
+        imgCI.allocatedImage = &frame.drawImage;
+        Utils::CreateAllocatedImage(imgCI);
 
-    m_drawImage.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        Utils::ImageTransitionInfo transInfo{};
+        transInfo.image = frame.drawImage.image;
+        transInfo.oldLayout = vk::ImageLayout::eUndefined;
+        transInfo.newLayout = vk::ImageLayout::eGeneral;
+        transInfo.cmd = cmd;
+        transInfo.imageAspect = vk::ImageAspectFlagBits::eColor;
+        Utils::TransitionImageLayout(transInfo);
+
+        frame.drawImage.imageLayout = vk::ImageLayout::eGeneral;
+    }
 
     m_logicalDevice.EndSingleTimeCommands(cmd);
 
@@ -186,7 +187,6 @@ void Renderer::CreateDepthImage()
 
     Utils::AllocatedImageCreateInfo imgCI{.logicalDevice = m_logicalDevice, .allocatedImage = &m_depthImage};
     imgCI.layerCount = 1;
-    // imgCI.flags = 0;
     imgCI.imageViewType = vk::ImageViewType::e2D;
     imgCI.tiling = vk::ImageTiling::eOptimal;
     imgCI.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
@@ -263,8 +263,8 @@ void Renderer::CreateGBuffer()
     vk::ImageUsageFlags colorUsages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
 
     Utils::SamplerCreateInfo samCI{};
-    samCI.magFilter = vk::Filter::eLinear;
-    samCI.minFilter = vk::Filter::eLinear;
+    samCI.magFilter = vk::Filter::eNearest;
+    samCI.minFilter = vk::Filter::eNearest;
     samCI.addressModeU = vk::SamplerAddressMode::eClampToEdge;
     samCI.addressModeV = vk::SamplerAddressMode::eClampToEdge;
     samCI.addressModeW = vk::SamplerAddressMode::eClampToEdge;
@@ -290,7 +290,8 @@ void Renderer::CreateGBuffer()
     {
         DescriptorPool::Builder builder{m_logicalDevice};
         builder.AddPoolSize(vk::DescriptorType::eCombinedImageSampler, 45);
-        builder.SetMaxSets(45);
+        builder.AddPoolSize(vk::DescriptorType::eStorageImage, 45);
+        builder.SetMaxSets(50);
         m_lightingPool = builder.Build();
     }
     else { m_lightingPool->ResetPool(); }
@@ -380,7 +381,7 @@ void Renderer::CreateGBuffer()
             m_frames[i].gbuffer.depth.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
         }
 
-        m_lightingPool->AllocateDescriptor(m_lightingLayout->GetDescriptorSetLayout(), m_frames[i].gbuffer.imageSet);
+        m_lightingPool->AllocateDescriptor(m_lightingDescriptorLayout->GetDescriptorSetLayout(), m_frames[i].gbuffer.imageSet);
     }
 
     m_logicalDevice.EndSingleTimeCommands(cmd);
@@ -390,28 +391,29 @@ void Renderer::CreateGBuffer()
 
 void Renderer::CreateLightingPipeline()
 {
-    HGINFO("Creating pipeline layout...");
+    HGINFO("Creating lighting layout...");
     DescriptorSetLayout::Builder builder{m_logicalDevice};
-    builder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 1);
-    builder.AddBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 1);
-    builder.AddBinding(2, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 1);
-    builder.AddBinding(3, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 1);
-    builder.AddBinding(4, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 1);
-    m_lightingLayout = builder.Build();
+    builder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute, 1);
+    builder.AddBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute, 1);
+    builder.AddBinding(2, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute, 1);
+    builder.AddBinding(3, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute, 1);
+    builder.AddBinding(4, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute, 1);
+    builder.AddBinding(5, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute, 1);
+    m_lightingDescriptorLayout = builder.Build();
 
     DescriptorSetLayout::Builder scene{m_logicalDevice};
-    scene.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eFragment, 1);
+    scene.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute, 1);
     auto layout = scene.Build();
 
     DescriptorSetLayout::Builder cam{m_logicalDevice};
-    cam.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eFragment, 1);
+    cam.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute, 1);
     auto camlayout = cam.Build();
 
     std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;
     descriptorSetLayouts.push_back(camlayout->GetDescriptorSetLayout());
     descriptorSetLayouts.push_back(layout->GetDescriptorSetLayout());
-    descriptorSetLayouts.push_back(ResourceManager::GetSkyboxDescriptorLayout());
-    descriptorSetLayouts.push_back(m_lightingLayout->GetDescriptorSetLayout());
+    descriptorSetLayouts.push_back(ResourceManager::GetSkyboxCompDescriptorLayout());
+    descriptorSetLayouts.push_back(m_lightingDescriptorLayout->GetDescriptorSetLayout());
 
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.setLayoutCount = static_cast<n32>(descriptorSetLayouts.size());
@@ -421,27 +423,43 @@ void Renderer::CreateLightingPipeline()
 
     if(m_logicalDevice.GetVkDevice().createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_lightingPipelineLayout) != vk::Result::eSuccess)
     {
-        HGERROR("Failed to create pipeline layout");
+        HGERROR("Failed to create lighting layout");
     }
 
-    HGINFO("Created pipeline layout");
+    HGINFO("Created lighting layout");
 
     HGINFO("Creating pipeline...");
 
-    ShaderSet shaderSet{Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "lighting.vert"),
-                        Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "lighting.frag")};
+    {
+        auto compCode = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "lighting.comp"));
 
-    RenderPipeline::PipelineConfigInfo configInfo = RenderPipeline::DefaultPipelineConfigInfo();
-    configInfo.pipelineLayout = m_lightingPipelineLayout;
-    configInfo.vertShaderPath = shaderSet.vertShaderPath;
-    configInfo.fragShaderPath = shaderSet.fragShaderPath;
+        vk::ShaderModuleCreateInfo createInfo{};
+        createInfo.codeSize = compCode.size();
+        createInfo.pCode = reinterpret_cast<const n32*>(compCode.data());
 
-    configInfo.renderingInfo.colorAttachmentCount = 1;
-    auto format = vk::Format::eR16G16B16A16Sfloat;
-    configInfo.renderingInfo.pColorAttachmentFormats = &format;
-    configInfo.renderingInfo.depthAttachmentFormat = vk::Format::eUndefined;
+        vk::ShaderModule compModule;
 
-    m_lightingPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
+        if(m_logicalDevice.GetVkDevice().createShaderModule(&createInfo, nullptr, &compModule) != vk::Result::eSuccess)
+        {
+            HGERROR("Failed to create shader module!");
+        }
+
+        vk::PipelineShaderStageCreateInfo why{};
+        why.stage = vk::ShaderStageFlagBits::eCompute;
+        why.pName = "main";
+        why.module = compModule;
+
+        vk::ComputePipelineCreateInfo compInfo{};
+        compInfo.layout = m_lightingPipelineLayout;
+        compInfo.stage = why;
+
+        if(m_logicalDevice.GetVkDevice().createComputePipelines(nullptr, 1, &compInfo, nullptr, &m_lightingPipeline) != vk::Result::eSuccess)
+        {
+            HGFATAL("Failed to create renderer compute pipeline!");
+        }
+
+        vkDestroyShaderModule(m_logicalDevice.GetVkDevice(), compModule, nullptr);
+    }
 
     HGINFO("Created pipeline");
 }
@@ -829,23 +847,23 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
 
     ReadyPerFrameData(visibleEntities);
 
-    if(m_drawImage.imageLayout == vk::ImageLayout::eTransferSrcOptimal)
+    if(GetCurrentFrame().drawImage.imageLayout == vk::ImageLayout::eTransferSrcOptimal)
     {
         auto                       cmd = m_logicalDevice.BeginSingleTimeCommands();
         Utils::ImageTransitionInfo transInfo{};
-        transInfo.image = m_drawImage.image;
-        transInfo.oldLayout = m_drawImage.imageLayout;
-        transInfo.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        transInfo.image = GetCurrentFrame().drawImage.image;
+        transInfo.oldLayout = GetCurrentFrame().drawImage.imageLayout;
+        transInfo.newLayout = vk::ImageLayout::eGeneral;
         transInfo.cmd = cmd;
         transInfo.imageAspect = vk::ImageAspectFlagBits::eColor;
         Utils::TransitionImageLayout(transInfo);
-        m_drawImage.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        GetCurrentFrame().drawImage.imageLayout = vk::ImageLayout::eGeneral;
         m_logicalDevice.EndSingleTimeCommands(cmd);
     }
 
     m_screenImageExtent = m_swapChain->GetExtent();
 
-    m_drawImage.imageExtent = vk::Extent3D(m_screenImageExtent, 0.0);
+    GetCurrentFrame().drawImage.imageExtent = vk::Extent3D(m_screenImageExtent, 0.0);
     m_depthImage.imageExtent = vk::Extent3D(m_screenImageExtent, 0.0);
 
     auto cmd = GetCurrentFrame().commandBuffer;
@@ -881,13 +899,13 @@ void Renderer::EndFrame()
     auto cmd = GetCurrentFrame().commandBuffer;
 
     Utils::ImageTransitionInfo drawInfo{};
-    drawInfo.image = m_drawImage.image;
-    drawInfo.oldLayout = m_drawImage.imageLayout;
+    drawInfo.image = GetCurrentFrame().drawImage.image;
+    drawInfo.oldLayout = GetCurrentFrame().drawImage.imageLayout;
     drawInfo.newLayout = vk::ImageLayout::eTransferSrcOptimal;
     drawInfo.cmd = cmd;
     Utils::TransitionImageLayout(drawInfo);
 
-    m_drawImage.imageLayout = vk::ImageLayout::eTransferSrcOptimal;
+    GetCurrentFrame().drawImage.imageLayout = vk::ImageLayout::eTransferSrcOptimal;
 
     Utils::ImageTransitionInfo swapInfo{};
     swapInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
@@ -897,7 +915,8 @@ void Renderer::EndFrame()
 
     Utils::TransitionImageLayout(swapInfo);
 
-    Utils::CopyImageToImage(cmd, m_drawImage.image, m_swapChain->GetImages()[m_currentImageIndex], m_screenImageExtent, m_swapChain->GetExtent());
+    Utils::CopyImageToImage(cmd, GetCurrentFrame().drawImage.image, m_swapChain->GetImages()[m_currentImageIndex], m_screenImageExtent,
+                            m_swapChain->GetExtent());
 
     Utils::ImageTransitionInfo presentTransitionInfo{};
     presentTransitionInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
@@ -1009,53 +1028,45 @@ void Renderer::EndGeometryPass(vk::CommandBuffer cmd)
 
 void Renderer::DoLightingPass(vk::CommandBuffer cmd, vk::DescriptorSet camSet, vk::DescriptorSet sceneSet, vk::DescriptorSet skyboxSet)
 {
-    vk::ClearValue clearValue{};
-    clearValue.color = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 0.0f);
+    auto& currentFrame = GetCurrentFrame();
+    auto  albedoInfo = currentFrame.gbuffer.albedo.GetDescriptorInfo();
+    auto  normalInfo = currentFrame.gbuffer.normalRough.GetDescriptorInfo();
+    auto  matInfo = currentFrame.gbuffer.materialParam.GetDescriptorInfo();
+    auto  posInfo = currentFrame.gbuffer.position.GetDescriptorInfo();
+    auto  depthInfo = currentFrame.gbuffer.depth.GetDescriptorInfo();
+    auto  drawInfo = currentFrame.drawImage.GetDescriptorInfo();
 
-    vk::RenderingAttachmentInfo colorAttachment{};
-    colorAttachment.sType = vk::StructureType::eRenderingAttachmentInfo;
-    colorAttachment.imageView = m_drawImage.imageView;
-    colorAttachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
-    colorAttachment.loadOp = vk::AttachmentLoadOp::eClear;
-    colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
-    colorAttachment.clearValue = clearValue;
-
-    vk::RenderingInfo renderingInfo{};
-    renderingInfo.sType = vk::StructureType::eRenderingInfo;
-    renderingInfo.renderArea = vk::Rect2D(vk::Offset2D(0, 0), m_screenImageExtent);
-    renderingInfo.layerCount = 1;
-    renderingInfo.colorAttachmentCount = 1;
-    renderingInfo.pColorAttachments = &colorAttachment;
-    renderingInfo.pDepthAttachment = nullptr;
-    renderingInfo.pStencilAttachment = nullptr;
-    renderingInfo.pNext = nullptr;
-    renderingInfo.viewMask = 0;
-    // renderingInfo.flags = 0;
-
-    cmd.beginRendering(&renderingInfo);
-
-    auto albedoInfo = GetCurrentFrame().gbuffer.albedo.GetDescriptorInfo();
-    auto normalInfo = GetCurrentFrame().gbuffer.normalRough.GetDescriptorInfo();
-    auto matInfo = GetCurrentFrame().gbuffer.materialParam.GetDescriptorInfo();
-    auto posInfo = GetCurrentFrame().gbuffer.position.GetDescriptorInfo();
-    auto depthInfo = GetCurrentFrame().gbuffer.depth.GetDescriptorInfo();
-
-    DescriptorWriter writer(*m_lightingLayout, m_lightingPool.get());
+    DescriptorWriter writer(*m_lightingDescriptorLayout, m_lightingPool.get());
     writer.WriteImage(0, &albedoInfo)
         .WriteImage(1, &normalInfo)
         .WriteImage(2, &matInfo)
         .WriteImage(3, &posInfo)
         .WriteImage(4, &depthInfo)
-        .Overwrite(GetCurrentFrame().gbuffer.imageSet);
+        .WriteImage(5, &drawInfo)
+        .Overwrite(currentFrame.gbuffer.imageSet);
 
-    m_lightingPipeline->Bind(cmd);
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_lightingPipeline);
 
-    std::vector<vk::DescriptorSet> sets = {camSet, sceneSet, skyboxSet, GetCurrentFrame().gbuffer.imageSet};
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_lightingPipelineLayout, 0, sets.size(), sets.data(), 0, nullptr);
+    std::vector<vk::DescriptorSet> sets = {camSet, sceneSet, skyboxSet, currentFrame.gbuffer.imageSet};
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_lightingPipelineLayout, 0, sets.size(), sets.data(), 0, nullptr);
 
-    cmd.draw(3, 1, 0, 0);
+    n32 localSize = 8;
 
-    cmd.endRendering();
+    n32 countX = std::ceil(m_screenImageExtent.width / localSize);
+    n32 countY = std::ceil(m_screenImageExtent.height / localSize);
+
+    cmd.dispatch(countX, countY, 1);
+
+    WaitForCompute(cmd);
+
+    Utils::ImageTransitionInfo transitionInfo{};
+    transitionInfo.image = GetCurrentFrame().drawImage.image;
+    transitionInfo.oldLayout = GetCurrentFrame().drawImage.imageLayout;
+    transitionInfo.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
+    transitionInfo.cmd = cmd;
+    Utils::TransitionImageLayout(transitionInfo);
+
+    GetCurrentFrame().drawImage.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
 }
 
 void Renderer::BeginSkyboxPass(vk::CommandBuffer cmd)
@@ -1066,7 +1077,7 @@ void Renderer::BeginSkyboxPass(vk::CommandBuffer cmd)
 
     vk::RenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = vk::StructureType::eRenderingAttachmentInfo;
-    colorAttachment.imageView = m_drawImage.imageView;
+    colorAttachment.imageView = GetCurrentFrame().drawImage.imageView;
     colorAttachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
     colorAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
     colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
@@ -1103,7 +1114,7 @@ void Renderer::BeginUIRendering(vk::CommandBuffer cmd)
 
     vk::RenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = vk::StructureType::eRenderingAttachmentInfo;
-    colorAttachment.imageView = m_drawImage.imageView;
+    colorAttachment.imageView = GetCurrentFrame().drawImage.imageView;
     colorAttachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
     colorAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
     colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;

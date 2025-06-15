@@ -44,19 +44,17 @@ public:
     static const DescriptorPools&  GetDescriptorPools() { return Get().m_descriptorPools; }
 
     static vk::DescriptorSetLayout GetSkyboxDescriptorLayout() { return Get().m_skyboxLayout->GetDescriptorSetLayout(); }
+    static vk::DescriptorSetLayout GetSkyboxCompDescriptorLayout() { return Get().m_skyboxCompLayout->GetDescriptorSetLayout(); }
 
     static void BindGlobalDescriptorSets(vk::CommandBuffer cmd, vk::PipelineLayout layout) { Get().Internal_BindGlobalDescriptorSets(cmd, layout); }
 
-    // Material Textures, Material Data, Node, RendererBuffer
+    // Bindless, node matricies, vertices, debug
     static std::vector<vk::DescriptorSetLayout> GetLayoutVector()
     {
-        return {Get().m_bindlessLayout->GetDescriptorSetLayout(), Get().m_modelDescriptors.nodeMatricies->GetDescriptorSetLayout(),
-                Get().m_modelDescriptors.vertices->GetDescriptorSetLayout(), Get().m_modelDescriptors.debugLayout->GetDescriptorSetLayout()};
-    }
-
-    static n32 GetTotalModelBindingCount()
-    {
-        return Get().m_modelDescriptors.nodeMatricies->GetBindingCount() + Get().m_modelDescriptors.debugLayout->GetBindingCount();
+        return {Get().m_bindlessLayout->GetDescriptorSetLayout(),
+                Get().m_modelDescriptors.vertices->GetDescriptorSetLayout(), // both node matricies and vertex buffer use the exact same layout
+                Get().m_modelDescriptors.vertices->GetDescriptorSetLayout(), // so i'm reusing it
+                Get().m_modelDescriptors.debugLayout->GetDescriptorSetLayout()};
     }
 
     static vk::DescriptorSet GetVertexDescriptor() { return Get().m_modelDescriptors.vertexDescriptor; }
@@ -68,12 +66,10 @@ public:
 
     static n32 RequestMaterial(const Model::ShaderMaterial& mat) { return Get().Internal_RequestMaterial(mat); }
 
-    std::unique_ptr<Buffer>      m_modelIndexBuffer;
-    std::unordered_map<n32, n32> m_modelHandleToIndexStart;
-    std::unique_ptr<Buffer>      m_modelVertexBuffer;
-    std::vector<n32>             m_modelIndicies;
-    std::vector<Model::Vertex>   m_modelVertices;
-    std::unordered_map<n32, n32> m_modelHandleToMatrixStart;
+    static Buffer& GetModelIndexBuffer() { return *Get().m_modelIndexBuffer; }
+    static n32&    GetModelHandleToIndexBufferStart(const n32& handle) { return Get().m_modelHandleToIndexStart.at(handle); }
+    static n32&    GetModelHandleToMatrixStart(const n32& handle) { return Get().m_modelHandleToMatrixStart.at(handle); }
+    static Buffer& GetModelVertexBuffer() { return *Get().m_modelVertexBuffer; }
 
 private:
     struct DescriptorPools
@@ -87,7 +83,6 @@ private:
 
     struct ModelDescriptors
     {
-        std::unique_ptr<DescriptorSetLayout> nodeMatricies;
         vk::DescriptorSet                    vertexDescriptor;
         std::unique_ptr<DescriptorSetLayout> vertices;
         std::unique_ptr<DescriptorSetLayout> debugLayout;
@@ -95,6 +90,7 @@ private:
     } m_modelDescriptors;
 
     std::unique_ptr<DescriptorSetLayout> m_skyboxLayout;
+    std::unique_ptr<DescriptorSetLayout> m_skyboxCompLayout;
 
     LogicalDevice* m_logicalDevice{nullptr};
 
@@ -105,8 +101,15 @@ private:
     std::unordered_map<n32, std::shared_ptr<Model>> m_modelMap;
     std::unordered_map<std::string, n32>            m_modelNameToHandle;
 
-    std::vector<glm::mat4>  m_modelNodeMatricesFlat;
-    std::unique_ptr<Buffer> m_modelNodeMatriciesBuffer;
+    std::unique_ptr<Buffer>      m_modelIndexBuffer;
+    std::unordered_map<n32, n32> m_modelHandleToIndexStart;
+    std::unique_ptr<Buffer>      m_modelVertexBuffer;
+    std::vector<n32>             m_modelIndicies;
+    std::vector<Model::Vertex>   m_modelVertices;
+
+    std::unordered_map<n32, n32> m_modelHandleToMatrixStart;
+    std::vector<glm::mat4>       m_modelNodeMatricesFlat;
+    std::unique_ptr<Buffer>      m_modelNodeMatriciesBuffer;
 
     void Internal_AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives);
 

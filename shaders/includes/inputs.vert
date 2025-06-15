@@ -18,10 +18,8 @@ layout(set = 0, binding = 0) uniform UBO
     vec3 cameraPos;
 } ubo;
 
-layout(set = 3, binding = 2) readonly buffer UBONode {
+layout(set = 1, binding = 2) readonly buffer UBONode {
     mat4 matrix[];
-    // mat4 jointMatrix[MAX_NUM_JOINTS];
-    // float jointCount;
 } node;
 
 struct DrawData {
@@ -31,15 +29,15 @@ struct DrawData {
     uint nodeIndex;
 };
 
-layout(set = 4, binding = 0) readonly buffer rrawData {
+layout(set = 2, binding = 0) readonly buffer rrawData {
     DrawData drawData[];
 } drawData;
 
-layout(set = 5, binding = 0) readonly buffer Vertices {
+layout(set = 3, binding = 0) readonly buffer Vertices {
     Vertex vertices[];
 } globalVertices;
 
-layout(set = 6, binding = 0) buffer DebugData
+layout(set = 4, binding = 0) buffer DebugData
 {
     uint draws;
 } debug;

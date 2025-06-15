@@ -10,13 +10,11 @@ namespace Globals
 {
 
 // I am unsure where I should put this
-enum class DescriptorSetIndices : n32
+enum class ModelDescriptorIndices : n32
 {
     Camera = 0, // Camera gets 1 descriptor set
-    Scene = 1,  // Scene gets 1 descriptor set
-    Skybox = 2, // Skybox gets 1 descriptor set
-    Model = 3,  // Model gets 1 descriptor sets
-    Debug = 6,  // Debug gets 1 descriptor set
+    Model = 1,  // Model gets 3 descriptor sets
+    Debug = 4,  // Debug gets 1 descriptor set
 };
 
 class Time : public Singleton<Time>, NonCopyable

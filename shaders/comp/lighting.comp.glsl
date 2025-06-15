@@ -1,8 +1,6 @@
 #version 450
 
-layout(location = 0) in vec2 inUV;
-
-layout(location = 0) out vec4 outColor;
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(set = 0, binding = 0) uniform UBO
 {
@@ -75,7 +73,6 @@ float GeometrySchlickGGX(float NdotV, float roughness)
     return NdotV / (NdotV * (1.0 - k) + k);
 }
 
-// Smith’s Geometry function, combining both view‐ and light‐terms
 float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 {
     float NdotV = max(dot(N, V), 0.0);
@@ -87,23 +84,24 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 
 void main()
 {
-    // 1) Sample G-Buffer
-    vec4 albSample = texture(gAlbedo, inUV);
-    vec4 nrSample = texture(gNormalRough, inUV);
-    vec4 mpSample = texture(gMatParams, inUV);
-    float depth = texture(gDepth, inUV).r;
+    ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+    vec2 uv = (vec2(pixelCoords) + 0.5) / vec2(imageSize(drawImage));
+
+    vec4 albSample = texture(gAlbedo, uv);
+    vec4 nrSample = texture(gNormalRough, uv);
+    vec4 mpSample = texture(gMatParams, uv);
+    float depth = texture(gDepth, uv).r;
 
     vec3 albedo = albSample.rgb;
 
-    float alpha = albSample.a; // Note: Sascha uses albedo.a for specular map
-
+    float alpha = albSample.a;
     vec3 N = normalize(nrSample.xyz * 2.0 - 1.0);
     float roughness = nrSample.w;
 
     vec3 emissive = mpSample.rgb;
     float metallic = mpSample.a;
 
-    vec3 worldPos = texture(gPosition, inUV).rgb;
+    vec3 worldPos = texture(gPosition, uv).rgb;
 
     vec3 V = normalize(uboParams.camPos - worldPos);
     vec3 L = normalize(-uboParams.lightDir.xyz);
@@ -153,11 +151,12 @@ void main()
 
     vec3 ambient_PBR = (diffuse_ibl_component + specular_ibl_component) * uboParams.scaleIBLAmbient;
 
-    fragcolor += ambient_PBR; // Add PBR-based ambient (IBL)
-    fragcolor += emissive; // Add emissive from your G-buffer
+    fragcolor += ambient_PBR;
+    fragcolor += emissive;
 
     vec3 color = vec3(1.0) - exp(-fragcolor * uboParams.exposure);
     color = pow(color, vec3(1.0 / uboParams.gamma));
+    vec4 outColor = vec4(color, 1);
 
-    outColor = vec4(color, 1);
+    imageStore(drawImage, pixelCoords, outColor);
 }

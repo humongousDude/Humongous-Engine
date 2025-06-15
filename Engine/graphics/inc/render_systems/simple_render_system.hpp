@@ -12,11 +12,12 @@ namespace Humongous
 struct RenderData
 {
     vk::CommandBuffer              commandBuffer;
-    std::vector<vk::DescriptorSet> uboSets;    // Camera UBOs
-    std::vector<vk::DescriptorSet> sceneSets;  // Scene-wide parameters
-    std::vector<vk::DescriptorSet> skyboxSets; // Skybox specific (might not be used by object rendering)
+    std::vector<vk::DescriptorSet> uboSets; // Camera UBOs
 
-    // List of entities to render in this pass
+    // Since DoLightingPass is called from the renderer, these aren't needed here. Though I'll keep them just in case
+    // std::vector<vk::DescriptorSet> sceneSets;  // Scene-wide parameters
+    // std::vector<vk::DescriptorSet> skyboxSets; // Skybox specific (might not be used by object rendering)
+
     const std::vector<Utils::VisibleEntityInfo>* visibleEntities;
 
     Humongous::World& world;

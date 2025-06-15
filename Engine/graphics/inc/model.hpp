@@ -125,8 +125,7 @@ public:
 
     std::vector<n32>& GetIndices() { return m_indices; }
 
-    void Init(DescriptorSetLayout* nodeLayout, DescriptorPoolGrowable* imagePool, DescriptorPoolGrowable* uniformPool,
-              DescriptorPoolGrowable* storagePool);
+    void Init();
 
     struct Dimensions
     {

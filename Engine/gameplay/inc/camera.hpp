@@ -58,19 +58,21 @@ public:
     void SetOrthographicProjection(float left, float right, float top, float bottom, float near, float far);
     void SetPerspectiveProjection(float fovy, float spect, float near, float far);
 
-    VkDescriptorSet GetDescriptorSet(n32 index) const { return m_projectionMatrixSet[index]; };
+    VkDescriptorSet GetVertexDescriptorSet(n32 index) const { return m_vertProjectionMatrixSet[index]; };
     VkDescriptorSet GetFragmentDescriptorSet(n32 index) const { return m_fragProjectionMatrixSet[index]; };
+    VkDescriptorSet GetComputeDescriptorSet(n32 index) const { return m_compProjectionMatrixSet[index]; };
     VkDescriptorSet GetParamDescriptorSet(n32 index) const { return m_uboParamSet[index]; };
 
     void DrawUI();
 
     VkDescriptorSetLayout              GetParamDescriptorSetLayout() const { return m_paramDescriptorLayout->GetDescriptorSetLayout(); };
-    const std::vector<VkDescriptorSet> GetCombinedSets(n32 index) const { return {m_projectionMatrixSet[index], m_uboParamSet[index]}; };
-    VkDescriptorSetLayout              GetDescriptorSetLayout() const { return m_projectionDescriptorLayout->GetDescriptorSetLayout(); };
-    VkDescriptorSetLayout GetFragmentDescriptorSetLayout() const { return m_fragProjectionDescriptorLayout->GetDescriptorSetLayout(); };
-    VkBuffer              GetProjectionBuffer(n32 index) const { return m_projectionBuffers[index]->GetBuffer(); };
-    Buffer&               GetProjectionBufferHandle(n32 index) const { return *m_projectionBuffers[index]; }
-    Buffer&               GetCombinedDataBufferHandle(n32 index) const { return *m_combinedCameraDataBuffers[index]; }
+    const std::vector<VkDescriptorSet> GetCombinedSets(n32 index) const { return {m_vertProjectionMatrixSet[index], m_uboParamSet[index]}; };
+    VkDescriptorSetLayout              GetVertexDescriptorLayout() const { return m_vertProjectionLayout->GetDescriptorSetLayout(); };
+    VkDescriptorSetLayout              GetFragmentDescriptorSetLayout() const { return m_fragProjectionLayout->GetDescriptorSetLayout(); };
+    VkDescriptorSetLayout              GetComputeDescriptorSetLayout() const { return m_compProjectionLayout->GetDescriptorSetLayout(); };
+    VkBuffer                           GetProjectionBuffer(n32 index) const { return m_projectionBuffers[index]->GetBuffer(); };
+    Buffer&                            GetProjectionBufferHandle(n32 index) const { return *m_projectionBuffers[index]; }
+    Buffer&                            GetCombinedDataBufferHandle(n32 index) const { return *m_combinedCameraDataBuffers[index]; }
 
     const glm::mat4& GetProjection() const { return m_projectionMatrix; };
     const glm::mat4& GetView() const { return m_viewMatrix; };
@@ -102,12 +104,14 @@ private:
     std::vector<std::unique_ptr<Buffer>> m_combinedCameraDataBuffers;
 
     std::unique_ptr<DescriptorPool>      m_projectionPool;
-    std::unique_ptr<DescriptorSetLayout> m_projectionDescriptorLayout;
-    std::unique_ptr<DescriptorSetLayout> m_fragProjectionDescriptorLayout;
+    std::unique_ptr<DescriptorSetLayout> m_vertProjectionLayout;
+    std::unique_ptr<DescriptorSetLayout> m_fragProjectionLayout;
+    std::unique_ptr<DescriptorSetLayout> m_compProjectionLayout;
     std::unique_ptr<DescriptorSetLayout> m_paramDescriptorLayout;
 
-    std::vector<vk::DescriptorSet> m_projectionMatrixSet;
+    std::vector<vk::DescriptorSet> m_vertProjectionMatrixSet;
     std::vector<vk::DescriptorSet> m_fragProjectionMatrixSet;
+    std::vector<vk::DescriptorSet> m_compProjectionMatrixSet;
     std::vector<vk::DescriptorSet> m_uboParamSet;
     UboParams                      m_uboParams{};
 

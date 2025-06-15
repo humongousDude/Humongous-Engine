@@ -11,7 +11,7 @@ Skybox::Skybox(const SkyboxCreateInfo& createInfo) : m_logicalDevice{createInfo.
 {
     LoadCubemap(createInfo.cubemapPath);
     GeneratePBRImages(createInfo.uniformPool, createInfo.imagePool, createInfo.storageImagePool);
-    LoadDescriptorSet(createInfo.descriptorSetLayout, &createInfo.imagePool);
+    LoadDescriptorSet(createInfo.descriptorSetLayout, createInfo.compDescriptorSetLayout, &createInfo.imagePool);
 }
 
 Skybox::~Skybox()
@@ -30,7 +30,7 @@ void Skybox::LoadCubemap(const std::string& cubemapPath)
     m_skybox = std::make_unique<Texture>(m_logicalDevice, cubemapPath, Texture::ImageType::CUBEMAP);
 }
 
-void Skybox::LoadDescriptorSet(DescriptorSetLayout& descriptorLayout, DescriptorPoolGrowable* pool)
+void Skybox::LoadDescriptorSet(DescriptorSetLayout& descriptorLayout, DescriptorSetLayout& compLayout, DescriptorPoolGrowable* pool)
 {
     auto                    imgInfo = m_skybox->GetDescriptorInfo();
     auto                    irradInfo = m_irradiance->GetDescriptorInfo();
@@ -42,6 +42,13 @@ void Skybox::LoadDescriptorSet(DescriptorSetLayout& descriptorLayout, Descriptor
         .WriteImage(2, &info)
         .WriteImage(3, &brdfInfo)
         .Build(m_cubeMapSet);
+
+    DescriptorWriter(compLayout, pool)
+        .WriteImage(0, &imgInfo)
+        .WriteImage(1, &irradInfo)
+        .WriteImage(2, &info)
+        .WriteImage(3, &brdfInfo)
+        .Build(m_compCubeMapSet);
 }
 
 struct PrefilteredData
@@ -53,13 +60,13 @@ struct PrefilteredData
 void Skybox::CreatePrefilteredMipViews()
 {
     vk::ImageViewCreateInfo viewInfo{};
-    viewInfo.image = m_prefilteredMap->GetRawImageHandle(); // The main vk::Image resource
-    viewInfo.viewType = vk::ImageViewType::eCube;           // It's a cubemap
-    viewInfo.format = vk::Format::eR16G16B16A16Sfloat;      // Match your image format
+    viewInfo.image = m_prefilteredMap->GetRawImageHandle();
+    viewInfo.viewType = vk::ImageViewType::eCube;
+    viewInfo.format = vk::Format::eR16G16B16A16Sfloat;
     viewInfo.components = {VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A};
     viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-    viewInfo.subresourceRange.baseArrayLayer = 0; // Start from the first face
-    viewInfo.subresourceRange.layerCount = 6;     // View all 6 faces
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 6;
 
     m_prefilteredMipViews.resize(m_prefilteredMap->GetMipLevels());
     for(uint32_t mipLevel = 0; mipLevel < m_prefilteredMap->GetMipLevels(); ++mipLevel)

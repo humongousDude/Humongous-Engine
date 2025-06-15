@@ -53,7 +53,7 @@ bool DescriptorPoolGrowable::AllocateDescriptor(const vk::DescriptorSetLayout de
         if(result != vk::Result::eSuccess)
         {
             HGERROR("Completely failed to allocate a descriptor set, failing");
-            HGERROR("Error Code: %d", result);
+            HGERROR("Error: %s", vk::to_string(result).c_str());
             return false;
         }
     }

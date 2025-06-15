@@ -35,13 +35,15 @@ Model::Model(LogicalDevice* device, const std::string& modelPath, float scale)
 
 Model::~Model() { Destroy(m_logicalDevice->GetVkDevice()); }
 
-void Model::Init(DescriptorSetLayout* nodeLayout, DescriptorPoolGrowable* imagePool, DescriptorPoolGrowable* uniformPool,
-                 DescriptorPoolGrowable* storagePool)
+void Model::Init()
 {
     if(m_initialized) { return; }
+
     HGINFO("Initializing model...");
 
     LoadMaterialData();
+
+    HGINFO("Initialized model!");
 
     m_initialized = true;
 }

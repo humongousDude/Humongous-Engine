@@ -14,6 +14,7 @@ struct SkyboxCreateInfo
     LogicalDevice*          logicalDevice;
     const std::string&      cubemapPath;
     DescriptorSetLayout&    descriptorSetLayout;
+    DescriptorSetLayout&    compDescriptorSetLayout;
     DescriptorPoolGrowable& imagePool;
     DescriptorPoolGrowable& uniformPool;
     DescriptorPoolGrowable& storageImagePool;
@@ -26,6 +27,7 @@ public:
     ~Skybox();
 
     vk::DescriptorSet GetDescriptorSet() const { return m_cubeMapSet; }
+    vk::DescriptorSet GetCompDescriptorSet() const { return m_compCubeMapSet; }
 
     void Draw(vk::CommandBuffer cmd) { cmd.draw(6, 1, 0, 0); }
 
@@ -43,10 +45,11 @@ private:
 
     vk::DrawIndexedIndirectCommand m_command;
     vk::DescriptorSet              m_cubeMapSet;
+    vk::DescriptorSet              m_compCubeMapSet;
 
     void LoadCube();
     void LoadCubemap(const std::string& cubemapPath);
-    void LoadDescriptorSet(DescriptorSetLayout& descriptorLayout, DescriptorPoolGrowable* pool);
+    void LoadDescriptorSet(DescriptorSetLayout& descriptorLayout, DescriptorSetLayout& compLayout, DescriptorPoolGrowable* pool);
 
     void GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPoolGrowable& combinedImagePool,
                            DescriptorPoolGrowable& storageImagePool);

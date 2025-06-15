@@ -29,7 +29,6 @@ void ResourceManager::Internal_Shutdown()
     for(auto& [key, model]: m_modelMap) { model.reset(); }
     for(auto& [key, texture]: m_textureMap) { texture.texture.Destroy(); }
 
-    m_modelDescriptors.nodeMatricies.reset();
     m_modelDescriptors.vertices.reset();
     m_modelDescriptors.rendererBuffer.reset();
     m_modelDescriptors.debugLayout.reset();
@@ -48,6 +47,7 @@ void ResourceManager::Internal_Shutdown()
     m_descriptorPools.debugPool.reset();
 
     m_skyboxLayout.reset();
+    m_skyboxCompLayout.reset();
 
     HGINFO("Resource manager shutdown");
 }
@@ -71,10 +71,10 @@ void ResourceManager::InitDescriptors()
         std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t3);
 
     m_bindlessTexturePool = std::make_unique<DescriptorPoolGrowable>(
-        *m_logicalDevice, 1024, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet | vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind, t1);
+        *m_logicalDevice, 128, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet | vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind, t1);
 
     DescriptorSetLayout::Builder bindlessBuilder{*m_logicalDevice};
-    bindlessBuilder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 1024)
+    bindlessBuilder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 128)
         .AddBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eFragment, 1)
         .AddBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex, 1);
     m_bindlessLayout = bindlessBuilder.Build();
@@ -83,7 +83,6 @@ void ResourceManager::InitDescriptors()
 
     DescriptorSetLayout::Builder nodeBuilder{*m_logicalDevice};
     nodeBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex);
-    m_modelDescriptors.nodeMatricies = nodeBuilder.Build();
     m_modelDescriptors.vertices = nodeBuilder.Build();
 
     m_descriptorPools.storageBufferPool->AllocateDescriptor(m_modelDescriptors.vertices->GetDescriptorSetLayout(),
@@ -99,6 +98,13 @@ void ResourceManager::InitDescriptors()
     builder.AddBinding(2, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment);
     builder.AddBinding(3, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment);
     m_skyboxLayout = builder.Build();
+
+    DescriptorSetLayout::Builder builder2{*m_logicalDevice};
+    builder2.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
+    builder2.AddBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
+    builder2.AddBinding(2, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
+    builder2.AddBinding(3, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
+    m_skyboxCompLayout = builder2.Build();
 }
 
 n32 ResourceManager::Internal_RequestModel(const std::string& name)
@@ -108,8 +114,7 @@ n32 ResourceManager::Internal_RequestModel(const std::string& name)
 
     HGINFO("Loading model %s with handle %i", name.c_str(), m_nextModelID);
     auto m = std::make_shared<Model>(m_logicalDevice, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, name), 1.0f);
-    m->Init(m_modelDescriptors.nodeMatricies.get(), m_descriptorPools.imagePool.get(), m_descriptorPools.uniformPool.get(),
-            m_descriptorPools.storageBufferPool.get());
+    m->Init();
 
     n32 handleToReturn = m_nextModelID++;
 
@@ -190,22 +195,15 @@ void ResourceManager::Internal_AddIndicesToModel(const std::vector<n32>& modelIn
 
 void ResourceManager::Internal_AddVerticesToModel(const std::vector<Model::Vertex>& modelVertices, const std::vector<Mesh*>& modelMeshes)
 {
-    // 1) “baseVertex” is where this model’s vertices land in the GLOBAL m_modelVertices[]
     const size_t baseVertex = m_modelVertices.size();
 
     m_modelVertices.insert(m_modelVertices.end(), modelVertices.begin(), modelVertices.end());
 
     for(Mesh* mesh: modelMeshes)
     {
-        // mesh->baseVertex = global start of this model
         mesh->baseVertex = static_cast<n32>(baseVertex);
 
-        // But each primitive has its own localVertexStart; so:
-        for(Primitive* prim: mesh->primitives)
-        {
-            // The GPU’s “vertexOffset” = global base + local start
-            prim->vertexOffset = static_cast<n32>(baseVertex + prim->localVertexStart);
-        }
+        for(Primitive* prim: mesh->primitives) { prim->vertexOffset = static_cast<n32>(baseVertex + prim->localVertexStart); }
     }
 
     HGINFO("We now have %i vertices", modelVertices.size());
@@ -247,6 +245,7 @@ std::shared_ptr<Skybox> ResourceManager::Internal_LoadSkybox(const std::string& 
     SkyboxCreateInfo info{.logicalDevice = m_logicalDevice,
                           .cubemapPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::TEXTURE, name),
                           .descriptorSetLayout = *m_skyboxLayout,
+                          .compDescriptorSetLayout = *m_skyboxCompLayout,
                           .imagePool = *m_descriptorPools.imagePool,
                           .uniformPool = *m_descriptorPools.uniformPool,
                           .storageImagePool = *m_descriptorPools.storageImagePool};
@@ -366,7 +365,7 @@ n32 ResourceManager::Internal_RequestMaterial(const Model::ShaderMaterial& mat)
 
 void ResourceManager::Internal_BindGlobalDescriptorSets(vk::CommandBuffer cmd, vk::PipelineLayout layout)
 {
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, layout, static_cast<n32>(Globals::DescriptorSetIndices::Model), 1, &m_bindlessSet, 0,
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, layout, static_cast<n32>(Globals::ModelDescriptorIndices::Model), 1, &m_bindlessSet, 0,
                            nullptr);
 }
 

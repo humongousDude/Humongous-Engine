@@ -207,7 +207,7 @@ void TransitionImageLayout(ImageTransitionInfo& info)
             break;
 
         case vk::ImageLayout::eShaderReadOnlyOptimal:
-            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader | vk::PipelineStageFlagBits2::eComputeShader;
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
             imageBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead;
             break;
 

@@ -63,15 +63,16 @@ void VulkanApp::Init(const int argc, char* argv[])
 
     m_cam = std::make_unique<Camera>(m_logicalDevice.get());
 
-    std::vector<vk::DescriptorSetLayout> skyboxLayouts = {m_cam->GetDescriptorSetLayout()};
+    std::vector<vk::DescriptorSetLayout> skyboxLayouts = {m_cam->GetVertexDescriptorLayout()};
 
     ShaderSet set = {Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert"),
                      Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "pbr.frag")};
 
     m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(m_logicalDevice.get(), "papermill", skyboxLayouts);
 
-    std::vector<vk::DescriptorSetLayout> simpleLayouts = {m_cam->GetDescriptorSetLayout(), m_cam->GetParamDescriptorSetLayout(),
-                                                          ResourceManager::GetSkyboxDescriptorLayout()};
+    std::vector<vk::DescriptorSetLayout> simpleLayouts = {
+        m_cam->GetVertexDescriptorLayout(),
+    };
 
     m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, simpleLayouts, set);
 
@@ -340,9 +341,7 @@ void VulkanApp::Run()
             {
                 RenderData data{
                     .commandBuffer = cmd,
-                    .uboSets = {m_cam->GetDescriptorSet(m_renderer->GetFrameIndex())},
-                    .sceneSets = {m_cam->GetParamDescriptorSet(m_renderer->GetFrameIndex())},
-                    .skyboxSets = {m_skyboxRenderSystem->GetSkybox()->GetDescriptorSet()},
+                    .uboSets = {m_cam->GetVertexDescriptorSet(m_renderer->GetFrameIndex())},
                     .visibleEntities = &frustumAndSortedEntities,
                     .world = *world,
                     .frameIndex = m_renderer->GetFrameIndex(),
@@ -366,9 +365,9 @@ void VulkanApp::Run()
 
                 m_renderer->EndGeometryPass(cmd);
 
-                m_renderer->DoLightingPass(cmd, m_cam->GetFragmentDescriptorSet(m_renderer->GetFrameIndex()),
+                m_renderer->DoLightingPass(cmd, m_cam->GetComputeDescriptorSet(m_renderer->GetFrameIndex()),
                                            m_cam->GetParamDescriptorSet(m_renderer->GetFrameIndex()),
-                                           m_skyboxRenderSystem->GetSkybox()->GetDescriptorSet());
+                                           m_skyboxRenderSystem->GetSkybox()->GetCompDescriptorSet());
 
                 m_renderer->BeginSkyboxPass(cmd);
 

@@ -134,6 +134,8 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 
     m_geometryPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
 
+    HGINFO("Created geometry pipeline");
+
     ShaderSet depthSet{Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "depth.vert"),
                        Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "nothing.frag")};
 
@@ -196,9 +198,9 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
 
                 // Create the parallel DrawData
                 DrawData data{};
-                data.nodeID = ResourceManager::Get()
-                                  .m_modelHandleToMatrixStart[SceneHandler::GetWorld()->GetComponent<ModelComponent>(entity.id)->modelHandle] +
-                              primitive->owner->index;
+                data.nodeID =
+                    ResourceManager::GetModelHandleToMatrixStart(SceneHandler::GetWorld()->GetComponent<ModelComponent>(entity.id)->modelHandle) +
+                    primitive->owner->index;
                 data.materialID = primitive->material.index;
                 data.modelID = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entity.id)->modelHandle;
                 data.modelMatrix = SceneHandler::GetWorld()->GetComponent<TransformComponent>(entity.id)->Mat4();
@@ -214,8 +216,6 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
     if(totalWritten == 0) { return; }
 
     DescriptorPool* poolToUse = depthOnly ? m_depthPool[renderData.frameIndex].get() : m_pool[renderData.frameIndex].get();
-
-    vk::DescriptorSet setToUse = depthOnly ? m_depthSet[renderData.frameIndex] : m_set[renderData.frameIndex];
 
     Buffer* indirectBufferToUse = nullptr;
     Buffer* drawDataBufferToUse = nullptr;
@@ -306,18 +306,6 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
     if(depthOnly) { m_depthOnlyPipeline->Bind(renderData.commandBuffer); }
     else { m_geometryPipeline->Bind(renderData.commandBuffer); }
 
-    std::vector<vk::DescriptorSet> globalPassSets;
-    if(!renderData.uboSets.empty()) { globalPassSets.insert(globalPassSets.end(), renderData.uboSets.begin(), renderData.uboSets.end()); }
-    if(!renderData.sceneSets.empty()) { globalPassSets.insert(globalPassSets.end(), renderData.sceneSets.begin(), renderData.sceneSets.end()); }
-    if(!renderData.skyboxSets.empty()) { globalPassSets.insert(globalPassSets.end(), renderData.skyboxSets.begin(), renderData.skyboxSets.end()); }
-
-    if(!globalPassSets.empty())
-    {
-        renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
-                                                    static_cast<n32>(Globals::DescriptorSetIndices::Camera),
-                                                    static_cast<uint32_t>(globalPassSets.size()), globalPassSets.data(), 0, nullptr);
-    }
-
     vk::DescriptorSet debugSet;
     auto              debugBufferInfo = m_debugBuffer->DescriptorInfo();
     DescriptorWriter  debugWriter{*ResourceManager::GetModelDescriptors().debugLayout, ResourceManager::GetDescriptorPools().debugPool.get()};
@@ -327,24 +315,32 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
 
     poolToUse->ResetPool();
 
+    vk::DescriptorSet setToUse = depthOnly ? m_depthSet[renderData.frameIndex] : m_set[renderData.frameIndex];
+
     auto             buferInfo = drawDataBufferToUse->DescriptorInfo();
     DescriptorWriter writer{*m_layout, poolToUse};
     writer.WriteBuffer(0, &buferInfo);
     writer.Build(setToUse);
 
-    auto globalIndexBuffer = ResourceManager::Get().m_modelIndexBuffer.get();
+    auto globalIndexBuffer = &ResourceManager::GetModelIndexBuffer();
 
     renderData.commandBuffer.bindIndexBuffer(globalIndexBuffer->GetBuffer(), 0, vk::IndexType::eUint32);
 
     ResourceManager::BindGlobalDescriptorSets(renderData.commandBuffer, m_pipelineLayout);
 
+    if(!renderData.uboSets.empty())
+    {
+        renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
+                                                    static_cast<n32>(Globals::ModelDescriptorIndices::Camera),
+                                                    static_cast<uint32_t>(renderData.uboSets.size()), renderData.uboSets.data(), 0, nullptr);
+    }
     std::vector<vk::DescriptorSet> sets{setToUse, ResourceManager::GetVertexDescriptor()};
 
     renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
-                                                static_cast<n32>(Globals::DescriptorSetIndices::Model) + 1, sets.size(), sets.data(), 0, nullptr);
+                                                static_cast<n32>(Globals::ModelDescriptorIndices::Model) + 1, sets.size(), sets.data(), 0, nullptr);
 
     renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
-                                                static_cast<n32>(Globals::DescriptorSetIndices::Debug), 1, &debugSet, 0, nullptr);
+                                                static_cast<n32>(Globals::ModelDescriptorIndices::Debug), 1, &debugSet, 0, nullptr);
 
     renderData.commandBuffer.drawIndexedIndirect(indirectBufferToUse->GetBuffer(), 0, commands.size(), sizeof(vk::DrawIndexedIndirectCommand));
 }

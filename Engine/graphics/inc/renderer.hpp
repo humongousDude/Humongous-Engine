@@ -54,6 +54,8 @@ public:
         std::vector<VisiblityResultSet> visiblityResults;
         n32                             numObjectsDispatched;
 
+        AllocatedImage drawImage;
+
         vk::DescriptorSet occlusionSet;
         n32               boundingBoxCount;
     };
@@ -128,10 +130,10 @@ private:
     std::unique_ptr<DescriptorSetLayout> m_occlusionDescriptorLayout;
     std::unique_ptr<DescriptorSetLayout> m_mipDescriptorLayout;
 
-    std::unique_ptr<class RenderPipeline> m_lightingPipeline;
-    vk::PipelineLayout                    m_lightingPipelineLayout;
-    std::unique_ptr<DescriptorSetLayout>  m_lightingLayout;
-    std::unique_ptr<DescriptorPool>       m_lightingPool;
+    vk::Pipeline                         m_lightingPipeline;
+    vk::PipelineLayout                   m_lightingPipelineLayout;
+    std::unique_ptr<DescriptorSetLayout> m_lightingDescriptorLayout;
+    std::unique_ptr<DescriptorPool>      m_lightingPool;
 
     VmaAllocator m_allocator;
 
@@ -142,8 +144,7 @@ private:
     n32    m_currentFrameIndex{0};
     Frame& GetCurrentFrame() { return m_frames[m_currentFrameIndex]; }
 
-    AllocatedImage m_drawImage;
-    vk::Extent2D   m_screenImageExtent;
+    vk::Extent2D m_screenImageExtent;
 
     AllocatedImage m_depthImage;
     struct DepthMip
