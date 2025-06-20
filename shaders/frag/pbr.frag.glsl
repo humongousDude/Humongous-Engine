@@ -129,18 +129,17 @@ void main()
             ).rgb;
     }
 
-    // 4) World normal
     vec3 N = getNormal(material, material.normalTextureIndex);
 
-    // Write to G-Buffer:
-
     outAlbedo = vec4(baseColorLinear.rgb, baseColorLinear.a);
-
     N = getNormal(material, material.normalTextureIndex);
     vec3 n01 = N * 0.5 + 0.5; // pack into 0..1
     outNormalRoughness = vec4(n01, roughness);
-
     outMaterialParams = vec4(emissiveCol, metallic);
-
     outPosition = vec4(inWorldPos, 1.0);
+
+    // outAlbedo = vec4(1);
+    // outNormalRoughness = vec4(1);
+    // outMaterialParams = vec4(1);
+    // outPosition = vec4(1);
 }

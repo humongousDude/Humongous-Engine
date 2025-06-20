@@ -126,11 +126,25 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 
     configInfo.renderingInfo.colorAttachmentCount = attach.size();
     configInfo.renderingInfo.pColorAttachmentFormats = formats.data();
-    configInfo.renderingInfo.depthAttachmentFormat = vk::Format::eD32Sfloat;
+    configInfo.renderingInfo.depthAttachmentFormat = vk::Format::eD32SfloatS8Uint;
     configInfo.colorAttachmentFormat = vk::Format::eR16G16B16A16Sfloat;
     configInfo.colorBlendInfo.logicOpEnable = false;
     configInfo.colorBlendInfo.attachmentCount = attach.size();
     configInfo.colorBlendInfo.pAttachments = attach.data();
+    configInfo.depthStencilInfo.depthCompareOp = vk::CompareOp::eEqual;
+    configInfo.depthStencilInfo.depthWriteEnable = false;
+    configInfo.depthStencilInfo.stencilTestEnable = true;
+
+    vk::StencilOpState stencilState{};
+    stencilState.compareOp = vk::CompareOp::eAlways;
+    stencilState.passOp = vk::StencilOp::eReplace;
+    stencilState.reference = static_cast<n32>(Globals::StencilMasks::Model);
+    stencilState.compareMask = 0xFF;
+    stencilState.writeMask = 0xFF;
+
+    configInfo.depthStencilInfo.front = stencilState;
+    configInfo.depthStencilInfo.back = stencilState;
+    configInfo.renderingInfo.stencilAttachmentFormat = vk::Format::eD32SfloatS8Uint;
 
     m_geometryPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
 
@@ -141,7 +155,7 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 
     configInfo.vertShaderPath = depthSet.vertShaderPath;
     configInfo.fragShaderPath = depthSet.fragShaderPath;
-    configInfo.rasterizationInfo.depthBiasEnable = VK_TRUE;
+    configInfo.rasterizationInfo.depthBiasEnable = false;
     configInfo.rasterizationInfo.depthBiasClamp = 0.0f;           // Optional
     configInfo.rasterizationInfo.depthBiasConstantFactor = 0.01f; // Optional
     configInfo.rasterizationInfo.depthBiasSlopeFactor = 0.0f;     // Optional
@@ -151,6 +165,15 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.colorAttachmentFormat = vk::Format::eUndefined;
     configInfo.renderingInfo.colorAttachmentCount = 0;
     configInfo.renderingInfo.pColorAttachmentFormats = nullptr;
+
+    configInfo.depthStencilInfo.depthCompareOp = vk::CompareOp::eGreaterOrEqual;
+    configInfo.depthStencilInfo.depthWriteEnable = true;
+    configInfo.depthStencilInfo.stencilTestEnable = false;
+
+    configInfo.renderingInfo.stencilAttachmentFormat = vk::Format::eUndefined;
+
+    configInfo.depthStencilInfo.front = vk::StencilOpState{};
+    configInfo.depthStencilInfo.front = vk::StencilOpState{};
 
     m_depthOnlyPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
     HGINFO("Created pipeline");
@@ -183,10 +206,12 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
     for(const auto& entity: *renderData.visibleEntities)
     {
         for(const auto& [materialId, primitivesInBatch]:
-            ResourceManager::GetModel(SceneHandler::GetWorld()->GetComponent<ModelComponent>(entity.id)->modelHandle)->m_materialBatches)
+            ResourceManager::GetModel(SceneHandler::GetWorld()->GetComponent<ModelComponent>(entity.id)->modelHandle)->GetMaterialBatches())
         {
+            n32 modelID = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entity.id)->modelHandle;
             for(const auto& primitive: primitivesInBatch)
             {
+                // if(primitive->material.alphaMode == Material::ALPHAMODE_BLEND) { continue; }
                 // Create the command
                 vk::DrawIndexedIndirectCommand cmd{};
                 cmd.indexCount = primitive->indexCount;
@@ -198,11 +223,9 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
 
                 // Create the parallel DrawData
                 DrawData data{};
-                data.nodeID =
-                    ResourceManager::GetModelHandleToMatrixStart(SceneHandler::GetWorld()->GetComponent<ModelComponent>(entity.id)->modelHandle) +
-                    primitive->owner->index;
+                data.nodeID = ResourceManager::GetModelHandleToMatrixStart(modelID) + primitive->owner->index;
                 data.materialID = primitive->material.index;
-                data.modelID = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entity.id)->modelHandle;
+                data.modelID = modelID;
                 data.modelMatrix = SceneHandler::GetWorld()->GetComponent<TransformComponent>(entity.id)->Mat4();
 
                 drawData.push_back(data);

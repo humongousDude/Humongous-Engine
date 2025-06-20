@@ -279,8 +279,8 @@ void Camera::DrawUI()
             ImGui::DragFloat("exposure", &m_uboParams.exposure);
             ImGui::DragFloat("radiance", &m_uboParams.radiance);
             ImGui::DragFloat("scaleIBLAmbient", &m_uboParams.scaleIBLAmbient);
-            ImGui::SliderFloat("debug lighting", &m_uboParams.debugViewInputs, 0, 6);
-            ImGui::SliderFloat("debug equation", &m_uboParams.debugViewEquation, 0, 5);
+            ImGui::SliderInt("debug lighting", &m_uboParams.debugViewInputs, 0, 4);
+            ImGui::SliderInt("debug equation", &m_uboParams.debugViewEquation, 0, 5);
         });
 
         first = false;

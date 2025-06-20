@@ -62,61 +62,93 @@ void main() {
         return;
     }
 
-    vec2 minScreenNDC = vec2(1.0);
-    vec2 maxScreenNDC = vec2(-1.0);
-    float maxZ = 0.0;
-    bool fullyBehind = true;
+    vec4 clip_space_corners[8];
+    bool corner_in_front[8];
+    uint corners_in_front_count = 0;
 
+    // --- Step 1: Project all corners and classify them ---
     for (int i = 0; i < 8; ++i) {
-        vec4 worldPos = bb.boundingBox.corners[i];
-        vec4 clipSpace = matricies.projectionView * worldPos;
-
-        if (clipSpace.w > 0) {
-            fullyBehind = false;
-            vec3 ndc = clipSpace.xyz / clipSpace.w;
-            minScreenNDC = min(minScreenNDC, ndc.xy);
-            maxScreenNDC = max(maxScreenNDC, ndc.xy);
-
-            maxZ = max(maxZ, ndc.z);
+        clip_space_corners[i] = matricies.projectionView * bb.boundingBox.corners[i];
+        if (clip_space_corners[i].w > 0) {
+            corner_in_front[i] = true;
+            corners_in_front_count++;
+        } else {
+            corner_in_front[i] = false;
         }
     }
 
-    if (fullyBehind ||
-            maxScreenNDC.x < -1.0 || maxScreenNDC.y < -1.0 ||
-            minScreenNDC.x > 1.0 || minScreenNDC.y > 1.0) {
+    // --- Step 2: Handle trivial culling cases ---
+    if (corners_in_front_count == 0) {
+        // All corners are behind the camera, object is not visible.
         visible[idx].visible = false;
         return;
     }
 
+    // --- Step 3: Calculate screen-space bounds and nearest Z ---
+    // (This is the key corrected section)
+    vec2 minScreenNDC = vec2(1.0);
+    vec2 maxScreenNDC = vec2(-1.0);
+    float nearestNdcZ = 0.0; // Reverse-Z: near is 1, far is 0. Init to far.
+
+    if (corners_in_front_count == 8) {
+        // --- FAST PATH: All corners are in front ---
+        // This is the common case for objects fully in view.
+        for (int i = 0; i < 8; ++i) {
+            vec3 ndc = clip_space_corners[i].xyz / clip_space_corners[i].w;
+            minScreenNDC = min(minScreenNDC, ndc.xy);
+            maxScreenNDC = max(maxScreenNDC, ndc.xy);
+            nearestNdcZ = max(nearestNdcZ, ndc.z);
+        }
+    } else {
+        // --- SLOW PATH: Object straddles the near plane ---
+        // We MUST be conservative here.
+        minScreenNDC = vec2(-1.0);
+        maxScreenNDC = vec2(1.0);
+
+        // We still need to find the nearest Z of the vertices that ARE in front.
+        for (int i = 0; i < 8; ++i) {
+            if (corner_in_front[i]) {
+                vec3 ndc = clip_space_corners[i].xyz / clip_space_corners[i].w;
+                nearestNdcZ = max(nearestNdcZ, ndc.z);
+            }
+        }
+    }
+
+    // Clamp the final NDC box to the screen boundaries.
     minScreenNDC = clamp(minScreenNDC, -1.0, 1.0);
     maxScreenNDC = clamp(maxScreenNDC, -1.0, 1.0);
 
+    // If the clamped box is invalid, object is off-screen.
+    if (minScreenNDC.x >= maxScreenNDC.x || minScreenNDC.y >= maxScreenNDC.y) {
+        visible[idx].visible = false;
+        return;
+    }
+
+    // --- Step 4: The rest of the shader proceeds with correct inputs ---
     vec2 minUV = minScreenNDC * 0.5 + 0.5;
     vec2 maxUV = maxScreenNDC * 0.5 + 0.5;
 
+    // ... (LOD calculation and sampling loop remains the same) ...
     vec2 uvBoxSize = maxUV - minUV;
-
     vec2 screenPixelSize = uvBoxSize * rendererData.screenSize;
     float baseLod = floor(log2(max(1.0, max(screenPixelSize.x, screenPixelSize.y))));
     float targetLod = clamp(baseLod, 0.0, float(textureQueryLevels(depthBuffer) - 1));
 
     bool isVisible = false;
     const int gridSize = 8;
-    vec2 sampleStep = uvBoxSize / (gridSize - 1);
+    vec2 sampleStep = uvBoxSize / (gridSize > 1 ? (gridSize - 1) : 1.0);
 
     for (int y = 0; y < gridSize; ++y) {
         for (int x = 0; x < gridSize; ++x) {
             vec2 sampleUV = minUV + vec2(x, y) * sampleStep;
             float occluderDepth = textureLod(depthBuffer, sampleUV, targetLod).r;
 
-            if (maxZ >= occluderDepth - 0.00001) {
+            if (nearestNdcZ >= occluderDepth - 0.00001) {
                 isVisible = true;
                 break;
             }
         }
-        if (isVisible) {
-            break;
-        }
+        if (isVisible) break;
     }
 
     visible[idx].visible = isVisible;

@@ -4,7 +4,11 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(set = 0, binding = 0) uniform sampler2D u_SourceMip;
 
-layout(set = 0, binding = 1) uniform writeonly image2D u_DestMip;
+layout(set = 0, binding = 1, r32f) uniform writeonly image2D u_DestMip;
+
+layout(push_constant) uniform pc {
+    int mipLevel;
+} pushConst;
 
 void main() {
     ivec2 destCoords = ivec2(gl_GlobalInvocationID.xy);
@@ -12,6 +16,12 @@ void main() {
     ivec2 destSize = imageSize(u_DestMip);
 
     if (destCoords.x >= destSize.x || destCoords.y >= destSize.y) {
+        return;
+    }
+
+    if (pushConst.mipLevel == 0) {
+        float value = texelFetch(u_SourceMip, destCoords, 0).r;
+        imageStore(u_DestMip, destCoords, vec4(value, 0.0, 0.0, 0.0));
         return;
     }
 

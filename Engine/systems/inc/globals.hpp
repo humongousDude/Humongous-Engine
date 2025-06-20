@@ -17,6 +17,12 @@ enum class ModelDescriptorIndices : n32
     Debug = 4,  // Debug gets 1 descriptor set
 };
 
+enum class StencilMasks : n32
+{
+    Nothing = 0,
+    Model = 1,
+};
+
 class Time : public Singleton<Time>, NonCopyable
 {
 public:

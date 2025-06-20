@@ -137,7 +137,7 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
     configInfo.rasterizationInfo.polygonMode = PolygonMode::eFill;
     configInfo.rasterizationInfo.lineWidth = 1.0f;
     configInfo.rasterizationInfo.cullMode = CullModeFlagBits::eNone;
-    configInfo.rasterizationInfo.frontFace = FrontFace::eClockwise;
+    configInfo.rasterizationInfo.frontFace = FrontFace::eCounterClockwise;
     configInfo.rasterizationInfo.depthBiasEnable = false;
     configInfo.rasterizationInfo.depthBiasConstantFactor = 0.0f; // Optional
     configInfo.rasterizationInfo.depthBiasClamp = 0.0f;          // Optional
@@ -191,7 +191,7 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
     // hardcoded for now
     configInfo.colorAttachmentFormat = Format::eR16G16B16A16Sfloat;
     configInfo.renderingInfo.pColorAttachmentFormats = &configInfo.colorAttachmentFormat;
-    configInfo.renderingInfo.depthAttachmentFormat = Format::eD32Sfloat;
+    configInfo.renderingInfo.depthAttachmentFormat = Format::eD32SfloatS8Uint;
 
     return configInfo;
 }

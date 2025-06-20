@@ -90,7 +90,10 @@ void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
     viewInfo.format = createInfo.format;
     viewInfo.components = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
     viewInfo.subresourceRange = {createInfo.aspectFlags, 0, createInfo.mipLevels, 0, createInfo.layerCount};
-    viewInfo.subresourceRange.aspectMask = createInfo.aspectFlags;
+    if(createInfo.aspectFlags == (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil))
+    {
+        viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+    }
 
     if(createInfo.logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &createInfo.allocatedImage->imageView) != vk::Result::eSuccess)
     {

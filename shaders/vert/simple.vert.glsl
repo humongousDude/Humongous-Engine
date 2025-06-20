@@ -10,16 +10,14 @@ layout(location = 2) out vec4 outColor;
 layout(location = 3) out vec3 worldPosition;
 layout(location = 4) out vec3 outNormal;
 layout(location = 5) out vec3 outTangent;
-layout(location = 6) out vec3 outBitTangent;
+layout(location = 6) out vec3 outBiTangent;
 layout(location = 7) out uint materialID;
 
 void main()
 {
     Vertex v = globalVertices.vertices[gl_VertexIndex];
     uint nodeIndex = drawData.drawData[gl_DrawID].nodeIndex;
-
     mat4 nodeTransform = node.matrix[nodeIndex];
-
     vec4 locPos = ubo.projectionView * drawData.drawData[gl_DrawID].modelMatrix * nodeTransform * vec4(v.position.xyz, 1.0);
     gl_Position = locPos;
 
@@ -29,7 +27,7 @@ void main()
     outNormal = normalize(normalMat * v.normal.xyz);
 
     outTangent = normalize(mat3(drawData.drawData[gl_DrawID].modelMatrix) * v.tangent.xyz);
-    outBitTangent = normalize(mat3(drawData.drawData[gl_DrawID].modelMatrix) * v.bitTangent.xyz);
+    outBiTangent = normalize(mat3(drawData.drawData[gl_DrawID].modelMatrix) * v.bitTangent.xyz);
 
     outUV0 = v.uv1.xy;
     outUV1 = v.uv2.xy;

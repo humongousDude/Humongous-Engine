@@ -20,7 +20,6 @@ Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice&
                    vk::Format depthFormat)
     : m_window{window}, m_logicalDevice{logicalDevice}, m_physicalDevice{physicalDevice}, m_allocator{allocator}
 {
-    m_depthImage.imageFormat = depthFormat;
 
     CreateCommandPool();
     CreateCommandBuffers();
@@ -52,16 +51,15 @@ Renderer::~Renderer()
         frame.rendererDataBuffer.reset();
 
         frame.drawImage.Destroy(m_logicalDevice);
+
+        frame.hiZImage.Destroy(m_logicalDevice);
+        for(auto& mip: frame.hiZMips)
+        {
+            m_logicalDevice.GetVkDevice().destroyImageView(mip.sampledView);
+            m_logicalDevice.GetVkDevice().destroyImageView(mip.storageView);
+        }
     }
 
-    for(auto& mip: m_depthMips)
-    {
-        m_logicalDevice.GetVkDevice().destroyImageView(mip.sampledView);
-        m_logicalDevice.GetVkDevice().destroyImageView(mip.storageView);
-    }
-
-    if(m_depthImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_depthImage.image, m_depthImage.allocation); }
-    if(m_depthImage.imageView != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyImageView(m_depthImage.imageView, nullptr); }
     if(m_depthImageSampler != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroySampler(m_depthImageSampler); }
     if(m_debugImageSampler != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroySampler(m_debugImageSampler); }
 
@@ -167,91 +165,34 @@ void Renderer::CreateDrawImage()
 
 void Renderer::CreateDepthImage()
 {
-    if(m_depthImage.imageView != VK_NULL_HANDLE) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), m_depthImage.imageView, nullptr); }
-    if(m_depthImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, m_depthImage.image, m_depthImage.allocation); }
-
     HGINFO("Creating depth image and view...");
 
     vk::Extent3D depthImageExtent = {m_swapChain->GetExtent().width, m_swapChain->GetExtent().height, 1};
 
     // hardcoding the draw format to 32 bit float
-    // m_depthImage.imageFormat = vk::Format::eD32Sfloat;
-    m_depthImage.imageExtent = depthImageExtent;
+    // GetCurrentFrame().gbuffer.depth.imageFormat = vk::Format::eD32Sfloat;
 
-    vk::ImageUsageFlags depthImageUsages{};
-    depthImageUsages |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
-    depthImageUsages |= vk::ImageUsageFlagBits::eSampled;
-    depthImageUsages |= vk::ImageUsageFlagBits::eStorage;
-    depthImageUsages |= vk::ImageUsageFlagBits::eTransferSrc;
-    depthImageUsages |= vk::ImageUsageFlagBits::eTransferDst;
-
-    Utils::AllocatedImageCreateInfo imgCI{.logicalDevice = m_logicalDevice, .allocatedImage = &m_depthImage};
-    imgCI.layerCount = 1;
-    imgCI.imageViewType = vk::ImageViewType::e2D;
-    imgCI.tiling = vk::ImageTiling::eOptimal;
-    imgCI.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
-    imgCI.aspectFlags = vk::ImageAspectFlagBits::eDepth;
-    imgCI.width = m_screenImageExtent.width;
-    imgCI.height = m_screenImageExtent.height;
-    imgCI.mipLevels = floor(log2(std::max(imgCI.width, imgCI.height))) + 1;
-    imgCI.usage = depthImageUsages;
-    imgCI.format = vk::Format::eD32Sfloat;
-    imgCI.imagePool = VK_NULL_HANDLE;
-    imgCI.samples = vk::SampleCountFlagBits::e1;
-
-    Utils::CreateAllocatedImage(imgCI);
-
-    auto cmd = m_logicalDevice.BeginSingleTimeCommands();
-
-    vk::ImageViewCreateInfo viewInfo{};
-    viewInfo.image = m_depthImage.image;
-    viewInfo.format = vk::Format::eD32Sfloat;
-    viewInfo.viewType = vk::ImageViewType::e2D;
-    viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-    viewInfo.subresourceRange.levelCount = 1; // Each view targets a single mip level
-
-    for(auto& mip: m_depthMips)
-    {
-        m_logicalDevice.GetVkDevice().destroyImageView(mip.sampledView);
-        m_logicalDevice.GetVkDevice().destroyImageView(mip.storageView);
-    }
-
-    m_depthMips.resize(imgCI.mipLevels);
-    for(n32 level = 0; level < imgCI.mipLevels; ++level)
-    {
-        Utils::ImageTransitionInfo transition{.cmd = cmd, .logicalDevice = &m_logicalDevice, .image = m_depthImage.image};
-        transition.oldLayout = vk::ImageLayout::eUndefined;
-        transition.newLayout = vk::ImageLayout::eDepthAttachmentOptimal;
-        transition.imageAspect = vk::ImageAspectFlagBits::eDepth;
-        transition.baseMipLevel = level;
-        transition.levelCount = 1;
-        transition.baseArrayLayer = 0;
-        transition.layerCount = 1;
-        Utils::TransitionImageLayout(transition);
-        viewInfo.subresourceRange.baseMipLevel = level;
-
-        if(m_logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &m_depthMips[level].sampledView) != vk::Result::eSuccess)
-        {
-            HGFATAL("Failed to create sampled depthMip");
-        }
-        if(m_logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &m_depthMips[level].storageView) != vk::Result::eSuccess)
-        {
-            HGFATAL("Failed to create storage depthMip");
-        }
-
-        if(m_depthMips[level].set == VK_NULL_HANDLE)
-        {
-            m_computePool->AllocateDescriptor(m_mipDescriptorLayout->GetDescriptorSetLayout(), m_depthMips[level].set);
-        }
-
-        m_depthMips[level].layout = vk::ImageLayout::eDepthAttachmentOptimal;
-    }
-
-    m_logicalDevice.EndSingleTimeCommands(cmd);
-
-    m_depthImage.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+    // Utils::AllocatedImageCreateInfo imgCI{.logicalDevice = m_logicalDevice, .allocatedImage = &GetCurrentFrame().gbuffer.depth};
+    // imgCI.layerCount = 1;
+    // imgCI.imageViewType = vk::ImageViewType::e2D;
+    // imgCI.tiling = vk::ImageTiling::eOptimal;
+    // imgCI.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+    // imgCI.aspectFlags = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+    // imgCI.width = m_screenImageExtent.width;
+    // imgCI.height = m_screenImageExtent.height;
+    // imgCI.mipLevels = floor(log2(std::max(imgCI.width, imgCI.height))) + 1;
+    // imgCI.usage = depthImageUsages;
+    // imgCI.format = vk::Format::eD32Sfloat;
+    // imgCI.imagePool = VK_NULL_HANDLE;
+    // imgCI.samples = vk::SampleCountFlagBits::e1;
+    //
+    // Utils::CreateAllocatedImage(imgCI);
+    //
+    // auto cmd = m_logicalDevice.BeginSingleTimeCommands();
+    //
+    // m_logicalDevice.EndSingleTimeCommands(cmd);
+    //
+    // GetCurrentFrame().gbuffer.depth.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
 
     HGINFO("Created depth image and view");
 }
@@ -297,6 +238,7 @@ void Renderer::CreateGBuffer()
     else { m_lightingPool->ResetPool(); }
 
     auto cmd = m_logicalDevice.BeginSingleTimeCommands();
+    n32  mipLevels = floor(log2(std::max(imgCI.width, imgCI.height))) + 1;
 
     for(int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -305,12 +247,14 @@ void Renderer::CreateGBuffer()
         if(m_frames[i].gbuffer.materialParam.image != VK_NULL_HANDLE) { m_frames[i].gbuffer.materialParam.Destroy(m_logicalDevice); }
         if(m_frames[i].gbuffer.position.image != VK_NULL_HANDLE) { m_frames[i].gbuffer.position.Destroy(m_logicalDevice); }
         if(m_frames[i].gbuffer.depth.image != VK_NULL_HANDLE) { m_frames[i].gbuffer.depth.Destroy(m_logicalDevice); }
+        if(m_frames[i].hiZImage.image != VK_NULL_HANDLE) { m_frames[i].hiZImage.Destroy(m_logicalDevice); }
 
         imgCI.allocatedImage = &m_frames[i].gbuffer.albedo;
         imgCI.usage = colorUsages;
         imgCI.format = vk::Format::eR16G16B16A16Sfloat;
         imgCI.aspectFlags = vk::ImageAspectFlagBits::eColor;
         imgCI.initialLayout = vk::ImageLayout::eUndefined;
+        imgCI.mipLevels = 1;
         Utils::CreateAllocatedImage(imgCI);
 
         {
@@ -321,7 +265,6 @@ void Renderer::CreateGBuffer()
             trans.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
             trans.imageAspect = vk::ImageAspectFlagBits::eColor;
             Utils::TransitionImageLayout(trans);
-            // Record that frame i’s albedo is now in COLOR_ATTACHMENT_OPTIMAL
             m_frames[i].gbuffer.albedo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
         }
 
@@ -365,20 +308,89 @@ void Renderer::CreateGBuffer()
         }
 
         imgCI.allocatedImage = &m_frames[i].gbuffer.depth;
-        imgCI.aspectFlags = vk::ImageAspectFlagBits::eDepth;
-        imgCI.format = vk::Format::eD32Sfloat;
-        imgCI.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
+        imgCI.aspectFlags = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+        imgCI.format = vk::Format::eD32SfloatS8Uint;
+
+        vk::ImageUsageFlags depthImageUsages{};
+        depthImageUsages |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
+        depthImageUsages |= vk::ImageUsageFlagBits::eSampled;
+        depthImageUsages |= vk::ImageUsageFlagBits::eTransferSrc;
+        imgCI.usage = depthImageUsages;
         imgCI.initialLayout = vk::ImageLayout::eUndefined;
+        // imgCI.mipLevels = mipLevels;
         Utils::CreateAllocatedImage(imgCI);
         {
             Utils::ImageTransitionInfo trans{};
             trans.cmd = cmd;
             trans.image = m_frames[i].gbuffer.depth.image;
             trans.oldLayout = vk::ImageLayout::eUndefined;
-            trans.newLayout = vk::ImageLayout::eDepthAttachmentOptimal;
-            trans.imageAspect = vk::ImageAspectFlagBits::eDepth;
+            trans.newLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+            trans.imageAspect = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
             Utils::TransitionImageLayout(trans);
-            m_frames[i].gbuffer.depth.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+            m_frames[i].gbuffer.depth.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+        }
+
+        imgCI.format = vk::Format::eR32Sfloat;
+        imgCI.usage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage;
+        imgCI.allocatedImage = &m_frames[i].hiZImage;
+        imgCI.aspectFlags = vk::ImageAspectFlagBits::eColor;
+        imgCI.mipLevels = mipLevels;
+        Utils::CreateAllocatedImage(imgCI);
+        {
+            Utils::ImageTransitionInfo trans{};
+            trans.cmd = cmd;
+            trans.image = m_frames[i].hiZImage.image;
+            trans.oldLayout = vk::ImageLayout::eUndefined;
+            trans.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+            trans.imageAspect = vk::ImageAspectFlagBits::eColor;
+            Utils::TransitionImageLayout(trans);
+            m_frames[i].hiZImage.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        }
+
+        for(auto& mip: m_frames[i].hiZMips)
+        {
+            m_logicalDevice.GetVkDevice().destroyImageView(mip.sampledView);
+            m_logicalDevice.GetVkDevice().destroyImageView(mip.storageView);
+        }
+
+        m_frames[i].hiZMips.resize(imgCI.mipLevels);
+        for(n32 level = 0; level < imgCI.mipLevels; ++level)
+        {
+            Utils::ImageTransitionInfo transition{.cmd = cmd, .logicalDevice = &m_logicalDevice, .image = m_frames[i].hiZImage.image};
+            transition.oldLayout = vk::ImageLayout::eUndefined;
+            transition.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+            transition.imageAspect = vk::ImageAspectFlagBits::eColor;
+            transition.baseMipLevel = level;
+            transition.levelCount = 1;
+            transition.baseArrayLayer = 0;
+            transition.layerCount = 1;
+            Utils::TransitionImageLayout(transition);
+
+            vk::ImageViewCreateInfo viewInfo{};
+            viewInfo.image = m_frames[i].hiZImage.image;
+            viewInfo.format = vk::Format::eR32Sfloat;
+            viewInfo.viewType = vk::ImageViewType::e2D;
+            viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+            viewInfo.subresourceRange.baseArrayLayer = 0;
+            viewInfo.subresourceRange.layerCount = 1;
+            viewInfo.subresourceRange.levelCount = 1;
+            viewInfo.subresourceRange.baseMipLevel = level;
+
+            if(m_logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &m_frames[i].hiZMips[level].sampledView) != vk::Result::eSuccess)
+            {
+                HGFATAL("Failed to create sampled depthMip");
+            }
+            if(m_logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &m_frames[i].hiZMips[level].storageView) != vk::Result::eSuccess)
+            {
+                HGFATAL("Failed to create storage depthMip");
+            }
+
+            if(m_frames[i].hiZMips[level].set == VK_NULL_HANDLE)
+            {
+                m_computePool->AllocateDescriptor(m_mipDescriptorLayout->GetDescriptorSetLayout(), m_frames[i].hiZMips[level].set);
+            }
+
+            m_frames[i].hiZMips[level].layout = vk::ImageLayout::eShaderReadOnlyOptimal;
         }
 
         m_lightingPool->AllocateDescriptor(m_lightingDescriptorLayout->GetDescriptorSetLayout(), m_frames[i].gbuffer.imageSet);
@@ -630,11 +642,13 @@ void Renderer::CreateComputePipeline()
     {
         auto layout = m_mipDescriptorLayout->GetDescriptorSetLayout();
 
+        vk::PushConstantRange range{vk::ShaderStageFlagBits::eCompute, 0, sizeof(n32)};
+
         vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.setLayoutCount = 1;
         pipelineLayoutInfo.pSetLayouts = &layout;
-        pipelineLayoutInfo.pushConstantRangeCount = 0;
-        pipelineLayoutInfo.pPushConstantRanges = nullptr;
+        pipelineLayoutInfo.pushConstantRangeCount = 1;
+        pipelineLayoutInfo.pPushConstantRanges = &range;
 
         if(m_logicalDevice.GetVkDevice().createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_mipPipelineLayout) != vk::Result::eSuccess)
         {
@@ -730,17 +744,6 @@ void Renderer::PreGeometryPassTransitions(vk::CommandBuffer cmd)
 {
     auto& currentFrame = GetCurrentFrame();
 
-    // Don't think this is needed
-    // check for first frame, only need the first image because all images should be transitioned at the same time
-    // if(currentFrame.gbuffer.albedo.imageLayout == vk::ImageLayout::eColorAttachmentOptimal &&
-    //    currentFrame.gbuffer.normalRough.imageLayout == vk::ImageLayout::eColorAttachmentOptimal &&
-    //    currentFrame.gbuffer.materialParam.imageLayout == vk::ImageLayout::eColorAttachmentOptimal &&
-    //    currentFrame.gbuffer.position.imageLayout == vk::ImageLayout::eColorAttachmentOptimal &&
-    //    currentFrame.gbuffer.depth.imageLayout == vk::ImageLayout::eDepthAttachmentOptimal)
-    // {
-    //     return;
-    // }
-
     Utils::ImageTransitionInfo drawInfo{};
     drawInfo.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
     drawInfo.imageAspect = vk::ImageAspectFlagBits::eColor;
@@ -773,9 +776,9 @@ void Renderer::PreGeometryPassTransitions(vk::CommandBuffer cmd)
     {
         drawInfo.image = currentFrame.gbuffer.depth.image;
         drawInfo.oldLayout = currentFrame.gbuffer.depth.imageLayout;
-        drawInfo.newLayout = vk::ImageLayout::eDepthAttachmentOptimal;
-        drawInfo.imageAspect = vk::ImageAspectFlagBits::eDepth;
-        currentFrame.gbuffer.depth.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+        drawInfo.newLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+        drawInfo.imageAspect = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+        currentFrame.gbuffer.depth.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
         Utils::TransitionImageLayout(drawInfo);
     }
 }
@@ -816,7 +819,7 @@ void Renderer::PostGeometryPassTransitions(vk::CommandBuffer cmd)
     {
         drawInfo.image = currentFrame.gbuffer.depth.image;
         drawInfo.oldLayout = currentFrame.gbuffer.depth.imageLayout;
-        drawInfo.imageAspect = vk::ImageAspectFlagBits::eDepth;
+        drawInfo.imageAspect = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
         currentFrame.gbuffer.depth.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
         Utils::TransitionImageLayout(drawInfo);
     }
@@ -864,7 +867,6 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
     m_screenImageExtent = m_swapChain->GetExtent();
 
     GetCurrentFrame().drawImage.imageExtent = vk::Extent3D(m_screenImageExtent, 0.0);
-    m_depthImage.imageExtent = vk::Extent3D(m_screenImageExtent, 0.0);
 
     auto cmd = GetCurrentFrame().commandBuffer;
     cmd.reset();
@@ -976,10 +978,8 @@ void Renderer::EndFrame()
 
 void Renderer::BeginGeometryPass(vk::CommandBuffer cmd)
 {
-    PreGeometryPassTransitions(cmd);
-
     std::array<vk::ClearValue, 2> clearValues{};
-    clearValues[0].color = {0.0f, 0.0f, 0.0f, 0.0f};
+    clearValues[0].color = {0.5f, 0.5f, 0.5f, 0.5f};
     clearValues[1].depthStencil = vk::ClearDepthStencilValue(0.0f, 0);
 
     vk::RenderingAttachmentInfo attach{};
@@ -1000,10 +1000,18 @@ void Renderer::BeginGeometryPass(vk::CommandBuffer cmd)
     vk::RenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = vk::StructureType::eRenderingAttachmentInfo;
     depthAttachment.imageView = currentFrame.gbuffer.depth.imageView;
-    depthAttachment.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
-    depthAttachment.loadOp = vk::AttachmentLoadOp::eClear;
+    depthAttachment.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+    depthAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
     depthAttachment.storeOp = vk::AttachmentStoreOp::eStore;
     depthAttachment.clearValue = clearValues[1];
+
+    vk::RenderingAttachmentInfo stencilAttachment{};
+    stencilAttachment.sType = vk::StructureType::eRenderingAttachmentInfo;
+    stencilAttachment.imageView = currentFrame.gbuffer.depth.imageView;
+    stencilAttachment.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+    stencilAttachment.loadOp = vk::AttachmentLoadOp::eClear;
+    stencilAttachment.storeOp = vk::AttachmentStoreOp::eStore;
+    stencilAttachment.clearValue = clearValues[1];
 
     vk::RenderingInfo renderingInfo{};
     renderingInfo.sType = vk::StructureType::eRenderingInfo;
@@ -1012,10 +1020,9 @@ void Renderer::BeginGeometryPass(vk::CommandBuffer cmd)
     renderingInfo.colorAttachmentCount = colorAttachments.size();
     renderingInfo.pColorAttachments = colorAttachments.data();
     renderingInfo.pDepthAttachment = &depthAttachment;
-    renderingInfo.pStencilAttachment = nullptr;
+    renderingInfo.pStencilAttachment = &stencilAttachment;
     renderingInfo.pNext = nullptr;
     renderingInfo.viewMask = 0;
-    // renderingInfo.flags = 0;
 
     cmd.beginRendering(&renderingInfo);
 }
@@ -1086,9 +1093,9 @@ void Renderer::BeginSkyboxPass(vk::CommandBuffer cmd)
     vk::RenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = vk::StructureType::eRenderingAttachmentInfo;
     depthAttachment.imageView = GetCurrentFrame().gbuffer.depth.imageView;
-    depthAttachment.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+    depthAttachment.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
     depthAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
-    depthAttachment.storeOp = vk::AttachmentStoreOp::eStore;
+    depthAttachment.storeOp = vk::AttachmentStoreOp::eDontCare;
     depthAttachment.clearValue = clearValues[1];
 
     vk::RenderingInfo renderingInfo{};
@@ -1097,8 +1104,8 @@ void Renderer::BeginSkyboxPass(vk::CommandBuffer cmd)
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachments = &colorAttachment;
-    renderingInfo.pDepthAttachment = &depthAttachment;
-    renderingInfo.pStencilAttachment = nullptr;
+    renderingInfo.pDepthAttachment = nullptr;
+    renderingInfo.pStencilAttachment = &depthAttachment;
     renderingInfo.pNext = nullptr;
     renderingInfo.viewMask = 0;
 
@@ -1139,13 +1146,15 @@ void Renderer::EndUIRendering(vk::CommandBuffer cmd) { cmd.endRendering(); }
 
 void Renderer::BeginDepthPrePass(vk::CommandBuffer cmd)
 {
+    PreGeometryPassTransitions(cmd);
+
     vk::ClearValue clearValue{};
     clearValue.depthStencil = vk::ClearDepthStencilValue{0.0f, 0};
 
     vk::RenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = vk::StructureType::eRenderingAttachmentInfo;
-    depthAttachment.imageView = m_depthImage.imageView;
-    depthAttachment.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+    depthAttachment.imageView = GetCurrentFrame().gbuffer.depth.imageView;
+    depthAttachment.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
     depthAttachment.loadOp = vk::AttachmentLoadOp::eClear;
     depthAttachment.storeOp = vk::AttachmentStoreOp::eStore;
     depthAttachment.clearValue = clearValue;
@@ -1158,7 +1167,6 @@ void Renderer::BeginDepthPrePass(vk::CommandBuffer cmd)
     renderingInfo.pDepthAttachment = &depthAttachment;
     renderingInfo.pStencilAttachment = nullptr;
     renderingInfo.pNext = nullptr;
-    renderingInfo.viewMask = 0;
 
     cmd.beginRendering(&renderingInfo);
 }
@@ -1175,7 +1183,6 @@ struct OcclusionObjectData
 {
     BoundingBox boundingBox;
     n32         id;
-    n8          padding[12];
 };
 
 static_assert(sizeof(OcclusionObjectData) == 192 && "Size mismatch");
@@ -1185,48 +1192,95 @@ using namespace Utils;
 void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils::VisibleEntityInfo>& frustumCulledEntities, World& world,
                                   const Camera& cam)
 {
+    auto& currentFrame = GetCurrentFrame();
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_mipPipeline);
-    {
-        Utils::ImageTransitionInfo initialTransition{};
-        initialTransition.cmd = cmd;
-        initialTransition.oldLayout = m_depthMips[0].layout;
-        initialTransition.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        initialTransition.image = m_depthImage.image;
-        initialTransition.logicalDevice = &m_logicalDevice;
-        initialTransition.imageAspect = vk::ImageAspectFlagBits::eDepth;
-        initialTransition.baseMipLevel = 0; // Only mip 0
-        initialTransition.levelCount = 1;
-        initialTransition.baseArrayLayer = 0;
-        initialTransition.layerCount = 1;
-        Utils::TransitionImageLayout(initialTransition);
 
-        m_depthMips[0].layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    {
+        Utils::ImageTransitionInfo transSrcInfo{cmd,
+                                                currentFrame.gbuffer.depth.imageLayout,
+                                                vk::ImageLayout::eShaderReadOnlyOptimal,
+                                                &m_logicalDevice,
+                                                currentFrame.gbuffer.depth.image,
+                                                vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil,
+                                                0,
+                                                1,
+                                                0,
+                                                1};
+        Utils::TransitionImageLayout(transSrcInfo);
+        currentFrame.gbuffer.depth.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     }
-    for(n32 i = 0; i < m_depthImage.mipLevels - 1; ++i)
-    {
 
+    {
+        Utils::ImageTransitionInfo hiZMip0_destTransition{};
+        hiZMip0_destTransition.cmd = cmd;
+        hiZMip0_destTransition.oldLayout = currentFrame.hiZMips[0].layout;
+        hiZMip0_destTransition.newLayout = vk::ImageLayout::eGeneral;
+        hiZMip0_destTransition.image = currentFrame.hiZImage.image;
+        hiZMip0_destTransition.baseMipLevel = 0;
+        hiZMip0_destTransition.imageAspect = vk::ImageAspectFlagBits::eColor;
+        hiZMip0_destTransition.logicalDevice = &m_logicalDevice;
+        hiZMip0_destTransition.levelCount = 1;
+        hiZMip0_destTransition.baseArrayLayer = 0;
+        hiZMip0_destTransition.layerCount = 1;
+        Utils::TransitionImageLayout(hiZMip0_destTransition);
+        currentFrame.hiZMips[0].layout = vk::ImageLayout::eGeneral;
+
+        DescriptorWriter        writer_mip0(*m_mipDescriptorLayout, m_computePool.get());
+        vk::DescriptorImageInfo gBufferSourceInfo(m_depthImageSampler, currentFrame.gbuffer.depth.imageView,
+                                                  vk::ImageLayout::eShaderReadOnlyOptimal);
+        vk::DescriptorImageInfo hiZ_Mip0_DestInfo({}, currentFrame.hiZMips[0].storageView, vk::ImageLayout::eGeneral);
+
+        writer_mip0.WriteImage(0, &gBufferSourceInfo).WriteImage(1, &hiZ_Mip0_DestInfo).Overwrite(currentFrame.hiZMips[0].set);
+
+        n32 level = 0;
+
+        cmd.pushConstants(m_mipPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(n32), &level);
+
+        cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_mipPipelineLayout, 0, 1, &currentFrame.hiZMips[0].set, 0, nullptr);
+
+        n32 initialMipWidth = currentFrame.hiZImage.width;
+        n32 initialMipHeight = currentFrame.hiZImage.height;
+        cmd.dispatch((initialMipWidth + 7) / 8, (initialMipHeight + 7) / 8, 1);
+
+        Utils::ImageTransitionInfo hiZMip0_dest2Transition{};
+        hiZMip0_dest2Transition.cmd = cmd;
+        hiZMip0_dest2Transition.oldLayout = currentFrame.hiZMips[0].layout;
+        hiZMip0_dest2Transition.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        hiZMip0_dest2Transition.image = currentFrame.hiZImage.image;
+        hiZMip0_dest2Transition.baseMipLevel = 0;
+        hiZMip0_dest2Transition.imageAspect = vk::ImageAspectFlagBits::eColor;
+        hiZMip0_dest2Transition.logicalDevice = &m_logicalDevice;
+        hiZMip0_dest2Transition.levelCount = 1;
+        hiZMip0_dest2Transition.baseArrayLayer = 0;
+        hiZMip0_dest2Transition.layerCount = 1;
+        Utils::TransitionImageLayout(hiZMip0_dest2Transition);
+        currentFrame.hiZMips[0].layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    }
+
+    for(n32 i = 0; i < currentFrame.hiZImage.mipLevels - 1; ++i)
+    {
         Utils::ImageTransitionInfo srcTransition{};
         srcTransition.cmd = cmd;
-        srcTransition.oldLayout = m_depthMips[i].layout;
+        srcTransition.oldLayout = currentFrame.hiZMips[i].layout;
         srcTransition.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        srcTransition.image = m_depthImage.image;
+        srcTransition.image = currentFrame.hiZImage.image;
         srcTransition.baseMipLevel = i;
-        srcTransition.imageAspect = vk::ImageAspectFlagBits::eDepth;
+        srcTransition.imageAspect = vk::ImageAspectFlagBits::eColor;
         srcTransition.logicalDevice = &m_logicalDevice;
         srcTransition.levelCount = 1;
         srcTransition.baseArrayLayer = 0;
         srcTransition.layerCount = 1;
         Utils::TransitionImageLayout(srcTransition);
 
-        m_depthMips[i].layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        currentFrame.hiZMips[i].layout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
         Utils::ImageTransitionInfo destTransition{};
         destTransition.cmd = cmd;
-        destTransition.oldLayout = m_depthMips[i + 1].layout;
+        destTransition.oldLayout = currentFrame.hiZMips[i + 1].layout;
         destTransition.newLayout = vk::ImageLayout::eGeneral;
-        destTransition.image = m_depthImage.image;
+        destTransition.image = currentFrame.hiZImage.image;
         destTransition.baseMipLevel = i + 1;
-        destTransition.imageAspect = vk::ImageAspectFlagBits::eDepth;
+        destTransition.imageAspect = vk::ImageAspectFlagBits::eColor;
         destTransition.logicalDevice = &m_logicalDevice;
         destTransition.levelCount = 1;
         destTransition.baseArrayLayer = 0;
@@ -1234,49 +1288,54 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
 
         Utils::TransitionImageLayout(destTransition);
 
-        m_depthMips[i + 1].layout = vk::ImageLayout::eGeneral;
+        currentFrame.hiZMips[i + 1].layout = vk::ImageLayout::eGeneral;
 
-        vk::ImageView sourceMipView = m_depthMips[i].sampledView;
-        vk::ImageView destMipView = m_depthMips[i + 1].storageView;
+        vk::ImageView sourceMipView = currentFrame.hiZMips[i].sampledView;
+        vk::ImageView destMipView = currentFrame.hiZMips[i + 1].storageView;
 
-        DescriptorWriter writer(*m_mipDescriptorLayout, m_computePool.get());
-
-        vk::DescriptorImageInfo sourceImageInfo(m_depthImageSampler, sourceMipView, vk::ImageLayout::eShaderReadOnlyOptimal);
+        DescriptorWriter        writer(*m_mipDescriptorLayout, m_computePool.get());
+        vk::DescriptorImageInfo sourceImageInfo;
+        if(i == 0)
+        {
+            sourceImageInfo =
+                vk::DescriptorImageInfo(m_depthImageSampler, currentFrame.gbuffer.depth.imageView, vk::ImageLayout::eShaderReadOnlyOptimal);
+        }
+        else { sourceImageInfo = vk::DescriptorImageInfo(m_depthImageSampler, sourceMipView, vk::ImageLayout::eShaderReadOnlyOptimal); }
         vk::DescriptorImageInfo destImageInfo({}, destMipView, vk::ImageLayout::eGeneral);
 
-        writer.WriteImage(0, &sourceImageInfo).WriteImage(1, &destImageInfo).Overwrite(m_depthMips[i].set);
+        writer.WriteImage(0, &sourceImageInfo).WriteImage(1, &destImageInfo).Overwrite(currentFrame.hiZMips[i + 1].set);
 
-        cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_mipPipelineLayout, 0, 1, &m_depthMips[i].set, 0, nullptr);
+        cmd.pushConstants(m_mipPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(n32), &i + 1);
 
-        n32 destMipWidth = std::max(1u, m_depthImage.width >> (i + 1));
-        n32 destMipHeight = std::max(1u, m_depthImage.height >> (i + 1));
+        cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_mipPipelineLayout, 0, 1, &currentFrame.hiZMips[i + 1].set, 0, nullptr);
+
+        n32 destMipWidth = std::max(1u, currentFrame.hiZImage.width >> (i + 1));
+        n32 destMipHeight = std::max(1u, currentFrame.hiZImage.height >> (i + 1));
 
         cmd.dispatch((destMipWidth + 7) / 8, (destMipHeight + 7) / 8, 1);
 
         Utils::ImageTransitionInfo sourceNextIterTransition{};
         sourceNextIterTransition.cmd = cmd;
-        sourceNextIterTransition.oldLayout = m_depthMips[i + 1].layout;
+        sourceNextIterTransition.oldLayout = currentFrame.hiZMips[i + 1].layout;
         sourceNextIterTransition.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        sourceNextIterTransition.image = m_depthImage.image;
+        sourceNextIterTransition.image = currentFrame.hiZImage.image;
         sourceNextIterTransition.baseMipLevel = i + 1;
-        sourceNextIterTransition.imageAspect = vk::ImageAspectFlagBits::eDepth;
+        sourceNextIterTransition.imageAspect = vk::ImageAspectFlagBits::eColor;
         sourceNextIterTransition.logicalDevice = &m_logicalDevice;
         sourceNextIterTransition.levelCount = 1;
         sourceNextIterTransition.baseArrayLayer = 0;
         sourceNextIterTransition.layerCount = 1;
         Utils::TransitionImageLayout(sourceNextIterTransition);
-        m_depthMips[i + 1].layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        currentFrame.hiZMips[i + 1].layout = vk::ImageLayout::eShaderReadOnlyOptimal;
     }
-    m_depthImage.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    currentFrame.hiZImage.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_occlusionPipeline);
 
     std::vector<OcclusionObjectData> objectDataForGPU;
     objectDataForGPU.reserve(frustumCulledEntities.size());
 
-    auto& currentFrame = GetCurrentFrame();
-
-    GetCurrentFrame().numObjectsDispatched = 0;
+    currentFrame.numObjectsDispatched = 0;
 
     for(const auto& entityInfo: frustumCulledEntities)
     {
@@ -1327,7 +1386,7 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
     rendererDataBuffer->WriteToBuffer((void*)&renderDataContent);
     rendererDataBuffer->UnMap();
 
-    vk::DescriptorImageInfo  depthInfo = {m_depthImageSampler, m_depthImage.imageView, vk::ImageLayout::eShaderReadOnlyOptimal};
+    vk::DescriptorImageInfo  depthInfo = {m_depthImageSampler, currentFrame.hiZImage.imageView, vk::ImageLayout::eShaderReadOnlyOptimal};
     vk::DescriptorBufferInfo boundingBoxGpuInfo = objectDataBuffer->DescriptorInfo();
     vk::DescriptorBufferInfo visiblityGpuInfo = visibilityResultsBuffer->DescriptorInfo();
     vk::DescriptorBufferInfo projectionGpuInfo = cam.GetCombinedDataBufferHandle(m_currentFrameIndex).DescriptorInfo();
@@ -1354,23 +1413,19 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
     WaitForCompute(cmd);
 
     {
-        Utils::ImageTransitionInfo postComputeDepthTransition{};
-        postComputeDepthTransition.image = m_depthImage.image;
-        postComputeDepthTransition.baseMipLevel = 0;
-        postComputeDepthTransition.levelCount = 1;
-        postComputeDepthTransition.cmd = cmd;
-        postComputeDepthTransition.baseArrayLayer = 0;
-
-        postComputeDepthTransition.oldLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        postComputeDepthTransition.newLayout = vk::ImageLayout::eDepthAttachmentOptimal;
-        postComputeDepthTransition.logicalDevice = &m_logicalDevice;
-        postComputeDepthTransition.imageAspect = vk::ImageAspectFlagBits::eDepth;
-
-        Utils::TransitionImageLayout(postComputeDepthTransition);
-
-        m_depthMips[0].layout = vk::ImageLayout::eDepthAttachmentOptimal;
+        Utils::ImageTransitionInfo transSrcInfo{cmd,
+                                                currentFrame.gbuffer.depth.imageLayout,
+                                                vk::ImageLayout::eDepthStencilAttachmentOptimal,
+                                                &m_logicalDevice,
+                                                currentFrame.gbuffer.depth.image,
+                                                vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil,
+                                                0,
+                                                1,
+                                                0,
+                                                1};
+        Utils::TransitionImageLayout(transSrcInfo);
+        currentFrame.gbuffer.depth.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
     }
-    m_depthImage.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
 }
 
 void Renderer::WaitForCompute(vk::CommandBuffer cmd)

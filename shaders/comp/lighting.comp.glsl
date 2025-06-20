@@ -21,8 +21,8 @@ layout(set = 1, binding = 0) uniform UBOParams {
     float radiance;
     float prefilteredCubeMipLevels;
     float scaleIBLAmbient;
-    float debugViewInputs;
-    float debugViewEquation;
+    int debugViewInputs;
+    int debugViewEquation;
 } uboParams;
 
 layout(set = 2, binding = 1) uniform samplerCube samplerIrradiance;
@@ -93,7 +93,28 @@ void main()
     float depth = texture(gDepth, uv).r;
 
     vec3 albedo = albSample.rgb;
+    vec4 outColor;
 
+    // Shader inputs debug visualization
+    if (uboParams.debugViewInputs > 0.0) {
+        int index = int(uboParams.debugViewInputs);
+        switch (index) {
+            case 1:
+            outColor.rgba = albSample;
+            break;
+            case 2:
+            outColor.rgba = nrSample;
+            break;
+            case 3:
+            outColor.rgba = mpSample;
+            break;
+            case 4:
+            outColor.rgba = vec4(depth, depth, depth, 1);
+            break;
+        }
+        imageStore(drawImage, pixelCoords, outColor);
+        return;
+    }
     float alpha = albSample.a;
     vec3 N = normalize(nrSample.xyz * 2.0 - 1.0);
     float roughness = nrSample.w;
@@ -156,7 +177,7 @@ void main()
 
     vec3 color = vec3(1.0) - exp(-fragcolor * uboParams.exposure);
     color = pow(color, vec3(1.0 / uboParams.gamma));
-    vec4 outColor = vec4(color, 1);
+    outColor = vec4(color, 1);
 
     imageStore(drawImage, pixelCoords, outColor);
 }

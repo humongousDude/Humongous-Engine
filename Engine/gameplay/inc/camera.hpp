@@ -30,8 +30,8 @@ struct alignas(16) UboParams
     glm::vec3 camPos{};
     f32       _padding0;
     glm::vec4 lightDir = glm::vec4(glm::normalize(glm::vec3(1.0f, -3.0f, 1.0f)), 0.0f);
-    f32       exposure = 1.0f, gamma = 1.0f, radiance = 0.5f, prefilteredCubeMipLevels = 9.f, scaleIBLAmbient = 0.05f, debugViewInputs = 0,
-        debugViewEquation = 0;
+    f32       exposure = 1.0f, gamma = 1.0f, radiance = 0.5f, prefilteredCubeMipLevels = 9.f, scaleIBLAmbient = 0.05f;
+    s32       debugViewInputs = 0, debugViewEquation = 0;
 };
 
 // Define a plane struct representing a plane in 3D space

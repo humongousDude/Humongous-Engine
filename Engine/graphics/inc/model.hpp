@@ -40,9 +40,7 @@ struct Primitive
     Material& material;
     bool      hasIndices;
     Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, n32 localVertexStart, Material& material)
-        : firstIndex(firstIndex), indexCount(indexCount), vertexCount(vertexCount), localVertexStart(localVertexStart),
-          vertexOffset(0) // we’ll fill this in _after_ we know the global base
-          ,
+        : firstIndex(firstIndex), indexCount(indexCount), vertexCount(vertexCount), localVertexStart(localVertexStart), vertexOffset(0),
           material(material), hasIndices(indexCount > 0)
     {
     }
@@ -106,13 +104,15 @@ public:
 
     struct alignas(16) Vertex
     {
-        glm::vec4 position;   // 12 bytes (aligned to 16 bytes)
-        glm::vec4 normal;     // 12 bytes (aligned to 16 bytes)
-        glm::vec4 tangent;    // 12 bytes (aligned to 16 bytes)
-        glm::vec4 bitTangent; // 12 bytes (aligned to 16 bytes)
-        glm::vec4 uv0;        // 8 bytes
-        glm::vec4 uv1;        // 8 bytes
-        glm::vec4 color;      // 16 bytes
+        glm::vec4 position;
+        glm::vec4 normal;
+        glm::vec4 tangent;
+        glm::vec4 bitTangent;
+        glm::vec4 uv0;
+        glm::vec4 uv1;
+        glm::vec4 color;
+        glm::vec4 joint0;
+        glm::vec4 weight0;
 
         bool operator==(const Vertex& other) const
         {
@@ -135,10 +135,11 @@ public:
 
     std::vector<glm::mat4> GetMatrixVector();
 
-    std::string GetName() const { return name; }
+    std::string                                       GetName() const { return m_name; }
+    std::unordered_map<n32, std::vector<Primitive*>>& GetMaterialBatches() { return m_materialBatches; }
 
 private:
-    std::string name = "";
+    std::string m_name = "";
 
     std::vector<n32>    m_indices;
     std::vector<Vertex> m_vertices;

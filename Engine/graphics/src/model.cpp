@@ -13,11 +13,6 @@
 
 namespace Humongous
 {
-// Primitive::Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, Material& material)
-//     : firstIndex(firstIndex), indexCount(indexCount), vertexCount(vertexCount), material(material)
-// {
-// };
-//
 // Mesh
 Mesh::Mesh(LogicalDevice* device, glm::mat4 matrix) { this->logicalDevice = device; };
 
@@ -58,6 +53,43 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
     LoaderInfo loaderInfo{};
     size_t     vertexCount = 0;
     size_t     indexCount = 0;
+
+    size_t lastSlashPos = filePath.rfind('/');
+    size_t lastBackslashPos = filePath.rfind('\\');
+
+    // Determine which separator is closer to the end of the string
+    size_t filenameStartPos = std::string::npos;
+    if(lastSlashPos != std::string::npos && lastBackslashPos != std::string::npos) { filenameStartPos = std::max(lastSlashPos, lastBackslashPos); }
+    else if(lastSlashPos != std::string::npos) { filenameStartPos = lastSlashPos; }
+    else if(lastBackslashPos != std::string::npos) { filenameStartPos = lastBackslashPos; }
+
+    std::string fileName;
+    if(filenameStartPos != std::string::npos)
+    {
+        // If a separator was found, the filename starts after it
+        fileName = filePath.substr(filenameStartPos + 1);
+    }
+    else
+    {
+        // No separator found, the whole string is the filename
+        fileName = filePath;
+    }
+
+    std::string filenameWithoutExtension;
+    if(extpos != std::string::npos && extpos > filenameStartPos)
+    { // Ensure extension is part of the current filename, not a directory name
+        if(filenameStartPos != std::string::npos)
+        {
+            filenameWithoutExtension = filePath.substr(filenameStartPos + 1, extpos - (filenameStartPos + 1));
+        }
+        else { filenameWithoutExtension = filePath.substr(0, extpos); }
+    }
+    else
+    {
+        filenameWithoutExtension = fileName; // No extension found or extension is part of directory name
+    }
+
+    m_name = filenameWithoutExtension;
 
     if(fileLoaded)
     {
@@ -338,7 +370,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     {
                         const float* p = reinterpret_cast<const float*>(rawPosBase + (v * posByteStride));
                         vert.position = glm::vec4(glm::make_vec3(p), 1.0f);
-                        if(loaderInfo.vertexPos < 5) { HGINFO("  [Pos%zu] = (%.3f, %.3f, %.3f)", v, p[0], p[1], p[2]); }
                     }
 
                     // NORMAL (if it exists)
@@ -357,8 +388,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     }
                     else { vert.uv0 = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }
 
-                    // … repeat for UV1, COLOR_0, TANGENT in exactly the same “byte‐based” style …
-
                     // JOINTS_0 / WEIGHTS_0 (if present)
                     if(primitive.attributes.find("JOINTS_0") != primitive.attributes.end())
                     {
@@ -374,16 +403,16 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                         if(jointAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
                         {
                             const uint16_t* j = reinterpret_cast<const uint16_t*>(rawJointBase + (v * jointByteStride));
-                            // vert.joint0 = glm::vec4(float(j[0]), float(j[1]), float(j[2]), float(j[3]));
+                            vert.joint0 = glm::vec4(float(j[0]), float(j[1]), float(j[2]), float(j[3]));
                         }
                         else if(jointAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
                         {
                             const uint8_t* j = reinterpret_cast<const uint8_t*>(rawJointBase + (v * jointByteStride));
-                            // vert.joint0 = glm::vec4(float(j[0]), float(j[1]), float(j[2]), float(j[3]));
+                            vert.joint0 = glm::vec4(float(j[0]), float(j[1]), float(j[2]), float(j[3]));
                         }
                         else { HGERROR("Unexpected JOINTS_0 componentType = %d", jointAccessor.componentType); }
                     }
-                    else { /* vert.joint0 = glm::vec4(0.0f); */ }
+                    else { vert.joint0 = glm::vec4(0.0f); }
 
                     if(primitive.attributes.find("WEIGHTS_0") != primitive.attributes.end())
                     {
@@ -395,11 +424,10 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                                                             ? weightAccessor.ByteStride(weightView)
                                                             : (sizeof(float) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4));
                         const float* w = reinterpret_cast<const float*>(rawWeightBase + (v * weightByteStride));
-                        // vert.weight0 = glm::make_vec4(w);
-                        // (optional) fix degenerate all‐zero weights:
-                        // if(glm::length(glm::vec3(vert.weight0)) == 0.0f) { vert.weight0 = glm::vec4(1, 0, 0, 0); }
+                        vert.weight0 = glm::make_vec4(w);
+                        if(glm::length(glm::vec3(vert.weight0)) == 0.0f) { vert.weight0 = glm::vec4(1, 0, 0, 0); }
                     }
-                    else { /*  vert.weight0 = glm::vec4(0.0f); */ }
+                    else { vert.weight0 = glm::vec4(0.0f); }
 
                     // Tangent (if present)
                     if(primitive.attributes.find("TANGENT") != primitive.attributes.end())
@@ -425,6 +453,10 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     }
 
                     loaderInfo.vertexPos++;
+
+                    // HGINFO("Generated vertex with the following joint0 and weight0: ");
+                    // HGINFO("\t JOINT0: %f, %f, %f, %f", vert.joint0.x, vert.joint0.y, vert.joint0.z, vert.joint0.w);
+                    // HGINFO("\t WEIGHT0: %f, %f, %f, %f", vert.weight0.x, vert.weight0.y, vert.weight0.z, vert.weight0.w);
                 } // end for v in posAccessor.count
             }
             // Indices

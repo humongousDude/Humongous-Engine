@@ -1,4 +1,3 @@
-
 #include "vulkan_app.hpp"
 #include "allocator.hpp"
 #include "asset_manager.hpp"
@@ -59,7 +58,7 @@ void VulkanApp::Init(const int argc, char* argv[])
     SceneHandler::Init();
 
     m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator(),
-                                            vk::Format::eR16G16B16A16Sfloat, vk::Format::eD32Sfloat);
+                                            vk::Format::eR16G16B16A16Sfloat, vk::Format::eD32SfloatS8Uint);
 
     m_cam = std::make_unique<Camera>(m_logicalDevice.get());
 
@@ -98,37 +97,42 @@ void VulkanApp::LoadGameObjects()
 
     auto world = SceneHandler::GetWorld();
 
-    auto house = world->CreateEntity();
-    world->AddComponent<BoundingBox>(house);
-    world->AddComponent<ModelComponent>(house);
-    auto comp = world->GetComponent<ModelComponent>(house);
-    comp->modelHandle = ResourceManager::RequestModel("DamagedHelmet");
+    // auto house = world->CreateEntity();
+    // world->AddComponent<BoundingBox>(house);
+    // world->AddComponent<ModelComponent>(house);
+    // auto comp = world->GetComponent<ModelComponent>(house);
+    // comp->modelHandle = ResourceManager::RequestModel("default");
+    // std::string name = ResourceManager::GetModel(comp->modelHandle)->GetName();
+    // world->GetComponent<NameComponent>(house)->name = name + std::to_string(house);
+    //
+    // auto transform = world->GetComponent<TransformComponent>(house);
+    // transform->SetScale(10, 10, 10);
 
-    auto transform = world->GetComponent<TransformComponent>(house);
-    transform->SetTranslation(5, 0, -10);
-    auto helmet = world->CreateEntity();
-    world->AddComponent<BoundingBox>(helmet);
-    world->AddComponent<ModelComponent>(helmet);
-    comp = world->GetComponent<ModelComponent>(helmet);
-    comp->modelHandle = ResourceManager::RequestModel("AlphaBlendModeTest");
-    world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-
-    transform = world->GetComponent<TransformComponent>(helmet);
-    transform->SetTranslation(-5, 0, -10);
-
-    auto wall = world->CreateEntity();
-    world->AddComponent<BoundingBox>(wall);
-    world->AddComponent<ModelComponent>(wall);
-    comp = world->GetComponent<ModelComponent>(wall);
-    comp->modelHandle = ResourceManager::RequestModel("silly thing");
-    world->AddComponent<AudioSourceComponent>(wall, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-
-    transform = world->GetComponent<TransformComponent>(wall);
-    transform->SetTranslation(0, 0, -10);
+    // auto helmet = world->CreateEntity();
+    // world->AddComponent<BoundingBox>(helmet);
+    // world->AddComponent<ModelComponent>(helmet);
+    // comp = world->GetComponent<ModelComponent>(helmet);
+    // comp->modelHandle = ResourceManager::RequestModel("default");
+    // world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    //
+    // transform = world->GetComponent<TransformComponent>(helmet);
+    // transform->SetTranslation(-5, 0, -10);
+    // transform->SetScale(10, 10, 10);
+    //
+    // auto wall = world->CreateEntity();
+    // world->AddComponent<BoundingBox>(wall);
+    // world->AddComponent<ModelComponent>(wall);
+    // comp = world->GetComponent<ModelComponent>(wall);
+    // comp->modelHandle = ResourceManager::RequestModel("default");
+    // world->AddComponent<AudioSourceComponent>(wall, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    //
+    // transform = world->GetComponent<TransformComponent>(wall);
+    // transform->SetTranslation(0, 0, -10);
+    // transform->SetScale(10, 10, 10);
 
     f32 start = 0;
     f32 end = 1000;
-    f32 step = 2;
+    f32 step = 2.5;
     f32 border = 15;
     f32 x = start, y = start, z = start;
     for(n32 i = 0; i < end; i++)
@@ -148,11 +152,13 @@ void VulkanApp::LoadGameObjects()
 
         auto model = world->CreateEntity();
         world->AddComponent<ModelComponent>(model);
-        comp = world->GetComponent<ModelComponent>(model);
+        auto comp = world->GetComponent<ModelComponent>(model);
         comp->modelHandle = ResourceManager::RequestModel("DamagedHelmet");
 
-        transform = world->GetComponent<TransformComponent>(model);
+        auto transform = world->GetComponent<TransformComponent>(model);
         transform->SetTranslation(x, y, z);
+        std::string name = ResourceManager::GetModel(comp->modelHandle)->GetName();
+        world->GetComponent<NameComponent>(model)->name = name + std::to_string(model);
     }
 
     HGINFO("Loaded game objects");

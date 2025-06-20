@@ -56,6 +56,16 @@ public:
 
         AllocatedImage drawImage;
 
+        struct DepthMip
+        {
+            vk::ImageView     sampledView;
+            vk::ImageView     storageView;
+            vk::DescriptorSet set;
+            vk::ImageLayout   layout;
+        };
+        AllocatedImage        hiZImage;
+        std::vector<DepthMip> hiZMips;
+
         vk::DescriptorSet occlusionSet;
         n32               boundingBoxCount;
     };
@@ -146,17 +156,7 @@ private:
 
     vk::Extent2D m_screenImageExtent;
 
-    AllocatedImage m_depthImage;
-    struct DepthMip
-    {
-        vk::ImageView     sampledView;
-        vk::ImageView     storageView;
-        vk::DescriptorSet set;
-        vk::ImageLayout   layout;
-    };
-    std::vector<DepthMip> m_depthMips;
-    vk::Sampler           m_depthImageSampler;
-
+    vk::Sampler    m_depthImageSampler;
     AllocatedImage m_debugImage;
     vk::Sampler    m_debugImageSampler;
 

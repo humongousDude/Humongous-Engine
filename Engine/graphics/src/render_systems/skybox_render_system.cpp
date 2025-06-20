@@ -47,19 +47,24 @@ void SkyboxRenderSystem::CreatePipelineLayout(const std::vector<vk::DescriptorSe
 void SkyboxRenderSystem::CreatePipeline()
 {
     RenderPipeline::PipelineConfigInfo ppCI = RenderPipeline::DefaultPipelineConfigInfo();
-    ppCI.depthStencilInfo.depthTestEnable = VK_TRUE;
-    ppCI.depthStencilInfo.depthWriteEnable = VK_FALSE;
-    ppCI.multisampleInfo.rasterizationSamples = vk::SampleCountFlagBits::e1;
-    ppCI.multisampleInfo.sampleShadingEnable = VK_FALSE;
-    ppCI.multisampleInfo.minSampleShading = 1.0;
     ppCI.pipelineLayout = m_pipelineLayout;
 
     ppCI.vertShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.vert");
     ppCI.fragShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.frag");
+    ppCI.depthStencilInfo.depthTestEnable = false;
+    ppCI.depthStencilInfo.depthWriteEnable = false;
+    ppCI.depthStencilInfo.depthCompareOp = vk::CompareOp::eGreaterOrEqual;
+    ppCI.depthStencilInfo.stencilTestEnable = true;
 
-    ppCI.colorAttachmentFormat = vk::Format::eR16G16B16A16Sfloat;
-    ppCI.renderingInfo.depthAttachmentFormat = vk::Format::eD32Sfloat;
-
+    ppCI.renderingInfo.stencilAttachmentFormat = vk::Format::eD32SfloatS8Uint;
+    ppCI.depthStencilInfo.front.compareOp = vk::CompareOp::eEqual;
+    ppCI.depthStencilInfo.front.reference = 0;
+    ppCI.depthStencilInfo.front.compareMask = 0xFF;
+    ppCI.depthStencilInfo.front.writeMask = 0x00;
+    ppCI.depthStencilInfo.front.failOp = vk::StencilOp::eKeep;
+    ppCI.depthStencilInfo.front.passOp = vk::StencilOp::eKeep;
+    ppCI.depthStencilInfo.front.depthFailOp = vk::StencilOp::eKeep;
+    ppCI.depthStencilInfo.back = ppCI.depthStencilInfo.front;
     m_renderPipeline = std::make_unique<RenderPipeline>(*m_logicalDevice, ppCI);
 }
 

@@ -6,6 +6,8 @@ struct Vertex {
     vec4 uv1;
     vec4 uv2;
     vec4 color;
+    vec4 joint0;
+    vec4 weight0;
 };
 
 layout(set = 0, binding = 0) uniform UBO
