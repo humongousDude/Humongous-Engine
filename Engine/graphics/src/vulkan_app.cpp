@@ -97,16 +97,16 @@ void VulkanApp::LoadGameObjects()
 
     auto world = SceneHandler::GetWorld();
 
-    // auto house = world->CreateEntity();
-    // world->AddComponent<BoundingBox>(house);
-    // world->AddComponent<ModelComponent>(house);
-    // auto comp = world->GetComponent<ModelComponent>(house);
-    // comp->modelHandle = ResourceManager::RequestModel("default");
-    // std::string name = ResourceManager::GetModel(comp->modelHandle)->GetName();
-    // world->GetComponent<NameComponent>(house)->name = name + std::to_string(house);
-    //
-    // auto transform = world->GetComponent<TransformComponent>(house);
-    // transform->SetScale(10, 10, 10);
+    auto house = world->CreateEntity();
+    world->AddComponent<BoundingBox>(house);
+    world->AddComponent<ModelComponent>(house);
+    auto comp = world->GetComponent<ModelComponent>(house);
+    comp->modelHandle = ResourceManager::RequestModel("Sponza");
+    std::string name = ResourceManager::GetModel(comp->modelHandle)->GetName();
+    world->GetComponent<NameComponent>(house)->name = name + std::to_string(house);
+
+    auto transform = world->GetComponent<TransformComponent>(house);
+    transform->SetScale(10, 10, 10);
 
     // auto helmet = world->CreateEntity();
     // world->AddComponent<BoundingBox>(helmet);
@@ -348,23 +348,21 @@ void VulkanApp::Run()
                 RenderData data{
                     .commandBuffer = cmd,
                     .uboSets = {m_cam->GetVertexDescriptorSet(m_renderer->GetFrameIndex())},
-                    .visibleEntities = &frustumAndSortedEntities,
+                    .visibleEntities = &sortedObjs,
                     .world = *world,
                     .frameIndex = m_renderer->GetFrameIndex(),
                     .cam = *m_cam,
                 };
 
-                data.visibleEntities = &sortedObjs;
                 m_renderer->BeginDepthPrePass(cmd);
 
                 m_simpleRenderSystem->RenderObjects(data, true);
 
                 m_renderer->EndDepthPrePass(cmd);
 
-                m_renderer->DoOcclusionCulling(cmd, sortedObjs, *world, *m_cam);
+                // m_renderer->DoOcclusionCulling(cmd, sortedObjs, *world, *m_cam);
 
                 data.visibleEntities = &frustumAndSortedEntities;
-
                 m_renderer->BeginGeometryPass(cmd);
 
                 m_simpleRenderSystem->RenderObjects(data, false);
