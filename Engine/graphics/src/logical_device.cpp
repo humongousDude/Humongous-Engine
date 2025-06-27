@@ -3,15 +3,12 @@
 #include "logical_device.hpp"
 #include "asserts.hpp"
 #include "logger.hpp"
+#include "vk_mem_alloc.h"
 #include <set>
 
 namespace Humongous
 {
 
-/// Callback function called after successful vkAllocateMemory.
-// Custom user data structure (optional)
-
-// Callback function called after successful vkAllocateMemory.
 void VKAPI_PTR VmaAllocateDeviceMemoryFunction(VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size,
                                                void* pUserData)
 {
@@ -22,7 +19,6 @@ void VKAPI_PTR VmaAllocateDeviceMemoryFunction(VmaAllocator allocator, uint32_t 
             (unsigned long long)size, myUserData ? myUserData->allocationCount : -1);
 }
 
-// Callback function called before vkFreeMemory.
 void VKAPI_PTR VmaFreeDeviceMemoryFunction(VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size, void* pUserData)
 {
     LogicalDevice::VMAData* myUserData = static_cast<LogicalDevice::VMAData*>(pUserData);
@@ -79,6 +75,7 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     vulkan12Features.runtimeDescriptorArray = VK_TRUE;
     vulkan12Features.descriptorBindingPartiallyBound = VK_TRUE;
     vulkan12Features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    vulkan12Features.samplerFilterMinmax = VK_TRUE;
     vulkan12Features.pNext = &vulkan11Features;
 
     // vulkan 1.3 features

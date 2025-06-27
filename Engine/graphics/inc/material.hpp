@@ -1,7 +1,8 @@
 #pragma once
 
+#include "defines.hpp"
 #include "entity_component_system/components/entity_component.hpp"
-#include "texture.hpp"
+#include "logger.hpp"
 
 #include <string>
 #define GLM_FORCE_RADIANS
@@ -16,21 +17,71 @@ struct Node;
 // EntityComponent doesn't add anything
 struct alignas(16) BoundingBox : public EntityComponent
 {
-    glm::vec3 min{std::numeric_limits<f32>::max()}; // 12 bytes
-    float     padding1;                             // 4 bytes for alignment
-
-    glm::vec3 max{std::numeric_limits<f32>::min()}; // 12 bytes
-    float     padding2;                             // 4 bytes for alignment
-
-    std::array<glm::vec4, 8> corners;
-
-    s32   valid{false}; // 4 bytes (matches GLSL int for std140)
-    float padding3[3];  // 12 bytes to align the struct to 48 bytes
+    glm::vec4 min{std::numeric_limits<f32>::max()};
+    glm::vec4 max{std::numeric_limits<f32>::min()};
+    s32       valid{false};
 
     static BoundingBox LocalToGlobal(const BoundingBox& localBoundingBox, const glm::mat4& model);
+    static BoundingBox TransformAABB(const BoundingBox& aabb, const glm::mat4& transform)
+    {
+        if(!aabb.valid) { return BoundingBox{}; }
+
+        glm::vec4 newMin = glm::vec4(std::numeric_limits<float>::max());
+        glm::vec4 newMax = glm::vec4(std::numeric_limits<float>::lowest());
+
+        // Generate and transform all 8 corners
+        glm::vec3 corners[8] = {glm::vec3(aabb.min.x, aabb.min.y, aabb.min.z), glm::vec3(aabb.max.x, aabb.min.y, aabb.min.z),
+                                glm::vec3(aabb.min.x, aabb.max.y, aabb.min.z), glm::vec3(aabb.min.x, aabb.min.y, aabb.max.z),
+                                glm::vec3(aabb.max.x, aabb.max.y, aabb.min.z), glm::vec3(aabb.max.x, aabb.min.y, aabb.max.z),
+                                glm::vec3(aabb.min.x, aabb.max.y, aabb.max.z), glm::vec3(aabb.max.x, aabb.max.y, aabb.max.z)};
+
+        for(int i = 0; i < 8; ++i)
+        {
+            glm::vec4 transformedCorner = glm::vec4(transform * glm::vec4(corners[i], 1.0f));
+            newMin = glm::min(newMin, transformedCorner);
+            newMax = glm::max(newMax, transformedCorner);
+        }
+
+        return BoundingBox{newMin, newMax};
+    }
+
+    void Extend(const glm::vec4& point)
+    {
+        if(!valid)
+        {
+            min = point;
+            max = point;
+            valid = true;
+        }
+        else
+        {
+            min = glm::min(min, point);
+            max = glm::max(max, point);
+        }
+    }
+
+    // Method to extend with another bounding box
+    void Extend(const BoundingBox& other)
+    {
+        if(!other.valid) { return; }
+        if(!valid)
+        {
+            *this = other;
+            return;
+        }
+        min = glm::min(min, other.min);
+        max = glm::max(max, other.max);
+    }
+
+    void Invalidate()
+    {
+        min = glm::vec4(std::numeric_limits<f32>::max());
+        max = glm::vec4(std::numeric_limits<f32>::min());
+        valid = false;
+    };
 
     BoundingBox() = default;
-    BoundingBox(glm::vec3 min, glm::vec3 max) : min(min), max(max) {}
+    BoundingBox(glm::vec4 min, glm::vec4 max) : min(min), max(max), valid(true) {}
 };
 
 struct Material

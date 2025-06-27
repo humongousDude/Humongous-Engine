@@ -111,6 +111,9 @@ void main()
             case 4:
             outColor.rgba = vec4(depth, depth, depth, 1);
             break;
+            case 5:
+            outColor.rgba = texture(gPosition, uv);
+            break;
         }
         imageStore(drawImage, pixelCoords, outColor);
         return;

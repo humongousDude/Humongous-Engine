@@ -2,6 +2,7 @@
 #include "asserts.hpp"
 #include "asset_manager.hpp"
 #include "defines.hpp"
+#include "globals.hpp"
 #include "logger.hpp"
 #include "resource_manager.hpp"
 #include <set>
@@ -21,7 +22,7 @@ Mesh::~Mesh()
     for(Primitive* p: primitives) { delete p; }
 }
 
-Model::Model(LogicalDevice* device, const std::string& modelPath, float scale)
+Model::Model(LogicalDevice* device, const std::string& modelPath, f32 scale, const n32& handle) : m_handle(handle)
 {
     HGINFO("Creating model...");
     LoadFromFile(modelPath, device, device->GetGraphicsQueue(), scale);
@@ -30,7 +31,7 @@ Model::Model(LogicalDevice* device, const std::string& modelPath, float scale)
 
 Model::~Model() { Destroy(m_logicalDevice->GetVkDevice()); }
 
-void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk::Queue transferQueue, float scale)
+void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk::Queue transferQueue, f32 scale)
 {
     if(m_initialized) { return; }
 
@@ -57,37 +58,25 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
     size_t lastSlashPos = filePath.rfind('/');
     size_t lastBackslashPos = filePath.rfind('\\');
 
-    // Determine which separator is closer to the end of the string
     size_t filenameStartPos = std::string::npos;
     if(lastSlashPos != std::string::npos && lastBackslashPos != std::string::npos) { filenameStartPos = std::max(lastSlashPos, lastBackslashPos); }
     else if(lastSlashPos != std::string::npos) { filenameStartPos = lastSlashPos; }
     else if(lastBackslashPos != std::string::npos) { filenameStartPos = lastBackslashPos; }
 
     std::string fileName;
-    if(filenameStartPos != std::string::npos)
-    {
-        // If a separator was found, the filename starts after it
-        fileName = filePath.substr(filenameStartPos + 1);
-    }
-    else
-    {
-        // No separator found, the whole string is the filename
-        fileName = filePath;
-    }
+    if(filenameStartPos != std::string::npos) { fileName = filePath.substr(filenameStartPos + 1); }
+    else { fileName = filePath; }
 
     std::string filenameWithoutExtension;
     if(extpos != std::string::npos && extpos > filenameStartPos)
-    { // Ensure extension is part of the current filename, not a directory name
+    {
         if(filenameStartPos != std::string::npos)
         {
             filenameWithoutExtension = filePath.substr(filenameStartPos + 1, extpos - (filenameStartPos + 1));
         }
         else { filenameWithoutExtension = filePath.substr(0, extpos); }
     }
-    else
-    {
-        filenameWithoutExtension = fileName; // No extension found or extension is part of directory name
-    }
+    else { filenameWithoutExtension = fileName; }
 
     m_name = filenameWithoutExtension;
 
@@ -111,15 +100,14 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
             const tinygltf::Node node = gltfModel.nodes[scene.nodes[i]];
             LoadNode(nullptr, node, scene.nodes[i], gltfModel, loaderInfo, scale, glm::identity<glm::mat4>());
         }
-        /* if(gltfModel.animations.size() > 0) { loadAnimations(gltfModel); }
-        loadSkins(gltfModel); */
+        if(gltfModel.animations.size() > 0) { LoadAnimations(gltfModel); }
+        LoadSkins(gltfModel);
 
         for(auto node: m_linearNodes)
         {
-            // // Assign skins
-            // if(node->m_skinIndex > -1) { node->m_skin = skins[node->m_skinIndex]; }
-            // Initial pose
-            if(node->mesh) { node->Update(); }
+            if(node->skinIndex > -1) { node->skin = m_skins[node->skinIndex]; }
+            else { node->skin = nullptr; }
+            if(node->mesh) { node->CalculateLocalMatrix(); }
         }
     }
     else
@@ -128,9 +116,7 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
         return;
     }
 
-    // extensions = gltfModel.extensionsUsed;
-
-    m_indices = loaderInfo.indexBuffer;
+    m_indices.insert(m_indices.begin(), loaderInfo.indexBuffer.begin(), loaderInfo.indexBuffer.end());
 
     for(auto& node: m_nodes) { UpdateMaterialBatches(node); }
 
@@ -150,15 +136,36 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
         }
     }
 
-    m_vertices = loaderInfo.vertexBuffer;
+    m_vertices.insert(m_vertices.begin(), loaderInfo.vertexBuffer.begin(), loaderInfo.vertexBuffer.end());
 
-    m_localAABB = CalculateModelAABB(m_nodes, loaderInfo.vertexBuffer, loaderInfo.indexBuffer);
+    for(auto& node: m_nodes) { node->UpdateLocalToModelMatrix(); }
+    for(auto& skin: m_skins) { skin->UpdateJointMatrices(); }
+
+    CalculateRestAABB();
 
     ResourceManager::AddVerticesToModel(m_vertices, allMeshesForThisModel);
     ResourceManager::AddIndicesToModel(m_indices, allPrimitivesForThisModel);
 
     LoadMaterialData();
 
+    std::vector<glm::mat4> jointMatricies;
+    for(const auto& skin: m_skins)
+    {
+        if(skin->jointMatrices.empty()) { continue; }
+
+        jointMatricies.insert(jointMatricies.end(), skin->jointMatrices.begin(), skin->jointMatrices.end());
+    }
+
+    if(!jointMatricies.empty()) { ResourceManager::AddJointMatriciesToModel(jointMatricies, m_handle); }
+    else
+    {
+        jointMatricies.push_back(glm::mat4(glm::identity<glm::mat4>()));
+        ResourceManager::AddJointMatriciesToModel(jointMatricies, m_handle);
+    }
+
+    std::vector<f32> morphTargets;
+    for(const auto& mesh: m_meshes) { morphTargets.insert(morphTargets.begin(), mesh->weights.begin(), mesh->weights.end()); }
+    if(!morphTargets.empty()) { ResourceManager::AddMorphTargetsToModel(morphTargets, m_handle); }
     m_initialized = true;
     HGINFO("Initialized model!");
 }
@@ -172,59 +179,34 @@ void Model::Destroy(vk::Device device)
     m_linearNodes.resize(0);
 };
 
-void Model::UpdateUBO(Node* node, glm::mat4 matrix)
-{
-
-    // Might need this when I implement animations.
-    // if(node->mesh)
-    // {
-    //     node->mesh->uniformBlock.matrix = matrix;
-    //     node->mesh->uniformBuffer.uniformBuffer.WriteToBuffer((void*)&node->mesh->uniformBlock, sizeof(node->mesh->uniformBlock));
-    // }
-}
-
-void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo,
-                     float globalscale, glm::mat4 parentTransform)
+void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, f32 globalscale,
+                     glm::mat4 parentTransform)
 {
     Node* newNode = new Node{};
     newNode->index = nodeIndex;
     newNode->parent = parent;
     newNode->name = node.name;
-    // newNode->skinIndex = node.skin;
+    newNode->skinIndex = node.skin;
 
     glm::mat4 localMatrix = glm::mat4(1.0f);
 
-    // Determine the local node transform: EITHER from an explicit matrix OR from TRS
-    if(node.matrix.size() == 16) { localMatrix = glm::make_mat4x4(node.matrix.data()); }
+    if(node.matrix.size() == 16) { newNode->localMatrix = glm::make_mat4x4(node.matrix.data()); }
     else
     {
-        glm::vec3 translation = glm::vec3(0.0f);
-        if(node.translation.size() == 3)
-        {
-            translation = glm::make_vec3(node.translation.data());
-            newNode->translation = translation;
-        }
+        if(node.translation.size() == 3) { newNode->translation = glm::make_vec3(node.translation.data()); }
 
-        glm::quat rotationQuat = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-        if(node.rotation.size() == 4)
-        {
-            rotationQuat = glm::make_quat(node.rotation.data());
-            newNode->rotation = rotationQuat;
-        }
+        if(node.rotation.size() == 4) { newNode->rotation = glm::make_quat(node.rotation.data()); }
 
-        glm::vec3 scale = glm::vec3(1.0f);
-        if(node.scale.size() == 3)
-        {
-            scale = glm::make_vec3(node.scale.data());
-            newNode->scale = scale;
-        }
+        // TODO: Figure out a way to configure scaling conversions. glTF should be in meters but sometimes models still need conversion
+        if(node.scale.size() == 3) { newNode->scale = glm::make_vec3(node.scale.data()); }
+        // This usually fixes things if they're way too massive
+        //  (you know what else is massive?)
+        // newNode->scale = glm::vec3(1);
 
-        localMatrix = glm::translate(glm::mat4(1.0f), translation) * glm::mat4(rotationQuat) * glm::scale(glm::mat4(1.0f), scale);
+        newNode->CalculateLocalMatrix();
     }
 
-    newNode->matrix = localMatrix;
-
-    glm::mat4 currentWorldTransform = parentTransform * newNode->matrix;
+    glm::mat4 currentWorldTransform = parentTransform * newNode->localMatrix;
 
     if(!node.children.empty())
     {
@@ -237,29 +219,88 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
     // Node contains mesh data
     if(node.mesh > -1)
     {
-
         const tinygltf::Mesh mesh = model.meshes[node.mesh];
-        Mesh*                newMesh = new Mesh(m_logicalDevice, newNode->matrix);
+        Mesh*                newMesh = new Mesh(m_logicalDevice, newNode->localMatrix);
+
+        if(!mesh.weights.empty()) { m_hasMorphTargets = true; }
+
+        newMesh->weights.resize(mesh.weights.size());
+        for(size_t i = 0; i < mesh.weights.size(); ++i) { newMesh->weights[i] = static_cast<f32>(mesh.weights[i]); }
+
         for(size_t j = 0; j < mesh.primitives.size(); j++)
         {
-            const tinygltf::Primitive& primitive = mesh.primitives[j];
-            n32                        vertexStart = static_cast<n32>(loaderInfo.vertexPos);
-            n32                        indexStart = static_cast<n32>(loaderInfo.indexPos);
-            n32                        indexCount = 0;
-            n32                        vertexCount = 0;
-            bool                       hasSkin = false;
-            bool                       hasIndices = primitive.indices > -1;
-            // Vertices
-            {
+            const tinygltf::Primitive&          primitive = mesh.primitives[j];
+            n32                                 vertexStart = static_cast<n32>(loaderInfo.vertexPos);
+            n32                                 indexStart = static_cast<n32>(loaderInfo.indexPos);
+            n32                                 indexCount = 0;
+            n32                                 vertexCount = 0;
+            bool                                hasSkin = false;
+            bool                                hasIndices = primitive.indices > -1;
+            std::vector<std::vector<glm::vec3>> morphTargetPositions;
+            std::vector<std::vector<glm::vec3>> morphTargetNormals;
+            std::vector<std::vector<glm::vec4>> morphTargetTangents;
 
-                const float* bufferPos = nullptr;
-                const float* bufferNormals = nullptr;
-                const float* bufferTexCoordSet0 = nullptr;
-                const float* bufferTexCoordSet1 = nullptr;
-                const float* bufferColorSet0 = nullptr;
-                const void*  bufferJoints = nullptr;
-                const float* bufferWeights = nullptr;
-                const float* bufferTangents = nullptr;
+            glm::vec4 currentPrimitiveMinPos = glm::vec4(std::numeric_limits<f32>::max());
+            glm::vec4 currentPrimitiveMaxPos = glm::vec4(std::numeric_limits<f32>::lowest());
+            f32       currentMaxMorphDisplacement = 0.0f;
+
+            for(const auto& target_map: primitive.targets)
+            {
+                std::vector<glm::vec3> targetPositions;
+                std::vector<glm::vec3> targetNormals;
+                std::vector<glm::vec4> targetTangents;
+
+                // Target Positions (_POSITION)
+                auto posIt = target_map.find("POSITION");
+                if(posIt != target_map.end())
+                {
+                    const tinygltf::Accessor&   accessor = model.accessors[posIt->second];
+                    const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
+                    const tinygltf::Buffer&     buffer = model.buffers[bufferView.buffer];
+                    const glm::vec3* dataPtr = reinterpret_cast<const glm::vec3*>(buffer.data.data() + accessor.byteOffset + bufferView.byteOffset);
+                    targetPositions.assign(dataPtr, dataPtr + accessor.count);
+
+                    for(size_t k = 0; k < accessor.count; ++k)
+                    {
+                        currentMaxMorphDisplacement = std::max(currentMaxMorphDisplacement, glm::length(targetPositions[k]));
+                    }
+                }
+                morphTargetPositions.push_back(targetPositions);
+
+                // Target Normals (_NORMAL) - Optional
+                auto normalIt = target_map.find("NORMAL");
+                if(normalIt != target_map.end())
+                {
+                    const tinygltf::Accessor&   accessor = model.accessors[normalIt->second];
+                    const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
+                    const tinygltf::Buffer&     buffer = model.buffers[bufferView.buffer];
+                    const glm::vec3* dataPtr = reinterpret_cast<const glm::vec3*>(buffer.data.data() + accessor.byteOffset + bufferView.byteOffset);
+                    targetNormals.assign(dataPtr, dataPtr + accessor.count);
+                }
+                morphTargetNormals.push_back(targetNormals);
+
+                // Target Tangents (_TANGENT) - Optional
+                auto tangentIt = target_map.find("TANGENT");
+                if(tangentIt != target_map.end())
+                {
+                    const tinygltf::Accessor&   accessor = model.accessors[tangentIt->second];
+                    const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
+                    const tinygltf::Buffer&     buffer = model.buffers[bufferView.buffer];
+                    const glm::vec4* dataPtr = reinterpret_cast<const glm::vec4*>(buffer.data.data() + accessor.byteOffset + bufferView.byteOffset);
+                    targetTangents.assign(dataPtr, dataPtr + accessor.count);
+                }
+                morphTargetTangents.push_back(targetTangents);
+            }
+
+            {
+                const f32*  bufferPos = nullptr;
+                const f32*  bufferNormals = nullptr;
+                const f32*  bufferTexCoordSet0 = nullptr;
+                const f32*  bufferTexCoordSet1 = nullptr;
+                const f32*  bufferColorSet0 = nullptr;
+                const void* bufferJoints = nullptr;
+                const f32*  bufferWeights = nullptr;
+                const f32*  bufferTangents = nullptr;
 
                 int    posByteStride;
                 int    normByteStride;
@@ -279,7 +320,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                 const tinygltf::BufferView& posView = model.bufferViews[posAccessor.bufferView];
 
                 posByteStride = posAccessor.ByteStride(posView) ? posAccessor.ByteStride(posView)
-                                                                : (sizeof(float) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
+                                                                : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
 
                 const unsigned char* rawPosBase = model.buffers[posView.buffer].data.data() + posView.byteOffset + posAccessor.byteOffset;
 
@@ -291,7 +332,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     const tinygltf::Accessor&   normAccessor = model.accessors[primitive.attributes.at("NORMAL")];
                     const tinygltf::BufferView& normView = model.bufferViews[normAccessor.bufferView];
                     normByteStride = normAccessor.ByteStride(normView) ? normAccessor.ByteStride(normView)
-                                                                       : (sizeof(float) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
+                                                                       : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
                     rawNormBase = model.buffers[normView.buffer].data.data() + normView.byteOffset + normAccessor.byteOffset;
                 }
 
@@ -303,7 +344,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     const tinygltf::Accessor&   uvAccessor = model.accessors[primitive.attributes.at("TEXCOORD_0")];
                     const tinygltf::BufferView& uvView = model.bufferViews[uvAccessor.bufferView];
                     uv0ByteStride = uvAccessor.ByteStride(uvView) ? uvAccessor.ByteStride(uvView)
-                                                                  : (sizeof(float) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
+                                                                  : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
                     rawUv0Base = model.buffers[uvView.buffer].data.data() + uvView.byteOffset + uvAccessor.byteOffset;
                 }
 
@@ -312,8 +353,8 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     const tinygltf::Accessor&   uvAccessor = model.accessors[primitive.attributes.find("TEXCOORD_1")->second];
                     const tinygltf::BufferView& uvView = model.bufferViews[uvAccessor.bufferView];
                     bufferTexCoordSet1 =
-                        reinterpret_cast<const float*>(&(model.buffers[uvView.buffer].data[uvAccessor.byteOffset + uvView.byteOffset]));
-                    uv1ByteStride = uvAccessor.ByteStride(uvView) ? (uvAccessor.ByteStride(uvView) / sizeof(float))
+                        reinterpret_cast<const f32*>(&(model.buffers[uvView.buffer].data[uvAccessor.byteOffset + uvView.byteOffset]));
+                    uv1ByteStride = uvAccessor.ByteStride(uvView) ? (uvAccessor.ByteStride(uvView) / sizeof(f32))
                                                                   : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2);
                 }
 
@@ -322,8 +363,8 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                 {
                     const tinygltf::Accessor&   accessor = model.accessors[primitive.attributes.find("COLOR_0")->second];
                     const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
-                    bufferColorSet0 = reinterpret_cast<const float*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-                    color0ByteStride = accessor.ByteStride(view) ? (accessor.ByteStride(view) / sizeof(float))
+                    bufferColorSet0 = reinterpret_cast<const f32*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+                    color0ByteStride = accessor.ByteStride(view) ? (accessor.ByteStride(view) / sizeof(f32))
                                                                  : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3);
                 }
 
@@ -345,16 +386,16 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     const tinygltf::Accessor&   weightAccessor = model.accessors[primitive.attributes.find("WEIGHTS_0")->second];
                     const tinygltf::BufferView& weightView = model.bufferViews[weightAccessor.bufferView];
                     bufferWeights =
-                        reinterpret_cast<const float*>(&(model.buffers[weightView.buffer].data[weightAccessor.byteOffset + weightView.byteOffset]));
-                    weightByteStride = weightAccessor.ByteStride(weightView) ? (weightAccessor.ByteStride(weightView) / sizeof(float))
+                        reinterpret_cast<const f32*>(&(model.buffers[weightView.buffer].data[weightAccessor.byteOffset + weightView.byteOffset]));
+                    weightByteStride = weightAccessor.ByteStride(weightView) ? (weightAccessor.ByteStride(weightView) / sizeof(f32))
                                                                              : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4);
                 }
                 if(primitive.attributes.find("TANGENT") != primitive.attributes.end())
                 {
                     const tinygltf::Accessor&   tangentAccessor = model.accessors[primitive.attributes.find("TANGENT")->second];
                     const tinygltf::BufferView& tangentView = model.bufferViews[tangentAccessor.bufferView];
-                    bufferTangents = reinterpret_cast<const float*>(
-                        &model.buffers[tangentView.buffer].data[tangentView.byteOffset + tangentAccessor.byteOffset]);
+                    bufferTangents =
+                        reinterpret_cast<const f32*>(&model.buffers[tangentView.buffer].data[tangentView.byteOffset + tangentAccessor.byteOffset]);
                     tangentByteStride = tangentAccessor.ByteStride(tangentView);
                 }
 
@@ -368,14 +409,14 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
 
                     // POSITION is guaranteed to be present and of type FLOAT.
                     {
-                        const float* p = reinterpret_cast<const float*>(rawPosBase + (v * posByteStride));
+                        const f32* p = reinterpret_cast<const f32*>(rawPosBase + (v * posByteStride));
                         vert.position = glm::vec4(glm::make_vec3(p), 1.0f);
                     }
 
                     // NORMAL (if it exists)
                     if(rawNormBase)
                     {
-                        const float* n = reinterpret_cast<const float*>(rawNormBase + (v * normByteStride));
+                        const f32* n = reinterpret_cast<const f32*>(rawNormBase + (v * normByteStride));
                         vert.normal = glm::vec4(glm::normalize(glm::make_vec3(n)), 1.0f);
                     }
                     else { vert.normal = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f); }
@@ -383,7 +424,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     // UV0
                     if(rawUv0Base)
                     {
-                        const float* uv = reinterpret_cast<const float*>(rawUv0Base + (v * uv0ByteStride));
+                        const f32* uv = reinterpret_cast<const f32*>(rawUv0Base + (v * uv0ByteStride));
                         vert.uv0 = glm::vec4(glm::make_vec2(uv), 1.0f, 1.0f);
                     }
                     else { vert.uv0 = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }
@@ -402,13 +443,13 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
 
                         if(jointAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
                         {
-                            const uint16_t* j = reinterpret_cast<const uint16_t*>(rawJointBase + (v * jointByteStride));
-                            vert.joint0 = glm::vec4(float(j[0]), float(j[1]), float(j[2]), float(j[3]));
+                            const n16* j = reinterpret_cast<const n16*>(rawJointBase + (v * jointByteStride));
+                            vert.joint0 = glm::ivec4(j[0], j[1], j[2], j[3]);
                         }
                         else if(jointAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
                         {
-                            const uint8_t* j = reinterpret_cast<const uint8_t*>(rawJointBase + (v * jointByteStride));
-                            vert.joint0 = glm::vec4(float(j[0]), float(j[1]), float(j[2]), float(j[3]));
+                            const n8* j = reinterpret_cast<const n8*>(rawJointBase + (v * jointByteStride));
+                            vert.joint0 = glm::ivec4(j[0], j[1], j[2], j[3]);
                         }
                         else { HGERROR("Unexpected JOINTS_0 componentType = %d", jointAccessor.componentType); }
                     }
@@ -420,10 +461,10 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                         const tinygltf::BufferView& weightView = model.bufferViews[weightAccessor.bufferView];
                         const unsigned char*        rawWeightBase =
                             model.buffers[weightView.buffer].data.data() + weightView.byteOffset + weightAccessor.byteOffset;
-                        size_t       weightByteStride = weightAccessor.ByteStride(weightView)
-                                                            ? weightAccessor.ByteStride(weightView)
-                                                            : (sizeof(float) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4));
-                        const float* w = reinterpret_cast<const float*>(rawWeightBase + (v * weightByteStride));
+                        size_t     weightByteStride = weightAccessor.ByteStride(weightView)
+                                                          ? weightAccessor.ByteStride(weightView)
+                                                          : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4));
+                        const f32* w = reinterpret_cast<const f32*>(rawWeightBase + (v * weightByteStride));
                         vert.weight0 = glm::make_vec4(w);
                         if(glm::length(glm::vec3(vert.weight0)) == 0.0f) { vert.weight0 = glm::vec4(1, 0, 0, 0); }
                     }
@@ -437,11 +478,11 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                         const unsigned char* rawTanBase = model.buffers[tanView.buffer].data.data() + tanView.byteOffset + tanAccessor.byteOffset;
                         size_t               tanByteStride = tanAccessor.ByteStride(tanView)
                                                                  ? tanAccessor.ByteStride(tanView)
-                                                                 : (sizeof(float) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4));
-                        const float*         t = reinterpret_cast<const float*>(rawTanBase + (v * tanByteStride));
+                                                                 : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4));
+                        const f32*           t = reinterpret_cast<const f32*>(rawTanBase + (v * tanByteStride));
                         glm::vec3            tangent = glm::normalize(glm::make_vec3(t));
                         // the w‐component in glTF TANGENT is the sign for the bitangent
-                        float     sign = t[3];
+                        f32       sign = t[3];
                         glm::vec3 bitan = glm::normalize(glm::cross(glm::vec3(vert.normal), tangent) * sign);
                         vert.tangent = glm::vec4(tangent, 1.0f);
                         vert.bitTangent = glm::vec4(bitan, 1.0f);
@@ -451,12 +492,39 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                         vert.tangent = glm::vec4(1, 0, 0, 0);
                         vert.bitTangent = glm::vec4(0, 1, 0, 0);
                     }
+                    const constexpr size_t MAX_SUPPORTED_TARGETS = 4;
+
+                    for(size_t targetIdx = 0; targetIdx < morphTargetPositions.size() && targetIdx < MAX_SUPPORTED_TARGETS; ++targetIdx)
+                    {
+                        const glm::vec3& targetOffset = morphTargetPositions[targetIdx][v];
+
+                        switch(targetIdx)
+                        {
+                            case 0:
+                                vert.targetPos0 = glm::vec4(targetOffset, 0.0f);
+                                break;
+                            case 1:
+                                vert.targetPos1 = glm::vec4(targetOffset, 0.0f);
+                                break;
+                            case 2:
+                                vert.targetPos2 = glm::vec4(targetOffset, 0.0f);
+                                break;
+                            case 3:
+                                vert.targetPos3 = glm::vec4(targetOffset, 0.0f);
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                    if(morphTargetPositions.size() <= 0) { vert.targetPos0 = glm::vec4(0.0f); }
+                    if(morphTargetPositions.size() <= 1) { vert.targetPos1 = glm::vec4(0.0f); }
+                    if(morphTargetPositions.size() <= 2) { vert.targetPos2 = glm::vec4(0.0f); }
+                    if(morphTargetPositions.size() <= 3) { vert.targetPos3 = glm::vec4(0.0f); }
+
+                    currentPrimitiveMinPos = glm::min(currentPrimitiveMinPos, vert.position);
+                    currentPrimitiveMaxPos = glm::max(currentPrimitiveMaxPos, vert.position);
 
                     loaderInfo.vertexPos++;
-
-                    // HGINFO("Generated vertex with the following joint0 and weight0: ");
-                    // HGINFO("\t JOINT0: %f, %f, %f, %f", vert.joint0.x, vert.joint0.y, vert.joint0.z, vert.joint0.w);
-                    // HGINFO("\t WEIGHT0: %f, %f, %f, %f", vert.weight0.x, vert.weight0.y, vert.weight0.z, vert.weight0.w);
                 } // end for v in posAccessor.count
             }
             // Indices
@@ -486,7 +554,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                         }
                     case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT:
                         {
-                            const uint16_t* buf = static_cast<const uint16_t*>(dataPtr);
+                            const n16* buf = static_cast<const n16*>(dataPtr);
                             for(size_t index = 0; index < accessor.count; index++)
                             {
                                 loaderInfo.indexBuffer[loaderInfo.indexPos] = buf[index];
@@ -496,7 +564,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                         }
                     case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE:
                         {
-                            const uint8_t* buf = static_cast<const uint8_t*>(dataPtr);
+                            const n8* buf = static_cast<const n8*>(dataPtr);
                             for(size_t index = 0; index < accessor.count; index++)
                             {
                                 loaderInfo.indexBuffer[loaderInfo.indexPos] = buf[index];
@@ -509,19 +577,49 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                         return;
                 }
             }
-            Primitive* newPrimitive = new Primitive(indexStart, // firstIndex (local index offset)
-                                                    indexCount, vertexCount,
-                                                    vertexStart, // **local** start of this primitive’s vertices
+            Primitive* newPrimitive = new Primitive(indexStart, indexCount, vertexCount, vertexStart,
                                                     primitive.material > -1 ? m_materials[primitive.material] : m_materials.back());
             newPrimitive->owner = newNode;
+            newPrimitive->morphTargetPositions = morphTargetPositions;
+            newPrimitive->morphTargetNormals = morphTargetNormals;
+            newPrimitive->morphTargetTangents = morphTargetTangents;
+            newPrimitive->maxMorphDisplacement = currentMaxMorphDisplacement;
+            newPrimitive->boundingBox = BoundingBox(currentPrimitiveMinPos, currentPrimitiveMaxPos);
+            newPrimitive->boundingBox.valid = true;
             newMesh->primitives.push_back(newPrimitive);
         }
 
         newNode->mesh = newMesh;
+        m_meshes.push_back(newMesh);
     }
     if(parent) { parent->children.push_back(newNode); }
     else { m_nodes.push_back(newNode); }
     m_linearNodes.push_back(newNode);
+}
+
+// Node Helpers
+
+Node* Model::NodeFromIndex(n32 index)
+{
+    Node* nodeFound = nullptr;
+    for(auto& node: m_nodes)
+    {
+        nodeFound = FindNode(node, index);
+        if(nodeFound) { break; }
+    }
+    return nodeFound;
+}
+
+Node* Model::FindNode(Node* parent, n32 index)
+{
+    Node* nodeFound = nullptr;
+    if(parent->index == index) { return parent; }
+    for(auto& child: parent->children)
+    {
+        nodeFound = FindNode(child, index);
+        if(nodeFound) { break; }
+    }
+    return nodeFound;
 }
 
 void Model::GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& model, size_t& vertexCount, size_t& indexCount)
@@ -542,6 +640,8 @@ void Model::GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& mode
     }
 }
 
+// Materials and textures
+
 vk::SamplerAddressMode Model::GetVkWrapMode(s32 wrapMode)
 {
     switch(wrapMode)
@@ -555,7 +655,7 @@ vk::SamplerAddressMode Model::GetVkWrapMode(s32 wrapMode)
             return vk::SamplerAddressMode::eMirroredRepeat;
     }
 
-    HGERROR("Unknown wrap mode for getvk::WrapMode:  %i", wrapMode);
+    HGWARN("Unknown wrap mode for getvk::WrapMode:  %i", wrapMode);
     return vk::SamplerAddressMode::eRepeat;
 }
 
@@ -578,7 +678,7 @@ vk::Filter Model::GetVkFilterMode(s32 filterMode)
             return vk::Filter::eLinear;
     }
 
-    HGERROR("Unknown filter mode for getvk::FilterMode: %i", filterMode);
+    HGWARN("Unknown filter mode for getvk::FilterMode: %i", filterMode);
     return vk::Filter::eNearest;
 }
 
@@ -629,8 +729,7 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         if(gltfMat.values.find("baseColorFactor") != gltfMat.values.end())
         {
             auto fc = gltfMat.values.at("baseColorFactor").ColorFactor();
-            mat.baseColorFactor =
-                glm::vec4(static_cast<float>(fc[0]), static_cast<float>(fc[1]), static_cast<float>(fc[2]), static_cast<float>(fc[3]));
+            mat.baseColorFactor = glm::vec4(static_cast<f32>(fc[0]), static_cast<f32>(fc[1]), static_cast<f32>(fc[2]), static_cast<f32>(fc[3]));
         }
         if(gltfMat.values.find("baseColorTexture") != gltfMat.values.end())
         {
@@ -641,11 +740,11 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
 
         if(gltfMat.values.find("metallicFactor") != gltfMat.values.end())
         {
-            mat.metallicFactor = static_cast<float>(gltfMat.values.at("metallicFactor").Factor());
+            mat.metallicFactor = static_cast<f32>(gltfMat.values.at("metallicFactor").Factor());
         }
         if(gltfMat.values.find("roughnessFactor") != gltfMat.values.end())
         {
-            mat.roughnessFactor = static_cast<float>(gltfMat.values.at("roughnessFactor").Factor());
+            mat.roughnessFactor = static_cast<f32>(gltfMat.values.at("roughnessFactor").Factor());
         }
         if(gltfMat.values.find("metallicRoughnessTexture") != gltfMat.values.end())
         {
@@ -673,7 +772,7 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         if(gltfMat.additionalValues.find("emissiveFactor") != gltfMat.additionalValues.end())
         {
             auto ef = gltfMat.additionalValues.at("emissiveFactor").ColorFactor();
-            mat.emissiveFactor = glm::vec4(static_cast<float>(ef[0]), static_cast<float>(ef[1]), static_cast<float>(ef[2]), 1);
+            mat.emissiveFactor = glm::vec4(static_cast<f32>(ef[0]), static_cast<f32>(ef[1]), static_cast<f32>(ef[2]), 1);
         }
         if(gltfMat.additionalValues.find("emissiveTexture") != gltfMat.additionalValues.end())
         {
@@ -686,7 +785,7 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         if(gltfMat.extensions.find("KHR_materials_emissive_strength") != gltfMat.extensions.end())
         {
             auto& ext = gltfMat.extensions.at("KHR_materials_emissive_strength");
-            if(ext.Has("emissiveStrength")) { mat.emissiveStrength = static_cast<float>(ext.Get("emissiveStrength").Get<double>()); }
+            if(ext.Has("emissiveStrength")) { mat.emissiveStrength = static_cast<f32>(ext.Get("emissiveStrength").Get<double>()); }
         }
 
         if(gltfMat.additionalValues.find("alphaMode") != gltfMat.additionalValues.end())
@@ -697,7 +796,7 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
                 mat.alphaMode = Material::ALPHAMODE_MASK;
                 if(gltfMat.additionalValues.find("alphaCutoff") != gltfMat.additionalValues.end())
                 {
-                    mat.alphaCutoff = static_cast<float>(gltfMat.additionalValues.at("alphaCutoff").Factor());
+                    mat.alphaCutoff = static_cast<f32>(gltfMat.additionalValues.at("alphaCutoff").Factor());
                 }
             }
             else if(am.string_value == "BLEND") { mat.alphaMode = Material::ALPHAMODE_BLEND; }
@@ -771,7 +870,7 @@ void Model::LoadMaterialData()
 
 void AccumulateWorldMatrices(Node* node, const glm::mat4& parentWorld, std::vector<glm::mat4>& out)
 {
-    glm::mat4 world = parentWorld * node->matrix;
+    glm::mat4 world = parentWorld * node->localMatrix;
     out[node->index] = world;
 
     for(Node* child: node->children) { AccumulateWorldMatrices(child, world, out); }
@@ -779,8 +878,8 @@ void AccumulateWorldMatrices(Node* node, const glm::mat4& parentWorld, std::vect
 
 std::vector<glm::mat4> Model::GetMatrixVector()
 {
-    std::vector<glm::mat4> flat(m_nodes.size());
-    for(Node* root: m_nodes) { AccumulateWorldMatrices(root, glm::mat4(1.0f), flat); }
+    std::vector<glm::mat4> flat(m_linearNodes.size());
+    for(Node* root: m_linearNodes) { AccumulateWorldMatrices(root, glm::mat4(1.0f), flat); }
     return flat;
 }
 
@@ -793,85 +892,511 @@ void Model::UpdateMaterialBatches(Node* node)
     for(auto& c: node->children) { UpdateMaterialBatches(c); }
 }
 
-void CalculateNodeBoundsRecursive(BoundingBox& bounds, const Node* node, const std::vector<Model::Vertex>& vertexBufferLocal,
-                                  const std::vector<uint32_t>& indexBufferLocal)
+// Animations and skinning
+
+void Model::CalculateRestAABB()
 {
-    if(!node) { return; }
+    m_restAABB.Invalidate();
+    m_restAABB.valid = true;
 
-    // Compute this node's world‐transform
-    glm::mat4 nodeWorldMatrix = node->GetMatrix();
-
-    if(node->mesh)
+    for(const auto* mesh: m_meshes)
     {
-        for(const Primitive* primitive: node->mesh->primitives)
+        for(const Primitive* primitive: mesh->primitives)
         {
-            if(!primitive) { continue; }
+            if(!primitive || !primitive->boundingBox.valid || !primitive->owner) { continue; }
 
-            if(primitive->hasIndices)
-            {
-                // For indexed geometry: primitive->firstIndex/ indexCount refer into indexBufferLocal
-                for(int i = 0; i < primitive->indexCount; ++i)
-                {
-                    // localIndex = indexBufferLocal[firstIndex + i]
-                    uint32_t localIndex = indexBufferLocal[primitive->firstIndex + i];
-                    // That localIndex indexes directly into vertexBufferLocal
-                    if(localIndex < vertexBufferLocal.size())
-                    {
-                        const glm::vec3& localPos = glm::vec3(vertexBufferLocal[localIndex].position);
-                        glm::vec4        worldPos = nodeWorldMatrix * glm::vec4(localPos, 1.0f);
+            const glm::mat4& primitiveToModelSpaceMatrix = primitive->owner->localToModelMatrix;
 
-                        bounds.min = glm::min(bounds.min, glm::vec3(worldPos));
-                        bounds.max = glm::max(bounds.max, glm::vec3(worldPos));
-                        bounds.valid = true;
-                    }
-                    else { HGWARN("Invalid localIndex %u (vertexBufferLocal has %zu elements)", localIndex, vertexBufferLocal.size()); }
-                }
-            }
-            else
-            {
-                // Non‐indexed: firstIndex is actually a vertex‐offset into vertexBufferLocal
-                for(int i = 0; i < primitive->vertexCount; ++i)
-                {
-                    uint32_t vertexIndex = primitive->firstIndex + i;
-                    if(vertexIndex < vertexBufferLocal.size())
-                    {
-                        const glm::vec3& localPos = glm::vec3(vertexBufferLocal[vertexIndex].position);
-                        glm::vec4        worldPos = nodeWorldMatrix * glm::vec4(localPos, 1.0f);
+            BoundingBox transformedPrimitiveAABB = BoundingBox::TransformAABB(primitive->boundingBox, primitiveToModelSpaceMatrix);
 
-                        bounds.min = glm::min(bounds.min, glm::vec3(worldPos));
-                        bounds.max = glm::max(bounds.max, glm::vec3(worldPos));
-                        bounds.valid = true;
-                    }
-                    else { HGWARN("Invalid vertexIndex %u (vertexBufferLocal has %zu elements)", vertexIndex, vertexBufferLocal.size()); }
-                }
-            }
+            m_restAABB.Extend(transformedPrimitiveAABB);
         }
     }
-
-    // Recurse into children
-    for(const Node* child: node->children) { CalculateNodeBoundsRecursive(bounds, child, vertexBufferLocal, indexBufferLocal); }
 }
 
-BoundingBox Model::CalculateModelAABB(const std::vector<Node*>& rootNodes, const std::vector<Model::Vertex>& vertexBuffer,
-                                      const std::vector<uint32_t>& indexBuffer)
+void Model::UpdateAnimatedAABB()
 {
+    m_animatedAABB.Invalidate();
+    m_animatedAABB.valid = true;
 
-    BoundingBox boundingBox{};
-    for(const Node* rootNode: rootNodes) { CalculateNodeBoundsRecursive(boundingBox, rootNode, vertexBuffer, indexBuffer); }
-
-    if(boundingBox.valid)
+    for(const auto* mesh: m_meshes)
     {
-        boundingBox.corners[0] = glm::vec4(boundingBox.min.x, boundingBox.min.y, boundingBox.min.z, 1.0f);
-        boundingBox.corners[1] = glm::vec4(boundingBox.max.x, boundingBox.min.y, boundingBox.min.z, 1.0f);
-        boundingBox.corners[2] = glm::vec4(boundingBox.max.x, boundingBox.max.y, boundingBox.min.z, 1.0f);
-        boundingBox.corners[3] = glm::vec4(boundingBox.min.x, boundingBox.max.y, boundingBox.min.z, 1.0f);
-        boundingBox.corners[4] = glm::vec4(boundingBox.min.x, boundingBox.min.y, boundingBox.max.z, 1.0f);
-        boundingBox.corners[5] = glm::vec4(boundingBox.max.x, boundingBox.min.y, boundingBox.max.z, 1.0f);
-        boundingBox.corners[6] = glm::vec4(boundingBox.max.x, boundingBox.max.y, boundingBox.max.z, 1.0f);
-        boundingBox.corners[7] = glm::vec4(boundingBox.min.x, boundingBox.max.y, boundingBox.max.z, 1.0f);
+        for(const Primitive* primitive: mesh->primitives)
+        {
+            if(!primitive || !primitive->boundingBox.valid || !primitive->owner) { continue; }
+
+            BoundingBox inflatedLocalAABB = primitive->boundingBox;
+            if(primitive->maxMorphDisplacement > glm::epsilon<f32>())
+            {
+                inflatedLocalAABB.min -= glm::vec4(primitive->maxMorphDisplacement);
+                inflatedLocalAABB.max += glm::vec4(primitive->maxMorphDisplacement);
+            }
+
+            BoundingBox worldSpacePrimitiveAABB{};
+
+            Node* ownerNode = primitive->owner;
+            if(ownerNode->skin)
+            {
+                worldSpacePrimitiveAABB = BoundingBox();
+                worldSpacePrimitiveAABB.valid = true;
+                Skin* skin = m_skins[ownerNode->skinIndex];
+                for(size_t i = 0; i < skin->joints.size(); ++i)
+                {
+                    glm::mat4 skinningMatrix = ownerNode->localToModelMatrix * skin->jointMatrices[i];
+
+                    BoundingBox transformedByJoint = BoundingBox::TransformAABB(inflatedLocalAABB, skinningMatrix);
+                    worldSpacePrimitiveAABB.Extend(transformedByJoint);
+                }
+            }
+            else { worldSpacePrimitiveAABB = BoundingBox::TransformAABB(inflatedLocalAABB, ownerNode->localToModelMatrix); }
+
+            m_animatedAABB.Extend(worldSpacePrimitiveAABB);
+        }
+    }
+}
+
+void Model::LoadSkins(tinygltf::Model& gltfModel)
+{
+    for(tinygltf::Skin& source: gltfModel.skins)
+    {
+        Skin* newSkin = new Skin{};
+        newSkin->name = source.name;
+
+        if(source.skeleton > -1) { newSkin->skeletonRoot = NodeFromIndex(source.skeleton); }
+        for(int jointIndex: source.joints)
+        {
+            Node* node = NodeFromIndex(jointIndex);
+            if(node) { newSkin->joints.push_back(NodeFromIndex(jointIndex)); }
+        }
+        if(source.inverseBindMatrices > -1)
+        {
+            const tinygltf::Accessor&   accessor = gltfModel.accessors[source.inverseBindMatrices];
+            const tinygltf::BufferView& bufferView = gltfModel.bufferViews[accessor.bufferView];
+            const tinygltf::Buffer&     buffer = gltfModel.buffers[bufferView.buffer];
+            newSkin->inverseBindMatrices.resize(accessor.count);
+            memcpy(newSkin->inverseBindMatrices.data(), &buffer.data[accessor.byteOffset + bufferView.byteOffset],
+                   accessor.count * sizeof(glm::mat4));
+        }
+
+        if(newSkin->joints.size() > 128)
+        {
+            HGWARN("Skin %s has %i joints, which is higher than the supported maximum of 128. This glTF scene may display incorrectly",
+                   newSkin->name.c_str(), newSkin->joints.size());
+        }
+
+        m_skins.push_back(newSkin);
+    }
+}
+
+void Model::LoadAnimations(tinygltf::Model& gltfModel)
+{
+    for(tinygltf::Animation& anim: gltfModel.animations)
+    {
+        Animation animation{};
+        animation.name = anim.name;
+        if(anim.name.empty()) { animation.name = std::to_string(m_animations.size()); }
+
+        m_animNameToIndex.emplace(animation.name, m_animations.size());
+        m_animIndexToName.emplace(m_animations.size(), animation.name);
+
+        // Samplers
+        for(auto& samp: anim.samplers)
+        {
+            AnimationSampler sampler{};
+
+            if(samp.interpolation == "LINEAR") { sampler.interpolation = AnimationSampler::InterpolationType::LINEAR; }
+            if(samp.interpolation == "STEP") { sampler.interpolation = AnimationSampler::InterpolationType::STEP; }
+            if(samp.interpolation == "CUBICSPLINE") { sampler.interpolation = AnimationSampler::InterpolationType::CUBICSPLINE; }
+
+            // Read sampler input time values
+            {
+                const tinygltf::Accessor&   accessor = gltfModel.accessors[samp.input];
+                const tinygltf::BufferView& bufferView = gltfModel.bufferViews[accessor.bufferView];
+                const tinygltf::Buffer&     buffer = gltfModel.buffers[bufferView.buffer];
+
+                assert(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
+
+                const void* dataPtr = &buffer.data[accessor.byteOffset + bufferView.byteOffset];
+                const f32*  buf = static_cast<const f32*>(dataPtr);
+                for(size_t index = 0; index < accessor.count; index++) { sampler.inputs.push_back(buf[index]); }
+
+                for(auto input: sampler.inputs)
+                {
+                    if(input < animation.start) { animation.start = input; };
+                    if(input > animation.end) { animation.end = input; }
+                }
+            }
+
+            // Read sampler output T/R/S values
+            {
+                const tinygltf::Accessor&   accessor = gltfModel.accessors[samp.output];
+                const tinygltf::BufferView& bufferView = gltfModel.bufferViews[accessor.bufferView];
+                const tinygltf::Buffer&     buffer = gltfModel.buffers[bufferView.buffer];
+
+                assert(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
+
+                const void* dataPtr = &buffer.data[accessor.byteOffset + bufferView.byteOffset];
+
+                switch(accessor.type)
+                {
+                    case TINYGLTF_TYPE_VEC3:
+                        {
+                            const glm::vec3* buf = static_cast<const glm::vec3*>(dataPtr);
+                            for(size_t index = 0; index < accessor.count; index++)
+                            {
+                                sampler.outputsVec4.push_back(glm::vec4(buf[index], 0.0f));
+                                sampler.outputs.push_back(buf[index][0]);
+                                sampler.outputs.push_back(buf[index][1]);
+                                sampler.outputs.push_back(buf[index][2]);
+                            }
+                            break;
+                        }
+                    case TINYGLTF_TYPE_VEC4:
+                        {
+                            const glm::vec4* buf = static_cast<const glm::vec4*>(dataPtr);
+                            for(size_t index = 0; index < accessor.count; index++)
+                            {
+                                sampler.outputsVec4.push_back(buf[index]);
+                                sampler.outputs.push_back(buf[index][0]);
+                                sampler.outputs.push_back(buf[index][1]);
+                                sampler.outputs.push_back(buf[index][2]);
+                                sampler.outputs.push_back(buf[index][3]);
+                            }
+                            break;
+                        }
+                    case TINYGLTF_TYPE_SCALAR:
+                        {
+                            size_t actualNumMorphTargets = 2;
+
+                            const f32* buf = static_cast<const f32*>(dataPtr);
+                            for(size_t i = 0; i < accessor.count; i += actualNumMorphTargets)
+                            {
+                                glm::vec4 weightsVec(0.0f);
+                                for(size_t k = 0; k < actualNumMorphTargets && k < 4; ++k) { weightsVec[k] = buf[i + k]; }
+                                sampler.outputsVec4.push_back(weightsVec);
+                            }
+                            break;
+                        }
+                    default:
+                        {
+                            HGWARN("Animation output accessor type %d not handled!", accessor.type);
+                            break;
+                        }
+                }
+            }
+
+            animation.samplers.push_back(sampler);
+        }
+
+        // Channels
+        for(auto& source: anim.channels)
+        {
+            AnimationChannel channel{};
+
+            if(source.target_path == "rotation") { channel.path = AnimationChannel::PathType::ROTATION; }
+            else if(source.target_path == "translation") { channel.path = AnimationChannel::PathType::TRANSLATION; }
+            else if(source.target_path == "scale") { channel.path = AnimationChannel::PathType::SCALE; }
+            else if(source.target_path == "weights") { channel.path = AnimationChannel::PathType::WEIGHTS; }
+            else { HGWARN("Unknown target path!"); }
+            channel.samplerIndex = source.sampler;
+            channel.node = NodeFromIndex(source.target_node);
+            if(!channel.node) { continue; }
+
+            animation.channels.push_back(channel);
+        }
+
+        m_animations.push_back(animation);
+    }
+    HGINFO("Loaded %i animations for model %s", m_animations.size(), m_name.c_str());
+}
+
+// AnimationSampler, thank you so much Sascha Willems for the examples
+
+// Cube spline interpolation function used for translate/scale/rotate with cubic spline animation samples
+// Details on how this works can be found in the specs
+// https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#appendix-c-spline-interpolation
+glm::vec4 Model::Model::AnimationSampler::CubicSplineInterpolation(size_t index, f32 time, n32 stride)
+{
+    f32          delta = inputs[index + 1] - inputs[index];
+    f32          t = (time - inputs[index]) / delta;
+    const size_t current = index * stride * 3;
+    const size_t next = (index + 1) * stride * 3;
+    const size_t A = 0;
+    const size_t V = stride * 1;
+    const size_t B = stride * 2;
+
+    f32       t2 = powf(t, 2);
+    f32       t3 = powf(t, 3);
+    glm::vec4 pt{0.0f};
+    for(n32 i = 0; i < stride; i++)
+    {
+        f32 p0 = outputs[current + i + V];         // starting point at t = 0
+        f32 m0 = delta * outputs[current + i + A]; // scaled starting tangent at t = 0
+        f32 p1 = outputs[next + i + V];            // ending point at t = 1
+        f32 m1 = delta * outputs[next + i + B];    // scaled ending tangent at t = 1
+        pt[i] = ((2.f * t3 - 3.f * t2 + 1.f) * p0) + ((t3 - 2.f * t2 + t) * m0) + ((-2.f * t3 + 3.f * t2) * p1) + ((t3 - t2) * m1);
+    }
+    return pt;
+}
+
+// Calculates the translation of this sampler for the given node at a given time point depending on the interpolation type
+void Model::AnimationSampler::Translate(size_t index, f32 time, Node* node)
+{
+    if(inputs.size() == 1)
+    {
+        node->translation = glm::vec3(outputsVec4[0]);
+        return;
     }
 
-    return boundingBox;
+    switch(interpolation)
+    {
+        case Model::AnimationSampler::InterpolationType::LINEAR:
+            {
+                f32 u = std::max(0.0f, time - inputs[index]) / (inputs[index + 1] - inputs[index]);
+
+                if(glm::epsilonEqual(inputs[index + 1], inputs[index], glm::epsilon<f32>())) { u = 0.0f; }
+                else { u = std::max(0.0f, time - inputs[index]) / (inputs[index + 1] - inputs[index]); }
+
+                node->translation = glm::vec3(glm::mix(outputsVec4[index], outputsVec4[index + 1], u));
+                break;
+            }
+        case Model::AnimationSampler::InterpolationType::STEP:
+            {
+                node->translation = glm::vec3(outputsVec4[index]);
+                break;
+            }
+        case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
+            {
+                node->translation = glm::vec3(CubicSplineInterpolation(index, time, 3));
+                break;
+            }
+    }
 }
 
+// Calculates the scale of this sampler for the given node at a given time point depending on the interpolation type
+void Model::AnimationSampler::Scale(size_t index, f32 time, Node* node)
+{
+
+    if(inputs.size() == 1)
+    {
+        node->scale = glm::vec3(outputsVec4[0]);
+        return;
+    }
+
+    switch(interpolation)
+    {
+        case Model::AnimationSampler::InterpolationType::LINEAR:
+            {
+                f32 u = std::max(0.0f, time - inputs[index]) / (inputs[index + 1] - inputs[index]);
+                node->scale = glm::vec3(glm::mix(outputsVec4[index], outputsVec4[index + 1], u));
+                break;
+            }
+        case Model::AnimationSampler::InterpolationType::STEP:
+            {
+                node->scale = glm::vec3(outputsVec4[index]);
+                break;
+            }
+        case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
+            {
+                node->scale = glm::vec3(CubicSplineInterpolation(index, time, 3));
+                break;
+            }
+    }
+}
+
+void Model::AnimationSampler::Rotate(size_t index, f32 time, Node* node)
+{
+    if(inputs.size() == 1)
+    {
+        glm::quat q;
+        q.x = outputsVec4[0].x;
+        q.y = outputsVec4[0].y;
+        q.z = outputsVec4[0].z;
+        q.w = outputsVec4[0].w;
+        node->rotation = q;
+        return;
+    }
+    switch(interpolation)
+    {
+        case Model::AnimationSampler::InterpolationType::LINEAR:
+            {
+                f32       u = std::max(0.0f, time - inputs[index]) / (inputs[index + 1] - inputs[index]);
+                glm::quat q1;
+                q1.x = outputsVec4[index].x;
+                q1.y = outputsVec4[index].y;
+                q1.z = outputsVec4[index].z;
+                q1.w = outputsVec4[index].w;
+                glm::quat q2;
+                q2.x = outputsVec4[index + 1].x;
+                q2.y = outputsVec4[index + 1].y;
+                q2.z = outputsVec4[index + 1].z;
+                q2.w = outputsVec4[index + 1].w;
+                node->rotation = glm::normalize(glm::slerp(q1, q2, u));
+                break;
+            }
+        case Model::AnimationSampler::InterpolationType::STEP:
+            {
+                glm::quat q1;
+                q1.x = outputsVec4[index].x;
+                q1.y = outputsVec4[index].y;
+                q1.z = outputsVec4[index].z;
+                q1.w = outputsVec4[index].w;
+                node->rotation = q1;
+                break;
+            }
+        case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
+            {
+                glm::vec4 rot = CubicSplineInterpolation(index, time, 4);
+                glm::quat q;
+                q.x = rot.x;
+                q.y = rot.y;
+                q.z = rot.z;
+                q.w = rot.w;
+                node->rotation = glm::normalize(q);
+                break;
+            }
+    }
+}
+
+void Model::AnimationSampler::Morph(size_t index, f32 time, Node* node)
+{
+    if(!node || !node->mesh || node->mesh->primitives.empty())
+    {
+        HGWARN("Cannot apply morph weights: target node or its mesh/primitives are invalid.");
+        return;
+    }
+    Primitive* targetPrimitive = node->mesh->primitives[0]; // Or iterate if multiple
+
+    if(targetPrimitive->morphTargetPositions.empty()) { return; }
+
+    size_t numMorphTargets = targetPrimitive->morphTargetPositions.size();
+
+    if(inputs.size() == 1)
+    {
+        for(size_t k = 0; k < numMorphTargets && k < outputsVec4[0].length(); ++k) { node->mesh->weights[k] = outputsVec4[0][k]; }
+        return;
+    }
+
+    switch(interpolation)
+    {
+        case Model::AnimationSampler::InterpolationType::LINEAR:
+            {
+                f32 timeSpan = inputs[index + 1] - inputs[index];
+                f32 u = 0.0f;
+                if(timeSpan > glm::epsilon<f32>()) { u = std::max(0.0f, time - inputs[index]) / timeSpan; }
+
+                for(size_t k = 0; k < numMorphTargets && k < outputsVec4[index].length(); ++k)
+                {
+                    node->mesh->weights[k] = glm::mix(outputsVec4[index][k], outputsVec4[index + 1][k], u);
+                }
+                break;
+            }
+        case Model::AnimationSampler::InterpolationType::STEP:
+            {
+                for(size_t k = 0; k < numMorphTargets && k < outputsVec4[index].length(); ++k) { node->mesh->weights[k] = outputsVec4[index][k]; }
+                break;
+            }
+        case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
+            {
+                glm::vec4 interpolatedWeights = CubicSplineInterpolation(index, time, (int)numMorphTargets);
+                for(size_t k = 0; k < numMorphTargets && k < interpolatedWeights.length(); ++k) { node->mesh->weights[k] = interpolatedWeights[k]; }
+                break;
+            }
+    }
+}
+
+void Model::UpdateAnimation(f32 time)
+{
+    if(m_animations.empty() || m_currentAnimationIndex < 0 || m_currentAnimationIndex >= m_animations.size()) { return; }
+
+    Animation& animation = m_animations[m_currentAnimationIndex];
+    m_animationTime += time;
+
+    if(m_animationTime > animation.end) { m_animationTime = animation.start; }
+    if(m_animationTime < animation.start) { m_animationTime = animation.end; }
+
+    for(AnimationChannel& channel: animation.channels)
+    {
+        AnimationSampler& sampler = animation.samplers[channel.samplerIndex];
+        Node*             targetNode = channel.node;
+
+        if(!targetNode)
+        {
+            HGWARN("Failed to find node using NodeFromIndex! This shouldn't happen!");
+            continue;
+        }
+
+        if(sampler.inputs.empty())
+        {
+            HGWARN("Animation sampler has no input keyframes. Skipping channel.");
+            continue;
+        }
+
+        size_t index = 0;
+
+        if(sampler.inputs.size() == 1) { index = 0; }
+        else
+        {
+            for(size_t i = 0; i < sampler.inputs.size() - 1; ++i)
+            {
+                if(m_animationTime >= sampler.inputs[i] && m_animationTime <= sampler.inputs[i + 1])
+                {
+                    index = i;
+                    break;
+                }
+            }
+            if(m_animationTime >= sampler.inputs.back()) { index = sampler.inputs.size() - 1; }
+        }
+        switch(channel.path)
+        {
+            case AnimationChannel::PathType::TRANSLATION:
+                sampler.Translate(index, m_animationTime, targetNode);
+                break;
+            case AnimationChannel::PathType::ROTATION:
+                sampler.Rotate(index, m_animationTime, targetNode);
+                break;
+            case AnimationChannel::PathType::SCALE:
+                sampler.Scale(index, m_animationTime, targetNode);
+                break;
+            case AnimationChannel::PathType::WEIGHTS:
+                sampler.Morph(index, m_animationTime, targetNode);
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+// Updating
+void Model::Update()
+{
+    f32 dt = Globals::Time::AverageDeltaTime();
+    UpdateAnimation(dt);
+
+    if(HasAnimations())
+    {
+        std::vector<glm::mat4> jointMatricies;
+        for(const auto& skin: m_skins) { jointMatricies.insert(jointMatricies.end(), skin->jointMatrices.begin(), skin->jointMatrices.end()); }
+
+        if(!jointMatricies.empty()) { ResourceManager::UpdateJointMatrices(jointMatricies, m_handle); }
+        else
+        {
+            jointMatricies.push_back(glm::mat4(glm::identity<glm::mat4>()));
+            ResourceManager::UpdateJointMatrices(jointMatricies, m_handle);
+        }
+
+        UpdateAnimatedAABB();
+        ResourceManager::UpdateNodeMatrices(GetMatrixVector(), m_handle);
+    }
+
+    for(auto& node: m_nodes) { node->UpdateLocalToModelMatrix(); }
+    for(auto& skin: m_skins) { skin->UpdateJointMatrices(); }
+
+    if(HasMorphs())
+    {
+        std::vector<f32> morphTargets;
+        for(const auto& mesh: m_meshes) { morphTargets.insert(morphTargets.begin(), mesh->weights.begin(), mesh->weights.end()); }
+        if(!morphTargets.empty()) { ResourceManager::UpdateMorphTargets(morphTargets, m_handle); }
+    }
+}
 } // namespace Humongous

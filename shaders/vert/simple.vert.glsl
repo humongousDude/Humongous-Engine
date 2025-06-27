@@ -16,23 +16,54 @@ layout(location = 7) out uint materialID;
 void main()
 {
     Vertex v = globalVertices.vertices[gl_VertexIndex];
-    uint nodeIndex = drawData.drawData[gl_DrawID].nodeIndex;
+    DrawData currentDraw = drawData.drawData[gl_DrawID];
+
+    vec4 localPos = v.position;
+    vec3 localNormal = v.normal.xyz;
+    vec3 localTangent = v.tangent.xyz;
+
+    if (currentDraw.isMorphed > 0)
+    {
+        uint morphOffset = currentDraw.morphStart;
+        localPos.xyz += morphs.weights[morphOffset + 0] * v.targetPos0.xyz;
+        localPos.xyz += morphs.weights[morphOffset + 1] * v.targetPos1.xyz;
+        localPos.xyz += morphs.weights[morphOffset + 2] * v.targetPos2.xyz;
+        localPos.xyz += morphs.weights[morphOffset + 3] * v.targetPos3.xyz;
+    }
+
+    mat4 skinMatrix = mat4(1.0);
+    if (currentDraw.isSkinned > 0)
+    {
+        uint jointIndexOffset = currentDraw.jointStart;
+        ivec4 jointIndices = v.joint0;
+        vec4 jointWeights = v.weight0;
+
+        skinMatrix = jointWeights.x * joints.matrices[jointIndexOffset + jointIndices.x];
+        skinMatrix += jointWeights.y * joints.matrices[jointIndexOffset + jointIndices.y];
+        skinMatrix += jointWeights.z * joints.matrices[jointIndexOffset + jointIndices.z];
+        skinMatrix += jointWeights.w * joints.matrices[jointIndexOffset + jointIndices.w];
+
+        localPos = skinMatrix * localPos;
+        localNormal = mat3(skinMatrix) * localNormal;
+        localTangent = mat3(skinMatrix) * localTangent;
+    }
+
+    uint nodeIndex = currentDraw.nodeIndex;
     mat4 nodeTransform = node.matrix[nodeIndex];
-    vec4 locPos = ubo.projectionView * drawData.drawData[gl_DrawID].modelMatrix * nodeTransform * vec4(v.position.xyz, 1.0);
-    gl_Position = locPos;
+    mat4 modelTransform = currentDraw.modelMatrix * nodeTransform;
 
-    worldPosition = (drawData.drawData[gl_DrawID].modelMatrix * node.matrix[nodeIndex] * vec4(v.position.xyz, 1.0)).xyz;
+    gl_Position = ubo.projectionView * modelTransform * localPos;
 
-    mat3 normalMat = mat3(drawData.drawData[gl_DrawID].modelMatrix * nodeTransform);
-    outNormal = normalize(normalMat * v.normal.xyz);
+    worldPosition = (modelTransform * localPos).xyz;
 
-    outTangent = normalize(mat3(drawData.drawData[gl_DrawID].modelMatrix) * v.tangent.xyz);
-    outBiTangent = normalize(mat3(drawData.drawData[gl_DrawID].modelMatrix) * v.bitTangent.xyz);
+    mat3 normalMat = mat3(modelTransform);
+    outNormal = normalize(normalMat * localNormal);
+    outTangent = normalize(normalMat * localTangent);
+    outTangent = normalize(outTangent - dot(outTangent, outNormal) * outNormal);
+    outBiTangent = cross(outNormal, outTangent);
 
     outUV0 = v.uv1.xy;
     outUV1 = v.uv2.xy;
     outColor = v.color;
-    materialID = drawData.drawData[gl_DrawID].materialID;
-
-    // atomicAdd(debug.draws, 1);
+    materialID = currentDraw.materialID;
 }

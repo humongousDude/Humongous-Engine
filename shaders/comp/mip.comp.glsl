@@ -10,29 +10,40 @@ layout(push_constant) uniform pc {
     int mipLevel;
 } pushConst;
 
-void main() {
-    ivec2 destCoords = ivec2(gl_GlobalInvocationID.xy);
+// void main() {
+//     ivec2 destCoords = ivec2(gl_GlobalInvocationID.xy);
+//
+//     ivec2 destSize = imageSize(u_DestMip);
+//
+//     if (destCoords.x >= destSize.x || destCoords.y >= destSize.y) {
+//         return;
+//     }
+//
+//     if (pushConst.mipLevel == 0) {
+//         float value = texelFetch(u_SourceMip, destCoords, 0).r;
+//         imageStore(u_DestMip, destCoords, vec4(value, 0.0, 0.0, 0.0));
+//         return;
+//     }
+//
+//     ivec2 sourceCoords = destCoords * 2;
+//
+//     float d0 = texelFetch(u_SourceMip, sourceCoords, 0).r; // Top-Left
+//     float d1 = texelFetch(u_SourceMip, sourceCoords + ivec2(1, 0), 0).r; // Top-Right
+//     float d2 = texelFetch(u_SourceMip, sourceCoords + ivec2(0, 1), 0).r; // Bottom-Left
+//     float d3 = texelFetch(u_SourceMip, sourceCoords + ivec2(1, 1), 0).r; // Bottom-Right
+//
+//     float maxDepth = max(max(d0, d1), max(d2, d3));
+//
+//     imageStore(u_DestMip, destCoords, vec4(maxDepth, 0.0, 0.0, 0.0));
+// }
 
-    ivec2 destSize = imageSize(u_DestMip);
+void main()
+{
+    uvec2 pos = gl_GlobalInvocationID.xy;
+    ivec2 imageSize = imageSize(u_DestMip);
 
-    if (destCoords.x >= destSize.x || destCoords.y >= destSize.y) {
-        return;
-    }
+    // Sampler is set up to do min reduction, so this computes the minimum depth of a 2x2 texel quad
+    float depth = texture(u_SourceMip, (vec2(pos) + vec2(0.5)) / imageSize).x;
 
-    if (pushConst.mipLevel == 0) {
-        float value = texelFetch(u_SourceMip, destCoords, 0).r;
-        imageStore(u_DestMip, destCoords, vec4(value, 0.0, 0.0, 0.0));
-        return;
-    }
-
-    ivec2 sourceCoords = destCoords * 2;
-
-    float d0 = texelFetch(u_SourceMip, sourceCoords, 0).r; // Top-Left
-    float d1 = texelFetch(u_SourceMip, sourceCoords + ivec2(1, 0), 0).r; // Top-Right
-    float d2 = texelFetch(u_SourceMip, sourceCoords + ivec2(0, 1), 0).r; // Bottom-Left
-    float d3 = texelFetch(u_SourceMip, sourceCoords + ivec2(1, 1), 0).r; // Bottom-Right
-
-    float maxDepth = max(max(d0, d1), max(d2, d3));
-
-    imageStore(u_DestMip, destCoords, vec4(maxDepth, 0.0, 0.0, 0.0));
+    imageStore(u_DestMip, ivec2(pos), vec4(depth));
 }

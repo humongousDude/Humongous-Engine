@@ -1,16 +1,11 @@
 #version 460
-#extension GL_EXT_nonuniform_qualifier : enable
-
 layout(local_size_x = 64) in;
 
 layout(set = 0, binding = 0) uniform sampler2D depthBuffer;
 
 struct BoundingBox {
-    vec3 min;
-    float padding1;
-    vec3 max;
-    float padding2;
-    vec4 corners[8];
+    vec4 min;
+    vec4 max;
     int valid;
 };
 
@@ -29,12 +24,8 @@ struct VisibilityResultSet {
 };
 
 layout(std430, set = 0, binding = 2) writeonly buffer VisibilityResults {
-    VisibilityResultSet visible[];
-};
-
-layout(push_constant) uniform PC {
-    uint objCount;
-} pc;
+    VisibilityResultSet results[];
+} results;
 
 layout(set = 0, binding = 3) uniform Matricies {
     mat4 projection;
@@ -49,107 +40,126 @@ layout(std140, set = 0, binding = 4) uniform RendererData {
     vec2 padding_screenSize;
 } rendererData;
 
+layout(push_constant) uniform PC {
+    uint objCount;
+} pc;
+
 void main() {
-    uint id = gl_GlobalInvocationID.x;
-    uint idx = nonuniformEXT(id);
-    if (idx >= pc.objCount) return;
+    uint index = gl_GlobalInvocationID.x;
 
-    BoundingData bb = objectData.data[idx];
-    visible[idx].objId = bb.id;
+    if (index >= pc.objCount) {
+        return;
+    }
 
-    if (bb.boundingBox.valid == 0) {
-        visible[idx].visible = false;
+    BoundingData currentObject = objectData.data[index];
+    results.results[index].objId = currentObject.id; // Set ID early
+    results.results[index].visible = false; // Default to not visible
+
+    vec4 corners[8];
+    corners[0] = vec4(currentObject.boundingBox.min.x, currentObject.boundingBox.min.y, currentObject.boundingBox.min.z, 1.0f);
+    corners[1] = vec4(currentObject.boundingBox.max.x, currentObject.boundingBox.min.y, currentObject.boundingBox.min.z, 1.0f);
+    corners[2] = vec4(currentObject.boundingBox.min.x, currentObject.boundingBox.max.y, currentObject.boundingBox.min.z, 1.0f);
+    corners[3] = vec4(currentObject.boundingBox.max.x, currentObject.boundingBox.max.y, currentObject.boundingBox.min.z, 1.0f);
+    corners[4] = vec4(currentObject.boundingBox.min.x, currentObject.boundingBox.min.y, currentObject.boundingBox.max.z, 1.0f);
+    corners[5] = vec4(currentObject.boundingBox.max.x, currentObject.boundingBox.min.y, currentObject.boundingBox.max.z, 1.0f);
+    corners[6] = vec4(currentObject.boundingBox.min.x, currentObject.boundingBox.max.y, currentObject.boundingBox.max.z, 1.0f);
+    corners[7] = vec4(currentObject.boundingBox.max.x, currentObject.boundingBox.max.y, currentObject.boundingBox.max.z, 1.0f);
+
+    if (currentObject.boundingBox.valid == 0) {
         return;
     }
 
     vec4 clip_space_corners[8];
-    bool corner_in_front[8];
-    uint corners_in_front_count = 0;
-
-    // --- Step 1: Project all corners and classify them ---
+    uint behind_camera_count = 0;
     for (int i = 0; i < 8; ++i) {
-        clip_space_corners[i] = matricies.projectionView * bb.boundingBox.corners[i];
-        if (clip_space_corners[i].w > 0) {
-            corner_in_front[i] = true;
-            corners_in_front_count++;
-        } else {
-            corner_in_front[i] = false;
+        clip_space_corners[i] = matricies.projectionView * corners[i];
+        if (clip_space_corners[i].w < 0.0) {
+            behind_camera_count++;
         }
     }
 
-    // --- Step 2: Handle trivial culling cases ---
-    if (corners_in_front_count == 0) {
-        // All corners are behind the camera, object is not visible.
-        visible[idx].visible = false;
-        return;
+    if (behind_camera_count == 8) {
+        return; // Culled
     }
 
-    // --- Step 3: Calculate screen-space bounds and nearest Z ---
-    // (This is the key corrected section)
-    vec2 minScreenNDC = vec2(1.0);
-    vec2 maxScreenNDC = vec2(-1.0);
-    float nearestNdcZ = 0.0; // Reverse-Z: near is 1, far is 0. Init to far.
-
-    if (corners_in_front_count == 8) {
-        // --- FAST PATH: All corners are in front ---
-        // This is the common case for objects fully in view.
+    // Frustum Culling (same as before)
+    for (int plane = 0; plane < 6; ++plane) {
+        uint corners_out = 0;
         for (int i = 0; i < 8; ++i) {
+            float dot_product;
+            if (plane == 0) dot_product = clip_space_corners[i].w + clip_space_corners[i].x;
+            else if (plane == 1) dot_product = clip_space_corners[i].w - clip_space_corners[i].x;
+            else if (plane == 2) dot_product = clip_space_corners[i].w + clip_space_corners[i].y;
+            else if (plane == 3) dot_product = clip_space_corners[i].w - clip_space_corners[i].y;
+            else if (plane == 4) dot_product = clip_space_corners[i].w - clip_space_corners[i].z; // Z is in [0,W] for reversed-Z
+            else dot_product = clip_space_corners[i].z; //
+
+            if (dot_product < 0.0) {
+                corners_out++;
+            }
+        }
+        if (corners_out == 8) {
+            return; // Culled
+        }
+    }
+
+    vec2 min_screen_pos = vec2(1.0);
+    vec2 max_screen_pos = vec2(-1.0);
+
+    // --- CORRECTED ---
+    // Find the max Z value (closest point to camera in reversed-Z)
+    float closest_z = 0.0;
+
+    for (int i = 0; i < 8; ++i) {
+        // We must clip corners against the near plane (w > 0) before perspective division
+        // to avoid huge screen coordinates from points behind the camera.
+        // A simple way is to ignore them for the screen bbox calculation.
+        if (clip_space_corners[i].w > 0.0) {
             vec3 ndc = clip_space_corners[i].xyz / clip_space_corners[i].w;
-            minScreenNDC = min(minScreenNDC, ndc.xy);
-            maxScreenNDC = max(maxScreenNDC, ndc.xy);
-            nearestNdcZ = max(nearestNdcZ, ndc.z);
-        }
-    } else {
-        // --- SLOW PATH: Object straddles the near plane ---
-        // We MUST be conservative here.
-        minScreenNDC = vec2(-1.0);
-        maxScreenNDC = vec2(1.0);
 
-        // We still need to find the nearest Z of the vertices that ARE in front.
-        for (int i = 0; i < 8; ++i) {
-            if (corner_in_front[i]) {
-                vec3 ndc = clip_space_corners[i].xyz / clip_space_corners[i].w;
-                nearestNdcZ = max(nearestNdcZ, ndc.z);
-            }
+            // CORRECTED: Find the largest Z, which is the closest point to the camera.
+            closest_z = max(closest_z, ndc.z);
+
+            min_screen_pos = min(min_screen_pos, ndc.xy);
+            max_screen_pos = max(max_screen_pos, ndc.xy);
         }
     }
 
-    // Clamp the final NDC box to the screen boundaries.
-    minScreenNDC = clamp(minScreenNDC, -1.0, 1.0);
-    maxScreenNDC = clamp(maxScreenNDC, -1.0, 1.0);
+    // Clamp screen-space bounding box to the screen edges [-1, 1] in NDC
+    min_screen_pos = clamp(min_screen_pos, -1.0, 1.0);
+    max_screen_pos = clamp(max_screen_pos, -1.0, 1.0);
 
-    // If the clamped box is invalid, object is off-screen.
-    if (minScreenNDC.x >= maxScreenNDC.x || minScreenNDC.y >= maxScreenNDC.y) {
-        visible[idx].visible = false;
-        return;
+    if (min_screen_pos.x >= max_screen_pos.x || min_screen_pos.y >= max_screen_pos.y) {
+        return; // Culled (projected to a line/point or outside screen)
     }
 
-    // --- Step 4: The rest of the shader proceeds with correct inputs ---
-    vec2 minUV = minScreenNDC * 0.5 + 0.5;
-    vec2 maxUV = maxScreenNDC * 0.5 + 0.5;
+    // Convert NDC [-1, 1] to UV [0, 1] for texture sampling
+    vec2 uv_min = min_screen_pos * 0.5 + 0.5;
+    vec2 uv_max = max_screen_pos * 0.5 + 0.5;
 
-    // ... (LOD calculation and sampling loop remains the same) ...
-    vec2 uvBoxSize = maxUV - minUV;
-    vec2 screenPixelSize = uvBoxSize * rendererData.screenSize;
-    float baseLod = floor(log2(max(1.0, max(screenPixelSize.x, screenPixelSize.y))));
-    float targetLod = clamp(baseLod, 0.0, float(textureQueryLevels(depthBuffer) - 1));
+    vec2 screen_bbox_size = (uv_max - uv_min) * rendererData.screenSize;
+    float max_dim = max(screen_bbox_size.x, screen_bbox_size.y);
+    float mip_level = floor(log2(max_dim));
 
-    bool isVisible = false;
-    const int gridSize = 8;
-    vec2 sampleStep = uvBoxSize / (gridSize > 1 ? (gridSize - 1) : 1.0);
+    // --- OPTIONAL TWEAK ---
+    // If culling is still too aggressive, sample from a higher-res mip.
+    // This is a great value to expose as a "quality level" setting.
+    // mip_level = max(0.0, mip_level - 1.0);
+    mip_level = clamp(mip_level, 0, textureQueryLevels(depthBuffer) - 1);
 
-    for (int y = 0; y < gridSize; ++y) {
-        for (int x = 0; x < gridSize; ++x) {
-            vec2 sampleUV = minUV + vec2(x, y) * sampleStep;
-            float occluderDepth = textureLod(depthBuffer, sampleUV, targetLod).r;
+    // --- UPGRADED SAMPLING LOGIC ---
+    // Sample the 4 corners of the screen-space bounding box to get a more robust depth value.
+    float occluder_z1 = textureLod(depthBuffer, uv_min, mip_level).r;
+    float occluder_z2 = textureLod(depthBuffer, uv_max, mip_level).r;
+    float occluder_z3 = textureLod(depthBuffer, vec2(uv_min.x, uv_max.y), mip_level).r;
+    float occluder_z4 = textureLod(depthBuffer, vec2(uv_max.x, uv_min.y), mip_level).r;
 
-            if (nearestNdcZ >= occluderDepth - 0.00001) {
-                isVisible = true;
-                break;
-            }
-        }
-        if (isVisible) break;
+    // Find the closest occluder among the 4 samples (the one with the MAX Z value).
+    float max_occluder_z = max(max(occluder_z1, occluder_z2), max(occluder_z3, occluder_z4));
+
+    // The Test: The object is visible if its closest point is closer than or at the same
+    // depth as the closest occluder in the area it covers.
+    if (closest_z >= max_occluder_z) {
+        results.results[index].visible = true;
     }
-
-    visible[idx].visible = isVisible;
 }

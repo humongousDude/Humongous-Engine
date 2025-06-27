@@ -203,12 +203,17 @@ void Renderer::CreateGBuffer()
 
     vk::ImageUsageFlags colorUsages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
 
+    vk::SamplerReductionModeCreateInfo reductionInfo{};
+    reductionInfo.reductionMode = vk::SamplerReductionMode::eMin;
+
     Utils::SamplerCreateInfo samCI{};
-    samCI.magFilter = vk::Filter::eNearest;
-    samCI.minFilter = vk::Filter::eNearest;
+    samCI.mipMode = vk::SamplerMipmapMode::eNearest;
+    samCI.magFilter = vk::Filter::eLinear;
+    samCI.minFilter = vk::Filter::eLinear;
     samCI.addressModeU = vk::SamplerAddressMode::eClampToEdge;
     samCI.addressModeV = vk::SamplerAddressMode::eClampToEdge;
     samCI.addressModeW = vk::SamplerAddressMode::eClampToEdge;
+    samCI.pNext = &reductionInfo;
 
     Utils::AllocatedImageCreateInfo imgCI{.logicalDevice = m_logicalDevice};
     imgCI.layerCount = 1;
@@ -317,7 +322,6 @@ void Renderer::CreateGBuffer()
         depthImageUsages |= vk::ImageUsageFlagBits::eTransferSrc;
         imgCI.usage = depthImageUsages;
         imgCI.initialLayout = vk::ImageLayout::eUndefined;
-        // imgCI.mipLevels = mipLevels;
         Utils::CreateAllocatedImage(imgCI);
         {
             Utils::ImageTransitionInfo trans{};
@@ -1185,8 +1189,6 @@ struct OcclusionObjectData
     n32         id;
 };
 
-static_assert(sizeof(OcclusionObjectData) == 192 && "Size mismatch");
-
 using namespace Utils;
 
 void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils::VisibleEntityInfo>& frustumCulledEntities, World& world,
@@ -1330,6 +1332,8 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
     }
     currentFrame.hiZImage.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
+    WaitForCompute(cmd);
+
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_occlusionPipeline);
 
     std::vector<OcclusionObjectData> objectDataForGPU;
@@ -1348,9 +1352,11 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
             data.id = entityInfo.id;
             objectDataForGPU.push_back(data);
         }
+        else { HGWARN("Invalid bounding box?"); }
     }
 
     if(objectDataForGPU.empty()) { return; }
+    // HGDEBUG("We're trying to occlusion cull %i objects", objectDataForGPU.size());
 
     currentFrame.numObjectsDispatched = objectDataForGPU.size();
 

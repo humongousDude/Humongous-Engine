@@ -3,7 +3,6 @@
 #include "instance.hpp"
 #include "non_copyable.hpp"
 #include "physical_device.hpp"
-
 #include "vk_mem_alloc.h"
 
 namespace Humongous

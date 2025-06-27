@@ -26,18 +26,18 @@ BoundingBox BoundingBox::LocalToGlobal(const BoundingBox& localBoundingBox, cons
         worldCorners[i] = glm::vec4(worldCornerHomogeneous); // Convert back from homogeneous coordinates (discard w)
     }
 
-    worldBoundingBox.min = glm::vec3(std::numeric_limits<float>::max());
-    worldBoundingBox.max = glm::vec3(std::numeric_limits<float>::lowest());
+    worldBoundingBox.min = glm::vec4(std::numeric_limits<float>::max());
+    worldBoundingBox.max = glm::vec4(std::numeric_limits<float>::lowest());
 
     for(const auto& corner: worldCorners)
     {
-        worldBoundingBox.min = glm::min(worldBoundingBox.min, glm::vec3(corner));
-        worldBoundingBox.max = glm::max(worldBoundingBox.max, glm::vec3(corner));
+        worldBoundingBox.min = glm::min(worldBoundingBox.min, corner);
+        worldBoundingBox.max = glm::max(worldBoundingBox.max, corner);
     }
 
     worldBoundingBox.valid = true;
 
-    for(int i = 0; i < 8; ++i) { worldBoundingBox.corners[i] = worldCorners[i]; }
+    // for(int i = 0; i < 8; ++i) { worldBoundingBox.corners[i] = worldCorners[i]; }
 
     return worldBoundingBox;
 }

@@ -28,6 +28,8 @@ void LogOutput(LogLevel level, const char* message, ...);
 
 #define HGFATAL(message, ...) LogOutput(LOG_LEVEL_FATAL, message, ##__VA_ARGS__)
 
+// FIXME: VMA leak logs overrides don't work.
+
 #ifndef HGERROR
 #define HGERROR(message, ...) LogOutput(LOG_LEVEL_ERROR, message, ##__VA_ARGS__)
 #define VMA_LEAK_LOG_FORMAT(format, ...) LogOutput(LOG_LEVEL_ERROR, "[VMA LEAK] " format, ##__VA_ARGS__)

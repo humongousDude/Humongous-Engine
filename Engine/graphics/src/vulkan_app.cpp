@@ -101,34 +101,27 @@ void VulkanApp::LoadGameObjects()
     world->AddComponent<BoundingBox>(house);
     world->AddComponent<ModelComponent>(house);
     auto comp = world->GetComponent<ModelComponent>(house);
-    comp->modelHandle = ResourceManager::RequestModel("Sponza");
+    comp->modelHandle = ResourceManager::RequestModel("buster_drone");
     std::string name = ResourceManager::GetModel(comp->modelHandle)->GetName();
-    world->GetComponent<NameComponent>(house)->name = name + std::to_string(house);
 
     auto transform = world->GetComponent<TransformComponent>(house);
-    transform->SetScale(10, 10, 10);
+    transform->SetScale(.1, .1, .1);
+    transform->SetRotation(0, 0, 0);
+    transform->SetTranslation(0, 0, -10);
+    world->GetComponent<NameComponent>(house)->name = name + std::to_string(house);
 
-    // auto helmet = world->CreateEntity();
-    // world->AddComponent<BoundingBox>(helmet);
-    // world->AddComponent<ModelComponent>(helmet);
-    // comp = world->GetComponent<ModelComponent>(helmet);
-    // comp->modelHandle = ResourceManager::RequestModel("default");
-    // world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-    //
-    // transform = world->GetComponent<TransformComponent>(helmet);
-    // transform->SetTranslation(-5, 0, -10);
-    // transform->SetScale(10, 10, 10);
-    //
-    // auto wall = world->CreateEntity();
-    // world->AddComponent<BoundingBox>(wall);
-    // world->AddComponent<ModelComponent>(wall);
-    // comp = world->GetComponent<ModelComponent>(wall);
-    // comp->modelHandle = ResourceManager::RequestModel("default");
-    // world->AddComponent<AudioSourceComponent>(wall, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-    //
-    // transform = world->GetComponent<TransformComponent>(wall);
-    // transform->SetTranslation(0, 0, -10);
-    // transform->SetScale(10, 10, 10);
+    auto helmet = world->CreateEntity();
+    world->AddComponent<BoundingBox>(helmet);
+    world->AddComponent<ModelComponent>(helmet);
+    comp = world->GetComponent<ModelComponent>(helmet);
+    comp->modelHandle = ResourceManager::RequestModel("AnimatedMorphCube");
+    world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    name = ResourceManager::GetModel(comp->modelHandle)->GetName();
+    world->GetComponent<NameComponent>(helmet)->name = name + std::to_string(helmet);
+
+    transform = world->GetComponent<TransformComponent>(helmet);
+    transform->SetTranslation(-10, 0, -20);
+    transform->SetScale(10, 10, 10);
 
     f32 start = 0;
     f32 end = 1000;
@@ -153,7 +146,7 @@ void VulkanApp::LoadGameObjects()
         auto model = world->CreateEntity();
         world->AddComponent<ModelComponent>(model);
         auto comp = world->GetComponent<ModelComponent>(model);
-        comp->modelHandle = ResourceManager::RequestModel("DamagedHelmet");
+        comp->modelHandle = ResourceManager::RequestModel("AnimatedMorphCube");
 
         auto transform = world->GetComponent<TransformComponent>(model);
         transform->SetTranslation(x, y, z);
@@ -236,19 +229,6 @@ void VulkanApp::Run()
     objectDataWidget.Add([&]() {
         for(n32 entityId = 0; entityId < world->GetComponentStorage<TransformComponent>().GetDense().size(); entityId++)
         {
-            BoundingBox* bb = world->GetComponent<BoundingBox>(entityId);
-
-            if(!bb)
-            {
-                HGINFO("We somehow don't have a bounding box?");
-                continue;
-            }
-            if(!bb->valid)
-            {
-
-                HGINFO("We somehow don't have a valid bounding box?");
-                continue;
-            }
 
             TransformComponent* transform = world->GetComponent<TransformComponent>(entityId);
             if(!transform) { continue; }
@@ -271,19 +251,56 @@ void VulkanApp::Run()
                 ImGui::DragFloat3("rotation", rotate);
                 transform->SetRotation(rotate[0], rotate[1], rotate[2]);
 
-                if(ImGui::TreeNode("Bounding box Corners"))
-                {
-                    for(n32 i = 0; i < bb->corners.size(); ++i)
-                    {
-                        ImGui::Text("Corner %i: %f, %f, %f", i, bb->corners[i].x, bb->corners[i].y, bb->corners[i].z);
-                    }
+                BoundingBox* bb = world->GetComponent<BoundingBox>(entityId);
 
-                    ImGui::TreePop();
+                if(bb && bb->valid)
+                {
+                    if(ImGui::TreeNode("Bounding box corners"))
+                    {
+                        std::array<glm::vec4, 8> corners;
+                        corners[0] = glm::vec4(bb->min.x, bb->min.y, bb->min.z, 1.0f);
+                        corners[1] = glm::vec4(bb->max.x, bb->min.y, bb->min.z, 1.0f);
+                        corners[2] = glm::vec4(bb->min.x, bb->max.y, bb->min.z, 1.0f);
+                        corners[3] = glm::vec4(bb->max.x, bb->max.y, bb->min.z, 1.0f);
+                        corners[4] = glm::vec4(bb->min.x, bb->min.y, bb->max.z, 1.0f);
+                        corners[5] = glm::vec4(bb->max.x, bb->min.y, bb->max.z, 1.0f);
+                        corners[6] = glm::vec4(bb->min.x, bb->max.y, bb->max.z, 1.0f);
+                        corners[7] = glm::vec4(bb->max.x, bb->max.y, bb->max.z, 1.0f);
+                        for(n32 i = 0; i < corners.size(); ++i)
+                        {
+                            ImGui::Text("Corner %i: %f, %f, %f", i, corners[i].x, corners[i].y, corners[i].z);
+                        }
+
+                        ImGui::TreePop();
+                    }
+                }
+
+                auto model = ResourceManager::GetModel(world->GetComponent<ModelComponent>(entityId)->modelHandle);
+
+                if(model->HasAnimations())
+                {
+                    n32                     size = world->GetComponentStorage<ModelComponent>().GetDense().size();
+                    static std::vector<n32> itemSelectedIndex;
+                    itemSelectedIndex.resize(size);
+                    const char* preview = model->GetAnimations()[itemSelectedIndex[entityId]].name.c_str();
+                    if(ImGui::BeginCombo("Animations", preview))
+                    {
+                        for(int i = 0; i < model->GetAnimations().size(); i++)
+                        {
+                            const bool isSelected = (itemSelectedIndex[entityId] == i);
+                            if(ImGui::Selectable(model->GetAnimations()[i].name.c_str(), isSelected)) { itemSelectedIndex[entityId] = i; }
+
+                            if(isSelected) { ImGui::SetItemDefaultFocus(); }
+                        }
+                        model->SetAnimation(model->GetAnimations()[itemSelectedIndex[entityId]].name);
+                        ImGui::EndCombo();
+                    }
                 }
             }
 
             ImGui::PopID();
         }
+        ImGui::ShowDemoWindow();
     });
 
     HGINFO("Running...");
@@ -335,12 +352,20 @@ void VulkanApp::Run()
             m_cam->Update();
             AudioEngine::UpdateListener(m_cam->GetPosition(), {0, 0, 0}, m_cam->GetForward(), m_cam->GetUp());
 
-            auto world = SceneHandler::GetWorld();
             world->BoundingVolumeUpdateSystem();
             AudioEngine::UpdateSources();
 
             auto frustumAndSortedEntities = Utils::SortAndCullEntities(*m_cam, *world);
             auto sortedObjs = frustumAndSortedEntities;
+
+            auto world = SceneHandler::GetWorld();
+
+            for(auto& entity: frustumAndSortedEntities)
+            {
+                TransformComponent* transform = world->GetComponent<TransformComponent>(entity.id);
+                auto                model = ResourceManager::GetModel(world->GetComponent<ModelComponent>(entity.id)->modelHandle);
+                model->Update();
+            }
 
             const auto cmd = m_renderer->BeginFrame(frustumAndSortedEntities);
             if(cmd != VK_NULL_HANDLE)

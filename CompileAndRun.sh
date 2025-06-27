@@ -4,19 +4,21 @@ BUILD_DIR="./Binaries"
 EXE_DIR="./Binaries/App"
 
 recheck() {
+    local script_args="$@" 
+
     if [ -d "$BUILD_DIR" ]; then
-        build
+        build "$script_args" 
         return
     fi
 
     if [ -d "./Binaries-Release/" ]; then
         BUILD_DIR="./Binaries-Release"
         EXE_DIR="./Binaries-Release/App"
-        build
+        build "$script_args" 
         return
     fi
 
-    cmake_setup
+    cmake_setup "$script_args" 
 }
 
 build() {
@@ -30,13 +32,14 @@ build() {
 
     if [ $? -eq 0 ]; then
         echo "Ninja build successful"
-        ./App/App "$1"
+        ./App/App "$@"
     else
         echo "Ninja build failed!"
     fi
 }
 
 cmake_setup() {
+    local script_args="$@" 
     echo "Setting up CMake..."
     cmake -S . -B "$BUILD_DIR" --preset debug
 
@@ -45,8 +48,7 @@ cmake_setup() {
         exit 1
     fi
 
-    recheck
+    recheck "$script_args" 
 }
 
-# Start the process
-recheck
+recheck "$@"

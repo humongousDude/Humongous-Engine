@@ -35,6 +35,30 @@ public:
         Get().Internal_AddVerticesToModel(modelVertices, modelMeshes);
     }
 
+    static void UpdateNodeMatrices(const std::vector<glm::mat4>& nodeMatrices, const n32& handle)
+    {
+        Get().Internal_UpdateNodeMatrices(nodeMatrices, handle);
+    }
+
+    static void AddJointMatriciesToModel(const std::vector<glm::mat4>& jointMatricies, const n32& handle)
+    {
+        Get().Internal_AddJointMatriciesToModel(jointMatricies, handle);
+    }
+
+    static void UpdateJointMatrices(const std::vector<glm::mat4>& jointMatricies, const n32& handle)
+    {
+        Get().Internal_UpdateJointMatrices(jointMatricies, handle);
+    }
+
+    static void AddMorphTargetsToModel(const std::vector<f32>& morphTargets, const n32& handle)
+    {
+        Get().Internal_AddMorphTargetsToModel(morphTargets, handle);
+    }
+    static void UpdateMorphTargets(const std::vector<f32>& morphTargets, const n32& handle)
+    {
+        Get().Internal_UpdateMorphTargets(morphTargets, handle);
+    }
+
     static std::shared_ptr<Model> GetModel(const n32& index) { return Get().Internal_GetModel(index); }
 
     static std::shared_ptr<Skybox> LoadSkybox(const std::string& name) { return Get().Internal_LoadSkybox(name); }
@@ -68,8 +92,11 @@ public:
 
     static Buffer& GetModelIndexBuffer() { return *Get().m_modelIndexBuffer; }
     static n32&    GetModelHandleToIndexBufferStart(const n32& handle) { return Get().m_modelHandleToIndexStart.at(handle); }
-    static n32&    GetModelHandleToMatrixStart(const n32& handle) { return Get().m_modelHandleToMatrixStart.at(handle); }
+    static n32&    GetModelHandleToMatrixStart(const n32& handle) { return Get().m_modelHandleToMatrixStart.at(handle).first; }
     static Buffer& GetModelVertexBuffer() { return *Get().m_modelVertexBuffer; }
+
+    std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToJointStart;
+    std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToMorphStart;
 
 private:
     struct DescriptorPools
@@ -96,6 +123,7 @@ private:
 
     void Internal_Init(LogicalDevice* device);
     void InitDescriptors();
+    void InitializeInitials();
     void Internal_Shutdown();
 
     std::unordered_map<n32, std::shared_ptr<Model>> m_modelMap;
@@ -107,18 +135,32 @@ private:
     std::vector<n32>             m_modelIndicies;
     std::vector<Model::Vertex>   m_modelVertices;
 
-    std::unordered_map<n32, n32> m_modelHandleToMatrixStart;
-    std::vector<glm::mat4>       m_modelNodeMatricesFlat;
-    std::unique_ptr<Buffer>      m_modelNodeMatriciesBuffer;
+    std::vector<glm::mat4>  m_modelJointMatricies;
+    std::unique_ptr<Buffer> m_modelJointMatriciesBuffer;
 
-    void Internal_AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives);
+    std::vector<f32>        m_modelMorphTargets;
+    std::unique_ptr<Buffer> m_modelMorphTargetsBuffer;
 
-    void Internal_AddVerticesToModel(const std::vector<Model::Vertex>& modelVertices, const std::vector<Mesh*>& modelMeshes);
+    std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToMatrixStart;
+    std::vector<glm::mat4>                       m_modelNodeMatricesFlat;
+    std::unique_ptr<Buffer>                      m_modelNodeMatriciesBuffer;
 
     n32                    m_nextModelID{0};
+    n32                    m_prevModelID{0};
     n32                    Internal_RequestModel(const std::string& name);
     n32                    Internal_RequestModelNodeMatriciesIndex(const n32& index);
     std::shared_ptr<Model> Internal_GetModel(const n32& index);
+
+    void Internal_AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives);
+    void Internal_AddVerticesToModel(const std::vector<Model::Vertex>& modelVertices, const std::vector<Mesh*>& modelMeshes);
+
+    void Internal_UpdateNodeMatrices(const std::vector<glm::mat4>& nodeMatrices, const n32& handle);
+
+    void Internal_AddJointMatriciesToModel(const std::vector<glm::mat4>& jointMatricies, const n32& handle);
+    void Internal_UpdateJointMatrices(const std::vector<glm::mat4>& jointMatricies, const n32& handle);
+
+    void Internal_AddMorphTargetsToModel(const std::vector<f32>& morphTargets, const n32& handle);
+    void Internal_UpdateMorphTargets(const std::vector<f32>& morphTargets, const n32& handle);
 
     std::unordered_map<n32, std::shared_ptr<AudioSourceComponent>> m_audioMap;
     n32                                                            m_nextaudioID{0};

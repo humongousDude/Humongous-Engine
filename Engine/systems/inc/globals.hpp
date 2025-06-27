@@ -13,14 +13,19 @@ namespace Globals
 enum class ModelDescriptorIndices : n32
 {
     Camera = 0, // Camera gets 1 descriptor set
-    Model = 1,  // Model gets 3 descriptor sets
-    Debug = 4,  // Debug gets 1 descriptor set
+    Model = 1,  // Model gets 2 descriptor sets
+    Debug = 3,  // Debug gets 1 descriptor set
 };
 
 enum class StencilMasks : n32
 {
     Nothing = 0,
     Model = 1,
+};
+
+enum class Limits : n32
+{
+    MaximumRenderDistance = 200,
 };
 
 class Time : public Singleton<Time>, NonCopyable

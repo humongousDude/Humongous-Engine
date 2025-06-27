@@ -1,4 +1,5 @@
 #include "extra.hpp"
+#include "globals.hpp"
 #include "logger.hpp"
 
 #include <algorithm>
@@ -39,6 +40,10 @@ std::vector<VisibleEntityInfo> SortAndCullEntities(Camera& camera, World& world)
         TransformComponent* transform = world.GetComponent<TransformComponent>(entityId);
 
         if(!camera.IsAABBInsideFrustum(bb->min, bb->max)) { continue; }
+        if(glm::distance(transform->GetTranslation(), camera.GetPosition()) > static_cast<n32>(Globals::Limits::MaximumRenderDistance))
+        {
+            continue;
+        }
 
         float distance = glm::distance(camera.GetPosition(), transform->GetTranslation());
 
@@ -47,7 +52,7 @@ std::vector<VisibleEntityInfo> SortAndCullEntities(Camera& camera, World& world)
 
     // 4. Sort visible entities (closest to farthest, as in your original code)
     std::ranges::sort(visibleEntities,
-                      [](const VisibleEntityInfo& a, const VisibleEntityInfo& b) { return a.distanceToCamera < b.distanceToCamera; });
+                      [](const VisibleEntityInfo& a, const VisibleEntityInfo& b) { return (a.distanceToCamera < b.distanceToCamera); });
 
     return visibleEntities;
 }

@@ -41,6 +41,8 @@ struct SamplerCreateInfo
     vk::SamplerAddressMode addressModeU;
     vk::SamplerAddressMode addressModeV;
     vk::SamplerAddressMode addressModeW;
+    vk::SamplerMipmapMode  mipMode{vk::SamplerMipmapMode::eLinear};
+    const void*            pNext{nullptr};
 };
 
 struct AllocatedImageCreateInfo

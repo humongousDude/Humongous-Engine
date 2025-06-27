@@ -121,10 +121,11 @@ void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
     samplerInfo.compareEnable = VK_FALSE;
     samplerInfo.compareOp = vk::CompareOp::eNever;
-    samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
+    samplerInfo.mipmapMode = createInfo.samplerInfo->mipMode;
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = static_cast<float>(createInfo.mipLevels);
+    samplerInfo.pNext = createInfo.samplerInfo->pNext;
 
     createInfo.allocatedImage->sampler = new vk::Sampler;
     *createInfo.allocatedImage->sampler = createInfo.logicalDevice.GetVkDevice().createSampler(samplerInfo);

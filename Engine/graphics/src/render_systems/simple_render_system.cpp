@@ -189,10 +189,14 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 
 struct alignas(16) DrawData
 {
-    glm::mat4 modelMatrix;
-    n32       modelID;
-    n32       materialID;
-    n32       nodeID;
+    glm::mat4 modelMatrix{0};
+    n32       modelID{0};
+    n32       materialID{0};
+    n32       nodeID{0};
+    n32       jointMatrixStart{0};
+    n32       morphTargetStart{0};
+    n32       isSkinned{0};
+    n32       isMorphed{0};
 };
 
 void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depthOnly)
@@ -211,22 +215,25 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
             n32 modelID = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entity.id)->modelHandle;
             for(const auto& primitive: primitivesInBatch)
             {
-                // if(primitive->material.alphaMode == Material::ALPHAMODE_BLEND) { continue; }
-                // Create the command
                 vk::DrawIndexedIndirectCommand cmd{};
                 cmd.indexCount = primitive->indexCount;
                 cmd.instanceCount = 1;
-                cmd.firstIndex = primitive->firstIndex;
+                cmd.firstIndex = primitive->globalFirstIndex;
                 cmd.vertexOffset = primitive->vertexOffset;
                 cmd.firstInstance = 0;
                 commands.push_back(cmd);
 
-                // Create the parallel DrawData
                 DrawData data{};
                 data.nodeID = ResourceManager::GetModelHandleToMatrixStart(modelID) + primitive->owner->index;
                 data.materialID = primitive->material.index;
                 data.modelID = modelID;
                 data.modelMatrix = SceneHandler::GetWorld()->GetComponent<TransformComponent>(entity.id)->Mat4();
+                data.isSkinned = ResourceManager::GetModel(modelID)->HasSkins();
+                data.isMorphed =
+                    !primitive->morphTargetPositions.empty() || !primitive->morphTargetNormals.empty() || !primitive->morphTargetTangents.empty();
+
+                if(data.isSkinned) { data.jointMatrixStart = ResourceManager::Get().m_modelHandleToJointStart[modelID].first; }
+                if(data.isMorphed) { data.morphTargetStart = ResourceManager::Get().m_modelHandleToMorphStart[modelID].first; }
 
                 drawData.push_back(data);
             }
@@ -357,7 +364,7 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
                                                     static_cast<n32>(Globals::ModelDescriptorIndices::Camera),
                                                     static_cast<uint32_t>(renderData.uboSets.size()), renderData.uboSets.data(), 0, nullptr);
     }
-    std::vector<vk::DescriptorSet> sets{setToUse, ResourceManager::GetVertexDescriptor()};
+    std::vector<vk::DescriptorSet> sets{setToUse};
 
     renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
                                                 static_cast<n32>(Globals::ModelDescriptorIndices::Model) + 1, sets.size(), sets.data(), 0, nullptr);

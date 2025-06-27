@@ -12,6 +12,7 @@
 namespace Humongous
 {
 class Mesh;
+struct Skin;
 
 struct Node
 {
@@ -19,16 +20,41 @@ struct Node
     Node*              parent;
     n32                index;
     std::vector<Node*> children;
-    glm::mat4          matrix;
-    glm::mat4          worldMatrix;
+    glm::mat4          localMatrix{0};
+    glm::mat4          localToModelMatrix{0};
     std::string        name;
     Mesh*              mesh;
     glm::vec3          translation{};
     glm::vec3          scale{1.0f};
     glm::quat          rotation{};
-    glm::mat4          LocalMatrix() const;
-    glm::mat4          GetMatrix() const;
-    void               Update();
+    Skin*              skin;
+    s32                skinIndex = -1;
+
+    void CalculateLocalMatrix();
+    void UpdateLocalToModelMatrix(const glm::mat4& parentWorldMatrix);
+    void UpdateLocalToModelMatrix();
+};
+
+struct Skin
+{
+    std::string            name;
+    Node*                  skeletonRoot = nullptr;
+    std::vector<glm::mat4> jointMatrices;
+    std::vector<glm::mat4> inverseBindMatrices;
+    std::vector<Node*>     joints;
+
+    void UpdateJointMatrices()
+    {
+        if(joints.empty()) { return; }
+
+        if(jointMatrices.size() != joints.size()) { jointMatrices.resize(joints.size()); }
+
+        for(size_t i = 0; i < joints.size(); ++i)
+        {
+            Node* jointNode = joints[i];
+            jointMatrices[i] = jointNode->localToModelMatrix * inverseBindMatrices[i];
+        }
+    }
 };
 
 } // namespace Humongous
