@@ -178,6 +178,19 @@ public:
         m_animationTime = 0;
     }
 
+    void PlayAnimation()
+    {
+        m_playAnimation = true;
+        m_animationTime = 0;
+    };
+    void StopAnimation()
+    {
+        m_playAnimation = false;
+        m_animationTime = 0;
+    };
+    void PauseAnimation() { m_playAnimation = false; };
+    void UnPauseAnimation() { m_playAnimation = true; };
+
     n32                           GetAnimationCount() const { return m_animations.size(); }
     std::string                   GetCurrentAnimationName() const { return m_animIndexToName.at(m_currentAnimationIndex); }
     f32                           GetAnimationTime() const { return m_animationTime; }
@@ -231,6 +244,8 @@ private:
     std::unordered_map<n32, std::string> m_animIndexToName;
     n32                                  m_currentAnimationIndex = -1;
     f32                                  m_animationTime = 0;
+    b32                                  m_updateAnimation{false};
+    b32                                  m_playAnimation{false};
     b32                                  m_hasMorphTargets = false;
 
     std::string m_name = "";

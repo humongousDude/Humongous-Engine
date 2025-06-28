@@ -101,13 +101,13 @@ void VulkanApp::LoadGameObjects()
     world->AddComponent<BoundingBox>(house);
     world->AddComponent<ModelComponent>(house);
     auto comp = world->GetComponent<ModelComponent>(house);
-    comp->modelHandle = ResourceManager::RequestModel("buster_drone");
+    comp->modelHandle = ResourceManager::RequestModel("VirtualCity");
     std::string name = ResourceManager::GetModel(comp->modelHandle)->GetName();
 
     auto transform = world->GetComponent<TransformComponent>(house);
-    transform->SetScale(.1, .1, .1);
+    transform->SetScale(1.0, 1.0, 1.0);
     transform->SetRotation(0, 0, 0);
-    transform->SetTranslation(0, 0, -10);
+    transform->SetTranslation(0, 0, 0);
     world->GetComponent<NameComponent>(house)->name = name + std::to_string(house);
 
     auto helmet = world->CreateEntity();
@@ -120,39 +120,53 @@ void VulkanApp::LoadGameObjects()
     world->GetComponent<NameComponent>(helmet)->name = name + std::to_string(helmet);
 
     transform = world->GetComponent<TransformComponent>(helmet);
-    transform->SetTranslation(-10, 0, -20);
-    transform->SetScale(10, 10, 10);
+    transform->SetTranslation(-10, 10, -20);
+    transform->SetScale(1, 1, 1);
 
-    f32 start = 0;
-    f32 end = 1000;
-    f32 step = 2.5;
-    f32 border = 15;
-    f32 x = start, y = start, z = start;
-    for(n32 i = 0; i < end; i++)
-    {
-        x += step;
+    auto drone = world->CreateEntity();
+    world->AddComponent<BoundingBox>(drone);
+    world->AddComponent<ModelComponent>(drone);
+    comp = world->GetComponent<ModelComponent>(drone);
+    comp->modelHandle = ResourceManager::RequestModel("buster_drone");
+    world->AddComponent<AudioSourceComponent>(drone, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    name = ResourceManager::GetModel(comp->modelHandle)->GetName();
+    world->GetComponent<NameComponent>(drone)->name = name + std::to_string(helmet);
 
-        if(x > border)
-        {
-            x = start;
-            z += step;
-        }
-        if(z > border)
-        {
-            z = start;
-            y += step;
-        }
+    transform = world->GetComponent<TransformComponent>(drone);
+    transform->SetTranslation(10, 10, -20);
+    transform->SetScale(1, 1, 1);
 
-        auto model = world->CreateEntity();
-        world->AddComponent<ModelComponent>(model);
-        auto comp = world->GetComponent<ModelComponent>(model);
-        comp->modelHandle = ResourceManager::RequestModel("AnimatedMorphCube");
-
-        auto transform = world->GetComponent<TransformComponent>(model);
-        transform->SetTranslation(x, y, z);
-        std::string name = ResourceManager::GetModel(comp->modelHandle)->GetName();
-        world->GetComponent<NameComponent>(model)->name = name + std::to_string(model);
-    }
+    //
+    // f32 start = 0;
+    // f32 end = 1000;
+    // f32 step = 2.5;
+    // f32 border = 15;
+    // f32 x = start, y = start, z = start;
+    // for(n32 i = 0; i < end; i++)
+    // {
+    //     x += step;
+    //
+    //     if(x > border)
+    //     {
+    //         x = start;
+    //         z += step;
+    //     }
+    //     if(z > border)
+    //     {
+    //         z = start;
+    //         y += step;
+    //     }
+    //
+    //     auto model = world->CreateEntity();
+    //     world->AddComponent<ModelComponent>(model);
+    //     auto comp = world->GetComponent<ModelComponent>(model);
+    //     comp->modelHandle = ResourceManager::RequestModel("AnimatedMorphCube");
+    //
+    //     auto transform = world->GetComponent<TransformComponent>(model);
+    //     transform->SetTranslation(x, y, z);
+    //     std::string name = ResourceManager::GetModel(comp->modelHandle)->GetName();
+    //     world->GetComponent<NameComponent>(model)->name = name + std::to_string(model);
+    // }
 
     HGINFO("Loaded game objects");
 }
@@ -295,6 +309,11 @@ void VulkanApp::Run()
                         model->SetAnimation(model->GetAnimations()[itemSelectedIndex[entityId]].name);
                         ImGui::EndCombo();
                     }
+
+                    if(ImGui::Button("Play Animation")) { model->PlayAnimation(); }
+                    if(ImGui::Button("Stop Animation")) { model->StopAnimation(); }
+                    if(ImGui::Button("Pause Animation")) { model->PauseAnimation(); }
+                    if(ImGui::Button("UnPause Animation")) { model->UnPauseAnimation(); }
                 }
             }
 

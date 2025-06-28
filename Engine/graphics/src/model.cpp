@@ -5,6 +5,7 @@
 #include "globals.hpp"
 #include "logger.hpp"
 #include "resource_manager.hpp"
+#include <iostream>
 #include <set>
 
 #define TINYGLTF_IMPLEMENTATION
@@ -107,7 +108,7 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
         {
             if(node->skinIndex > -1) { node->skin = m_skins[node->skinIndex]; }
             else { node->skin = nullptr; }
-            if(node->mesh) { node->CalculateLocalMatrix(); }
+            // if(node->mesh) { node->CalculateLocalMatrix(); }
         }
     }
     else
@@ -138,8 +139,9 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
 
     m_vertices.insert(m_vertices.begin(), loaderInfo.vertexBuffer.begin(), loaderInfo.vertexBuffer.end());
 
-    for(auto& node: m_nodes) { node->UpdateLocalToModelMatrix(); }
-    for(auto& skin: m_skins) { skin->UpdateJointMatrices(); }
+    // for(auto& skin: m_skins) {
+    //
+    // }
 
     CalculateRestAABB();
 
@@ -190,23 +192,23 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
 
     glm::mat4 localMatrix = glm::mat4(1.0f);
 
-    if(node.matrix.size() == 16) { newNode->localMatrix = glm::make_mat4x4(node.matrix.data()); }
+    if(node.matrix.size() == 16)
+    {
+        newNode->localMatrix = glm::make_mat4x4(node.matrix.data());
+        newNode->isMatrixSpecified = true;
+    }
     else
     {
         if(node.translation.size() == 3) { newNode->translation = glm::make_vec3(node.translation.data()); }
-
         if(node.rotation.size() == 4) { newNode->rotation = glm::make_quat(node.rotation.data()); }
-
-        // TODO: Figure out a way to configure scaling conversions. glTF should be in meters but sometimes models still need conversion
         if(node.scale.size() == 3) { newNode->scale = glm::make_vec3(node.scale.data()); }
-        // This usually fixes things if they're way too massive
-        //  (you know what else is massive?)
-        // newNode->scale = glm::vec3(1);
+        newNode->isMatrixSpecified = false;
 
         newNode->CalculateLocalMatrix();
     }
 
     glm::mat4 currentWorldTransform = parentTransform * newNode->localMatrix;
+    newNode->localToModelMatrix = currentWorldTransform;
 
     if(!node.children.empty())
     {
@@ -984,6 +986,7 @@ void Model::LoadSkins(tinygltf::Model& gltfModel)
                    newSkin->name.c_str(), newSkin->joints.size());
         }
 
+        newSkin->UpdateJointMatrices();
         m_skins.push_back(newSkin);
     }
 }
@@ -1308,6 +1311,8 @@ void Model::AnimationSampler::Morph(size_t index, f32 time, Node* node)
 void Model::UpdateAnimation(f32 time)
 {
     if(m_animations.empty() || m_currentAnimationIndex < 0 || m_currentAnimationIndex >= m_animations.size()) { return; }
+    if(!m_playAnimation) { return; }
+    m_updateAnimation = false;
 
     Animation& animation = m_animations[m_currentAnimationIndex];
     m_animationTime += time;
@@ -1365,6 +1370,7 @@ void Model::UpdateAnimation(f32 time)
                 break;
         }
     }
+    m_updateAnimation = true;
 }
 
 // Updating
@@ -1372,6 +1378,8 @@ void Model::Update()
 {
     f32 dt = Globals::Time::AverageDeltaTime();
     UpdateAnimation(dt);
+
+    if(!m_updateAnimation) { return; }
 
     if(HasAnimations())
     {

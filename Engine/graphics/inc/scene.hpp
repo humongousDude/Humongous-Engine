@@ -28,7 +28,8 @@ struct Node
     glm::vec3          scale{1.0f};
     glm::quat          rotation{};
     Skin*              skin;
-    s32                skinIndex = -1;
+    s32                skinIndex{-1};
+    b32                isMatrixSpecified{false};
 
     void CalculateLocalMatrix();
     void UpdateLocalToModelMatrix(const glm::mat4& parentWorldMatrix);
