@@ -1,35 +1,44 @@
 {
-    "version": 6,
-    "configurePresets": [
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "debug",
+      "binaryDir": "${sourceDir}/Binaries",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_COLOR_DIAGNOSTICS": "ON",
+        "CMAKE_CXX_STANDARD": "20",
+        "CMAKE_C_STANDARD": "23",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release",
+      "binaryDir": "${sourceDir}/Binaries-Release",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_STANDARD": "20",
+        "CMAKE_C_STANDARD": "23",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "OFF",
+        "CMAKE_COLOR_DIAGNOSTICS": "OFF",
+        "CMAKE_CXX_FLAGS_RELEASE": "-O3 -march=native -flto -DNDEBUG",
+        "CMAKE_C_FLAGS_RELEASE": "-O3 -march=native -flto -DNDEBUG"
+      }
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "workflowPresets",
+      "displayName": "Custom Workflow Preset",
+      "description": "Custom workflow preset description",
+      "steps": [
         {
-            "name": "debug",
-            "binaryDir": "${sourceDir}/Binaries",
-            "generator": "Ninja",
-            "cacheVariables": {
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_COLOR_DIAGNOSTICS": "ON",
-                "CMAKE_CXX_STANDARD": "20",
-                "CMAKE_C_STANDARD": "23",
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "gcc",
-                "CMAKE_CXX_COMPILER": "g++"
-            }
-        },
-        {
-            "name": "release",
-            "binaryDir": "${sourceDir}/Binaries-Release",
-            "generator": "Ninja",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_CXX_STANDARD": "20",
-                "CMAKE_C_STANDARD": "23",
-                "CMAKE_C_COMPILER": "gcc",
-                "CMAKE_CXX_COMPILER": "g++",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "OFF",
-                "CMAKE_COLOR_DIAGNOSTICS": "OFF",
-                "CMAKE_CXX_FLAGS_RELEASE": "-O3 -march=native -flto -DNDEBUG",
-                "CMAKE_C_FLAGS_RELEASE": "-O3 -march=native -flto -DNDEBUG"
-            }
+          "type": "configure",
+          "name": "debug"
         }
-    ]
+      ]
+    }
+  ]
 }

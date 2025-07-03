@@ -38,7 +38,7 @@ public:
     // std::string name;
 
 private:
-    id_t m_id;
+    n32 m_id;
 
     BoundingBox m_worldBounds{};
 };

@@ -99,7 +99,7 @@ void SimpleRenderSystem::CreatePipelineLayout(const std::vector<vk::DescriptorSe
 
 void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 {
-    HGINFO("Creating pipeline...");
+    HGINFO("Creating geometry pipeline...");
     RenderPipeline::PipelineConfigInfo configInfo = RenderPipeline::DefaultPipelineConfigInfo();
     configInfo.pipelineLayout = m_pipelineLayout;
 
@@ -110,27 +110,29 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.vertShaderPath = shaderSet.vertShaderPath;
     configInfo.fragShaderPath = shaderSet.fragShaderPath;
 
-    std::array<vk::Format, 4> formats{
-        vk::Format::eR16G16B16A16Sfloat, // albedo
-        vk::Format::eR16G16B16A16Sfloat, // normal+roughness
-        vk::Format::eR16G16B16A16Sfloat, // material params
-        vk::Format::eR16G16B16A16Sfloat  // position
-    };
     configInfo.colorBlendAttachment.blendEnable = false;
-
-    std::array<vk::PipelineColorBlendAttachmentState, 4> attach{};
-    attach[0] = configInfo.colorBlendAttachment;
-    attach[1] = configInfo.colorBlendAttachment;
-    attach[2] = configInfo.colorBlendAttachment;
-    attach[3] = configInfo.colorBlendAttachment;
-
-    configInfo.renderingInfo.colorAttachmentCount = attach.size();
-    configInfo.renderingInfo.pColorAttachmentFormats = formats.data();
-    configInfo.renderingInfo.depthAttachmentFormat = vk::Format::eD32SfloatS8Uint;
+  
     configInfo.colorAttachmentFormat = vk::Format::eR16G16B16A16Sfloat;
+
+    configInfo.colorBlendAttachments.clear();
+    configInfo.colorBlendAttachments.push_back(configInfo.colorBlendAttachment);
+    configInfo.colorBlendAttachments.push_back(configInfo.colorBlendAttachment);
+    configInfo.colorBlendAttachments.push_back(configInfo.colorBlendAttachment);
+    configInfo.colorBlendAttachments.push_back(configInfo.colorBlendAttachment);
+
+    configInfo.colorAttachmentFormats.clear();
+    configInfo.colorAttachmentFormats.push_back(configInfo.colorAttachmentFormat);
+    configInfo.colorAttachmentFormats.push_back(configInfo.colorAttachmentFormat);
+    configInfo.colorAttachmentFormats.push_back(configInfo.colorAttachmentFormat);
+    configInfo.colorAttachmentFormats.push_back(configInfo.colorAttachmentFormat);
+    configInfo.colorBlendInfo.attachmentCount = configInfo.colorBlendAttachments.size();
+    configInfo.renderingInfo.colorAttachmentCount = configInfo.colorBlendAttachments.size();
+    configInfo.renderingInfo.pColorAttachmentFormats = configInfo.colorAttachmentFormats.data();
+    configInfo.colorBlendInfo.pAttachments = configInfo.colorBlendAttachments.data();
+
+
+    configInfo.renderingInfo.depthAttachmentFormat = vk::Format::eD32SfloatS8Uint;
     configInfo.colorBlendInfo.logicOpEnable = false;
-    configInfo.colorBlendInfo.attachmentCount = attach.size();
-    configInfo.colorBlendInfo.pAttachments = attach.data();
     configInfo.depthStencilInfo.depthCompareOp = vk::CompareOp::eEqual;
     configInfo.depthStencilInfo.depthWriteEnable = false;
     configInfo.depthStencilInfo.stencilTestEnable = true;
@@ -148,7 +150,7 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 
     m_geometryPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
 
-    HGINFO("Created geometry pipeline");
+    HGINFO("Created geometry pipeline, now creating depth pipeline...");
 
     ShaderSet depthSet{Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "depth.vert"),
                        Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "nothing.frag")};
@@ -160,11 +162,13 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.rasterizationInfo.depthBiasConstantFactor = 0.01f; // Optional
     configInfo.rasterizationInfo.depthBiasSlopeFactor = 0.0f;     // Optional
 
-    configInfo.colorBlendInfo.attachmentCount = 0;
-    configInfo.colorBlendInfo.pAttachments = nullptr;
     configInfo.colorAttachmentFormat = vk::Format::eUndefined;
-    configInfo.renderingInfo.colorAttachmentCount = 0;
-    configInfo.renderingInfo.pColorAttachmentFormats = nullptr;
+    configInfo.colorAttachmentFormats.clear();
+    configInfo.colorBlendAttachments.clear();
+    configInfo.colorBlendInfo.attachmentCount = configInfo.colorBlendAttachments.size();
+    configInfo.renderingInfo.colorAttachmentCount = configInfo.colorBlendAttachments.size();
+    configInfo.renderingInfo.pColorAttachmentFormats = configInfo.colorAttachmentFormats.data();
+    configInfo.colorBlendInfo.pAttachments = configInfo.colorBlendAttachments.data();
 
     configInfo.depthStencilInfo.depthCompareOp = vk::CompareOp::eGreaterOrEqual;
     configInfo.depthStencilInfo.depthWriteEnable = true;
@@ -176,7 +180,7 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.depthStencilInfo.front = vk::StencilOpState{};
 
     m_depthOnlyPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
-    HGINFO("Created pipeline");
+    HGINFO("Created depth pipeline");
 
     m_debugBuffer = std::make_unique<Buffer>(&m_logicalDevice, 1, sizeof(n32), vk::BufferUsageFlagBits::eStorageBuffer,
                                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,

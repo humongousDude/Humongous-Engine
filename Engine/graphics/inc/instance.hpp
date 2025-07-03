@@ -7,8 +7,6 @@
 
 #include <vulkan/vulkan.hpp>
 
-#define _DEBUG
-
 namespace Humongous
 {
 

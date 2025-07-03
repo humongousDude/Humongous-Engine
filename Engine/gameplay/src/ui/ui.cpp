@@ -15,6 +15,7 @@ namespace Humongous
 void UI::Internal_Init(const class Instance* instance, LogicalDevice* logicalDevice, const Window* window)
 {
     if(m_hasInitialized) { return; }
+    HGINFO("Initializing UI...");
 
     m_logicalDevice = logicalDevice;
 
@@ -38,8 +39,11 @@ void UI::Internal_Init(const class Instance* instance, LogicalDevice* logicalDev
                               .QuerySwapChainSupport(m_logicalDevice->GetPhysicalDevice().GetVkPhysicalDevice())
                               .capabilities.surfaceCapabilities.minImageCount +
                           1;
-
-    m_renderingInfo = RenderPipeline::DefaultPipelineConfigInfo().renderingInfo;
+    auto confInfo = RenderPipeline::DefaultPipelineConfigInfo();
+    m_renderingInfo = confInfo.renderingInfo;
+    m_renderingInfo.depthAttachmentFormat = vk::Format::eUndefined;
+    m_renderingInfo.stencilAttachmentFormat = vk::Format::eUndefined;
+    m_renderingInfo.colorAttachmentCount = 1;
 
     initInfo.Queue = m_logicalDevice->GetGraphicsQueue();
     initInfo.QueueFamily = m_logicalDevice->GetGraphicsQueueIndex();
@@ -56,6 +60,7 @@ void UI::Internal_Init(const class Instance* instance, LogicalDevice* logicalDev
     ImGui_ImplVulkan_Init(&initInfo);
 
     m_hasInitialized = true;
+    HGINFO("UI Initialized");
 }
 
 void UI::Internal_Shutdown()

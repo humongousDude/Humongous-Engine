@@ -31,6 +31,16 @@
 *.out
 *.app
 
+# Visual Studio
+.vs/
+*.vs*
+*.sln
+*.suo
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# other stuffs
 \.vscode
 Binaries
 Binaries-Release

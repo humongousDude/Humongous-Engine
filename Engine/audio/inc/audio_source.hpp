@@ -1,6 +1,6 @@
 #pragma once
 
-#include "al.h"
+#include <AL/al.h>
 #include "defines.hpp"
 #include "entity_component_system/components/entity_component.hpp"
 #include <string>

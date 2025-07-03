@@ -1,5 +1,4 @@
 #include "audio_source.hpp"
-#include "al.h"
 #include "logger.hpp"
 #include "sndfile.h"
 #include <cstring>

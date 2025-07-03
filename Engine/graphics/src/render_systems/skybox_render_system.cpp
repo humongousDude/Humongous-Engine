@@ -46,6 +46,7 @@ void SkyboxRenderSystem::CreatePipelineLayout(const std::vector<vk::DescriptorSe
 
 void SkyboxRenderSystem::CreatePipeline()
 {
+    HGINFO("CREATING SKYBOX PIPELINE...");
     RenderPipeline::PipelineConfigInfo ppCI = RenderPipeline::DefaultPipelineConfigInfo();
     ppCI.pipelineLayout = m_pipelineLayout;
 
@@ -66,6 +67,7 @@ void SkyboxRenderSystem::CreatePipeline()
     ppCI.depthStencilInfo.front.depthFailOp = vk::StencilOp::eKeep;
     ppCI.depthStencilInfo.back = ppCI.depthStencilInfo.front;
     m_renderPipeline = std::make_unique<RenderPipeline>(*m_logicalDevice, ppCI);
+    HGINFO("CREATED SKYBOX PIPELINE");
 }
 
 void SkyboxRenderSystem::InitSkybox(const std::string& skyBoxImgPath) { m_skybox = ResourceManager::LoadSkybox("papermill"); }

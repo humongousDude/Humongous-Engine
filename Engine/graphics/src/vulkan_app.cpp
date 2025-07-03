@@ -336,7 +336,11 @@ void VulkanApp::Run()
 
         while(SDL_PollEvent(&e))
         {
-            if(e.type == SDL_EVENT_QUIT) { quit = true; }
+            if(e.type == SDL_EVENT_QUIT)
+            {
+                quit = true;
+                break;
+            }
             ImGui_ImplSDL3_ProcessEvent(&e);
 
             switch(e.type)
@@ -360,6 +364,8 @@ void VulkanApp::Run()
                 default:;
             }
         }
+        if (quit) { break;}
+
         HandleInput(frameTime, &e);
 
         const float aspect = m_renderer->GetAspectRatio();

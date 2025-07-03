@@ -3,12 +3,9 @@
 #include "defines.hpp"
 
 #ifdef HGASSERTIONS_ENABLED
-#if _MSV_VER
+
 #include <intrin.h>
 #define BreakDebug() __debugbreak()
-#else
-#define BreakDebug() __builtin_trap()
-#endif
 
 void ReportAssertionFaliure(const char* expression, const char* message, const char* file, s32 line);
 

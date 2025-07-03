@@ -1,8 +1,7 @@
 #pragma once
 
-#include <non_copyable.hpp>
-
-#include "SDL3/SDL.h"
+#include <SDL3/SDL.h>
+#include "non_copyable.hpp"
 #include "defines.hpp"
 #include "vulkan/vulkan.hpp"
 

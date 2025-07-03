@@ -2,7 +2,7 @@
 
 #include "images.hpp"
 #include "logical_device.hpp"
-#include <gli.hpp>
+#include <gli/gli.hpp>
 #include <string>
 
 namespace tinygltf

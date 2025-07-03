@@ -93,28 +93,11 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
 
     auto queueCreateInfos = CreateQueues(physicalDevice);
 
-    // TODO: make queue creation(specifically the acquisition of information required for queue creation and acquisition) not atrocious
-    // this also includes the CreateQueues() func, because what it does doesn't match its name
-    // ps. also look at the calls to vkGetDeviceQueue2, maybe it can be made better
-    //
-    // cant be bothered to fix this right now
-
-    std::vector<vk::DeviceQueueCreateInfo> queueInfos(2);
-    float                                  p = 1.0f;
-
-    queueInfos[0].queueFamilyIndex = indices.graphicsFamily.value();
-    queueInfos[0].queueCount = 1;
-    queueInfos[0].pQueuePriorities = &p;
-
-    queueInfos[1].queueFamilyIndex = indices.presentFamily.value();
-    queueInfos[1].queueCount = 1;
-    queueInfos[1].pQueuePriorities = &p;
-
     auto extensions = physicalDevice.GetDeviceExtensions();
 
     vk::DeviceCreateInfo createInfo{};
-    createInfo.queueCreateInfoCount = static_cast<n32>(queueInfos.size()); // queueCreateInfos.size();
-    createInfo.pQueueCreateInfos = queueInfos.data();
+    createInfo.queueCreateInfoCount = static_cast<n32>(queueCreateInfos.size()); // queueCreateInfos.size();
+    createInfo.pQueueCreateInfos = queueCreateInfos.data();
     createInfo.enabledLayerCount = 0;
     createInfo.enabledExtensionCount = static_cast<n32>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
@@ -130,15 +113,34 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
 
     HGINFO("logical device created");
 
-    if(m_graphicsQueueIndex == m_presentQueueIndex)
+if(m_graphicsQueueIndex == m_presentQueueIndex)
     {
-        m_logicalDevice.getQueue2(&queueCreateInfos[0], &m_graphicsQueue);
-        m_logicalDevice.getQueue2(&queueCreateInfos[0], &m_presentQueue);
+        // If graphics and present families are the same, they both use queue family at m_graphicsQueueIndex
+        // We request queue index 0 from that family for both graphics and present operations.
+        vk::DeviceQueueInfo2 graphicsQueueInfo{};
+        graphicsQueueInfo.sType = vk::StructureType::eDeviceQueueInfo2;
+        graphicsQueueInfo.queueFamilyIndex = m_graphicsQueueIndex;
+        graphicsQueueInfo.queueIndex = 0; // Request the first (and likely only) queue from this family
+
+        m_logicalDevice.getQueue2(&graphicsQueueInfo, &m_graphicsQueue);
+        m_presentQueue = m_graphicsQueue; // They are the same queue
     }
     else
     {
-        m_logicalDevice.getQueue2(&queueCreateInfos[0], &m_graphicsQueue);
-        m_logicalDevice.getQueue2(&queueCreateInfos[1], &m_presentQueue);
+        HGINFO("For whatever reason, they weren't equal");
+        // Graphics and present families are different
+        vk::DeviceQueueInfo2 graphicsQueueInfo{};
+        graphicsQueueInfo.sType = vk::StructureType::eDeviceQueueInfo2;
+        graphicsQueueInfo.queueFamilyIndex = m_graphicsQueueIndex;
+        graphicsQueueInfo.queueIndex = 0; // Request the first queue from the graphics family
+
+        vk::DeviceQueueInfo2 presentQueueInfo{};
+        presentQueueInfo.sType = vk::StructureType::eDeviceQueueInfo2;
+        presentQueueInfo.queueFamilyIndex = m_presentQueueIndex;
+        presentQueueInfo.queueIndex = 0; // Request the first queue from the present family
+
+        m_logicalDevice.getQueue2(&graphicsQueueInfo, &m_graphicsQueue);
+        m_logicalDevice.getQueue2(&presentQueueInfo, &m_presentQueue);
     }
 
     HGINFO("logical device queues acquired");
@@ -161,26 +163,32 @@ void LogicalDevice::CreateVmaAllocator(Instance& instance, PhysicalDevice& physi
     vmaCreateAllocator(&allocatorInfo, &m_allocator);
 }
 
-std::vector<vk::DeviceQueueInfo2> LogicalDevice::CreateQueues(PhysicalDevice& physicalDevice)
+std::vector<vk::DeviceQueueCreateInfo> LogicalDevice::CreateQueues(PhysicalDevice& physicalDevice)
 {
     HGINFO("acquiring queue handles...");
 
     PhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 
-    std::vector<vk::DeviceQueueInfo2> queueCreateInfos;
-    std::set<n32>                     uniqueQueueFamilies;
-    if(indices.graphicsFamily.has_value()) { uniqueQueueFamilies.insert(indices.graphicsFamily.value()); }
-    if(indices.presentFamily.has_value()) { uniqueQueueFamilies.insert(indices.presentFamily.value()); }
+    // Use std::set to get unique queue family indices
+    std::set<uint32_t> uniqueQueueFamilyIndices; // Use uint32_t for Vulkan indices
+    if(indices.graphicsFamily.has_value()) { uniqueQueueFamilyIndices.insert(indices.graphicsFamily.value()); }
+    if(indices.presentFamily.has_value()) { uniqueQueueFamilyIndices.insert(indices.presentFamily.value()); }
 
-    if(uniqueQueueFamilies.empty()) { HGFATAL("Failed to find any suitable queue families!"); }
+    if(uniqueQueueFamilyIndices.empty()) { HGFATAL("Failed to find any suitable queue families!"); }
 
-    float queuePriority = 1.0f;
-    for(n32 queueFamily: uniqueQueueFamilies)
+    std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
+    float                                  queuePriority = 1.0f; // All queues will have this priority
+
+    for(uint32_t queueFamilyIndex: uniqueQueueFamilyIndices)
     {
-        vk::DeviceQueueInfo2 queueCreateInfo{};
-        queueCreateInfo.sType = vk::StructureType::eDeviceQueueInfo2;
-        queueCreateInfo.queueFamilyIndex = queueFamily;
-        queueCreateInfo.queueIndex = 0;
+        vk::DeviceQueueCreateInfo queueCreateInfo{};
+        queueCreateInfo.sType = vk::StructureType::eDeviceQueueCreateInfo;
+        queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
+        // For each unique queue family, request one queue (or more, if needed)
+        // Here we request 1 queue per family. If you need more, adjust queueCount.
+        queueCreateInfo.queueCount = 1;
+        queueCreateInfo.pQueuePriorities = &queuePriority; // Pointer to an array of priorities
+
         queueCreateInfos.push_back(queueCreateInfo);
     }
 

@@ -31,6 +31,8 @@ public:
         vk::PipelineLayout                       pipelineLayout = nullptr;
         vk::PipelineRenderingCreateInfo          renderingInfo;
         vk::Format                               colorAttachmentFormat;
+        std::vector<vk::Format>                            colorAttachmentFormats;
+        std::vector<vk::PipelineColorBlendAttachmentState> colorBlendAttachments;  
     };
 
     RenderPipeline(LogicalDevice& logicalDevice, const PipelineConfigInfo& configInfo);

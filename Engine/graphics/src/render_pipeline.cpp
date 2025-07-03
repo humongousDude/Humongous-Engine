@@ -160,10 +160,13 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
     configInfo.colorBlendAttachment.dstAlphaBlendFactor = BlendFactor::eZero;
     configInfo.colorBlendAttachment.alphaBlendOp = BlendOp::eAdd;
 
+    configInfo.colorBlendAttachments.push_back(configInfo.colorBlendAttachment);
+    configInfo.colorAttachmentFormats.push_back(vk::Format::eR16G16B16A16Sfloat);
+
     configInfo.colorBlendInfo.logicOpEnable = false;
     configInfo.colorBlendInfo.logicOp = LogicOp::eCopy; // Optional
-    configInfo.colorBlendInfo.attachmentCount = 1;
-    configInfo.colorBlendInfo.pAttachments = &configInfo.colorBlendAttachment;
+    configInfo.colorBlendInfo.attachmentCount = configInfo.colorBlendAttachments.size();
+    configInfo.colorBlendInfo.pAttachments = configInfo.colorBlendAttachments.data();
     configInfo.colorBlendInfo.blendConstants[0] = 0.0f; // Optional
     configInfo.colorBlendInfo.blendConstants[1] = 0.0f; // Optional
     configInfo.colorBlendInfo.blendConstants[2] = 0.0f; // Optional
@@ -183,16 +186,17 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
     configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();
     configInfo.dynamicStateInfo.dynamicStateCount = static_cast<n32>(configInfo.dynamicStateEnables.size());
 
+    configInfo.colorAttachmentFormat = Format::eR16G16B16A16Sfloat; // Or a more suitable default like swapchain format
+
+    // Initialize renderingInfo for a single color attachment (common default)
     configInfo.renderingInfo.viewMask = 0;
-    configInfo.renderingInfo.colorAttachmentCount = 1;
-    configInfo.renderingInfo.pColorAttachmentFormats = &configInfo.colorAttachmentFormat;
-    configInfo.renderingInfo.depthAttachmentFormat = Format::eD32Sfloat;
+    configInfo.renderingInfo.colorAttachmentCount = configInfo.colorBlendAttachments.size();
+    // Make pColorAttachmentFormats point to the *member* that owns the data
+    configInfo.renderingInfo.pColorAttachmentFormats = configInfo.colorAttachmentFormats.data();
 
-    // hardcoded for now
-    configInfo.colorAttachmentFormat = Format::eR16G16B16A16Sfloat;
-    configInfo.renderingInfo.pColorAttachmentFormats = &configInfo.colorAttachmentFormat;
-    configInfo.renderingInfo.depthAttachmentFormat = Format::eD32SfloatS8Uint;
-
+    // Always specify depth and stencil formats if relevant, even if undefined
+    configInfo.renderingInfo.depthAttachmentFormat = Format::eD32SfloatS8Uint;   // Common depth/stencil format
+    configInfo.renderingInfo.stencilAttachmentFormat = Format::eD32SfloatS8Uint; // Stencil must match depth if combined
     return configInfo;
 }
 

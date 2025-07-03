@@ -54,6 +54,6 @@ private:
     void CreateVmaAllocator(Instance& instance, PhysicalDevice& physicalDevice);
     void CreateCommandPool(PhysicalDevice& physicalDevice);
 
-    std::vector<vk::DeviceQueueInfo2> CreateQueues(PhysicalDevice& physicalDevice);
+    std::vector<vk::DeviceQueueCreateInfo> CreateQueues(PhysicalDevice& physicalDevice);
 };
 } // namespace Humongous
