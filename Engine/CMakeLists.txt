@@ -1,204 +1,276 @@
 cmake_minimum_required(VERSION 3.26)
-cmake_policy(VERSION 3.26)
+project(Engine)
 
 include(ExternalProject)
 
-set(EXTERNAL_INSTALL_LOCATION "${CMAKE_BINARY_DIR}/_external_install")
-
-# ===================================================================
-#  STEP 1: Define the function to build external projects
-# ===================================================================
-function(add_external_submodule_project_and_config name src_dir cmake_options)
-    set(_project_name "${name}_external_project")
-    set(_install_path "${EXTERNAL_INSTALL_LOCATION}/${name}")
-    set(_lib_path "${_install_path}/lib") # <-- Simplified path for clarity
-    set(_include_path "${_install_path}/include")
-
-    set(CMAKE_ARGS_LIST)
-    foreach(opt ${cmake_options})
-        list(APPEND CMAKE_ARGS_LIST "-D${opt}")
-    endforeach()
-    list(APPEND CMAKE_ARGS_LIST "-DBUILD_SHARED_LIBS=OFF")
-
-    ExternalProject_Add(
-        ${_project_name}
-        SOURCE_DIR              "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/${src_dir}"
-        BINARY_DIR              "${CMAKE_BINARY_DIR}/${name}-build"
-        INSTALL_DIR             "${_install_path}"
-        CMAKE_ARGS              ${CMAKE_ARGS_LIST}
-                                -DCMAKE_INSTALL_PREFIX=${_install_path}
-                                -DCMAKE_POLICY_DEFAULT_CMP0091=NEW
-                                -DCMAKE_BUILD_TYPE=$<CONFIG>
-                                ${RUNTIME_LIB_FLAG} # <--- CORRECTLY PLACED
-        CMAKE_GENERATOR         "${CMAKE_GENERATOR}"
-        CMAKE_GENERATOR_PLATFORM "${CMAKE_GENERATOR_PLATFORM}"
-        CMAKE_GENERATOR_TOOLSET "${CMAKE_GENERATOR_TOOLSET}"
-    )
-    
-    # Set variables for the parent scope
-    set(${name}_EXTERNAL_PROJECT_TARGET "${_project_name}" PARENT_SCOPE)
-    set(${name}_LIB_PATH "${_lib_path}" PARENT_SCOPE)
-    set(${name}_INCLUDE_PATH "${_include_path}" PARENT_SCOPE)
-endfunction()
-
-
-# ===================================================================
-#  STEP 2: Configure all external projects
-# ===================================================================
-set(ALL_EXTERNAL_PROJECT_TARGETS)
-
-# --- SDL3 ---
-add_external_submodule_project_and_config(SDL3 "SDL"
-    "SDL_TEST=OFF" "SDL_SHARED=OFF" "SDL_STATIC=ON" "SDL_CODE_ANALYSIS=OFF")
-list(APPEND ALL_EXTERNAL_PROJECT_TARGETS ${SDL3_EXTERNAL_PROJECT_TARGET})
-
-# --- spdlog ---
-add_external_submodule_project_and_config(spdlog "spdlog"
-    "SPDLOG_BUILD_EXAMPLES=OFF" "SPDLOG_BUILD_TESTS=OFF" "SPDLOG_BUILD_BENCH=OFF" "SPDLOG_INSTALL=ON" "SPDLOG_BUILD_SHARED=OFF")
-list(APPEND ALL_EXTERNAL_PROJECT_TARGETS ${spdlog_EXTERNAL_PROJECT_TARGET})
-
-# --- OpenAL-Soft ---
-add_external_submodule_project_and_config(OpenALSoft "openal-soft"
-    "ALSOFT_BUILD_EXAMPLES=OFF" "ALSOFT_INSTALL=ON" "LIBTYPE=STATIC")
-list(APPEND ALL_EXTERNAL_PROJECT_TARGETS ${OpenALSoft_EXTERNAL_PROJECT_TARGET})
-
-# --- libsndfile ---
-add_external_submodule_project_and_config(libsndfile "libsndfile"
-    "BUILD_PROGRAMS=OFF" "BUILD_EXAMPLES=OFF" "ENABLE_EXTERNAL_LIBS=OFF" "BUILD_STATIC_LIBS=ON" "BUILD_SHARED_LIBS=OFF") # <-- Corrected to OFF
-list(APPEND ALL_EXTERNAL_PROJECT_TARGETS ${libsndfile_EXTERNAL_PROJECT_TARGET})
-
-
-# ===================================================================
-#  STEP 3: Define your main Engine library
-# ===================================================================
-file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS
-    core/*.cpp
-    gameplay/*.cpp
-    graphics/*.cpp
-    systems/*.cpp
-    utils/*.cpp
-    audio/*.cpp
-)
-file(GLOB IMGUI CONFIGURE_DEPENDS ./ThirdParty/imgui/*.cpp)
-add_library(Engine ${SRCS} ${IMGUI}
-    ./ThirdParty/imgui/backends/imgui_impl_vulkan.cpp
-    ./ThirdParty/imgui/backends/imgui_impl_sdl3.cpp
-)
-
-# THIS IS THE CORRECT WAY TO SET THE RUNTIME LIBRARY FOR MSVC
 if(MSVC)
-    target_compile_options(Engine PUBLIC /utf-8)
-    # set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     set(RUNTIME_LIB_FLAG "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>")
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL" CACHE STRING "MSVC runtime library type")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL" CACHE STRING "MSVC runtime library type") 
 endif()
 
-# ===================================================================
-#  STEP 4: Configure the Engine library with paths from dependencies
-# ===================================================================
+set(ENGINE_SOURCES
+    # --- Core ---
+    core/src/allocator.cpp
+    core/src/asserts.cpp
+    core/src/engine.cpp
+    core/src/logger.cpp
+    
+    # --- Systems ---
+    systems/src/asset_manager.cpp
+    systems/src/globals.cpp
+    systems/src/resource_manager.cpp
 
-# --- Compile Definitions ---
+    # --- Utils ---
+    utils/src/extra.cpp
+    utils/src/images.cpp
+
+    # --- Graphics ---
+    graphics/src/abstractions/buffer.cpp
+    graphics/src/abstractions/descriptor_layout.cpp
+    graphics/src/abstractions/descriptor_pool.cpp
+    graphics/src/abstractions/descriptor_pool_growable.cpp
+    graphics/src/abstractions/descriptor_writer.cpp
+    graphics/src/render_systems/simple_render_system.cpp
+    graphics/src/render_systems/skybox_render_system.cpp
+    graphics/src/instance.cpp
+    graphics/src/logical_device.cpp
+    graphics/src/material.cpp
+    graphics/src/model.cpp
+    graphics/src/model_instance.cpp
+    graphics/src/physical_device.cpp
+    graphics/src/render_pipeline.cpp
+    graphics/src/renderer.cpp
+    graphics/src/scene.cpp
+    graphics/src/skybox.cpp
+    graphics/src/swapchain.cpp
+    graphics/src/texture.cpp
+    graphics/src/vulkan_app.cpp
+    graphics/src/window.cpp
+
+    # --- Audio ---
+    audio/src/audio_engine.cpp
+    audio/src/audio_source.cpp
+
+    # --- Gameplay ---
+    gameplay/src/entity_component_system/components/audio_source_component.cpp
+    gameplay/src/entity_component_system/components/bounding_box_component.cpp
+    gameplay/src/entity_component_system/components/entity_component.cpp
+    gameplay/src/entity_component_system/components/model_component.cpp
+    gameplay/src/entity_component_system/components/name_component.cpp
+    gameplay/src/entity_component_system/components/transform_component.cpp
+    gameplay/src/entity_component_system/entity.cpp
+    gameplay/src/entity_component_system/sparse_set.cpp
+    gameplay/src/ui/ui.cpp
+    gameplay/src/ui/widget.cpp
+    gameplay/src/camera.cpp
+    gameplay/src/keyboard_handler.cpp
+    gameplay/src/scene_handler.cpp
+    gameplay/src/world.cpp
+
+    # --- ImGui Sources ---
+    ThirdParty/imgui/imgui.cpp
+    ThirdParty/imgui/imgui_demo.cpp
+    ThirdParty/imgui/imgui_draw.cpp
+    ThirdParty/imgui/imgui_tables.cpp
+    ThirdParty/imgui/imgui_widgets.cpp
+    ThirdParty/imgui/misc/cpp/imgui_stdlib.cpp
+    ThirdParty/imgui/backends/imgui_impl_sdl3.cpp
+    ThirdParty/imgui/backends/imgui_impl_vulkan.cpp
+)
+
+set(ENGINE_HEADERS
+   # --- Core ---
+    core/inc/allocator.hpp
+    core/inc/asserts.hpp
+    core/inc/engine.hpp
+    core/inc/logger.hpp
+    
+    # --- Systems ---
+    systems/inc/asset_manager.hpp
+    systems/inc/globals.hpp
+    systems/inc/resource_manager.hpp
+
+    # --- Utils ---
+    utils/inc/extra.hpp
+    utils/inc/images.hpp
+
+    # --- Graphics ---
+    graphics/inc/abstractions/buffer.hpp
+    graphics/inc/abstractions/descriptor_layout.hpp
+    graphics/inc/abstractions/descriptor_pool.hpp
+    graphics/inc/abstractions/descriptor_pool_growable.hpp
+    graphics/inc/abstractions/descriptor_writer.hpp
+    graphics/inc/render_systems/simple_render_system.hpp
+    graphics/inc/render_systems/skybox_render_system.hpp
+    graphics/inc/instance.hpp
+    graphics/inc/logical_device.hpp
+    graphics/inc/material.hpp
+    graphics/inc/model.hpp
+    graphics/inc/model_instance.hpp
+    graphics/inc/physical_device.hpp
+    graphics/inc/render_pipeline.hpp
+    graphics/inc/renderer.hpp
+    graphics/inc/scene.hpp
+    graphics/inc/skybox.hpp
+    graphics/inc/swapchain.hpp
+    graphics/inc/texture.hpp
+    graphics/inc/vulkan_app.hpp
+    graphics/inc/window.hpp
+
+    # --- Audio ---
+    audio/inc/audio_engine.hpp
+    audio/inc/audio_source.hpp
+
+    # --- Gameplay ---
+    gameplay/inc/entity_component_system/components/audio_source_component.hpp
+    gameplay/inc/entity_component_system/components/bounding_box_component.hpp
+    gameplay/inc/entity_component_system/components/entity_component.hpp
+    gameplay/inc/entity_component_system/components/model_component.hpp
+    gameplay/inc/entity_component_system/components/name_component.hpp
+    gameplay/inc/entity_component_system/components/transform_component.hpp
+    gameplay/inc/entity_component_system/entity.hpp
+    gameplay/inc/entity_component_system/sparse_set.hpp
+    gameplay/inc/ui/ui.hpp
+    gameplay/inc/ui/widget.hpp
+    gameplay/inc/camera.hpp
+    gameplay/inc/keyboard_handler.hpp
+    gameplay/inc/scene_handler.hpp
+    gameplay/inc/world.hpp
+
+    # --- ImGui Sources ---
+    ThirdParty/imgui/imgui.h
+    ThirdParty/imgui/misc/cpp/imgui_stdlib.h
+    ThirdParty/imgui/backends/imgui_impl_sdl3.h
+    ThirdParty/imgui/backends/imgui_impl_vulkan.h
+)
+
+set(SHADER_SOURCES
+    #frag    
+    ../shaders/frag/pbr.frag.glsl
+    ../shaders/frag/skybox.frag.glsl
+    ../shaders/frag/nothing.frag.glsl
+    ../shaders/frag/unlit.frag.glsl
+
+    #vert
+    ../shaders/vert/skybox.vert.glsl
+    ../shaders/vert/simple.vert.glsl
+    ../shaders/vert/depth.vert.glsl
+    ../shaders/vert/lighting.vert.glsl
+    ../shaders/vert/nothing.vert.glsl
+
+    #comp
+    ../shaders/comp/brdflut.comp.glsl
+    ../shaders/comp/irradiance.comp.glsl
+    ../shaders/comp/lighting.comp.glsl
+    ../shaders/comp/mip.comp.glsl
+    ../shaders/comp/occlusion.comp.glsl
+    ../shaders/comp/prefiltredmap.comp.glsl
+
+    #includes, i don't think they need compiliation?
+    #../shaders/includes/inputs.vert
+    
+)
+
+# Convert relative paths to full paths for the custom command
+set(SHADER_SOURCES_FULL)
+foreach(SHADER_FILE ${SHADER_SOURCES})
+    get_filename_component(FULL_PATH ${SHADER_FILE} ABSOLUTE)
+    list(APPEND SHADER_SOURCES_FULL ${FULL_PATH})
+endforeach()
+
+
+# ========================================================================================
+# Engine Library Target
+# ========================================================================================
+
+add_library(Engine ${ENGINE_SOURCES} ${ENGINE_HEADERS})
+
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${ENGINE_SOURCES} ${ENGINE_HEADERS})
+
+target_sources(Engine PRIVATE ${SHADER_SOURCES_FULL})
+
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${ENGINE_SOURCES} ${ENGINE_HEADERS})
+source_group(TREE ${CMAKE_SOURCE_DIR}/shaders PREFIX "Shaders" FILES ${SHADER_SOURCES_FULL})
+
+if(MSVC)
+    target_compile_options(Engine PUBLIC /utf-8)
+endif()
+
 target_compile_definitions(Engine PUBLIC
     HGASSERTIONS_ENABLED
     HGASSETDIRPATH="${CMAKE_SOURCE_DIR}/Assets/"
 )
 
-# --- Include Directories ---
 target_include_directories(Engine PUBLIC
-    # Header-only libraries
+    # Local includes
+    core/inc
+    gameplay/inc
+    graphics/inc
+    systems/inc
+    utils/inc
+    audio/inc
+    
+    # Third-party includes
     "ThirdParty/glm"
     "ThirdParty/gli"
     "ThirdParty/VulkanMemoryAllocator/include"
     "ThirdParty/tinygltf"
-    "ThirdParty/imgui/"
-    "ThirdParty/imgui/backends/"
-
-    # Includes for built libraries
-    "${SDL3_INCLUDE_PATH}"
-    "${spdlog_INCLUDE_PATH}"
-    "${OpenALSoft_INCLUDE_PATH}"
-    "${libsndfile_INCLUDE_PATH}"
-
-    # Engine files
-    core/inc/
-    gameplay/inc/
-    audio/inc/
-    graphics/inc/
-    systems/inc/
-    utils/inc/
+    "ThirdParty/imgui"
+    "ThirdParty/imgui/backends"
 )
 
 find_package(Vulkan REQUIRED)
 
-
 target_link_libraries(Engine PUBLIC
-    # Use generator expressions for configuration-specific linking
-    "${SDL3_LIB_PATH}/SDL3.lib"
-
-    debug     "${spdlog_LIB_PATH}/spdlogd.lib"
-    optimized "${spdlog_LIB_PATH}/spdlog.lib"
-
-    "${OpenALSoft_LIB_PATH}/OpenAL32.lib"
-    "${libsndfile_LIB_PATH}/sndfile.lib"
-    
+    SDL3::SDL3
+    spdlog::spdlog
+    OpenAL
+    sndfile
     Vulkan::Vulkan
-    legacy_stdio_definitions.lib
 )
 
 if(WIN32)
-    target_link_libraries(Engine PUBLIC gdi32 shell32 ole32 imm32 winmm version)
+    target_link_libraries(Engine PUBLIC
+        gdi32 shell32 ole32 imm32 winmm version user32 setupapi dinput8 dxguid oleaut32 advapi32
+    )
 endif()
 
-add_dependencies(Engine ${ALL_EXTERNAL_PROJECT_TARGETS})
+# ========================================================================================
+# Shader Compilation Target
+# ========================================================================================
 
-# --- Shader Compilation (No changes needed here) ---
-find_program(VULKAN_GLSLC glslc)
-if(NOT VULKAN_GLSLC)
-  find_program(VULKAN_GLSLANG_VALIDATOR glslangValidator)
-endif()
+find_program(VULKAN_GLSLC glslc REQUIRED)
 
-if(NOT VULKAN_GLSLC AND NOT VULKAN_GLSLANG_VALIDATOR)
-  message(FATAL_ERROR "Neither glslc nor glslangValidator found for shader compilation.")
-endif()
+set(SPIRV_FILES) 
 
-message(STATUS "glslc found at: ${VULKAN_GLSLC}")
+foreach(SHADER_FILE ${SHADER_SOURCES_FULL})
+    get_filename_component(PARENT_DIR ${SHADER_FILE} DIRECTORY)
+    get_filename_component(SHADER_STAGE ${PARENT_DIR} NAME)
 
+    get_filename_component(SHADER_NAME ${SHADER_FILE} NAME)
+    set(SPIRV_FILE "${CMAKE_BINARY_DIR}/shaders/${SHADER_NAME}.spv")
+    list(APPEND SPIRV_FILES ${SPIRV_FILE})
 
-
-file(GLOB_RECURSE SHADER_FILES CONFIGURE_DEPENDS
-     ${CMAKE_SOURCE_DIR}/shaders/vert/*.glsl
-     ${CMAKE_SOURCE_DIR}/shaders/frag/*.glsl
-     ${CMAKE_SOURCE_DIR}/shaders/comp/*.glsl
-     ${CMAKE_SOURCE_DIR}/shaders/includes/*.glsl
-)
-message(STATUS "CMAKE LIST PARENT: ${CMAKE_SOURCE_DIR}")
-
-foreach(SHADER_FILE ${SHADER_FILES})
-  get_filename_component(SHADER_NAME ${SHADER_FILE} NAME)
-  get_filename_component(SHADER_STAGE ${SHADER_FILE} NAME_WLE)
-  get_filename_component(SHADER_STAGE ${SHADER_STAGE} EXT)
-  string(REPLACE "." "" SHADER_STAGE ${SHADER_STAGE})
-
-  message(STATUS "working on shader ${SHADER_FILE}")
-  
-  set(SPIRV_FILE ${CMAKE_SOURCE_DIR}/Assets/shaders/${SHADER_NAME}.spv)
-
-  add_custom_command(
-    OUTPUT ${SPIRV_FILE}
-    COMMAND ${VULKAN_GLSLC} -fshader-stage=${SHADER_STAGE} ${SHADER_FILE} -g -o
-            ${SPIRV_FILE}
-    DEPENDS ${SHADER_FILE}
-    COMMENT "Compiling ${SHADER_FILE} to ${SPIRV_FILE}"
-    VERBATIM)
-  list(APPEND SPIRV_FILES ${SPIRV_FILE})
+    add_custom_command(
+        OUTPUT ${SPIRV_FILE}
+        COMMAND ${VULKAN_GLSLC}
+                --target-env=vulkan1.3
+                -fshader-stage=${SHADER_STAGE}
+                -I"${CMAKE_SOURCE_DIR}/shaders/includes" 
+                ${SHADER_FILE}
+                -g 
+                -o ${SPIRV_FILE}
+        DEPENDS ${SHADER_FILE} 
+        COMMENT "Compiling ${SHADER_NAME} to ${SPIRV_FILE}"
+        VERBATIM
+    )
 endforeach()
 
-add_custom_target(compile_shaders DEPENDS ${SPIRV_FILES}) 
-
-if (MSVC)
-    set_property(TARGET compile_shaders PROPERTY FOLDER "Hidden CMake Targets") # Puts it in a folder
-    set_property(TARGET compile_shaders PROPERTY EXCLUDE_FROM_ALL TRUE) # Hides it from default build
-    set_property(TARGET compile_shaders PROPERTY EXCLUDE_FROM_DEFAULT_BUILD_ALL TRUE) # More hiding
-endif()
+add_custom_target(
+    compile_shaders
+    ALL 
+    DEPENDS ${SPIRV_FILES}
+    COMMENT "Compiling all GLSL shaders to SPIR-V"
+)
 
 add_dependencies(Engine compile_shaders)
