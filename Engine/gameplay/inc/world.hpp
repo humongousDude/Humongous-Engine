@@ -116,8 +116,12 @@ public:
         for(Humongous::EntityID entity: m_worldBoundingBoxes.GetDense())
         {
             TransformComponent* transform = GetComponent<TransformComponent>(entity);
+            ModelComponent*     modelComp = nullptr;
+            if(HasComponent<ModelComponent>(entity)) { modelComp = GetComponent<ModelComponent>(entity); }
 
-            if(transform && transform->IsDirty() && HasComponent<ModelComponent>(entity))
+            b32 updatedAnim = modelComp ? modelComp->instance->PlayingAnimation() : false;
+
+            if(transform->IsDirty() || updatedAnim)
             {
                 BoundingBox*    worldBB = GetComponent<BoundingBox>(entity);
                 ModelComponent* modelComp = GetComponent<ModelComponent>(entity);
@@ -128,11 +132,9 @@ public:
                     if(!worldBB) { continue; }
                 }
 
-                auto modelAsset = ResourceManager::GetModel(modelComp->modelHandle);
-
-                if(modelAsset)
+                if(modelComp->instance)
                 {
-                    *worldBB = BoundingBox::LocalToGlobal(modelAsset->GetLocalBoundingBox(), transform->Mat4());
+                    *worldBB = BoundingBox::LocalToGlobal(modelComp->instance->GetAnimatedBoundingBox(), transform->Mat4());
                     transform->SetDirty(false);
                 }
                 else { worldBB->valid = false; }

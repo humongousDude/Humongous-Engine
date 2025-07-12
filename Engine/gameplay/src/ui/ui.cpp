@@ -59,7 +59,7 @@ void UI::Internal_Init(const class Instance* instance, LogicalDevice* logicalDev
     initInfo.MinAllocationSize = 1024 * 1024;
     ImGui_ImplVulkan_Init(&initInfo);
 
-    m_hasInitialized = true;
+    m_hasInitialized = true; 
     HGINFO("UI Initialized");
 }
 

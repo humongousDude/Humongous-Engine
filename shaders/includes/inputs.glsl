@@ -29,19 +29,29 @@ layout(set = 1, binding = 2) readonly buffer UBONode {
 } node;
 
 struct DrawData {
+    uint materialID;
+    uint localNodeIndex;
+    uint isSkinned;
+    uint isMorphed;
+    uint instanceOffset;
+    uint pad0[3];
+};
+
+struct InstanceData {
     mat4 modelMatrix;
     uint modelID;
-    uint materialID;
-    uint nodeIndex;
+    uint globalNodeIndex;
     uint jointStart;
     uint morphStart;
-    int isSkinned;
-    int isMorphed;
 };
 
 layout(set = 2, binding = 0) readonly buffer rrawData {
     DrawData drawData[];
 } drawData;
+
+layout(set = 2, binding = 1) readonly buffer instanceData {
+    InstanceData instanceData[];
+} instData;
 
 layout(std140, set = 1, binding = 3) readonly buffer Vertices {
     Vertex vertices[];

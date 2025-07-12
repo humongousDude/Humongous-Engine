@@ -1,7 +1,7 @@
 #include "keyboard_handler.hpp"
 
-#include <glm/gtc/matrix_transform.hpp>
 #include "globals.hpp"
+#include <glm/gtc/matrix_transform.hpp>
 
 namespace Humongous
 {
@@ -15,17 +15,16 @@ void KeyboardHandler::ProcessInput(const InputData& inputData)
     static float accumulatedYaw = currentRotation.y;
 
     accumulatedYaw -= (inputData.mouseDeltaX * lookSpeed * static_cast<float>(Globals::Time::AverageDeltaTime()));
-    accumulatedPitch -= (inputData.mouseDeltaY * lookSpeed * static_cast<float>(Globals::Time::AverageDeltaTime()));
+    accumulatedPitch += (inputData.mouseDeltaY * lookSpeed * static_cast<float>(Globals::Time::AverageDeltaTime()));
 
     accumulatedPitch = glm::clamp(accumulatedPitch, -glm::radians(89.0f), glm::radians(89.0f));
     accumulatedYaw = glm::mod(accumulatedYaw, glm::two_pi<float>());
 
     inputData.camera.SetRotation(glm::vec3(accumulatedPitch, accumulatedYaw, 0.0f));
 
-    glm::vec3 forwardDir =
-        glm::vec3(0.0f, 0.0f, -1.0f); // Initial forward direction (along +Z in LH system with glm::perspectiveLH) - now corrected to +Z
-    glm::vec3 rightDir = glm::vec3(1.0f, 0.0f, 0.0f); // Initial right direction (along +X) - remains the same
-    glm::vec3 upDir = glm::vec3(0.0f, 1.0f, 0.0f);    // Initial up direction (along +Y) - remains the same
+    glm::vec3 forwardDir = glm::vec3(0.0f, 0.0f, 1.0f);
+    glm::vec3 rightDir = glm::vec3(1.0f, 0.0f, 0.0f);
+    glm::vec3 upDir = glm::vec3(0.0f, 1.0f, 0.0f);
 
     glm::mat4 cameraRotationMatrix = glm::mat4(1.0f);
     cameraRotationMatrix = glm::rotate(cameraRotationMatrix, accumulatedYaw, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -46,10 +45,10 @@ void KeyboardHandler::ProcessInput(const InputData& inputData)
             moveDir -= forwardDir;
             break;
         case Movements::LEFT:
-            moveDir -= rightDir;
+            moveDir += rightDir;
             break;
         case Movements::RIGHT:
-            moveDir += rightDir;
+            moveDir -= rightDir;
             break;
         case Movements::UP:
             moveDir += upDir;
@@ -59,19 +58,19 @@ void KeyboardHandler::ProcessInput(const InputData& inputData)
             break;
         case Movements::FORWARD_LEFT:
             moveDir += forwardDir;
-            moveDir -= rightDir;
+            moveDir += rightDir;
             break;
         case Movements::FORWARD_RIGHT:
             moveDir += forwardDir;
-            moveDir += rightDir;
+            moveDir -= rightDir;
             break;
         case Movements::BACKWARD_LEFT:
             moveDir -= forwardDir;
-            moveDir -= rightDir;
+            moveDir += rightDir;
             break;
         case Movements::BACKWARD_RIGHT:
             moveDir -= forwardDir;
-            moveDir += rightDir;
+            moveDir -= rightDir;
             break;
         default:
             break;

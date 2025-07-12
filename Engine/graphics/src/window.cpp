@@ -1,6 +1,6 @@
+#include "window.hpp"
 #include "SDL3/SDL_vulkan.h"
 #include "logger.hpp"
-#include "window.hpp"
 
 namespace Humongous
 {
@@ -33,8 +33,7 @@ void Window::CreateWindow()
         HGFATAL("Failed to initalize SDL3! Error: %s", SDL_GetError());
     };
     if(!SDL_Vulkan_LoadLibrary(NULL)) { HGFATAL("Failed to load vulkan! Error: %s", SDL_GetError()); };
-    if(!(window = SDL_CreateWindow("Humongous Window", width, height,
-                                   SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_FULLSCREEN)))
+    if(!(window = SDL_CreateWindow("Humongous Window", width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS)))
     {
         HGFATAL("Failed to create SDL3 Window! Error: %s", SDL_GetError());
     };

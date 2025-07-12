@@ -107,7 +107,6 @@ void Renderer::RecreateSwapChain()
     GetCurrentFrame().drawImage.imageExtent = vk::Extent3D(m_screenImageExtent.width, m_screenImageExtent.height, 0.0);
 
     CreateDrawImage();
-    CreateDepthImage();
     CreateGBuffer();
 }
 
@@ -163,43 +162,9 @@ void Renderer::CreateDrawImage()
     HGINFO("Created draw image and view");
 }
 
-void Renderer::CreateDepthImage()
-{
-    HGINFO("Creating depth image and view...");
-
-    vk::Extent3D depthImageExtent = {m_swapChain->GetExtent().width, m_swapChain->GetExtent().height, 1};
-
-    // hardcoding the draw format to 32 bit float
-    // GetCurrentFrame().gbuffer.depth.imageFormat = vk::Format::eD32Sfloat;
-
-    // Utils::AllocatedImageCreateInfo imgCI{.logicalDevice = m_logicalDevice, .allocatedImage = &GetCurrentFrame().gbuffer.depth};
-    // imgCI.layerCount = 1;
-    // imgCI.imageViewType = vk::ImageViewType::e2D;
-    // imgCI.tiling = vk::ImageTiling::eOptimal;
-    // imgCI.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
-    // imgCI.aspectFlags = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
-    // imgCI.width = m_screenImageExtent.width;
-    // imgCI.height = m_screenImageExtent.height;
-    // imgCI.mipLevels = floor(log2(std::max(imgCI.width, imgCI.height))) + 1;
-    // imgCI.usage = depthImageUsages;
-    // imgCI.format = vk::Format::eD32Sfloat;
-    // imgCI.imagePool = VK_NULL_HANDLE;
-    // imgCI.samples = vk::SampleCountFlagBits::e1;
-    //
-    // Utils::CreateAllocatedImage(imgCI);
-    //
-    // auto cmd = m_logicalDevice.BeginSingleTimeCommands();
-    //
-    // m_logicalDevice.EndSingleTimeCommands(cmd);
-    //
-    // GetCurrentFrame().gbuffer.depth.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-
-    HGINFO("Created depth image and view");
-}
-
 void Renderer::CreateGBuffer()
 {
-    HGINFO("Initializing G-Buffer (resize or first‐time)…");
+    HGINFO("Initializing G-Buffer...");
 
     vk::ImageUsageFlags colorUsages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
 

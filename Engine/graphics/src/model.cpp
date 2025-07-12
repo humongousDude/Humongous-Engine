@@ -1,11 +1,9 @@
 #include "model.hpp"
 #include "asserts.hpp"
-#include "asset_manager.hpp"
 #include "defines.hpp"
-#include "globals.hpp"
+#include "extra.hpp"
 #include "logger.hpp"
 #include "resource_manager.hpp"
-#include <iostream>
 #include <set>
 
 #define TINYGLTF_IMPLEMENTATION
@@ -94,6 +92,7 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
         loaderInfo.indexBuffer.resize(indexCount);
 
         m_indices.resize(indexCount);
+        m_linearNodes.resize(gltfModel.nodes.size());
 
         // TODO: scene handling with no default scene
         for(size_t i = 0; i < scene.nodes.size(); i++)
@@ -139,9 +138,9 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
 
     m_vertices.insert(m_vertices.begin(), loaderInfo.vertexBuffer.begin(), loaderInfo.vertexBuffer.end());
 
-    // for(auto& skin: m_skins) {
-    //
-    // }
+    HGINFO("We have %i nodes in the model", m_nodes.size());
+    HGINFO("We have %i meshes in the model", m_meshes.size());
+    HGINFO("We have %i primitives in the model", m_primitives.size());
 
     CalculateRestAABB();
 
@@ -174,12 +173,12 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
 
 void Model::Destroy(vk::Device device)
 {
-    m_emptyTexture.Destroy();
-
     for(auto node: m_nodes) { delete node; }
     m_nodes.resize(0);
     m_linearNodes.resize(0);
 };
+
+// TODO: clean up this abomination
 
 void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, f32 globalscale,
                      glm::mat4 parentTransform)
@@ -196,6 +195,8 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
     {
         newNode->localMatrix = glm::make_mat4x4(node.matrix.data());
         newNode->isMatrixSpecified = true;
+
+        Utils::DecomposeMatrix(newNode->localMatrix, newNode->translation, newNode->rotation, newNode->scale);
     }
     else
     {
@@ -588,7 +589,11 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             newPrimitive->maxMorphDisplacement = currentMaxMorphDisplacement;
             newPrimitive->boundingBox = BoundingBox(currentPrimitiveMinPos, currentPrimitiveMaxPos);
             newPrimitive->boundingBox.valid = true;
+            newPrimitive->id = newMesh->primitives.size();
+            newPrimitive->globalWeightOffset = m_morphTargets.size();
             newMesh->primitives.push_back(newPrimitive);
+            m_primitives.push_back(newPrimitive);
+            m_morphTargets.insert(m_morphTargets.end(), newMesh->weights.begin(), newMesh->weights.end());
         }
 
         newNode->mesh = newMesh;
@@ -596,7 +601,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
     }
     if(parent) { parent->children.push_back(newNode); }
     else { m_nodes.push_back(newNode); }
-    m_linearNodes.push_back(newNode);
+    m_linearNodes[newNode->index] = newNode;
 }
 
 // Node Helpers
@@ -692,7 +697,6 @@ void Model::LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, vk::
         Texture::TexSamplerInfo textureSampler;
         if(tex.sampler == -1)
         {
-            // No sampler specified, use a default one
             textureSampler.magFilter = vk::Filter::eLinear;
             textureSampler.minFilter = vk::Filter::eLinear;
             textureSampler.addressModeU = vk::SamplerAddressMode::eRepeat;
@@ -702,9 +706,6 @@ void Model::LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, vk::
         else { textureSampler = m_textureSamplers[tex.sampler]; }
         m_textures.push_back(ResourceManager::RequestTexture(image, textureSampler));
     }
-
-    m_emptyTexture.CreateFromFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::TEXTURE, "empty"), device,
-                                  Texture::ImageType::TEX2D);
 }
 
 void Model::LoadTextureSamplers(tinygltf::Model& gltfModel)
@@ -870,21 +871,6 @@ void Model::LoadMaterialData()
     }
 }
 
-void AccumulateWorldMatrices(Node* node, const glm::mat4& parentWorld, std::vector<glm::mat4>& out)
-{
-    glm::mat4 world = parentWorld * node->localMatrix;
-    out[node->index] = world;
-
-    for(Node* child: node->children) { AccumulateWorldMatrices(child, world, out); }
-}
-
-std::vector<glm::mat4> Model::GetMatrixVector()
-{
-    std::vector<glm::mat4> flat(m_linearNodes.size());
-    for(Node* root: m_linearNodes) { AccumulateWorldMatrices(root, glm::mat4(1.0f), flat); }
-    return flat;
-}
-
 void Model::UpdateMaterialBatches(Node* node)
 {
     if(node->mesh)
@@ -912,47 +898,6 @@ void Model::CalculateRestAABB()
             BoundingBox transformedPrimitiveAABB = BoundingBox::TransformAABB(primitive->boundingBox, primitiveToModelSpaceMatrix);
 
             m_restAABB.Extend(transformedPrimitiveAABB);
-        }
-    }
-}
-
-void Model::UpdateAnimatedAABB()
-{
-    m_animatedAABB.Invalidate();
-    m_animatedAABB.valid = true;
-
-    for(const auto* mesh: m_meshes)
-    {
-        for(const Primitive* primitive: mesh->primitives)
-        {
-            if(!primitive || !primitive->boundingBox.valid || !primitive->owner) { continue; }
-
-            BoundingBox inflatedLocalAABB = primitive->boundingBox;
-            if(primitive->maxMorphDisplacement > glm::epsilon<f32>())
-            {
-                inflatedLocalAABB.min -= glm::vec4(primitive->maxMorphDisplacement);
-                inflatedLocalAABB.max += glm::vec4(primitive->maxMorphDisplacement);
-            }
-
-            BoundingBox worldSpacePrimitiveAABB{};
-
-            Node* ownerNode = primitive->owner;
-            if(ownerNode->skin)
-            {
-                worldSpacePrimitiveAABB = BoundingBox();
-                worldSpacePrimitiveAABB.valid = true;
-                Skin* skin = m_skins[ownerNode->skinIndex];
-                for(size_t i = 0; i < skin->joints.size(); ++i)
-                {
-                    glm::mat4 skinningMatrix = ownerNode->localToModelMatrix * skin->jointMatrices[i];
-
-                    BoundingBox transformedByJoint = BoundingBox::TransformAABB(inflatedLocalAABB, skinningMatrix);
-                    worldSpacePrimitiveAABB.Extend(transformedByJoint);
-                }
-            }
-            else { worldSpacePrimitiveAABB = BoundingBox::TransformAABB(inflatedLocalAABB, ownerNode->localToModelMatrix); }
-
-            m_animatedAABB.Extend(worldSpacePrimitiveAABB);
         }
     }
 }
@@ -987,6 +932,7 @@ void Model::LoadSkins(tinygltf::Model& gltfModel)
         }
 
         newSkin->UpdateJointMatrices();
+        m_jointMatricies.insert(m_jointMatricies.end(), newSkin->jointMatrices.begin(), newSkin->jointMatrices.end());
         m_skins.push_back(newSkin);
     }
 }
@@ -1113,12 +1059,14 @@ void Model::LoadAnimations(tinygltf::Model& gltfModel)
     HGINFO("Loaded %i animations for model %s", m_animations.size(), m_name.c_str());
 }
 
+// TODO: move this out of here
+
 // AnimationSampler, thank you so much Sascha Willems for the examples
 
 // Cube spline interpolation function used for translate/scale/rotate with cubic spline animation samples
 // Details on how this works can be found in the specs
 // https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#appendix-c-spline-interpolation
-glm::vec4 Model::Model::AnimationSampler::CubicSplineInterpolation(size_t index, f32 time, n32 stride)
+glm::vec4 Model::Model::AnimationSampler::CubicSplineInterpolation(size_t index, f32 time, n32 stride) const
 {
     f32          delta = inputs[index + 1] - inputs[index];
     f32          t = (time - inputs[index]) / delta;
@@ -1142,12 +1090,11 @@ glm::vec4 Model::Model::AnimationSampler::CubicSplineInterpolation(size_t index,
     return pt;
 }
 
-// Calculates the translation of this sampler for the given node at a given time point depending on the interpolation type
-void Model::AnimationSampler::Translate(size_t index, f32 time, Node* node)
+void Model::AnimationSampler::ApplyTranslation(size_t index, f32 time, std::vector<glm::vec3>& translations, n32 targetNodeIndex) const
 {
     if(inputs.size() == 1)
     {
-        node->translation = glm::vec3(outputsVec4[0]);
+        translations[targetNodeIndex] = glm::vec3(outputsVec4[0]);
         return;
     }
 
@@ -1160,29 +1107,27 @@ void Model::AnimationSampler::Translate(size_t index, f32 time, Node* node)
                 if(glm::epsilonEqual(inputs[index + 1], inputs[index], glm::epsilon<f32>())) { u = 0.0f; }
                 else { u = std::max(0.0f, time - inputs[index]) / (inputs[index + 1] - inputs[index]); }
 
-                node->translation = glm::vec3(glm::mix(outputsVec4[index], outputsVec4[index + 1], u));
+                translations[targetNodeIndex] = glm::vec3(glm::mix(outputsVec4[index], outputsVec4[index + 1], u));
                 break;
             }
         case Model::AnimationSampler::InterpolationType::STEP:
             {
-                node->translation = glm::vec3(outputsVec4[index]);
+                translations[targetNodeIndex] = glm::vec3(outputsVec4[index]);
                 break;
             }
         case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
             {
-                node->translation = glm::vec3(CubicSplineInterpolation(index, time, 3));
+                translations[targetNodeIndex] = glm::vec3(CubicSplineInterpolation(index, time, 3));
                 break;
             }
     }
 }
 
-// Calculates the scale of this sampler for the given node at a given time point depending on the interpolation type
-void Model::AnimationSampler::Scale(size_t index, f32 time, Node* node)
+void Model::AnimationSampler::ApplyScale(size_t index, f32 time, std::vector<glm::vec3>& scales, n32 targetNodeIndex) const
 {
-
     if(inputs.size() == 1)
     {
-        node->scale = glm::vec3(outputsVec4[0]);
+        scales[targetNodeIndex] = glm::vec3(outputsVec4[0]);
         return;
     }
 
@@ -1191,23 +1136,23 @@ void Model::AnimationSampler::Scale(size_t index, f32 time, Node* node)
         case Model::AnimationSampler::InterpolationType::LINEAR:
             {
                 f32 u = std::max(0.0f, time - inputs[index]) / (inputs[index + 1] - inputs[index]);
-                node->scale = glm::vec3(glm::mix(outputsVec4[index], outputsVec4[index + 1], u));
+                scales[targetNodeIndex] = glm::vec3(glm::mix(outputsVec4[index], outputsVec4[index + 1], u));
                 break;
             }
         case Model::AnimationSampler::InterpolationType::STEP:
             {
-                node->scale = glm::vec3(outputsVec4[index]);
+                scales[targetNodeIndex] = glm::vec3(outputsVec4[index]);
                 break;
             }
         case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
             {
-                node->scale = glm::vec3(CubicSplineInterpolation(index, time, 3));
+                scales[targetNodeIndex] = glm::vec3(CubicSplineInterpolation(index, time, 3));
                 break;
             }
     }
 }
 
-void Model::AnimationSampler::Rotate(size_t index, f32 time, Node* node)
+void Model::AnimationSampler::ApplyRotation(size_t index, f32 time, std::vector<glm::quat>& rotations, n32 targetNodeIndex) const
 {
     if(inputs.size() == 1)
     {
@@ -1216,7 +1161,7 @@ void Model::AnimationSampler::Rotate(size_t index, f32 time, Node* node)
         q.y = outputsVec4[0].y;
         q.z = outputsVec4[0].z;
         q.w = outputsVec4[0].w;
-        node->rotation = q;
+        rotations[targetNodeIndex] = q;
         return;
     }
     switch(interpolation)
@@ -1234,7 +1179,7 @@ void Model::AnimationSampler::Rotate(size_t index, f32 time, Node* node)
                 q2.y = outputsVec4[index + 1].y;
                 q2.z = outputsVec4[index + 1].z;
                 q2.w = outputsVec4[index + 1].w;
-                node->rotation = glm::normalize(glm::slerp(q1, q2, u));
+                rotations[targetNodeIndex] = glm::normalize(glm::slerp(q1, q2, u));
                 break;
             }
         case Model::AnimationSampler::InterpolationType::STEP:
@@ -1244,7 +1189,7 @@ void Model::AnimationSampler::Rotate(size_t index, f32 time, Node* node)
                 q1.y = outputsVec4[index].y;
                 q1.z = outputsVec4[index].z;
                 q1.w = outputsVec4[index].w;
-                node->rotation = q1;
+                rotations[targetNodeIndex] = q1;
                 break;
             }
         case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
@@ -1255,28 +1200,24 @@ void Model::AnimationSampler::Rotate(size_t index, f32 time, Node* node)
                 q.y = rot.y;
                 q.z = rot.z;
                 q.w = rot.w;
-                node->rotation = glm::normalize(q);
+                rotations[targetNodeIndex] = glm::normalize(q);
                 break;
             }
     }
 }
 
-void Model::AnimationSampler::Morph(size_t index, f32 time, Node* node)
+void Model::AnimationSampler::ApplyMorph(size_t index, f32 time, const Primitive& targetPrimitive, std::vector<float>& instanceWeights) const
 {
-    if(!node || !node->mesh || node->mesh->primitives.empty())
-    {
-        HGWARN("Cannot apply morph weights: target node or its mesh/primitives are invalid.");
-        return;
-    }
-    Primitive* targetPrimitive = node->mesh->primitives[0]; // Or iterate if multiple
+    if(targetPrimitive.morphTargetPositions.size() == 0) { return; }
 
-    if(targetPrimitive->morphTargetPositions.empty()) { return; }
-
-    size_t numMorphTargets = targetPrimitive->morphTargetPositions.size();
+    size_t numMorphTargets = targetPrimitive.morphTargetPositions.size();
 
     if(inputs.size() == 1)
     {
-        for(size_t k = 0; k < numMorphTargets && k < outputsVec4[0].length(); ++k) { node->mesh->weights[k] = outputsVec4[0][k]; }
+        for(size_t k = 0; k < numMorphTargets && k < outputsVec4[0].length(); ++k)
+        {
+            instanceWeights[targetPrimitive.globalWeightOffset + k] = outputsVec4[0][k];
+        }
         return;
     }
 
@@ -1290,121 +1231,28 @@ void Model::AnimationSampler::Morph(size_t index, f32 time, Node* node)
 
                 for(size_t k = 0; k < numMorphTargets && k < outputsVec4[index].length(); ++k)
                 {
-                    node->mesh->weights[k] = glm::mix(outputsVec4[index][k], outputsVec4[index + 1][k], u);
+                    instanceWeights[targetPrimitive.globalWeightOffset + k] = glm::mix(outputsVec4[index][k], outputsVec4[index + 1][k], u);
                 }
                 break;
             }
         case Model::AnimationSampler::InterpolationType::STEP:
             {
-                for(size_t k = 0; k < numMorphTargets && k < outputsVec4[index].length(); ++k) { node->mesh->weights[k] = outputsVec4[index][k]; }
+                for(size_t k = 0; k < numMorphTargets && k < outputsVec4[index].length(); ++k)
+                {
+                    instanceWeights[targetPrimitive.globalWeightOffset + k] = outputsVec4[index][k];
+                }
                 break;
             }
         case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
             {
                 glm::vec4 interpolatedWeights = CubicSplineInterpolation(index, time, (int)numMorphTargets);
-                for(size_t k = 0; k < numMorphTargets && k < interpolatedWeights.length(); ++k) { node->mesh->weights[k] = interpolatedWeights[k]; }
-                break;
-            }
-    }
-}
-
-void Model::UpdateAnimation(f32 time)
-{
-    if(m_animations.empty() || m_currentAnimationIndex < 0 || m_currentAnimationIndex >= m_animations.size()) { return; }
-    if(!m_playAnimation) { return; }
-    m_updateAnimation = false;
-
-    Animation& animation = m_animations[m_currentAnimationIndex];
-    m_animationTime += time;
-
-    if(m_animationTime > animation.end) { m_animationTime = animation.start; }
-    if(m_animationTime < animation.start) { m_animationTime = animation.end; }
-
-    for(AnimationChannel& channel: animation.channels)
-    {
-        AnimationSampler& sampler = animation.samplers[channel.samplerIndex];
-        Node*             targetNode = channel.node;
-
-        if(!targetNode)
-        {
-            HGWARN("Failed to find node using NodeFromIndex! This shouldn't happen!");
-            continue;
-        }
-
-        if(sampler.inputs.empty())
-        {
-            HGWARN("Animation sampler has no input keyframes. Skipping channel.");
-            continue;
-        }
-
-        size_t index = 0;
-
-        if(sampler.inputs.size() == 1) { index = 0; }
-        else
-        {
-            for(size_t i = 0; i < sampler.inputs.size() - 1; ++i)
-            {
-                if(m_animationTime >= sampler.inputs[i] && m_animationTime <= sampler.inputs[i + 1])
+                for(size_t k = 0; k < numMorphTargets && k < interpolatedWeights.length(); ++k)
                 {
-                    index = i;
-                    break;
+                    instanceWeights[targetPrimitive.globalWeightOffset + k] = interpolatedWeights[k];
                 }
+                break;
             }
-            if(m_animationTime >= sampler.inputs.back()) { index = sampler.inputs.size() - 1; }
-        }
-        switch(channel.path)
-        {
-            case AnimationChannel::PathType::TRANSLATION:
-                sampler.Translate(index, m_animationTime, targetNode);
-                break;
-            case AnimationChannel::PathType::ROTATION:
-                sampler.Rotate(index, m_animationTime, targetNode);
-                break;
-            case AnimationChannel::PathType::SCALE:
-                sampler.Scale(index, m_animationTime, targetNode);
-                break;
-            case AnimationChannel::PathType::WEIGHTS:
-                sampler.Morph(index, m_animationTime, targetNode);
-                break;
-            default:
-                break;
-        }
-    }
-    m_updateAnimation = true;
-}
-
-// Updating
-void Model::Update()
-{
-    f32 dt = Globals::Time::AverageDeltaTime();
-    UpdateAnimation(dt);
-
-    if(!m_updateAnimation) { return; }
-
-    if(HasAnimations())
-    {
-        std::vector<glm::mat4> jointMatricies;
-        for(const auto& skin: m_skins) { jointMatricies.insert(jointMatricies.end(), skin->jointMatrices.begin(), skin->jointMatrices.end()); }
-
-        if(!jointMatricies.empty()) { ResourceManager::UpdateJointMatrices(jointMatricies, m_handle); }
-        else
-        {
-            jointMatricies.push_back(glm::mat4(glm::identity<glm::mat4>()));
-            ResourceManager::UpdateJointMatrices(jointMatricies, m_handle);
-        }
-
-        UpdateAnimatedAABB();
-        ResourceManager::UpdateNodeMatrices(GetMatrixVector(), m_handle);
-    }
-
-    for(auto& node: m_nodes) { node->UpdateLocalToModelMatrix(); }
-    for(auto& skin: m_skins) { skin->UpdateJointMatrices(); }
-
-    if(HasMorphs())
-    {
-        std::vector<f32> morphTargets;
-        for(const auto& mesh: m_meshes) { morphTargets.insert(morphTargets.begin(), mesh->weights.begin(), mesh->weights.end()); }
-        if(!morphTargets.empty()) { ResourceManager::UpdateMorphTargets(morphTargets, m_handle); }
     }
 }
+
 } // namespace Humongous

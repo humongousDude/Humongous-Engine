@@ -2,11 +2,12 @@
 
 #include "defines.hpp"
 #include "entity_component_system/components/entity_component.hpp"
+#include <model_instance.hpp>
 
 namespace Humongous
 {
 struct ModelComponent : public EntityComponent
 {
-    n32 modelHandle;
+    std::shared_ptr<ModelInstance> instance;
 };
 } // namespace Humongous

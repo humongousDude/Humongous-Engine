@@ -1,12 +1,13 @@
+#include "render_systems/simple_render_system.hpp"
 #include "abstractions/buffer.hpp"
 #include "abstractions/descriptor_writer.hpp"
 #include "asset_manager.hpp"
 #include "globals.hpp"
 #include "logger.hpp"
+#include "model_instance.hpp"
 #include "resource_manager.hpp"
 #include "scene_handler.hpp"
 #include "swapchain.hpp"
-#include <render_systems/simple_render_system.hpp>
 
 namespace Humongous
 {
@@ -15,19 +16,24 @@ SimpleRenderSystem::SimpleRenderSystem(LogicalDevice& logicalDevice, const std::
     : m_logicalDevice{logicalDevice}, m_pipelineLayout{VK_NULL_HANDLE}
 {
     HGINFO("Creating simple render system...");
+    AllocateDescriptorSet();
     CreatePipelineLayout(descriptorSetLayouts);
     CreatePipeline(shaderSet);
-    AllocateDescriptorSet();
 
     m_indirectDrawBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_drawInstanceBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_depthIndirectDrawBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_drawDataBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_depthDrawDataBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_depthInstanceBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+
     for(n32 i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
     {
         m_indirectDrawBuffers[i] = std::make_unique<Buffer>();
+        m_drawInstanceBuffers[i] = std::make_unique<Buffer>();
         m_depthIndirectDrawBuffers[i] = std::make_unique<Buffer>();
         m_drawDataBuffers[i] = std::make_unique<Buffer>();
+        m_depthInstanceBuffers[i] = std::make_unique<Buffer>();
         m_depthDrawDataBuffers[i] = std::make_unique<Buffer>();
     }
 
@@ -45,8 +51,10 @@ SimpleRenderSystem::~SimpleRenderSystem()
     for(n32 i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
     {
         m_indirectDrawBuffers[i].reset();
+        m_drawInstanceBuffers[i].reset();
         m_depthIndirectDrawBuffers[i].reset();
         m_drawDataBuffers[i].reset();
+        m_depthInstanceBuffers[i].reset();
         m_depthDrawDataBuffers[i].reset();
     }
 
@@ -62,6 +70,7 @@ void SimpleRenderSystem::AllocateDescriptorSet()
 
     DescriptorSetLayout::Builder layoutBuilder{m_logicalDevice};
     layoutBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex, 1);
+    layoutBuilder.AddBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex, 1);
     m_layout = layoutBuilder.Build();
 
     DescriptorPool::Builder poolBuilder{m_logicalDevice};
@@ -111,7 +120,7 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.fragShaderPath = shaderSet.fragShaderPath;
 
     configInfo.colorBlendAttachment.blendEnable = false;
-  
+
     configInfo.colorAttachmentFormat = vk::Format::eR16G16B16A16Sfloat;
 
     configInfo.colorBlendAttachments.clear();
@@ -129,7 +138,6 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.renderingInfo.colorAttachmentCount = configInfo.colorBlendAttachments.size();
     configInfo.renderingInfo.pColorAttachmentFormats = configInfo.colorAttachmentFormats.data();
     configInfo.colorBlendInfo.pAttachments = configInfo.colorBlendAttachments.data();
-
 
     configInfo.renderingInfo.depthAttachmentFormat = vk::Format::eD32SfloatS8Uint;
     configInfo.colorBlendInfo.logicOpEnable = false;
@@ -158,9 +166,9 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.vertShaderPath = depthSet.vertShaderPath;
     configInfo.fragShaderPath = depthSet.fragShaderPath;
     configInfo.rasterizationInfo.depthBiasEnable = false;
-    configInfo.rasterizationInfo.depthBiasClamp = 0.0f;           // Optional
-    configInfo.rasterizationInfo.depthBiasConstantFactor = 0.01f; // Optional
-    configInfo.rasterizationInfo.depthBiasSlopeFactor = 0.0f;     // Optional
+    configInfo.rasterizationInfo.depthBiasClamp = 0.0f;
+    configInfo.rasterizationInfo.depthBiasConstantFactor = 0.01f;
+    configInfo.rasterizationInfo.depthBiasSlopeFactor = 0.0f;
 
     configInfo.colorAttachmentFormat = vk::Format::eUndefined;
     configInfo.colorAttachmentFormats.clear();
@@ -193,66 +201,113 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 
 struct alignas(16) DrawData
 {
-    glm::mat4 modelMatrix{0};
-    n32       modelID{0};
-    n32       materialID{0};
-    n32       nodeID{0};
-    n32       jointMatrixStart{0};
-    n32       morphTargetStart{0};
-    n32       isSkinned{0};
-    n32       isMorphed{0};
+    n32 materialID{0};
+    n32 localNodeIndex{0};
+    n32 isSkinned{0};
+    n32 isMorphed{0};
+    n32 instanceOffset;
+};
+
+struct alignas(16) InstanceData
+{
+    glm::mat4 modelMatrix;
+    n32       modelID;
+    n32       globalNodeIndex;
+    n32       jointMatrixStart;
+    n32       morphTargetStart;
 };
 
 void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depthOnly)
 {
-    std::vector<DrawData> drawData;
-    drawData.reserve(renderData.visibleEntities->size());
-
+    std::vector<DrawData>                       drawDataVec;
+    std::vector<InstanceData>                   instanceDataVec;
     std::vector<vk::DrawIndexedIndirectCommand> commands;
-    commands.reserve(renderData.visibleEntities->size());
+    n32                                         instanceOffset = 0;
+
+    std::unordered_map<n32, std::vector<n32>> staticModelIDToEntityIDs;
 
     for(const auto& entity: *renderData.visibleEntities)
     {
-        for(const auto& [materialId, primitivesInBatch]:
-            ResourceManager::GetModel(SceneHandler::GetWorld()->GetComponent<ModelComponent>(entity.id)->modelHandle)->GetMaterialBatches())
+        auto modelComp = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entity.id);
+        if(modelComp && modelComp->instance && modelComp->instance->GetModel())
         {
-            n32 modelID = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entity.id)->modelHandle;
+            staticModelIDToEntityIDs[modelComp->instance->GetModel()->GetHandle()].push_back(entity.id);
+        }
+    }
+
+    drawDataVec.reserve(staticModelIDToEntityIDs.size() * 4);
+    instanceDataVec.reserve(renderData.visibleEntities->size());
+    commands.reserve(staticModelIDToEntityIDs.size() * 4);
+
+    for(const auto& [staticModelID, entityIDs]: staticModelIDToEntityIDs)
+    {
+        if(entityIDs.empty()) { continue; }
+
+        auto someModelComponent = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entityIDs[0]);
+        if(!someModelComponent || !someModelComponent->instance || !someModelComponent->instance->GetModel()) { continue; }
+        const auto& staticModel = someModelComponent->instance->GetModel();
+
+        for(const auto& [materialId, primitivesInBatch]: staticModel->GetMaterialBatches())
+        {
             for(const auto& primitive: primitivesInBatch)
             {
                 vk::DrawIndexedIndirectCommand cmd{};
                 cmd.indexCount = primitive->indexCount;
-                cmd.instanceCount = 1;
+                cmd.instanceCount = static_cast<n32>(entityIDs.size());
                 cmd.firstIndex = primitive->globalFirstIndex;
                 cmd.vertexOffset = primitive->vertexOffset;
                 cmd.firstInstance = 0;
                 commands.push_back(cmd);
 
-                DrawData data{};
-                data.nodeID = ResourceManager::GetModelHandleToMatrixStart(modelID) + primitive->owner->index;
-                data.materialID = primitive->material.index;
-                data.modelID = modelID;
-                data.modelMatrix = SceneHandler::GetWorld()->GetComponent<TransformComponent>(entity.id)->Mat4();
-                data.isSkinned = ResourceManager::GetModel(modelID)->HasSkins();
-                data.isMorphed =
+                DrawData draw{};
+                draw.materialID = primitive->material.index;
+                draw.localNodeIndex = primitive->owner->index;
+                draw.isSkinned = staticModel->HasSkins();
+                draw.isMorphed =
                     !primitive->morphTargetPositions.empty() || !primitive->morphTargetNormals.empty() || !primitive->morphTargetTangents.empty();
-
-                if(data.isSkinned) { data.jointMatrixStart = ResourceManager::Get().m_modelHandleToJointStart[modelID].first; }
-                if(data.isMorphed) { data.morphTargetStart = ResourceManager::Get().m_modelHandleToMorphStart[modelID].first; }
-
-                drawData.push_back(data);
+                draw.instanceOffset = instanceOffset;
+                drawDataVec.push_back(draw);
             }
         }
+
+        for(const auto& entityId: entityIDs)
+        {
+            const auto modelComp = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entityId);
+            if(!modelComp || !modelComp->instance) { continue; }
+
+            const auto& currentModelInstance = modelComp->instance;
+
+            InstanceData instance{};
+            instance.modelMatrix = SceneHandler::GetWorld()->GetComponent<TransformComponent>(entityId)->Mat4();
+            instance.modelID = currentModelInstance->GetInstanceID();
+            instance.globalNodeIndex = ResourceManager::GetModelHandleToMatrixStart(currentModelInstance->GetInstanceID());
+
+            if(drawDataVec.back().isSkinned)
+            {
+                instance.jointMatrixStart = ResourceManager::Get().m_modelHandleToJointStart[currentModelInstance->GetInstanceID()].first;
+            }
+            if(drawDataVec.back().isMorphed)
+            {
+                instance.morphTargetStart = ResourceManager::Get().m_modelHandleToMorphStart[currentModelInstance->GetInstanceID()].first;
+            }
+
+            instanceDataVec.push_back(instance);
+        }
+        instanceOffset += static_cast<n32>(entityIDs.size());
     }
 
-    vk::DeviceSize totalWritten = sizeof(vk::DrawIndexedIndirectCommand) * commands.size();
+    vk::DeviceSize indirectCommandsSize = sizeof(vk::DrawIndexedIndirectCommand) * commands.size();
+    vk::DeviceSize drawDataSize = sizeof(DrawData) * drawDataVec.size();
+    vk::DeviceSize instanceDataSize = sizeof(InstanceData) * instanceDataVec.size();
     m_verticesDrawn = commands.size();
 
-    if(totalWritten == 0) { return; }
+    if(indirectCommandsSize == 0) { return; }
 
     DescriptorPool* poolToUse = depthOnly ? m_depthPool[renderData.frameIndex].get() : m_pool[renderData.frameIndex].get();
 
     Buffer* indirectBufferToUse = nullptr;
     Buffer* drawDataBufferToUse = nullptr;
+    Buffer* instanceBufferToUse = nullptr;
 
     if(depthOnly)
     {
@@ -266,8 +321,15 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
             m_depthDrawDataBuffers[renderData.frameIndex].reset();
             m_depthDrawDataBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
         }
+        if(m_depthInstanceBuffers[renderData.frameIndex]->GetBuffer() != VK_NULL_HANDLE)
+        {
+
+            m_depthInstanceBuffers[renderData.frameIndex].reset();
+            m_depthInstanceBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
+        }
         indirectBufferToUse = m_depthIndirectDrawBuffers[renderData.frameIndex].get();
         drawDataBufferToUse = m_depthDrawDataBuffers[renderData.frameIndex].get();
+        instanceBufferToUse = m_depthInstanceBuffers[renderData.frameIndex].get();
     }
     else
     {
@@ -281,15 +343,21 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
             m_drawDataBuffers[renderData.frameIndex].reset();
             m_drawDataBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
         }
+        if(m_drawInstanceBuffers[renderData.frameIndex]->GetBuffer() != VK_NULL_HANDLE)
+        {
+            m_drawInstanceBuffers[renderData.frameIndex].reset();
+            m_drawInstanceBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
+        }
         indirectBufferToUse = m_indirectDrawBuffers[renderData.frameIndex].get();
         drawDataBufferToUse = m_drawDataBuffers[renderData.frameIndex].get();
+        instanceBufferToUse = m_drawInstanceBuffers[renderData.frameIndex].get();
     }
 
     // uploading data
+    // indirect buffer
     {
-
         Buffer stagingBuffer{&m_logicalDevice,
-                             totalWritten,
+                             indirectCommandsSize,
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
@@ -297,7 +365,7 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
                              4,
                              "indirect staging buffer"};
 
-        indirectBufferToUse->Init(&m_logicalDevice, totalWritten, 1,
+        indirectBufferToUse->Init(&m_logicalDevice, indirectCommandsSize, 1,
                                   vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                   vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw indiret commmand buffer");
 
@@ -309,12 +377,12 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
 
         stagingBuffer.UnMap();
 
-        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *indirectBufferToUse, totalWritten);
+        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *indirectBufferToUse, indirectCommandsSize);
     }
+    // draw data buffer
     {
-
         Buffer stagingBuffer{&m_logicalDevice,
-                             drawData.size() * sizeof(DrawData),
+                             drawDataSize,
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
@@ -322,19 +390,44 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
                              1,
                              "draw data staging buffer"};
 
-        drawDataBufferToUse->Init(&m_logicalDevice, drawData.size() * sizeof(DrawData), 1,
+        drawDataBufferToUse->Init(&m_logicalDevice, drawDataSize, 1,
                                   vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                   vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw data buffer");
 
         stagingBuffer.Map();
 
-        stagingBuffer.WriteToBuffer((void*)drawData.data(), drawData.size() * sizeof(DrawData));
+        stagingBuffer.WriteToBuffer((void*)drawDataVec.data(), drawDataVec.size() * sizeof(DrawData));
 
         stagingBuffer.Flush();
 
         stagingBuffer.UnMap();
 
-        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *drawDataBufferToUse, drawData.size() * sizeof(DrawData));
+        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *drawDataBufferToUse, drawDataVec.size() * sizeof(DrawData));
+    }
+    // instance data buffer
+    {
+        Buffer stagingBuffer{&m_logicalDevice,
+                             instanceDataSize,
+                             1,
+                             vk::BufferUsageFlagBits::eTransferSrc,
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                             VMA_MEMORY_USAGE_CPU_TO_GPU,
+                             1,
+                             "instance data staging buffer"};
+
+        instanceBufferToUse->Init(&m_logicalDevice, instanceDataSize, 1,
+                                  vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                                  vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "instance data buffer");
+
+        stagingBuffer.Map();
+
+        stagingBuffer.WriteToBuffer((void*)instanceDataVec.data(), instanceDataVec.size() * sizeof(InstanceData));
+
+        stagingBuffer.Flush();
+
+        stagingBuffer.UnMap();
+
+        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *instanceBufferToUse, instanceDataSize);
     }
 
     if(depthOnly) { m_depthOnlyPipeline->Bind(renderData.commandBuffer); }
@@ -352,8 +445,9 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
     vk::DescriptorSet setToUse = depthOnly ? m_depthSet[renderData.frameIndex] : m_set[renderData.frameIndex];
 
     auto             buferInfo = drawDataBufferToUse->DescriptorInfo();
+    auto             instBufInfo = instanceBufferToUse->DescriptorInfo();
     DescriptorWriter writer{*m_layout, poolToUse};
-    writer.WriteBuffer(0, &buferInfo);
+    writer.WriteBuffer(0, &buferInfo).WriteBuffer(1, &instBufInfo);
     writer.Build(setToUse);
 
     auto globalIndexBuffer = &ResourceManager::GetModelIndexBuffer();
@@ -366,7 +460,7 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
     {
         renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
                                                     static_cast<n32>(Globals::ModelDescriptorIndices::Camera),
-                                                    static_cast<uint32_t>(renderData.uboSets.size()), renderData.uboSets.data(), 0, nullptr);
+                                                    static_cast<n32>(renderData.uboSets.size()), renderData.uboSets.data(), 0, nullptr);
     }
     std::vector<vk::DescriptorSet> sets{setToUse};
 

@@ -3,7 +3,6 @@
 #include "asserts.hpp"
 #include "defines.hpp"
 #include "images.hpp"
-#include "logger.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include "texture.hpp"
@@ -13,6 +12,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <tiny_gltf.h>
+
+// TODO: switch to another image library instead of GLI
 
 namespace Humongous
 {
@@ -137,6 +138,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     createInfo.flags = {};
     createInfo.imageViewType = vk::ImageViewType::e2D;
     createInfo.imagePool = Allocator::GetglTFImagePool();
+    createInfo.name = gltfimage.name;
 
     Utils::CreateAllocatedImage(createInfo);
 
@@ -314,6 +316,36 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         createInfo.format = vk::Format::eR8G8B8A8Unorm;
         createInfo.tiling = vk::ImageTiling::eOptimal;
 
+        size_t lastSlashPos = imagePath.rfind('/');
+        size_t lastBackslashPos = imagePath.rfind('\\');
+
+        size_t extpos = imagePath.rfind('.', imagePath.length());
+        size_t filenameStartPos = std::string::npos;
+        if(lastSlashPos != std::string::npos && lastBackslashPos != std::string::npos)
+        {
+            filenameStartPos = std::max(lastSlashPos, lastBackslashPos);
+        }
+        else if(lastSlashPos != std::string::npos) { filenameStartPos = lastSlashPos; }
+        else if(lastBackslashPos != std::string::npos) { filenameStartPos = lastBackslashPos; }
+
+        std::string fileName;
+        if(filenameStartPos != std::string::npos) { fileName = imagePath.substr(filenameStartPos + 1); }
+        else { fileName = imagePath; }
+
+        std::string filenameWithoutExtension;
+        if(extpos != std::string::npos && extpos > filenameStartPos)
+        {
+            if(filenameStartPos != std::string::npos)
+            {
+                filenameWithoutExtension = imagePath.substr(filenameStartPos + 1, extpos - (filenameStartPos + 1));
+            }
+            else { filenameWithoutExtension = imagePath.substr(0, extpos); }
+        }
+        else { filenameWithoutExtension = fileName; }
+
+        std::string name = filenameWithoutExtension;
+        createInfo.name = name.c_str();
+
         if(storage)
         {
             createInfo.usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage;
@@ -428,6 +460,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         createInfo.aspectFlags = vk::ImageAspectFlagBits::eColor;
         createInfo.flags = vk::ImageCreateFlagBits::eCubeCompatible;
         createInfo.imageViewType = vk::ImageViewType::eCube;
+        createInfo.name = "temp cube";
 
         Utils::CreateAllocatedImage(createInfo);
 
@@ -500,6 +533,9 @@ void Texture::FillWithEmpty(LogicalDevice* logicalDevice, n32 width, n32 height,
                        (storage ? vk::ImageUsageFlagBits::eStorage : vk::ImageUsageFlagBits());
     createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
     createInfo.aspectFlags = vk::ImageAspectFlagBits::eColor;
+
+    std::string name = "empty image " + std::to_string(width) + std::to_string(height);
+    createInfo.name = name;
 
     Utils::CreateAllocatedImage(createInfo);
 

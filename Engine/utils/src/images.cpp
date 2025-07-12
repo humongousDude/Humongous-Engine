@@ -84,6 +84,8 @@ void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
         return;
     }
 
+    vmaSetAllocationName(createInfo.logicalDevice.GetVmaAllocator(), createInfo.allocatedImage->allocation, createInfo.name.c_str());
+
     vk::ImageViewCreateInfo viewInfo{};
     viewInfo.image = createInfo.allocatedImage->image;
     viewInfo.viewType = createInfo.imageViewType;

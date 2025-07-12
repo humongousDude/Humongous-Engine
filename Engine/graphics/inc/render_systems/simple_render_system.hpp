@@ -55,11 +55,14 @@ private:
     std::vector<std::unique_ptr<DescriptorPool>> m_depthPool;
 
     std::vector<std::unique_ptr<Buffer>> m_indirectDrawBuffers;
+
     std::vector<std::unique_ptr<Buffer>> m_drawDataBuffers;
+    std::vector<std::unique_ptr<Buffer>> m_drawInstanceBuffers;
     std::vector<vk::DescriptorSet>       m_set = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE};
 
     std::vector<std::unique_ptr<Buffer>> m_depthIndirectDrawBuffers;
     std::vector<std::unique_ptr<Buffer>> m_depthDrawDataBuffers;
+    std::vector<std::unique_ptr<Buffer>> m_depthInstanceBuffers;
     std::vector<vk::DescriptorSet>       m_depthSet = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE};
 
     void AllocateDescriptorSet();

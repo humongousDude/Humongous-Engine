@@ -6,6 +6,7 @@
 #include "audio_source.hpp"
 #include "logical_device.hpp"
 #include "model.hpp"
+#include "model_instance.hpp"
 #include "singleton.hpp"
 #include "skybox.hpp"
 
@@ -23,8 +24,10 @@ public:
     static void Init(LogicalDevice* logicalDevice) { Get().Internal_Init(logicalDevice); }
     static void Shutdown() { Get().Internal_Shutdown(); }
 
-    static n32 RequestModel(const std::string& name) { return Get().Internal_RequestModel(name); };
+    static std::shared_ptr<ModelInstance> RequestModel(const std::string& name) { return Get().Internal_RequestModel(name); };
     static n32 RequestModelNodeMatriciesIndex(const n32& index) { return Get().Internal_RequestModelNodeMatriciesIndex(index); };
+
+    static void FinalizeGPUData() { Get().Internal_FinalizeGPUData(); }
 
     static void AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives)
     {
@@ -59,7 +62,12 @@ public:
         Get().Internal_UpdateMorphTargets(morphTargets, handle);
     }
 
-    static std::shared_ptr<Model> GetModel(const n32& index) { return Get().Internal_GetModel(index); }
+    static std::shared_ptr<Model>         GetModel(const n32& index) { return Get().Internal_GetModel(index); }
+    static std::shared_ptr<ModelInstance> GetModelInstance(const n32& index)
+    {
+        auto i = Get().m_modelInstanceMap.at(index);
+        return i;
+    }
 
     static std::shared_ptr<Skybox> LoadSkybox(const std::string& name) { return Get().Internal_LoadSkybox(name); }
     n32                            LoadAudioSource(const std::string& name) { return Get().Internal_LoadAudioSource(name); };
@@ -75,9 +83,7 @@ public:
     // Bindless, node matricies, vertices, debug
     static std::vector<vk::DescriptorSetLayout> GetLayoutVector()
     {
-        return {Get().m_bindlessLayout->GetDescriptorSetLayout(),
-                Get().m_modelDescriptors.vertices->GetDescriptorSetLayout(), // both node matricies and vertex buffer use the exact same layout
-                Get().m_modelDescriptors.vertices->GetDescriptorSetLayout(), // so i'm reusing it
+        return {Get().m_bindlessLayout->GetDescriptorSetLayout(), Get().m_modelDescriptors.vertices->GetDescriptorSetLayout(),
                 Get().m_modelDescriptors.debugLayout->GetDescriptorSetLayout()};
     }
 
@@ -126,8 +132,12 @@ private:
     void InitializeInitials();
     void Internal_Shutdown();
 
+    void Internal_FinalizeGPUData();
+
     std::unordered_map<n32, std::shared_ptr<Model>> m_modelMap;
     std::unordered_map<std::string, n32>            m_modelNameToHandle;
+
+    std::unordered_map<n32, std::shared_ptr<ModelInstance>> m_modelInstanceMap;
 
     std::unique_ptr<Buffer>      m_modelIndexBuffer;
     std::unordered_map<n32, n32> m_modelHandleToIndexStart;
@@ -145,17 +155,20 @@ private:
     std::vector<glm::mat4>                       m_modelNodeMatricesFlat;
     std::unique_ptr<Buffer>                      m_modelNodeMatriciesBuffer;
 
-    n32                    m_nextModelID{0};
-    n32                    m_prevModelID{0};
-    n32                    Internal_RequestModel(const std::string& name);
-    n32                    Internal_RequestModelNodeMatriciesIndex(const n32& index);
-    std::shared_ptr<Model> Internal_GetModel(const n32& index);
+    n32 m_nextModelID{0};
+    n32 m_prevModelID{0};
+
+    n32 m_nextInstanceID{0};
+
+    n32                            LoadModel(const std::string& name);
+    std::shared_ptr<ModelInstance> Internal_RequestModel(const std::string& name);
+    n32                            Internal_RequestModelNodeMatriciesIndex(const n32& index);
+    std::shared_ptr<Model>         Internal_GetModel(const n32& index);
 
     void Internal_AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives);
     void Internal_AddVerticesToModel(const std::vector<Model::Vertex>& modelVertices, const std::vector<Mesh*>& modelMeshes);
 
     void Internal_UpdateNodeMatrices(const std::vector<glm::mat4>& nodeMatrices, const n32& handle);
-
     void Internal_AddJointMatriciesToModel(const std::vector<glm::mat4>& jointMatricies, const n32& handle);
     void Internal_UpdateJointMatrices(const std::vector<glm::mat4>& jointMatricies, const n32& handle);
 

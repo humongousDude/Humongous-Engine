@@ -37,6 +37,8 @@ template <typename T, typename... Rest> void HashCombine(std::size_t& seed, cons
     (HashCombine(seed, rest), ...);
 };
 
+void DecomposeMatrix(const glm::mat4& matrix, glm::vec3& translation, glm::quat& rotation, glm::vec3& scale);
+
 } // namespace Utils
 } // namespace Humongous
 

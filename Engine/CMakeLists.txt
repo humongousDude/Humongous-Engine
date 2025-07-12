@@ -165,10 +165,10 @@ set(SHADER_SOURCES
     ../shaders/comp/mip.comp.glsl
     ../shaders/comp/occlusion.comp.glsl
     ../shaders/comp/prefiltredmap.comp.glsl
-
-    #includes, i don't think they need compiliation?
-    #../shaders/includes/inputs.vert
     
+)
+set(SHADER_INCLUDES
+    ../shaders/includes/inputs.glsl
 )
 
 # Convert relative paths to full paths for the custom command
@@ -176,6 +176,12 @@ set(SHADER_SOURCES_FULL)
 foreach(SHADER_FILE ${SHADER_SOURCES})
     get_filename_component(FULL_PATH ${SHADER_FILE} ABSOLUTE)
     list(APPEND SHADER_SOURCES_FULL ${FULL_PATH})
+endforeach()
+
+set(SHADER_INCLUDES_FULL)
+foreach(INCLUDE_FILE ${SHADER_INCLUDES})
+    get_filename_component(FULL_PATH ${INCLUDE_FILE} ABSOLUTE)
+    list(APPEND SHADER_INCLUDES_FULL ${FULL_PATH})
 endforeach()
 
 
@@ -248,7 +254,7 @@ foreach(SHADER_FILE ${SHADER_SOURCES_FULL})
     get_filename_component(SHADER_STAGE ${PARENT_DIR} NAME)
 
     get_filename_component(SHADER_NAME ${SHADER_FILE} NAME)
-    set(SPIRV_FILE "${CMAKE_BINARY_DIR}/shaders/${SHADER_NAME}.spv")
+    set(SPIRV_FILE "${CMAKE_SOURCE_DIR}/Assets/shaders/${SHADER_NAME}.spv")
     list(APPEND SPIRV_FILES ${SPIRV_FILE})
 
     add_custom_command(
@@ -260,7 +266,7 @@ foreach(SHADER_FILE ${SHADER_SOURCES_FULL})
                 ${SHADER_FILE}
                 -g 
                 -o ${SPIRV_FILE}
-        DEPENDS ${SHADER_FILE} 
+        DEPENDS ${SHADER_FILE} ${SHADER_INCLUDES_FULL}
         COMMENT "Compiling ${SHADER_NAME} to ${SPIRV_FILE}"
         VERBATIM
     )

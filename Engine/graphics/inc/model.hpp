@@ -40,10 +40,12 @@ struct Primitive
     n32         vertexCount{0};
     f32         maxMorphDisplacement{0};
     BoundingBox boundingBox{};
+    n32         id{0};
 
     std::vector<std::vector<glm::vec3>> morphTargetPositions; // Offsets for positions
     std::vector<std::vector<glm::vec3>> morphTargetNormals;
     std::vector<std::vector<glm::vec4>> morphTargetTangents;
+    n32                                 globalWeightOffset{0};
 
     Material& material;
     bool      hasIndices;
@@ -68,10 +70,65 @@ struct Mesh
 
 class Model
 {
-private:
-    struct Animation;
-
 public:
+    struct AnimationChannel
+    {
+        enum PathType
+        {
+            TRANSLATION,
+            ROTATION,
+            SCALE,
+            WEIGHTS
+        };
+        PathType path;
+        Node*    node;
+        n32      samplerIndex;
+    };
+
+    struct AnimationSampler
+    {
+        enum InterpolationType
+        {
+            LINEAR,
+            STEP,
+            CUBICSPLINE
+        };
+        InterpolationType      interpolation;
+        std::vector<float>     inputs;
+        std::vector<glm::vec4> outputsVec4;
+        std::vector<float>     outputs;
+        glm::vec4              CubicSplineInterpolation(size_t index, f32 time, n32 stride) const;
+        void                   ApplyTranslation(size_t index, f32 time, std::vector<glm::vec3>& translations, n32 targetNodeIndex) const;
+        void                   ApplyScale(size_t index, f32 time, std::vector<glm::vec3>& scales, n32 targetNodeIndex) const;
+        void                   ApplyRotation(size_t index, f32 time, std::vector<glm::quat>& rotations, n32 targetNodeIndex) const;
+
+        void ApplyMorph(size_t index, f32 time,
+                        const Primitive&    targetPrimitive,        // IN: The blueprint for the primitive being morphed
+                        std::vector<float>& instanceWeights) const; // OUT: The instance's state vector to be modified
+    };
+
+    struct Animation
+    {
+        std::string                   name;
+        std::vector<AnimationSampler> samplers;
+        std::vector<AnimationChannel> channels;
+        float                         start = std::numeric_limits<float>::max();
+        float                         end = std::numeric_limits<float>::min();
+    };
+
+    struct InstanceCreationInfo
+    {
+        std::unordered_map<std::string, n32> animNameToIndex;
+        std::unordered_map<n32, std::string> animIndexToName;
+        b32                                  hasMorphTargets{false};
+        b32                                  hasAnimations{false};
+        std::vector<Animation>               animations;
+        BoundingBox                          animatedAABB{};
+        std::vector<glm::mat4>               nodeMatrices;
+        std::vector<glm::mat4>               jointMatrices;
+        std::vector<f32>                     morphTargets;
+    };
+
     struct alignas(16) PushConstantData
     {
         glm::mat4         model{1.f};
@@ -112,7 +169,6 @@ public:
         float alphaMaskCutoff;  // 4
         float emissiveStrength; // 4
     };
-    // static_assert(sizeof(ShaderMaterial) % 16 == 0, "Must be 16-byte aligned for std430");
 
     struct alignas(16) Vertex
     {
@@ -147,98 +203,38 @@ public:
         glm::vec3 max = glm::vec3(-FLT_MAX);
     };
 
-    BoundingBox GetLocalBoundingBox() { return m_animationTime > 0.0f ? m_animatedAABB : m_restAABB; }
+    InstanceCreationInfo GetAnimationData() const
+    {
+        return {m_animNameToIndex, m_animIndexToName, m_hasMorphTargets, HasAnimations(), m_animations,
+                m_animatedAABB,    m_nodeMatricies,   m_jointMatricies,  m_morphTargets};
+    }
+    std::vector<glm::mat4> GetJointMatrices() const { return m_jointMatricies; }
+    std::vector<f32>       GetMorphTargets() const { return m_morphTargets; }
 
-    std::vector<glm::mat4> GetMatrixVector();
+    BoundingBox GetLocalBoundingBox() const { return m_animationTime > 0.0f ? m_animatedAABB : m_restAABB; }
+
+    Primitive* GetPrimitive(const n32& index) const { return m_primitives[index]; }
+    n32        GetHandle() const { return m_handle; }
 
     std::string                                       GetName() const { return m_name; }
     std::unordered_map<n32, std::vector<Primitive*>>& GetMaterialBatches() { return m_materialBatches; }
-    void                                              UpdateAnimation(float time);
 
     b32 HasAnimations() const { return !m_animations.empty(); }
     b32 HasSkins() const { return !m_skins.empty(); }
 
-    void Update();
-
-    void SetAnimation(const std::string_view& animName)
-    {
-        auto it = m_animNameToIndex.find(animName.data());
-        if(it == m_animNameToIndex.end())
-        {
-            HGWARN("Invalid animName. Skipping update");
-            return;
-        }
-        m_currentAnimationIndex = it->second;
-        m_animationTime = 0;
-    };
-
-    void SetAnimation(const n32& index)
-    {
-        m_currentAnimationIndex = index;
-        m_animationTime = 0;
-    }
-
-    void PlayAnimation()
-    {
-        m_playAnimation = true;
-        m_animationTime = 0;
-    };
-    void StopAnimation()
-    {
-        m_playAnimation = false;
-        m_animationTime = 0;
-    };
-    void PauseAnimation() { m_playAnimation = false; };
-    void UnPauseAnimation() { m_playAnimation = true; };
+    std::vector<Skin*> GetSkins() const { return m_skins; }
+    std::vector<Mesh*> GetMeshes() const { return m_meshes; }
+    std::vector<Node*> GetNodes() const { return m_nodes; }
+    std::vector<Node*> GetLinearNodes() const { return m_linearNodes; }
 
     n32                           GetAnimationCount() const { return m_animations.size(); }
-    std::string                   GetCurrentAnimationName() const { return m_animIndexToName.at(m_currentAnimationIndex); }
-    f32                           GetAnimationTime() const { return m_animationTime; }
     const std::vector<Animation>& GetAnimations() const { return m_animations; }
     b32                           HasMorphs() const { return m_hasMorphTargets; }
 
+    Node* FindNode(Node* parent, n32 index);
+    Node* NodeFromIndex(n32 index);
+
 private:
-    struct AnimationChannel
-    {
-        enum PathType
-        {
-            TRANSLATION,
-            ROTATION,
-            SCALE,
-            WEIGHTS
-        };
-        PathType path;
-        Node*    node;
-        n32      samplerIndex;
-    };
-
-    struct AnimationSampler
-    {
-        enum InterpolationType
-        {
-            LINEAR,
-            STEP,
-            CUBICSPLINE
-        };
-        InterpolationType      interpolation;
-        std::vector<float>     inputs;
-        std::vector<glm::vec4> outputsVec4;
-        std::vector<float>     outputs;
-        glm::vec4              CubicSplineInterpolation(size_t index, f32 time, n32 stride);
-        void                   Translate(size_t index, f32 time, Node* node);
-        void                   Scale(size_t index, f32 time, Node* node);
-        void                   Rotate(size_t index, f32 time, Node* node);
-        void                   Morph(size_t index, f32 time, Node* node);
-    };
-
-    struct Animation
-    {
-        std::string                   name;
-        std::vector<AnimationSampler> samplers;
-        std::vector<AnimationChannel> channels;
-        float                         start = std::numeric_limits<float>::max();
-        float                         end = std::numeric_limits<float>::min();
-    };
     std::vector<Animation>               m_animations;
     std::unordered_map<std::string, n32> m_animNameToIndex;
     std::unordered_map<n32, std::string> m_animIndexToName;
@@ -258,10 +254,14 @@ private:
 
     LogicalDevice* m_logicalDevice;
 
-    std::vector<Node*> m_nodes;
-    std::vector<Node*> m_linearNodes;
-    std::vector<Mesh*> m_meshes;
-    std::vector<Skin*> m_skins;
+    std::vector<Node*>      m_nodes;
+    std::vector<Node*>      m_linearNodes;
+    std::vector<Mesh*>      m_meshes;
+    std::vector<Skin*>      m_skins;
+    std::vector<Primitive*> m_primitives;
+
+    std::vector<glm::mat4> m_jointMatricies;
+    std::vector<f32>       m_morphTargets;
 
     BoundingBox m_restAABB{};
     BoundingBox m_animatedAABB{};
@@ -293,16 +293,12 @@ private:
 
     void LoadMaterialData();
 
-    void UpdateUBO(Node* node, glm::mat4 matrix);
     void UpdateMaterialBatches(Node* node);
 
     void LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, float globalscale,
                   glm::mat4 parentTransform);
     void GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& model, size_t& vertexCount, size_t& indexCount);
     void LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* m_device, vk::Queue transferQueue);
-
-    Node* FindNode(Node* parent, n32 index);
-    Node* NodeFromIndex(n32 index);
 
     void LoadSkins(tinygltf::Model& gltfModel);
     void LoadAnimations(tinygltf::Model& gltfModel);
@@ -314,7 +310,5 @@ private:
     void LoadMaterials(tinygltf::Model& gltfModel);
 
     void CalculateRestAABB();
-
-    void UpdateAnimatedAABB();
 };
 } // namespace Humongous

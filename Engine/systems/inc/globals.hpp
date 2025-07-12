@@ -14,7 +14,9 @@ enum class ModelDescriptorIndices : n32
 {
     Camera = 0, // Camera gets 1 descriptor set
     Model = 1,  // Model gets 2 descriptor sets
-    Debug = 3,  // Debug gets 1 descriptor set
+
+    // TODO: This should probably not be here?
+    Debug = 3, // Debug gets 1 descriptor set
 };
 
 enum class StencilMasks : n32

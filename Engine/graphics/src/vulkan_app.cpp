@@ -101,22 +101,22 @@ void VulkanApp::LoadGameObjects()
     world->AddComponent<BoundingBox>(house);
     world->AddComponent<ModelComponent>(house);
     auto comp = world->GetComponent<ModelComponent>(house);
-    comp->modelHandle = ResourceManager::RequestModel("VirtualCity");
-    std::string name = ResourceManager::GetModel(comp->modelHandle)->GetName();
+    comp->instance = ResourceManager::RequestModel("buster_drone");
+    std::string name = comp->instance->GetModel()->GetName();
 
     auto transform = world->GetComponent<TransformComponent>(house);
     transform->SetScale(1.0, 1.0, 1.0);
     transform->SetRotation(0, 0, 0);
-    transform->SetTranslation(0, 0, 0);
+    transform->SetTranslation(0, 0, 10);
     world->GetComponent<NameComponent>(house)->name = name + std::to_string(house);
 
     auto helmet = world->CreateEntity();
     world->AddComponent<BoundingBox>(helmet);
     world->AddComponent<ModelComponent>(helmet);
     comp = world->GetComponent<ModelComponent>(helmet);
-    comp->modelHandle = ResourceManager::RequestModel("AnimatedMorphCube");
+    comp->instance = ResourceManager::RequestModel("buster_drone");
     world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-    name = ResourceManager::GetModel(comp->modelHandle)->GetName();
+    name = comp->instance->GetModel()->GetName();
     world->GetComponent<NameComponent>(helmet)->name = name + std::to_string(helmet);
 
     transform = world->GetComponent<TransformComponent>(helmet);
@@ -127,46 +127,45 @@ void VulkanApp::LoadGameObjects()
     world->AddComponent<BoundingBox>(drone);
     world->AddComponent<ModelComponent>(drone);
     comp = world->GetComponent<ModelComponent>(drone);
-    comp->modelHandle = ResourceManager::RequestModel("buster_drone");
+    comp->instance = ResourceManager::RequestModel("buster_drone");
     world->AddComponent<AudioSourceComponent>(drone, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-    name = ResourceManager::GetModel(comp->modelHandle)->GetName();
+    name = comp->instance->GetModel()->GetName();
     world->GetComponent<NameComponent>(drone)->name = name + std::to_string(helmet);
 
     transform = world->GetComponent<TransformComponent>(drone);
     transform->SetTranslation(10, 10, -20);
     transform->SetScale(1, 1, 1);
 
-    //
-    // f32 start = 0;
-    // f32 end = 1000;
-    // f32 step = 2.5;
-    // f32 border = 15;
-    // f32 x = start, y = start, z = start;
-    // for(n32 i = 0; i < end; i++)
-    // {
-    //     x += step;
-    //
-    //     if(x > border)
-    //     {
-    //         x = start;
-    //         z += step;
-    //     }
-    //     if(z > border)
-    //     {
-    //         z = start;
-    //         y += step;
-    //     }
-    //
-    //     auto model = world->CreateEntity();
-    //     world->AddComponent<ModelComponent>(model);
-    //     auto comp = world->GetComponent<ModelComponent>(model);
-    //     comp->modelHandle = ResourceManager::RequestModel("AnimatedMorphCube");
-    //
-    //     auto transform = world->GetComponent<TransformComponent>(model);
-    //     transform->SetTranslation(x, y, z);
-    //     std::string name = ResourceManager::GetModel(comp->modelHandle)->GetName();
-    //     world->GetComponent<NameComponent>(model)->name = name + std::to_string(model);
-    // }
+    f32 start = 0;
+    f32 end = 50;
+    f32 step = 2.5;
+    f32 border = 15;
+    f32 x = start, y = start, z = start;
+    for(n32 i = 0; i < end; i++)
+    {
+        x += step;
+
+        if(x > border)
+        {
+            x = start;
+            z += step;
+        }
+        if(z > border)
+        {
+            z = start;
+            y += step;
+        }
+
+        auto model = world->CreateEntity();
+        world->AddComponent<ModelComponent>(model);
+        auto comp = world->GetComponent<ModelComponent>(model);
+        comp->instance = ResourceManager::RequestModel("buster_drone");
+
+        auto transform = world->GetComponent<TransformComponent>(model);
+        transform->SetTranslation(x, y, z);
+        std::string name = comp->instance->GetModel()->GetName();
+        world->GetComponent<NameComponent>(model)->name = name + std::to_string(model);
+    }
 
     HGINFO("Loaded game objects");
 }
@@ -232,7 +231,7 @@ void VulkanApp::HandleInput(const float frameTime, SDL_Event* event)
 
 void VulkanApp::Run()
 {
-    m_cam->UpdateViewMatrix();
+    // m_cam->UpdateViewMatrix();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
 
@@ -243,7 +242,6 @@ void VulkanApp::Run()
     objectDataWidget.Add([&]() {
         for(n32 entityId = 0; entityId < world->GetComponentStorage<TransformComponent>().GetDense().size(); entityId++)
         {
-
             TransformComponent* transform = world->GetComponent<TransformComponent>(entityId);
             if(!transform) { continue; }
 
@@ -289,31 +287,33 @@ void VulkanApp::Run()
                     }
                 }
 
-                auto model = ResourceManager::GetModel(world->GetComponent<ModelComponent>(entityId)->modelHandle);
+                auto instance = world->GetComponent<ModelComponent>(entityId)->instance;
 
-                if(model->HasAnimations())
+                if(instance->GetModel()->HasAnimations())
                 {
                     n32                     size = world->GetComponentStorage<ModelComponent>().GetDense().size();
                     static std::vector<n32> itemSelectedIndex;
                     itemSelectedIndex.resize(size);
-                    const char* preview = model->GetAnimations()[itemSelectedIndex[entityId]].name.c_str();
+                    const char* preview = instance->GetAnimations()[itemSelectedIndex[entityId]].name.c_str();
                     if(ImGui::BeginCombo("Animations", preview))
                     {
-                        for(int i = 0; i < model->GetAnimations().size(); i++)
+                        for(int i = 0; i < instance->GetAnimations().size(); i++)
                         {
                             const bool isSelected = (itemSelectedIndex[entityId] == i);
-                            if(ImGui::Selectable(model->GetAnimations()[i].name.c_str(), isSelected)) { itemSelectedIndex[entityId] = i; }
+                            if(ImGui::Selectable(instance->GetAnimations()[i].name.c_str(), isSelected)) { itemSelectedIndex[entityId] = i; }
 
                             if(isSelected) { ImGui::SetItemDefaultFocus(); }
                         }
-                        model->SetAnimation(model->GetAnimations()[itemSelectedIndex[entityId]].name);
+                        instance->SetAnimation(instance->GetAnimations()[itemSelectedIndex[entityId]].name);
                         ImGui::EndCombo();
                     }
 
-                    if(ImGui::Button("Play Animation")) { model->PlayAnimation(); }
-                    if(ImGui::Button("Stop Animation")) { model->StopAnimation(); }
-                    if(ImGui::Button("Pause Animation")) { model->PauseAnimation(); }
-                    if(ImGui::Button("UnPause Animation")) { model->UnPauseAnimation(); }
+                    for(n32 i = 0; i < instance->GetMorphCount(); ++i) { ImGui::Text("Morph %i at %f", i, instance->GetMorph(i)); }
+
+                    if(ImGui::Button("Play Animation")) { instance->PlayAnimation(); }
+                    if(ImGui::Button("Stop Animation")) { instance->StopAnimation(); }
+                    if(ImGui::Button("Pause Animation")) { instance->PauseAnimation(); }
+                    if(ImGui::Button("UnPause Animation")) { instance->UnPauseAnimation(); }
                 }
             }
 
@@ -364,7 +364,7 @@ void VulkanApp::Run()
                 default:;
             }
         }
-        if (quit) { break;}
+        if(quit) { break; }
 
         HandleInput(frameTime, &e);
 
@@ -388,9 +388,11 @@ void VulkanApp::Run()
             for(auto& entity: frustumAndSortedEntities)
             {
                 TransformComponent* transform = world->GetComponent<TransformComponent>(entity.id);
-                auto                model = ResourceManager::GetModel(world->GetComponent<ModelComponent>(entity.id)->modelHandle);
-                model->Update();
+                auto                model = world->GetComponent<ModelComponent>(entity.id);
+                model->instance->Update();
             }
+
+            ResourceManager::FinalizeGPUData();
 
             const auto cmd = m_renderer->BeginFrame(frustumAndSortedEntities);
             if(cmd != VK_NULL_HANDLE)

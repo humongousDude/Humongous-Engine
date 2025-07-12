@@ -1,6 +1,7 @@
 #pragma once
 #include "defines.hpp"
 #include "instance.hpp"
+#include "logger.hpp"
 #include "non_copyable.hpp"
 #include "physical_device.hpp"
 #include "vk_mem_alloc.h"

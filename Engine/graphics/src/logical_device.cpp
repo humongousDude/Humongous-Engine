@@ -3,6 +3,7 @@
 #include "logical_device.hpp"
 #include "asserts.hpp"
 #include "logger.hpp"
+
 #include "vk_mem_alloc.h"
 #include <set>
 
@@ -113,7 +114,7 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
 
     HGINFO("logical device created");
 
-if(m_graphicsQueueIndex == m_presentQueueIndex)
+    if(m_graphicsQueueIndex == m_presentQueueIndex)
     {
         // If graphics and present families are the same, they both use queue family at m_graphicsQueueIndex
         // We request queue index 0 from that family for both graphics and present operations.

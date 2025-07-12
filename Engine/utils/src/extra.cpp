@@ -57,4 +57,26 @@ std::vector<VisibleEntityInfo> SortAndCullEntities(Camera& camera, World& world)
     return visibleEntities;
 }
 
+void DecomposeMatrix(const glm::mat4& matrix, glm::vec3& translation, glm::quat& rotation, glm::vec3& scale)
+{
+    // Translation is the last column
+    translation = glm::vec3(matrix[3]);
+
+    // Extract scale and rotation from the 3x3 upper-left submatrix
+    glm::mat3 rotationScaleMatrix(matrix);
+
+    // Extract scale factors
+    scale.x = glm::length(glm::vec3(rotationScaleMatrix[0]));
+    scale.y = glm::length(glm::vec3(rotationScaleMatrix[1]));
+    scale.z = glm::length(glm::vec3(rotationScaleMatrix[2]));
+
+    // Normalize columns to get pure rotation matrix
+    if(scale.x != 0.0f) { rotationScaleMatrix[0] /= scale.x; }
+    if(scale.y != 0.0f) { rotationScaleMatrix[1] /= scale.y; }
+    if(scale.z != 0.0f) { rotationScaleMatrix[2] /= scale.z; }
+
+    // Convert rotation matrix to quaternion
+    rotation = glm::quat_cast(rotationScaleMatrix);
+}
+
 } // namespace Humongous::Utils

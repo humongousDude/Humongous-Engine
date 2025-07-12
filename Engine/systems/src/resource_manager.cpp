@@ -4,6 +4,7 @@
 #include "globals.hpp"
 #include "logger.hpp"
 #include "model.hpp"
+#include "model_instance.hpp"
 #include "skybox.hpp"
 #include <AL/al.h>
 
@@ -89,6 +90,7 @@ void ResourceManager::InitDescriptors()
 
     DescriptorSetLayout::Builder nodeBuilder{*m_logicalDevice};
     nodeBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex);
+    nodeBuilder.AddBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex);
     m_modelDescriptors.vertices = nodeBuilder.Build();
 
     m_descriptorPools.storageBufferPool->AllocateDescriptor(m_modelDescriptors.vertices->GetDescriptorSetLayout(),
@@ -157,7 +159,7 @@ void ResourceManager::InitializeInitials()
     m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 }
 
-n32 ResourceManager::Internal_RequestModel(const std::string& name)
+n32 ResourceManager::LoadModel(const std::string& name)
 {
     auto it = m_modelNameToHandle.find(name);
     if(it != m_modelNameToHandle.end()) { return it->second; }
@@ -171,14 +173,26 @@ n32 ResourceManager::Internal_RequestModel(const std::string& name)
     HGINFO("Model %s loaded. Added to map with handle %i. Map size: %zu", name.c_str(), handleToReturn, m_modelMap.size());
 
     // Node Matricies
+
+    m_modelMap.emplace(handleToReturn, std::move(m));
+    m_modelNameToHandle.emplace(name, handleToReturn);
+
+    return handleToReturn;
+}
+
+std::shared_ptr<ModelInstance> ResourceManager::Internal_RequestModel(const std::string& name)
+{
+    auto id = LoadModel(name);
+    auto m = Internal_GetModel(id);
+
     {
-        const auto& nodeMats = m->GetMatrixVector();
+        const std::vector<glm::mat4> nodeMats(m->GetLinearNodes().size());
 
         size_t newModelMatrixStartIndex = m_modelNodeMatricesFlat.size();
 
         m_modelNodeMatricesFlat.insert(m_modelNodeMatricesFlat.end(), nodeMats.begin(), nodeMats.end());
 
-        m_modelHandleToMatrixStart.emplace(handleToReturn, std::pair<n32, n32>(newModelMatrixStartIndex, nodeMats.size()));
+        m_modelHandleToMatrixStart.emplace(m_nextInstanceID, std::pair<n32, n32>(newModelMatrixStartIndex, nodeMats.size()));
 
         if(!m_modelNodeMatriciesBuffer || m_modelNodeMatriciesBuffer->GetBufferSize() < m_modelNodeMatricesFlat.size() * sizeof(glm::mat4))
         {
@@ -204,10 +218,13 @@ n32 ResourceManager::Internal_RequestModel(const std::string& name)
         m_modelNodeMatriciesBuffer->UnMap();
     }
 
-    m_modelMap.emplace(handleToReturn, std::move(m));
-    m_modelNameToHandle.emplace(name, handleToReturn);
+    auto inst = std::make_shared<ModelInstance>(m, m_nextInstanceID);
 
-    return handleToReturn;
+    auto [it, inserted] = m_modelInstanceMap.emplace(m_nextInstanceID, std::move(inst));
+
+    m_nextInstanceID++;
+
+    return it->second;
 }
 
 void Internal_AddMatriciesToModel(const std::vector<glm::mat4>& matricies) {}
@@ -318,15 +335,6 @@ void ResourceManager::Internal_UpdateNodeMatrices(const std::vector<glm::mat4>& 
         write.pBufferInfo = &info;
         m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
     }
-
-    Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-    stagingBuffer.Map();
-    stagingBuffer.WriteToBuffer(m_modelNodeMatricesFlat.data(), requiredBufferSize);
-    stagingBuffer.UnMap();
-
-    Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelNodeMatriciesBuffer, requiredBufferSize);
 }
 
 void ResourceManager::Internal_AddJointMatriciesToModel(const std::vector<glm::mat4>& jointMatricies, const n32& handle)
@@ -362,15 +370,6 @@ void ResourceManager::Internal_AddJointMatriciesToModel(const std::vector<glm::m
         write.pBufferInfo = &info;
         m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
     }
-
-    Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-    stagingBuffer.Map();
-    stagingBuffer.WriteToBuffer(m_modelJointMatricies.data(), requiredBufferSize);
-    stagingBuffer.UnMap();
-
-    Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelJointMatriciesBuffer, requiredBufferSize);
 }
 
 void ResourceManager::Internal_UpdateJointMatrices(const std::vector<glm::mat4>& jointMatricies, const n32& handle)
@@ -400,15 +399,6 @@ void ResourceManager::Internal_UpdateJointMatrices(const std::vector<glm::mat4>&
         write.pBufferInfo = &info;
         m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
     }
-
-    Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-    stagingBuffer.Map();
-    stagingBuffer.WriteToBuffer(m_modelJointMatricies.data(), requiredBufferSize);
-    stagingBuffer.UnMap();
-
-    Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelJointMatriciesBuffer, requiredBufferSize);
 }
 
 void ResourceManager::Internal_AddMorphTargetsToModel(const std::vector<f32>& morphTargets, const n32& handle)
@@ -433,26 +423,17 @@ void ResourceManager::Internal_AddMorphTargetsToModel(const std::vector<f32>& mo
             m_logicalDevice, requiredBufferSize, 1,
             vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
             vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 1, "global morphTargets buffer");
+
+        vk::WriteDescriptorSet write{};
+        write.dstSet = m_bindlessSet;
+        write.dstBinding = 5;
+        write.dstArrayElement = 0;
+        write.descriptorCount = 1;
+        write.descriptorType = vk::DescriptorType::eStorageBuffer;
+        auto info = m_modelMorphTargetsBuffer->DescriptorInfo();
+        write.pBufferInfo = &info;
+        m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
     }
-
-    Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-    stagingBuffer.Map();
-    stagingBuffer.WriteToBuffer(m_modelMorphTargets.data(), requiredBufferSize);
-    stagingBuffer.UnMap();
-
-    Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelMorphTargetsBuffer, requiredBufferSize);
-
-    vk::WriteDescriptorSet write{};
-    write.dstSet = m_bindlessSet;
-    write.dstBinding = 5;
-    write.dstArrayElement = 0;
-    write.descriptorCount = 1;
-    write.descriptorType = vk::DescriptorType::eStorageBuffer;
-    auto info = m_modelMorphTargetsBuffer->DescriptorInfo();
-    write.pBufferInfo = &info;
-    m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 }
 
 void ResourceManager::Internal_UpdateMorphTargets(const std::vector<f32>& morphTargets, const n32& handle)
@@ -473,29 +454,65 @@ void ResourceManager::Internal_UpdateMorphTargets(const std::vector<f32>& morphT
             m_logicalDevice, requiredBufferSize, 1,
             vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
             vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 1, "global morphTargets buffer");
+
+        vk::WriteDescriptorSet write{};
+        write.dstSet = m_bindlessSet;
+        write.dstBinding = 5;
+        write.dstArrayElement = 0;
+        write.descriptorCount = 1;
+        write.descriptorType = vk::DescriptorType::eStorageBuffer;
+        auto info = m_modelMorphTargetsBuffer->DescriptorInfo();
+        write.pBufferInfo = &info;
+        m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
     }
-
-    Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-    stagingBuffer.Map();
-    stagingBuffer.WriteToBuffer(m_modelMorphTargets.data(), requiredBufferSize);
-    stagingBuffer.UnMap();
-
-    Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelMorphTargetsBuffer, requiredBufferSize);
-
-    vk::WriteDescriptorSet write{};
-    write.dstSet = m_bindlessSet;
-    write.dstBinding = 5;
-    write.dstArrayElement = 0;
-    write.descriptorCount = 1;
-    write.descriptorType = vk::DescriptorType::eStorageBuffer;
-    auto info = m_modelMorphTargetsBuffer->DescriptorInfo();
-    write.pBufferInfo = &info;
-    m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 }
 
-std::shared_ptr<Model> ResourceManager::Internal_GetModel(const n32& index) { return m_modelMap.at(index); }
+void ResourceManager::Internal_FinalizeGPUData()
+{
+    {
+        auto requiredBufferSize = m_modelJointMatriciesBuffer->GetBufferSize();
+
+        Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+        stagingBuffer.Map();
+        stagingBuffer.WriteToBuffer(m_modelJointMatricies.data(), requiredBufferSize);
+        stagingBuffer.UnMap();
+
+        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelJointMatriciesBuffer, requiredBufferSize);
+    }
+
+    {
+        auto requiredBufferSize = m_modelMorphTargetsBuffer->GetBufferSize();
+
+        Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+        stagingBuffer.Map();
+        stagingBuffer.WriteToBuffer(m_modelMorphTargets.data(), requiredBufferSize);
+        stagingBuffer.UnMap();
+
+        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelMorphTargetsBuffer, requiredBufferSize);
+    }
+
+    {
+        auto   requiredBufferSize = m_modelNodeMatriciesBuffer->GetBufferSize();
+        Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+        stagingBuffer.Map();
+        stagingBuffer.WriteToBuffer(m_modelNodeMatricesFlat.data(), requiredBufferSize);
+        stagingBuffer.UnMap();
+
+        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelNodeMatriciesBuffer, requiredBufferSize);
+    }
+}
+
+std::shared_ptr<Model> ResourceManager::Internal_GetModel(const n32& index)
+{
+    auto i = m_modelMap.at(index);
+    return i;
+}
 
 n32 ResourceManager::Internal_RequestModelNodeMatriciesIndex(const n32& modelHandle) { return m_modelHandleToMatrixStart[modelHandle].first; }
 
