@@ -14,7 +14,7 @@ public:
     static T& Get();
 
 protected:
-    explicit Singleton<T>() = default;
+    explicit Singleton() = default;
 };
 
 template <typename T> T& Singleton<T>::Get()
