@@ -8,16 +8,17 @@ set "EXE_DIR=.\Binaries\App"
     echo Checking build status...
     set "script_args=%*"
 
-    if exist "%BUILD_DIR%\" (
-        echo Default build directory "%BUILD_DIR%" found.
-        call :build %script_args%
-        goto :EOF
-    )
 
     if exist ".\Binaries-Release\" (
         echo Release build directory ".\Binaries-Release" found.
         set "BUILD_DIR=.\Binaries-Release"
         set "EXE_DIR=.\Binaries-Release\App"
+        call :build %script_args%
+        goto :EOF
+    )
+
+    if exist "%BUILD_DIR%\" (
+        echo Default build directory "%BUILD_DIR%" found.
         call :build %script_args%
         goto :EOF
     )

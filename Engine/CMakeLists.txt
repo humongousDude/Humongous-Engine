@@ -146,29 +146,27 @@ set(ENGINE_HEADERS
 
 set(SHADER_SOURCES
     #frag    
-    ../shaders/frag/pbr.frag.glsl
-    ../shaders/frag/skybox.frag.glsl
-    ../shaders/frag/nothing.frag.glsl
-    ../shaders/frag/unlit.frag.glsl
+    ../shaders/frag/pbr.frag.slang
+    ../shaders/frag/skybox.frag.slang
+    ../shaders/frag/nothing.frag.slang
 
     #vert
-    ../shaders/vert/skybox.vert.glsl
-    ../shaders/vert/simple.vert.glsl
-    ../shaders/vert/depth.vert.glsl
-    ../shaders/vert/lighting.vert.glsl
-    ../shaders/vert/nothing.vert.glsl
+    ../shaders/vert/skybox.vert.slang
+    ../shaders/vert/simple.vert.slang
+    ../shaders/vert/depth.vert.slang
+    ../shaders/vert/nothing.vert.slang
 
     #comp
-    ../shaders/comp/brdflut.comp.glsl
-    ../shaders/comp/irradiance.comp.glsl
-    ../shaders/comp/lighting.comp.glsl
-    ../shaders/comp/mip.comp.glsl
-    ../shaders/comp/occlusion.comp.glsl
-    ../shaders/comp/prefiltredmap.comp.glsl
+    ../shaders/comp/brdflut.comp.slang
+    ../shaders/comp/irradiance.comp.slang
+    ../shaders/comp/lighting.comp.slang
+    ../shaders/comp/mip.comp.slang
+    ../shaders/comp/occlusion.comp.slang
+    ../shaders/comp/prefiltredmap.comp.slang
     
 )
 set(SHADER_INCLUDES
-    ../shaders/includes/inputs.glsl
+    ../shaders/includes/inputs.slang
 )
 
 # Convert relative paths to full paths for the custom command
@@ -245,9 +243,9 @@ endif()
 # Shader Compilation Target
 # ========================================================================================
 
-find_program(VULKAN_GLSLC glslc REQUIRED)
+find_program(SLANG_COMPILER slangc REQUIRED)
 
-set(SPIRV_FILES) 
+set(SPIRV_FILES)
 
 foreach(SHADER_FILE ${SHADER_SOURCES_FULL})
     get_filename_component(PARENT_DIR ${SHADER_FILE} DIRECTORY)
@@ -259,24 +257,31 @@ foreach(SHADER_FILE ${SHADER_SOURCES_FULL})
 
     add_custom_command(
         OUTPUT ${SPIRV_FILE}
-        COMMAND ${VULKAN_GLSLC}
-                --target-env=vulkan1.3
-                -fshader-stage=${SHADER_STAGE}
-                -I"${CMAKE_SOURCE_DIR}/shaders/includes" 
+        COMMAND ${SLANG_COMPILER}
+                -target spirv
+                -entry "main"
+                -lang slang
+                -matrix-layout-column-major
+
+                -I"${CMAKE_SOURCE_DIR}/shaders/includes"
+
                 ${SHADER_FILE}
-                -g 
+
                 -o ${SPIRV_FILE}
+
+                -g
+
         DEPENDS ${SHADER_FILE} ${SHADER_INCLUDES_FULL}
-        COMMENT "Compiling ${SHADER_NAME} to ${SPIRV_FILE}"
+        COMMENT "Compiling ${PARENT_DIR} to ${SPIRV_FILE} using Slang"
         VERBATIM
     )
 endforeach()
 
 add_custom_target(
-    compile_shaders
-    ALL 
+    compile_slang_shaders
+    ALL
     DEPENDS ${SPIRV_FILES}
-    COMMENT "Compiling all GLSL shaders to SPIR-V"
+    COMMENT "Compiling all Slang shaders to SPIR-V"
 )
 
-add_dependencies(Engine compile_shaders)
+add_dependencies(Engine compile_slang_shaders)

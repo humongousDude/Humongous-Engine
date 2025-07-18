@@ -65,8 +65,12 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     m_graphicsQueueIndex = indices.graphicsFamily.value();
     m_presentQueueIndex = indices.presentFamily.value();
 
+    vk::PhysicalDeviceComputeShaderDerivativesFeaturesKHR compDerivFeat;
+    compDerivFeat.computeDerivativeGroupQuads = true;
+
     vk::PhysicalDeviceVulkan11Features vulkan11Features{};
     vulkan11Features.shaderDrawParameters = VK_TRUE;
+    vulkan11Features.pNext = &compDerivFeat;
 
     // vulkan 1.2 features
     vk::PhysicalDeviceVulkan12Features vulkan12Features{};
@@ -86,6 +90,8 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     vulkan13Features.pNext = &vulkan12Features;
 
     vk::PhysicalDeviceFeatures2 deviceFeatures2{};
+    deviceFeatures2.features.multiDrawIndirect = true;
+    deviceFeatures2.features.samplerAnisotropy = true;
     deviceFeatures2.pNext = &vulkan13Features;
 
     vk::PhysicalDeviceFeatures deviceFeatures{};
@@ -104,8 +110,8 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     createInfo.ppEnabledExtensionNames = extensions.data();
     createInfo.enabledLayerCount = 0;
     createInfo.ppEnabledLayerNames = nullptr;
-    createInfo.pNext = &vulkan13Features;
-    createInfo.pEnabledFeatures = &deviceFeatures;
+    createInfo.pNext = &deviceFeatures2;
+    createInfo.pEnabledFeatures = nullptr;
 
     if(physicalDevice.GetVkPhysicalDevice().createDevice(&createInfo, nullptr, &m_logicalDevice) != vk::Result::eSuccess)
     {

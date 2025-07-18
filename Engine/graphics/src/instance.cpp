@@ -114,10 +114,9 @@ void Instance::InitInstance()
     //
     // for(const auto& extension: extensionProperties) { HGINFO("\t%s", extension.extensionName); }
 
-    if(vk::createInstance(&createInfo, nullptr, &m_instance) != vk::Result::eSuccess)
-    {
-        HGFATAL("Failed to create vulkan instance! \nFile: %s, \nLine: %d", __FILE__, __LINE__);
-    }
+    auto result = vk::createInstance(&createInfo, nullptr, &m_instance);
+
+    if(result != vk::Result::eSuccess) { HGFATAL("Failed to create vulkan instance! Error: %s", vk::to_string(result).c_str()); }
 }
 
 bool Instance::CheckValidationLayerSupport()
@@ -148,15 +147,16 @@ bool Instance::CheckValidationLayerSupport()
 
 std::vector<const char*> Instance::GetRequiredExtensions()
 {
-    n32                glfwExtensionCount = 0;
-    const char* const* glfwExtensions;
-    glfwExtensions = SDL_Vulkan_GetInstanceExtensions(&glfwExtensionCount);
+    n32                sdlExtensionCount = 0;
+    const char* const* sdlExtensions;
+    sdlExtensions = SDL_Vulkan_GetInstanceExtensions(&sdlExtensionCount);
 
-    std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+    std::vector<const char*> extensions(sdlExtensions, sdlExtensions + sdlExtensionCount);
 
     if(ENABLE_VALIDATION_LAYERS) { extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME); }
     extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
     extensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+    // extensions.push_back(VK_KHR_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME);
 
     return extensions;
 }

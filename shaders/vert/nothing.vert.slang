@@ -1,0 +1,3 @@
+[shader("vertex")]
+void main()
+{}

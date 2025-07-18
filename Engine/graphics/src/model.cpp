@@ -510,19 +510,12 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                                 vert.targetPos1 = glm::vec4(targetOffset, 0.0f);
                                 break;
                             case 2:
-                                vert.targetPos2 = glm::vec4(targetOffset, 0.0f);
-                                break;
-                            case 3:
-                                vert.targetPos3 = glm::vec4(targetOffset, 0.0f);
-                                break;
                             default:
                                 break;
                         }
                     }
                     if(morphTargetPositions.size() <= 0) { vert.targetPos0 = glm::vec4(0.0f); }
                     if(morphTargetPositions.size() <= 1) { vert.targetPos1 = glm::vec4(0.0f); }
-                    if(morphTargetPositions.size() <= 2) { vert.targetPos2 = glm::vec4(0.0f); }
-                    if(morphTargetPositions.size() <= 3) { vert.targetPos3 = glm::vec4(0.0f); }
 
                     currentPrimitiveMinPos = glm::min(currentPrimitiveMinPos, vert.position);
                     currentPrimitiveMaxPos = glm::max(currentPrimitiveMaxPos, vert.position);

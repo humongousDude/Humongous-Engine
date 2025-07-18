@@ -19,7 +19,8 @@ Skybox::~Skybox()
     m_skybox->Destroy();
     m_irradiance->Destroy();
 
-    for(auto& view: m_prefilteredMipViews) { vkDestroyImageView(m_logicalDevice->GetVkDevice(), view, nullptr); }
+    for(auto& view: m_prefilteredReadViews) { vkDestroyImageView(m_logicalDevice->GetVkDevice(), view, nullptr); }
+    for(auto& view: m_prefilteredWriteViews) { vkDestroyImageView(m_logicalDevice->GetVkDevice(), view, nullptr); }
 
     m_prefilteredMap->Destroy();
     m_brdflut->Destroy();
@@ -34,7 +35,7 @@ void Skybox::LoadDescriptorSet(DescriptorSetLayout& descriptorLayout, Descriptor
 {
     auto                    imgInfo = m_skybox->GetDescriptorInfo();
     auto                    irradInfo = m_irradiance->GetDescriptorInfo();
-    vk::DescriptorImageInfo info{m_prefilteredMap->GetRawSamplerHandle(), m_prefilteredMipViews[1], m_prefilteredMap->GetRawImageLayout()};
+    vk::DescriptorImageInfo info{m_prefilteredMap->GetRawSamplerHandle(), m_prefilteredReadViews[1], m_prefilteredMap->GetRawImageLayout()};
     auto                    brdfInfo = m_brdflut->GetDescriptorInfo();
     DescriptorWriter(descriptorLayout, pool)
         .WriteImage(0, &imgInfo)
@@ -68,17 +69,29 @@ void Skybox::CreatePrefilteredMipViews()
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 6;
 
-    m_prefilteredMipViews.resize(m_prefilteredMap->GetMipLevels());
+    m_prefilteredReadViews.resize(m_prefilteredMap->GetMipLevels());
+    m_prefilteredWriteViews.resize(m_prefilteredMap->GetMipLevels());
     for(uint32_t mipLevel = 0; mipLevel < m_prefilteredMap->GetMipLevels(); ++mipLevel)
     {
-        // Set the subresource range to target ONLY this mip level
+        viewInfo.viewType = vk::ImageViewType::eCube;
         viewInfo.subresourceRange.baseMipLevel = mipLevel;
-        viewInfo.subresourceRange.levelCount = 1; // View only this single mip level
+        viewInfo.subresourceRange.levelCount = 1;
 
-        if(m_logicalDevice->GetVkDevice().createImageView(&viewInfo, nullptr, &m_prefilteredMipViews[mipLevel]) != vk::Result::eSuccess)
+        if(m_logicalDevice->GetVkDevice().createImageView(&viewInfo, nullptr, &m_prefilteredReadViews[mipLevel]) != vk::Result::eSuccess)
         {
-            HGERROR("Failed to create image view for prefiltered map mip level %u", mipLevel);
+            HGERROR("Failed to create image view for prefiltered map read mip level %u", mipLevel);
         }
+
+        viewInfo.viewType = vk::ImageViewType::e2DArray;
+        if(m_logicalDevice->GetVkDevice().createImageView(&viewInfo, nullptr, &m_prefilteredWriteViews[mipLevel]) != vk::Result::eSuccess)
+        {
+            HGERROR("Failed to create image view for prefiltered map write mip level %u", mipLevel);
+        }
+    }
+
+    if(m_logicalDevice->GetVkDevice().createImageView(&viewInfo, nullptr, &m_irradianceWriteView) != vk::Result::eSuccess)
+    {
+        HGERROR("Failed to create image view for irradiance map");
     }
 }
 
@@ -211,6 +224,7 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
 
     auto imgInfo = m_skybox->GetDescriptorInfo();
     auto irradianceInfo = m_irradiance->GetDescriptorInfo();
+    irradianceInfo.imageView = m_irradianceWriteView;
     auto brdflutInfo = m_brdflut->GetDescriptorInfo();
 
     DescriptorWriter(*envLayout, &combinedImagePool).WriteImage(0, &imgInfo).Build(envSet);
@@ -222,6 +236,7 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
     const n32 LOCAL_SIZE_Z = 1;
 
     // Irradiance map
+    HGINFO("Generating irradiance map");
     {
         vk::PipelineShaderStageCreateInfo irradianceStage{};
         irradianceStage.stage = vk::ShaderStageFlagBits::eCompute;
@@ -254,7 +269,9 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
         m_logicalDevice->EndSingleTimeCommands(cmd);
         m_logicalDevice->GetVkDevice().destroyPipeline(irradiancePipeline, nullptr);
     }
+    HGINFO("Done generating irradiance map");
     // Prefiltered map
+    HGINFO("Generating prefiltered map");
     {
         vk::PipelineShaderStageCreateInfo prefilteredStage{};
         prefilteredStage.stage = vk::ShaderStageFlagBits::eCompute;
@@ -287,7 +304,7 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
 
             vk::DescriptorImageInfo info;
             info.imageLayout = vk::ImageLayout::eGeneral;
-            info.imageView = m_prefilteredMipViews[mipLevel];
+            info.imageView = m_prefilteredWriteViews[mipLevel];
 
             vk::DescriptorSet s;
             DescriptorWriter(*prefilteredLayout, &storageImagePool).WriteImage(0, &info).Build(s);
@@ -308,7 +325,9 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
 
         m_logicalDevice->GetVkDevice().destroyPipeline(prefilteredPipeline, nullptr);
     }
+    HGINFO("Done generating prefiltered map");
     // BRDF LUT
+    HGINFO("Generating BRDF LUT");
     {
         vk::PipelineShaderStageCreateInfo brdfStage{};
         brdfStage.stage = vk::ShaderStageFlagBits::eCompute;
@@ -342,6 +361,7 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
 
         m_logicalDevice->GetVkDevice().destroyPipeline(brdfPipeline, nullptr);
     }
+    HGINFO("Done generating BRDF LUT");
 
     // auto cmd = m_logicalDevice->BeginSingleTimeCommands();
     // Renderer::WaitForCompute(cmd);

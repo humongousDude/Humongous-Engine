@@ -183,8 +183,6 @@ public:
         glm::vec4  weight0{0};
         glm::vec4  targetPos0{0};
         glm::vec4  targetPos1{0};
-        glm::vec4  targetPos2{0};
-        glm::vec4  targetPos3{0};
 
         bool operator==(const Vertex& other) const
         {

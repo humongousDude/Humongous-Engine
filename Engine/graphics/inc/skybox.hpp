@@ -36,9 +36,11 @@ private:
 
     std::unique_ptr<Texture>   m_skybox;
     std::unique_ptr<Texture>   m_irradiance;
+    vk::ImageView              m_irradianceWriteView;
     std::unique_ptr<Texture>   m_brdflut;
     std::unique_ptr<Texture>   m_prefilteredMap;
-    std::vector<vk::ImageView> m_prefilteredMipViews;
+    std::vector<vk::ImageView> m_prefilteredReadViews;
+    std::vector<vk::ImageView> m_prefilteredWriteViews;
 
     n32 m_vertexCount;
     n32 m_indexCount;
