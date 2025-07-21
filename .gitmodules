@@ -4,9 +4,6 @@
 [submodule "Engine/ThirdParty/SDL"]
 	path = Engine/ThirdParty/SDL
 	url = https://github.com/libsdl-org/SDL
-[submodule "Engine/ThirdParty/glm"]
-	path = Engine/ThirdParty/glm
-	url = https://github.com/g-truc/glm
 [submodule "Engine/ThirdParty/VulkanMemoryAllocator"]
 	path = Engine/ThirdParty/VulkanMemoryAllocator
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
@@ -28,3 +25,6 @@
 [submodule "Engine/ThirdParty/libsndfile"]
 	path = Engine/ThirdParty/libsndfile
 	url = https://github.com/libsndfile/libsndfile
+[submodule "Engine/ThirdParty/eigen"]
+	path = Engine/ThirdParty/eigen
+	url = https://gitlab.com/libeigen/eigen/
