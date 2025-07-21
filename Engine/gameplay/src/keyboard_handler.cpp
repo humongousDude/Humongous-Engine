@@ -1,43 +1,49 @@
 #include "keyboard_handler.hpp"
-
+#include "extra.hpp"
 #include "globals.hpp"
-#include <glm/gtc/matrix_transform.hpp>
+#include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+#ifndef M_PI_2
+#define M_PI_2 (M_PI / 2.0)
+#endif
 
 namespace Humongous
 {
+
 void KeyboardHandler::ProcessInput(const InputData& inputData)
 {
-    glm::vec3 moveDir{0.0f};
+    Eigen::Vector3f moveDir = Eigen::Vector3f::Zero();
 
-    // Get current rotation from camera
-    glm::vec3    currentRotation = inputData.camera.GetRotation();
-    static float accumulatedPitch = currentRotation.x;
-    static float accumulatedYaw = currentRotation.y;
+    Eigen::Vector3f currentEulerAngles = inputData.camera.GetRotation();
+    static float    accumulatedPitch = currentEulerAngles.x();
+    static float    accumulatedYaw = currentEulerAngles.y();
 
-    accumulatedYaw -= (inputData.mouseDeltaX * lookSpeed * static_cast<float>(Globals::Time::AverageDeltaTime()));
+    accumulatedYaw += (inputData.mouseDeltaX * lookSpeed * static_cast<float>(Globals::Time::AverageDeltaTime()));
     accumulatedPitch += (inputData.mouseDeltaY * lookSpeed * static_cast<float>(Globals::Time::AverageDeltaTime()));
 
-    accumulatedPitch = glm::clamp(accumulatedPitch, -glm::radians(89.0f), glm::radians(89.0f));
-    accumulatedYaw = glm::mod(accumulatedYaw, glm::two_pi<float>());
+    accumulatedPitch = std::clamp(accumulatedPitch, Utils::DegreesToRadians(-90.0f), Utils::DegreesToRadians(90.0f));
+    accumulatedYaw = std::fmod(accumulatedYaw, 2.0f * EIGEN_PI);
 
-    inputData.camera.SetRotation(glm::vec3(accumulatedPitch, accumulatedYaw, 0.0f));
+    inputData.camera.SetRotation(Eigen::Vector3f(accumulatedPitch, accumulatedYaw, 0.0f));
 
-    glm::vec3 forwardDir = glm::vec3(0.0f, 0.0f, 1.0f);
-    glm::vec3 rightDir = glm::vec3(1.0f, 0.0f, 0.0f);
-    glm::vec3 upDir = glm::vec3(0.0f, 1.0f, 0.0f);
+    Eigen::Vector3f forwardBase = Eigen::Vector3f(0.0f, 0.0f, 1.0f);
+    Eigen::Vector3f rightBase = Eigen::Vector3f(1.0f, 0.0f, 0.0f);
+    Eigen::Vector3f upBase = Eigen::Vector3f(0.0f, 1.0f, 0.0f);
 
-    glm::mat4 cameraRotationMatrix = glm::mat4(1.0f);
-    cameraRotationMatrix = glm::rotate(cameraRotationMatrix, accumulatedYaw, glm::vec3(0.0f, 1.0f, 0.0f));
-    cameraRotationMatrix = glm::rotate(cameraRotationMatrix, accumulatedPitch, glm::vec3(1.0f, 0.0f, 0.0f));
+    Eigen::Quaternionf cameraOrientation =
+        Eigen::AngleAxisf(accumulatedYaw, Eigen::Vector3f::UnitY()) * Eigen::AngleAxisf(accumulatedPitch, Eigen::Vector3f::UnitX());
+    cameraOrientation.normalize();
 
-    forwardDir = glm::normalize(glm::vec3(cameraRotationMatrix * glm::vec4(forwardDir, 0.0f)));
-    rightDir = glm::normalize(glm::vec3(cameraRotationMatrix * glm::vec4(rightDir, 0.0f)));
-    upDir = glm::normalize(glm::vec3(cameraRotationMatrix * glm::vec4(upDir, 0.0f)));
+    Eigen::Vector3f forwardDir = (cameraOrientation * forwardBase).normalized();
+    Eigen::Vector3f rightDir = (cameraOrientation * rightBase).normalized();
+    Eigen::Vector3f upDir = Eigen::Vector3f::UnitY();
 
     switch(inputData.movementType)
     {
-        case Movements::NONE:
-            break;
         case Movements::FORWARD:
             moveDir += forwardDir;
             break;
@@ -45,10 +51,10 @@ void KeyboardHandler::ProcessInput(const InputData& inputData)
             moveDir -= forwardDir;
             break;
         case Movements::LEFT:
-            moveDir += rightDir;
+            moveDir -= rightDir;
             break;
         case Movements::RIGHT:
-            moveDir -= rightDir;
+            moveDir += rightDir;
             break;
         case Movements::UP:
             moveDir += upDir;
@@ -58,32 +64,31 @@ void KeyboardHandler::ProcessInput(const InputData& inputData)
             break;
         case Movements::FORWARD_LEFT:
             moveDir += forwardDir;
-            moveDir += rightDir;
+            moveDir -= rightDir;
             break;
         case Movements::FORWARD_RIGHT:
             moveDir += forwardDir;
-            moveDir -= rightDir;
+            moveDir += rightDir;
             break;
         case Movements::BACKWARD_LEFT:
             moveDir -= forwardDir;
-            moveDir += rightDir;
+            moveDir -= rightDir;
             break;
         case Movements::BACKWARD_RIGHT:
             moveDir -= forwardDir;
-            moveDir -= rightDir;
+            moveDir += rightDir;
             break;
         default:
             break;
     }
 
-    if(glm::dot(moveDir, moveDir) > std::numeric_limits<float>::epsilon())
+    if(moveDir.squaredNorm() > 0.001f)
     {
-        moveDir = glm::normalize(moveDir);
-        // Move the camera's position, not a separate game object
+        moveDir.normalize();
         inputData.camera.SetPosition(inputData.camera.GetPosition() + moveSpeed * inputData.frameTime * moveDir);
     }
 
-    // IMPORTANT: Update the view matrix AFTER any position or rotation changes!
     inputData.camera.UpdateViewMatrix();
 }
+
 }; // namespace Humongous

@@ -2,50 +2,45 @@
 
 #include "defines.hpp"
 #include "entity_component_system/components/entity_component.hpp"
-#include "logger.hpp"
+#include <Eigen/Dense>
 
 #include <string>
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/fwd.hpp>
-#include <glm/glm.hpp>
 
 namespace Humongous
 {
 struct Node;
 
-// EntityComponent doesn't add anything
 struct alignas(16) BoundingBox : public EntityComponent
 {
-    glm::vec4 min{std::numeric_limits<f32>::max()};
-    glm::vec4 max{std::numeric_limits<f32>::min()};
-    s32       valid{false};
+    Eigen::Vector4f min = Eigen::Vector4f::Constant(std::numeric_limits<f32>::max());
+    Eigen::Vector4f max = Eigen::Vector4f::Constant(std::numeric_limits<f32>::min());
+    s32             valid{false};
 
-    static BoundingBox LocalToGlobal(const BoundingBox& localBoundingBox, const glm::mat4& model);
-    static BoundingBox TransformAABB(const BoundingBox& aabb, const glm::mat4& transform)
+    static BoundingBox LocalToGlobal(const BoundingBox& localBoundingBox, const Eigen::Matrix4f& model);
+    static BoundingBox TransformAABB(const BoundingBox& aabb, const Eigen::Matrix4f& transform)
     {
-        if(!aabb.valid) { return BoundingBox{}; }
+        // if(!aabb.valid) { return BoundingBox{}; }
 
-        glm::vec4 newMin = glm::vec4(std::numeric_limits<float>::max());
-        glm::vec4 newMax = glm::vec4(std::numeric_limits<float>::lowest());
+        Eigen::Vector4f newMin = Eigen::Vector4f::Constant(std::numeric_limits<f32>::max());
+        Eigen::Vector4f newMax = Eigen::Vector4f::Constant(std::numeric_limits<f32>::lowest());
 
-        // Generate and transform all 8 corners
-        glm::vec3 corners[8] = {glm::vec3(aabb.min.x, aabb.min.y, aabb.min.z), glm::vec3(aabb.max.x, aabb.min.y, aabb.min.z),
-                                glm::vec3(aabb.min.x, aabb.max.y, aabb.min.z), glm::vec3(aabb.min.x, aabb.min.y, aabb.max.z),
-                                glm::vec3(aabb.max.x, aabb.max.y, aabb.min.z), glm::vec3(aabb.max.x, aabb.min.y, aabb.max.z),
-                                glm::vec3(aabb.min.x, aabb.max.y, aabb.max.z), glm::vec3(aabb.max.x, aabb.max.y, aabb.max.z)};
+        Eigen::Vector3f corners[8] = {
+            Eigen::Vector3f(aabb.min.x(), aabb.min.y(), aabb.min.z()), Eigen::Vector3f(aabb.max.x(), aabb.min.y(), aabb.min.z()),
+            Eigen::Vector3f(aabb.min.x(), aabb.max.y(), aabb.min.z()), Eigen::Vector3f(aabb.min.x(), aabb.min.y(), aabb.max.z()),
+            Eigen::Vector3f(aabb.max.x(), aabb.max.y(), aabb.min.z()), Eigen::Vector3f(aabb.max.x(), aabb.min.y(), aabb.max.z()),
+            Eigen::Vector3f(aabb.min.x(), aabb.max.y(), aabb.max.z()), Eigen::Vector3f(aabb.max.x(), aabb.max.y(), aabb.max.z())};
 
         for(int i = 0; i < 8; ++i)
         {
-            glm::vec4 transformedCorner = glm::vec4(transform * glm::vec4(corners[i], 1.0f));
-            newMin = glm::min(newMin, transformedCorner);
-            newMax = glm::max(newMax, transformedCorner);
+            Eigen::Vector4f transformedCorner = transform * Eigen::Vector4f(corners[i].x(), corners[i].y(), corners[i].z(), 1.0);
+
+            newMin = newMin.cwiseMin(transformedCorner);
+            newMax = newMax.cwiseMax(transformedCorner);
         }
 
         return BoundingBox{newMin, newMax};
     }
-
-    void Extend(const glm::vec4& point)
+    void Extend(const Eigen::Vector4f& point)
     {
         if(!valid)
         {
@@ -55,8 +50,8 @@ struct alignas(16) BoundingBox : public EntityComponent
         }
         else
         {
-            min = glm::min(min, point);
-            max = glm::max(max, point);
+            min = min.cwiseMin(point);
+            max = max.cwiseMax(point);
         }
     }
 
@@ -69,19 +64,19 @@ struct alignas(16) BoundingBox : public EntityComponent
             *this = other;
             return;
         }
-        min = glm::min(min, other.min);
-        max = glm::max(max, other.max);
+        min = min.cwiseMin(other.min);
+        max = max.cwiseMax(other.max);
     }
 
     void Invalidate()
     {
-        min = glm::vec4(std::numeric_limits<f32>::max());
-        max = glm::vec4(std::numeric_limits<f32>::min());
+        min = Eigen::Vector4f::Constant(std::numeric_limits<f32>::max());
+        max = Eigen::Vector4f::Constant(std::numeric_limits<f32>::min());
         valid = false;
     };
 
     BoundingBox() = default;
-    BoundingBox(glm::vec4 min, glm::vec4 max) : min(min), max(max), valid(true) {}
+    BoundingBox(const Eigen::Vector4f& min, const Eigen::Vector4f& max) : min(min), max(max), valid(true) {}
 };
 
 struct Material
@@ -92,18 +87,18 @@ struct Material
         ALPHAMODE_MASK,
         ALPHAMODE_BLEND
     };
-    AlphaMode alphaMode = ALPHAMODE_OPAQUE;
-    float     alphaCutoff = 1.0f;
-    float     metallicFactor = 1.0f;
-    float     roughnessFactor = 1.0f;
-    glm::vec4 baseColorFactor = glm::vec4(1.0f);
-    glm::vec4 emissiveFactor = glm::vec4(0.0f);
-    n32       baseColorTextureIndex = -1;
-    n32       metallicRoughnessTextureIndex = -1;
-    n32       normalTextureIndex = -1;
-    n32       occlusionTextureIndex = -1;
-    n32       emissiveTextureIndex = -1;
-    bool      doubleSided = false;
+    AlphaMode       alphaMode = ALPHAMODE_OPAQUE;
+    float           alphaCutoff = 1.0f;
+    float           metallicFactor = 1.0f;
+    float           roughnessFactor = 1.0f;
+    Eigen::Vector4f baseColorFactor = Eigen::Vector4f::Ones();
+    Eigen::Vector4f emissiveFactor = Eigen::Vector4f::Zero();
+    n32             baseColorTextureIndex = -1;
+    n32             metallicRoughnessTextureIndex = -1;
+    n32             normalTextureIndex = -1;
+    n32             occlusionTextureIndex = -1;
+    n32             emissiveTextureIndex = -1;
+    bool            doubleSided = false;
     struct TexCoordSets
     {
         uint8_t baseColor = 0;
@@ -115,10 +110,10 @@ struct Material
     } texCoordSets;
     struct Extension
     {
-        n32       specularGlossinessTextureIndex = -1;
-        n32       diffuseTextureIndex = -1;
-        glm::vec4 diffuseFactor = glm::vec4(1.0f);
-        glm::vec3 specularFactor = glm::vec3(0.0f);
+        n32             specularGlossinessTextureIndex = -1;
+        n32             diffuseTextureIndex = -1;
+        Eigen::Vector4f diffuseFactor = Eigen::Vector4f::Ones();
+        Eigen::Vector3f specularFactor = Eigen::Vector3f::Zero();
     } extension;
     struct PbrWorkflows
     {

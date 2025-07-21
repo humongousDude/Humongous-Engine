@@ -32,11 +32,11 @@ ModelInstance::ModelInstance(std::shared_ptr<Model> model, const n32& instanceID
 
     if(m_model->HasMorphs()) { m_morphWeights.resize(m_model->GetMorphTargets().size()); }
 
-    std::vector<glm::mat4> jointMatricies = model->GetJointMatrices();
+    std::vector<Eigen::Matrix4f> jointMatricies = model->GetJointMatrices();
     if(!jointMatricies.empty()) { ResourceManager::AddJointMatriciesToModel(jointMatricies, m_instanceID); }
     else
     {
-        jointMatricies.push_back(glm::mat4(glm::identity<glm::mat4>()));
+        jointMatricies.push_back(Eigen::Matrix4f::Identity());
         ResourceManager::AddJointMatriciesToModel(jointMatricies, m_instanceID);
     }
 
@@ -52,7 +52,7 @@ ModelInstance::ModelInstance(std::shared_ptr<Model> model, const n32& instanceID
     if(!m_jointMatrices.empty()) { ResourceManager::UpdateJointMatrices(m_jointMatrices, m_instanceID); }
     else
     {
-        m_jointMatrices.push_back(glm::mat4(glm::identity<glm::mat4>()));
+        m_jointMatrices.push_back(Eigen::Matrix4f::Identity());
         ResourceManager::UpdateJointMatrices(m_jointMatrices, m_instanceID);
     }
 
@@ -70,6 +70,7 @@ n32 ModelInstance::GetNodeMatrixOffset() const { return ResourceManager::GetMode
 n32 ModelInstance::GetJointMatrixOffset() const { return ResourceManager::Get().m_modelHandleToJointStart[m_instanceID].first; }
 n32 ModelInstance::GetMorphTargetOffset() const { return ResourceManager::Get().m_modelHandleToMorphStart[m_instanceID].first; }
 
+// FIXME: This way of calculating the AABB is very loose, and should be improved.
 void ModelInstance::UpdateAnimatedAABB()
 {
     m_animatedAABB.Invalidate();
@@ -82,29 +83,25 @@ void ModelInstance::UpdateAnimatedAABB()
             if(!primitive || !primitive->boundingBox.valid || !primitive->owner) { continue; }
 
             BoundingBox inflatedLocalAABB = primitive->boundingBox;
-            if(primitive->maxMorphDisplacement > glm::epsilon<f32>())
+            if(primitive->maxMorphDisplacement > std::numeric_limits<f32>::epsilon())
             {
-                inflatedLocalAABB.min -= glm::vec4(primitive->maxMorphDisplacement);
-                inflatedLocalAABB.max += glm::vec4(primitive->maxMorphDisplacement);
+                inflatedLocalAABB.min -= Eigen::Vector4f::Constant(primitive->maxMorphDisplacement);
+                inflatedLocalAABB.max += Eigen::Vector4f::Constant(primitive->maxMorphDisplacement);
             }
 
             BoundingBox worldSpacePrimitiveAABB{};
 
-            Node* ownerNode = primitive->owner;
+            Node*           ownerNode = primitive->owner;
+            Eigen::Matrix4f animatedOwnerGlobalTransform = m_globalNodeMatrices[ownerNode->index];
             if(ownerNode->skin)
             {
                 worldSpacePrimitiveAABB = BoundingBox();
                 worldSpacePrimitiveAABB.valid = true;
                 Skin* skin = m_model->GetSkins()[ownerNode->skinIndex];
-                for(size_t i = 0; i < skin->joints.size(); ++i)
-                {
-                    glm::mat4 skinningMatrix = ownerNode->localToModelMatrix * skin->jointMatrices[i];
 
-                    BoundingBox transformedByJoint = BoundingBox::TransformAABB(inflatedLocalAABB, skinningMatrix);
-                    worldSpacePrimitiveAABB.Extend(transformedByJoint);
-                }
+                worldSpacePrimitiveAABB = BoundingBox::TransformAABB(inflatedLocalAABB, animatedOwnerGlobalTransform);
             }
-            else { worldSpacePrimitiveAABB = BoundingBox::TransformAABB(inflatedLocalAABB, ownerNode->localToModelMatrix); }
+            else { worldSpacePrimitiveAABB = BoundingBox::TransformAABB(inflatedLocalAABB, animatedOwnerGlobalTransform); }
 
             m_animatedAABB.Extend(worldSpacePrimitiveAABB);
         }
@@ -117,7 +114,6 @@ void ModelInstance::UpdateAnimation()
 
     std::fill(m_morphWeights.begin(), m_morphWeights.end(), 0.0f);
 
-    // Also reset the node transforms to their default pose from the blueprint
     for(size_t i = 0; i < m_model->GetNodes().size(); ++i)
     {
         m_nodeTranslations[i] = m_model->GetNodes()[i]->translation;
@@ -131,7 +127,6 @@ void ModelInstance::UpdateAnimation()
     const auto& anim = m_model->GetAnimations()[m_currentAnimationIndex];
     if(m_animationTime > anim.end) { m_animationTime = anim.start; }
 
-    // Apply animation to our state vectors
     for(const auto& channel: anim.channels)
     {
         auto& sampler = anim.samplers[channel.samplerIndex];
@@ -179,13 +174,18 @@ void ModelInstance::UpdateTransforms()
 {
     for(size_t i = 0; i < m_localNodeMatrices.size(); ++i)
     {
-        m_localNodeMatrices[i] = glm::translate(glm::mat4(1.0f), m_nodeTranslations[i]) * glm::mat4_cast(m_nodeRotations[i]) *
-                                 glm::scale(glm::mat4(1.0f), m_nodeScales[i]);
+        Eigen::Affine3f localTransform = Eigen::Affine3f::Identity();
+        localTransform.translate(m_nodeTranslations[i]);
+        localTransform.rotate(m_nodeRotations[i]);
+        localTransform.scale(m_nodeScales[i]);
+
+        m_localNodeMatrices[i] = localTransform.matrix();
     }
 
     for(const auto* nodeBlueprint: m_model->GetLinearNodes())
     {
-        glm::mat4 parentGlobalTransform = glm::mat4(1.0f);
+        Eigen::Matrix4f parentGlobalTransform = Eigen::Matrix4f::Identity();
+
         if(nodeBlueprint->parent) { parentGlobalTransform = m_globalNodeMatrices[nodeBlueprint->parent->index]; }
 
         m_globalNodeMatrices[nodeBlueprint->index] = parentGlobalTransform * m_localNodeMatrices[nodeBlueprint->index];
@@ -202,8 +202,8 @@ void ModelInstance::UpdateSkins()
 
         for(size_t i = 0; i < skin->joints.size(); ++i)
         {
-            const Node*      jointNodeBlueprint = skin->joints[i];
-            const glm::mat4& globalJointTransform = m_globalNodeMatrices[jointNodeBlueprint->index];
+            const Node*            jointNodeBlueprint = skin->joints[i];
+            const Eigen::Matrix4f& globalJointTransform = m_globalNodeMatrices[jointNodeBlueprint->index];
             m_jointMatrices[i] = globalJointTransform * skin->inverseBindMatrices[i];
         }
     }
@@ -223,7 +223,7 @@ void ModelInstance::Update()
     if(!m_jointMatrices.empty()) { ResourceManager::UpdateJointMatrices(m_jointMatrices, m_instanceID); }
     else
     {
-        m_jointMatrices.push_back(glm::mat4(glm::identity<glm::mat4>()));
+        m_jointMatrices.push_back(Eigen::Matrix4f::Identity());
         ResourceManager::UpdateJointMatrices(m_jointMatrices, m_instanceID);
     }
 

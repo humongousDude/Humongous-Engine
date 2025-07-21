@@ -4,6 +4,7 @@
 #include "audio_engine.hpp"
 #include "camera.hpp"
 #include "chrono"
+#include "extra.hpp"
 #include "globals.hpp"
 #include "imgui_impl_sdl3.h"
 #include "keyboard_handler.hpp"
@@ -98,7 +99,6 @@ void VulkanApp::LoadGameObjects()
     auto world = SceneHandler::GetWorld();
 
     auto house = world->CreateEntity();
-    world->AddComponent<BoundingBox>(house);
     world->AddComponent<ModelComponent>(house);
     auto comp = world->GetComponent<ModelComponent>(house);
     comp->instance = ResourceManager::RequestModel("buster_drone");
@@ -110,62 +110,62 @@ void VulkanApp::LoadGameObjects()
     transform->SetTranslation(0, 0, 10);
     world->GetComponent<NameComponent>(house)->name = name + std::to_string(house);
 
-    // auto helmet = world->CreateEntity();
-    // world->AddComponent<BoundingBox>(helmet);
-    // world->AddComponent<ModelComponent>(helmet);
-    // comp = world->GetComponent<ModelComponent>(helmet);
-    // comp->instance = ResourceManager::RequestModel("buster_drone");
-    // world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-    // name = comp->instance->GetModel()->GetName();
-    // world->GetComponent<NameComponent>(helmet)->name = name + std::to_string(helmet);
-    //
-    // transform = world->GetComponent<TransformComponent>(helmet);
-    // transform->SetTranslation(-10, 10, -20);
-    // transform->SetScale(1, 1, 1);
-    //
-    // auto drone = world->CreateEntity();
-    // world->AddComponent<BoundingBox>(drone);
-    // world->AddComponent<ModelComponent>(drone);
-    // comp = world->GetComponent<ModelComponent>(drone);
-    // comp->instance = ResourceManager::RequestModel("buster_drone");
-    // world->AddComponent<AudioSourceComponent>(drone, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-    // name = comp->instance->GetModel()->GetName();
-    // world->GetComponent<NameComponent>(drone)->name = name + std::to_string(helmet);
-    //
-    // transform = world->GetComponent<TransformComponent>(drone);
-    // transform->SetTranslation(10, 10, -20);
-    // transform->SetScale(1, 1, 1);
-    //
-    // f32 start = 0;
-    // f32 end = 50;
-    // f32 step = 2.5;
-    // f32 border = 15;
-    // f32 x = start, y = start, z = start;
-    // for(n32 i = 0; i < end; i++)
-    // {
-    //     x += step;
-    //
-    //     if(x > border)
-    //     {
-    //         x = start;
-    //         z += step;
-    //     }
-    //     if(z > border)
-    //     {
-    //         z = start;
-    //         y += step;
-    //     }
-    //
-    //     auto model = world->CreateEntity();
-    //     world->AddComponent<ModelComponent>(model);
-    //     auto comp = world->GetComponent<ModelComponent>(model);
-    //     comp->instance = ResourceManager::RequestModel("buster_drone");
-    //
-    //     auto transform = world->GetComponent<TransformComponent>(model);
-    //     transform->SetTranslation(x, y, z);
-    //     std::string name = comp->instance->GetModel()->GetName();
-    //     world->GetComponent<NameComponent>(model)->name = name + std::to_string(model);
-    // }
+    auto helmet = world->CreateEntity();
+    world->AddComponent<BoundingBox>(helmet);
+    world->AddComponent<ModelComponent>(helmet);
+    comp = world->GetComponent<ModelComponent>(helmet);
+    comp->instance = ResourceManager::RequestModel("buster_drone");
+    world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    name = comp->instance->GetModel()->GetName();
+    world->GetComponent<NameComponent>(helmet)->name = name + std::to_string(helmet);
+
+    transform = world->GetComponent<TransformComponent>(helmet);
+    transform->SetTranslation(-10, 10, -20);
+    transform->SetScale(1, 1, 1);
+
+    auto drone = world->CreateEntity();
+    world->AddComponent<BoundingBox>(drone);
+    world->AddComponent<ModelComponent>(drone);
+    comp = world->GetComponent<ModelComponent>(drone);
+    comp->instance = ResourceManager::RequestModel("buster_drone");
+    world->AddComponent<AudioSourceComponent>(drone, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    name = comp->instance->GetModel()->GetName();
+    world->GetComponent<NameComponent>(drone)->name = name + std::to_string(helmet);
+
+    transform = world->GetComponent<TransformComponent>(drone);
+    transform->SetTranslation(10, 10, -20);
+    transform->SetScale(1, 1, 1);
+
+    f32 start = 0;
+    f32 end = 50;
+    f32 step = 2.5;
+    f32 border = 15;
+    f32 x = start, y = start, z = start;
+    for(n32 i = 0; i < end; i++)
+    {
+        x += step;
+
+        if(x > border)
+        {
+            x = start;
+            z += step;
+        }
+        if(z > border)
+        {
+            z = start;
+            y += step;
+        }
+
+        auto model = world->CreateEntity();
+        world->AddComponent<ModelComponent>(model);
+        auto comp = world->GetComponent<ModelComponent>(model);
+        comp->instance = ResourceManager::RequestModel("buster_drone");
+
+        auto transform = world->GetComponent<TransformComponent>(model);
+        transform->SetTranslation(x, y, z);
+        std::string name = comp->instance->GetModel()->GetName();
+        world->GetComponent<NameComponent>(model)->name = name + std::to_string(model);
+    }
 
     HGINFO("Loaded game objects");
 }
@@ -231,8 +231,6 @@ void VulkanApp::HandleInput(const float frameTime, SDL_Event* event)
 
 void VulkanApp::Run()
 {
-    // m_cam->UpdateViewMatrix();
-
     auto currentTime = std::chrono::high_resolution_clock::now();
 
     auto world = SceneHandler::GetWorld();
@@ -251,15 +249,15 @@ void VulkanApp::Run()
             {
                 ImGui::Text("ID: %i", entityId);
 
-                float position[3] = {transform->GetTranslation().x, transform->GetTranslation().y, transform->GetTranslation().z};
+                float position[3] = {transform->GetTranslation().x(), transform->GetTranslation().y(), transform->GetTranslation().z()};
                 ImGui::DragFloat3("Position", position);
                 transform->SetTranslation(position[0], position[1], position[2]);
 
-                float scale[3] = {transform->GetScale().x, transform->GetScale().y, transform->GetScale().z};
+                float scale[3] = {transform->GetScale().x(), transform->GetScale().y(), transform->GetScale().z()};
                 ImGui::DragFloat3("scale", scale);
                 transform->SetScale(scale[0], scale[1], scale[2]);
 
-                float rotate[3] = {transform->GetRotation().x, transform->GetRotation().y, transform->GetRotation().z};
+                float rotate[3] = {transform->GetRotation().x(), transform->GetRotation().y(), transform->GetRotation().z()};
                 ImGui::DragFloat3("rotation", rotate);
                 transform->SetRotation(rotate[0], rotate[1], rotate[2]);
 
@@ -269,18 +267,18 @@ void VulkanApp::Run()
                 {
                     if(ImGui::TreeNode("Bounding box corners"))
                     {
-                        std::array<glm::vec4, 8> corners;
-                        corners[0] = glm::vec4(bb->min.x, bb->min.y, bb->min.z, 1.0f);
-                        corners[1] = glm::vec4(bb->max.x, bb->min.y, bb->min.z, 1.0f);
-                        corners[2] = glm::vec4(bb->min.x, bb->max.y, bb->min.z, 1.0f);
-                        corners[3] = glm::vec4(bb->max.x, bb->max.y, bb->min.z, 1.0f);
-                        corners[4] = glm::vec4(bb->min.x, bb->min.y, bb->max.z, 1.0f);
-                        corners[5] = glm::vec4(bb->max.x, bb->min.y, bb->max.z, 1.0f);
-                        corners[6] = glm::vec4(bb->min.x, bb->max.y, bb->max.z, 1.0f);
-                        corners[7] = glm::vec4(bb->max.x, bb->max.y, bb->max.z, 1.0f);
+                        std::array<Eigen::Vector4f, 8> corners;
+                        corners[0] = Eigen::Vector4f(bb->min.x(), bb->min.y(), bb->min.z(), 1.0f);
+                        corners[1] = Eigen::Vector4f(bb->max.x(), bb->min.y(), bb->min.z(), 1.0f);
+                        corners[2] = Eigen::Vector4f(bb->min.x(), bb->max.y(), bb->min.z(), 1.0f);
+                        corners[3] = Eigen::Vector4f(bb->max.x(), bb->max.y(), bb->min.z(), 1.0f);
+                        corners[4] = Eigen::Vector4f(bb->min.x(), bb->min.y(), bb->max.z(), 1.0f);
+                        corners[5] = Eigen::Vector4f(bb->max.x(), bb->min.y(), bb->max.z(), 1.0f);
+                        corners[6] = Eigen::Vector4f(bb->min.x(), bb->max.y(), bb->max.z(), 1.0f);
+                        corners[7] = Eigen::Vector4f(bb->max.x(), bb->max.y(), bb->max.z(), 1.0f);
                         for(n32 i = 0; i < corners.size(); ++i)
                         {
-                            ImGui::Text("Corner %i: %f, %f, %f", i, corners[i].x, corners[i].y, corners[i].z);
+                            ImGui::Text("Corner %i: %f, %f, %f", i, corners[i].x(), corners[i].y(), corners[i].z());
                         }
 
                         ImGui::TreePop();
@@ -370,7 +368,7 @@ void VulkanApp::Run()
 
         const float aspect = m_renderer->GetAspectRatio();
 
-        m_cam->SetPerspectiveProjection(glm::radians(80.0f), aspect, 0.1f, 1000.0f);
+        m_cam->SetPerspectiveProjection(Utils::DegreesToRadians(80.0f), aspect, 0.1f, 1000.0f);
 
         if(!minimized && focused)
         {

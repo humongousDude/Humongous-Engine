@@ -1144,8 +1144,8 @@ void Renderer::EndDepthPrePass(vk::CommandBuffer cmd) { vkCmdEndRendering(cmd); 
 
 struct alignas(16) RendererData
 {
-    glm::vec2 screenSize;
-    float     padding[2];
+    Eigen::Vector2f screenSize;
+    float           padding[2];
 };
 
 struct OcclusionObjectData

@@ -8,13 +8,7 @@
 #include "logical_device.hpp"
 #include "material.hpp"
 #include "texture.hpp"
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/string_cast.hpp>
+#include <Eigen/Dense>
 
 // ERROR is already defined in wingdi.h and collides with a define in the Draco headers
 #if defined(_WIN32) && defined(ERROR) && defined(TINYGLTF_ENABLE_DRACO)
@@ -42,10 +36,10 @@ struct Primitive
     BoundingBox boundingBox{};
     n32         id{0};
 
-    std::vector<std::vector<glm::vec3>> morphTargetPositions; // Offsets for positions
-    std::vector<std::vector<glm::vec3>> morphTargetNormals;
-    std::vector<std::vector<glm::vec4>> morphTargetTangents;
-    n32                                 globalWeightOffset{0};
+    std::vector<std::vector<Eigen::Vector3f>> morphTargetPositions; // Offsets for positions
+    std::vector<std::vector<Eigen::Vector3f>> morphTargetNormals;
+    std::vector<std::vector<Eigen::Vector4f>> morphTargetTangents;
+    n32                                       globalWeightOffset{0};
 
     Material& material;
     bool      hasIndices;
@@ -58,7 +52,7 @@ struct Primitive
 
 struct Mesh
 {
-    Mesh(LogicalDevice* device, glm::mat4 matrix);
+    Mesh(LogicalDevice* device, Eigen::Matrix4f matrix);
     ~Mesh();
 
     n32                     baseVertex = 0;
@@ -93,18 +87,18 @@ public:
             STEP,
             CUBICSPLINE
         };
-        InterpolationType      interpolation;
-        std::vector<float>     inputs;
-        std::vector<glm::vec4> outputsVec4;
-        std::vector<float>     outputs;
-        glm::vec4              CubicSplineInterpolation(size_t index, f32 time, n32 stride) const;
-        void                   ApplyTranslation(size_t index, f32 time, std::vector<glm::vec3>& translations, n32 targetNodeIndex) const;
-        void                   ApplyScale(size_t index, f32 time, std::vector<glm::vec3>& scales, n32 targetNodeIndex) const;
-        void                   ApplyRotation(size_t index, f32 time, std::vector<glm::quat>& rotations, n32 targetNodeIndex) const;
+        InterpolationType            interpolation;
+        std::vector<float>           inputs;
+        std::vector<Eigen::Vector4f> outputsVec4;
+        std::vector<float>           outputs;
+        Eigen::Vector4f              CubicSplineInterpolation(size_t index, f32 time, n32 stride) const;
+        void ApplyTranslation(size_t index, f32 time, std::vector<Eigen::Vector3f>& translations, n32 targetNodeIndex) const;
+        void ApplyScale(size_t index, f32 time, std::vector<Eigen::Vector3f>& scales, n32 targetNodeIndex) const;
+        void ApplyRotation(size_t index, f32 time, std::vector<Eigen::Quaternionf>& rotations, n32 targetNodeIndex) const;
 
         void ApplyMorph(size_t index, f32 time,
-                        const Primitive&    targetPrimitive,        // IN: The blueprint for the primitive being morphed
-                        std::vector<float>& instanceWeights) const; // OUT: The instance's state vector to be modified
+                        const Primitive&  targetPrimitive,        // IN: The blueprint for the primitive being morphed
+                        std::vector<f32>& instanceWeights) const; // OUT: The instance's state vector to be modified
     };
 
     struct Animation
@@ -112,8 +106,8 @@ public:
         std::string                   name;
         std::vector<AnimationSampler> samplers;
         std::vector<AnimationChannel> channels;
-        float                         start = std::numeric_limits<float>::max();
-        float                         end = std::numeric_limits<float>::min();
+        float                         start = std::numeric_limits<f32>::max();
+        float                         end = std::numeric_limits<f32>::min();
     };
 
     struct InstanceCreationInfo
@@ -124,14 +118,14 @@ public:
         b32                                  hasAnimations{false};
         std::vector<Animation>               animations;
         BoundingBox                          animatedAABB{};
-        std::vector<glm::mat4>               nodeMatrices;
-        std::vector<glm::mat4>               jointMatrices;
+        std::vector<Eigen::Matrix4f>         nodeMatrices;
+        std::vector<Eigen::Matrix4f>         jointMatrices;
         std::vector<f32>                     morphTargets;
     };
 
     struct alignas(16) PushConstantData
     {
-        glm::mat4         model{1.f};
+        Eigen::Matrix4f   model = Eigen::Matrix4f::Identity();
         vk::DeviceAddress vertexAddress;
         n32               modelID;
     };
@@ -144,10 +138,10 @@ public:
 
     struct alignas(16) ShaderMaterial
     {
-        glm::vec4 baseColorFactor; // 16 bytes
-        glm::vec4 emissiveFactor;  // 16 bytes
-        glm::vec4 diffuseFactor;   // 16 bytes
-        glm::vec4 specularFactor;  // 16 bytes
+        Eigen::Vector4f baseColorFactor; // 16 bytes
+        Eigen::Vector4f emissiveFactor;  // 16 bytes
+        Eigen::Vector4f diffuseFactor;   // 16 bytes
+        Eigen::Vector4f specularFactor;  // 16 bytes
 
         float workflow;                       // 4
         int   baseColorTextureIndex;          // 4
@@ -172,17 +166,17 @@ public:
 
     struct alignas(16) Vertex
     {
-        glm::vec4  position{0};
-        glm::vec4  normal{0};
-        glm::vec4  tangent{0};
-        glm::vec4  bitTangent{0};
-        glm::vec4  uv0{0};
-        glm::vec4  uv1{0};
-        glm::vec4  color{0};
-        glm::ivec4 joint0{0};
-        glm::vec4  weight0{0};
-        glm::vec4  targetPos0{0};
-        glm::vec4  targetPos1{0};
+        Eigen::Vector4f position=Eigen::Vector4f::Zero();
+        Eigen::Vector4f normal=Eigen::Vector4f::Zero();
+        Eigen::Vector4f tangent=Eigen::Vector4f::Zero();
+        Eigen::Vector4f bitTangent=Eigen::Vector4f::Zero();
+        Eigen::Vector4f uv0=Eigen::Vector4f::Zero();
+        Eigen::Vector4f uv1=Eigen::Vector4f::Zero();
+        Eigen::Vector4f color=Eigen::Vector4f::Zero();
+        Eigen::Vector4i joint0=Eigen::Vector4i::Zero();
+        Eigen::Vector4f weight0=Eigen::Vector4f::Zero();
+        Eigen::Vector4f targetPos0=Eigen::Vector4f::Zero();
+        Eigen::Vector4f targetPos1=Eigen::Vector4f::Zero();
 
         bool operator==(const Vertex& other) const
         {
@@ -197,8 +191,8 @@ public:
 
     struct Dimensions
     {
-        glm::vec3 min = glm::vec3(FLT_MAX);
-        glm::vec3 max = glm::vec3(-FLT_MAX);
+        Eigen::Vector3f min = Eigen::Vector3f::Constant(FLT_MAX);
+        Eigen::Vector3f max = Eigen::Vector3f::Constant(-FLT_MAX);
     };
 
     InstanceCreationInfo GetAnimationData() const
@@ -206,8 +200,8 @@ public:
         return {m_animNameToIndex, m_animIndexToName, m_hasMorphTargets, HasAnimations(), m_animations,
                 m_animatedAABB,    m_nodeMatricies,   m_jointMatricies,  m_morphTargets};
     }
-    std::vector<glm::mat4> GetJointMatrices() const { return m_jointMatricies; }
-    std::vector<f32>       GetMorphTargets() const { return m_morphTargets; }
+    std::vector<Eigen::Matrix4f> GetJointMatrices() const { return m_jointMatricies; }
+    std::vector<f32>             GetMorphTargets() const { return m_morphTargets; }
 
     BoundingBox GetLocalBoundingBox() const { return m_animationTime > 0.0f ? m_animatedAABB : m_restAABB; }
 
@@ -258,8 +252,8 @@ private:
     std::vector<Skin*>      m_skins;
     std::vector<Primitive*> m_primitives;
 
-    std::vector<glm::mat4> m_jointMatricies;
-    std::vector<f32>       m_morphTargets;
+    std::vector<Eigen::Matrix4f> m_jointMatricies;
+    std::vector<f32>             m_morphTargets;
 
     BoundingBox m_restAABB{};
     BoundingBox m_animatedAABB{};
@@ -275,7 +269,7 @@ private:
         PBR_WORKFLOW_SPECULAR_GLOSSINESS = 1
     };
 
-    std::vector<glm::mat4> m_nodeMatricies{};
+    std::vector<Eigen::Matrix4f> m_nodeMatricies{};
 
     struct LoaderInfo
     {
@@ -294,7 +288,7 @@ private:
     void UpdateMaterialBatches(Node* node);
 
     void LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, float globalscale,
-                  glm::mat4 parentTransform);
+                  Eigen::Matrix4f parentTransform);
     void GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& model, size_t& vertexCount, size_t& indexCount);
     void LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* m_device, vk::Queue transferQueue);
 

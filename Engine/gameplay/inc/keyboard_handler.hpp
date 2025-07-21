@@ -29,16 +29,16 @@ public:
 
     struct InputData
     {
-        float     frameTime;
-        Movements movementType;
-        float&    mouseDeltaX;
-        float&    mouseDeltaY;
-        Camera&   camera;
+        const f32       frameTime;
+        const Movements movementType;
+        const f32&      mouseDeltaX;
+        const f32&      mouseDeltaY;
+        Camera&         camera;
     };
 
     void ProcessInput(const InputData& inputData);
 
-    float lookSpeed = 0.5f;
-    float moveSpeed = 25.0f;
+    f32 lookSpeed = 0.5f;
+    f32 moveSpeed = 25.0f;
 };
 } // namespace Humongous

@@ -210,11 +210,11 @@ struct alignas(16) DrawData
 
 struct alignas(16) InstanceData
 {
-    glm::mat4 modelMatrix;
-    n32       modelID;
-    n32       globalNodeIndex;
-    n32       jointMatrixStart;
-    n32       morphTargetStart;
+    Eigen::Matrix4f modelMatrix;
+    n32             modelID;
+    n32             globalNodeIndex;
+    n32             jointMatrixStart;
+    n32             morphTargetStart;
 };
 
 void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depthOnly)
@@ -370,11 +370,8 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
                                   vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw indiret commmand buffer");
 
         stagingBuffer.Map();
-
         stagingBuffer.WriteToBuffer((void*)commands.data(), commands.size() * sizeof(vk::DrawIndexedIndirectCommand));
-
         stagingBuffer.Flush();
-
         stagingBuffer.UnMap();
 
         Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *indirectBufferToUse, indirectCommandsSize);
@@ -395,11 +392,8 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
                                   vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw data buffer");
 
         stagingBuffer.Map();
-
         stagingBuffer.WriteToBuffer((void*)drawDataVec.data(), drawDataVec.size() * sizeof(DrawData));
-
         stagingBuffer.Flush();
-
         stagingBuffer.UnMap();
 
         Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *drawDataBufferToUse, drawDataVec.size() * sizeof(DrawData));
@@ -420,11 +414,8 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
                                   vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "instance data buffer");
 
         stagingBuffer.Map();
-
         stagingBuffer.WriteToBuffer((void*)instanceDataVec.data(), instanceDataVec.size() * sizeof(InstanceData));
-
         stagingBuffer.Flush();
-
         stagingBuffer.UnMap();
 
         Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *instanceBufferToUse, instanceDataSize);

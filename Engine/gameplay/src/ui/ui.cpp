@@ -59,7 +59,7 @@ void UI::Internal_Init(const class Instance* instance, LogicalDevice* logicalDev
     initInfo.MinAllocationSize = 1024 * 1024;
     ImGui_ImplVulkan_Init(&initInfo);
 
-    m_hasInitialized = true; 
+    m_hasInitialized = true;
     HGINFO("UI Initialized");
 }
 
@@ -119,13 +119,13 @@ void UI::Internal_DrawWidgetList()
     for(auto& widget: m_widgets) { widget->Draw(); }
 }
 
-void UI::Internal_Debug_DrawMetrics(const s16& draws, const glm::vec3& camPosition)
+void UI::Internal_Debug_DrawMetrics(const s16& draws, const Eigen::Vector3f& camPosition)
 {
     static UiWidget debugWidget{"Debug data", true, {1920 - 400, 1080 - 500}, {400, 500}, 0};
 
     debugWidget.Add([&]() {
         ImGui::Text("Draws: %i", draws);
-        ImGui::Text("Camera Position: %f, %f, %f", camPosition.x, camPosition.y, camPosition.z);
+        ImGui::Text("Camera Position: %f, %f, %f", camPosition.x(), camPosition.y(), camPosition.z());
     });
 
     debugWidget.Draw();

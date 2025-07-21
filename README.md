@@ -6,7 +6,7 @@ Project is compiled with the latest G++ compiler, and I don't plan on targeting 
 
 ## Libraries:
 * [SDL3](https://github.com/libsdl-org/SDL)
-* [GLM](https://github.com/g-truc/glm)
+* [Eigen](https://gitlab.com/libeigen/eigen/)
 * [VMA](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 * [ImGui](https://github.com/ocornut/imgui/)
 * [TinyGLTF](https://github.com/syoyo/tinygltf)

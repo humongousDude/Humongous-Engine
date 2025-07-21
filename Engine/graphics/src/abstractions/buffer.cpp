@@ -171,7 +171,16 @@ void Buffer::UnMap()
  */
 void Buffer::WriteToBuffer(void* data, vk::DeviceSize size, vk::DeviceSize offset)
 {
-    if(!m_allocationInfo.pMappedData) { HGERROR("Cannot copy to unmapped buffer"); }
+    if(!m_allocationInfo.pMappedData)
+    {
+        HGERROR("Cannot copy to unmapped buffer");
+        return;
+    }
+    if(!data)
+    {
+        HGERROR("Cannot write invalid data to buffer");
+        return;
+    }
 
     if(size == VK_WHOLE_SIZE) { size = m_bufferSize; }
     if(offset + size > m_bufferSize) { HGERROR("Write exceeds buffer bounds"); }

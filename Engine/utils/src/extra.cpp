@@ -29,54 +29,45 @@ std::vector<VisibleEntityInfo> SortAndCullEntities(Camera& camera, World& world)
     for(const auto& entityId: world.GetComponentStorage<ModelComponent>().GetDense())
     {
         BoundingBox* bb = world.GetComponent<BoundingBox>(entityId);
-        if(!bb || !bb->valid) // Bounding box must exist and be valid
-        {
-            continue;
-        }
+        if(!bb || !bb->valid) { continue; }
 
         ModelComponent* model = world.GetComponent<ModelComponent>(entityId);
         if(!model) { continue; }
 
         TransformComponent* transform = world.GetComponent<TransformComponent>(entityId);
+        if(!transform) { continue; }
 
-        if(!camera.IsAABBInsideFrustum(bb->min, bb->max)) { continue; }
-        if(glm::distance(transform->GetTranslation(), camera.GetPosition()) > static_cast<n32>(Globals::Limits::MaximumRenderDistance))
-        {
-            continue;
-        }
+        if(!camera.IsAABBInsideFrustum(bb->min.head<3>(), bb->max.head<3>())) { continue; }
 
-        float distance = glm::distance(camera.GetPosition(), transform->GetTranslation());
+        float distance_sq = (transform->GetTranslation() - camera.GetPosition()).squaredNorm();
+        float distance = std::sqrt(distance_sq);
+
+        if(distance > static_cast<f32>(Globals::Limits::MaximumRenderDistance)) { continue; }
 
         visibleEntities.push_back({entityId, distance});
     }
 
-    // 4. Sort visible entities (closest to farthest, as in your original code)
     std::ranges::sort(visibleEntities,
                       [](const VisibleEntityInfo& a, const VisibleEntityInfo& b) { return (a.distanceToCamera < b.distanceToCamera); });
 
     return visibleEntities;
 }
 
-void DecomposeMatrix(const glm::mat4& matrix, glm::vec3& translation, glm::quat& rotation, glm::vec3& scale)
+void DecomposeMatrix(const Eigen::Matrix4f& matrix, Eigen::Vector3f& translation, Eigen::Quaternionf& rotation, Eigen::Vector3f& scale)
 {
-    // Translation is the last column
-    translation = glm::vec3(matrix[3]);
+    translation = matrix.col(3).head<3>();
 
-    // Extract scale and rotation from the 3x3 upper-left submatrix
-    glm::mat3 rotationScaleMatrix(matrix);
+    Eigen::Matrix3f rotationScaleMatrix = matrix.block<3, 3>(0, 0);
 
-    // Extract scale factors
-    scale.x = glm::length(glm::vec3(rotationScaleMatrix[0]));
-    scale.y = glm::length(glm::vec3(rotationScaleMatrix[1]));
-    scale.z = glm::length(glm::vec3(rotationScaleMatrix[2]));
+    scale.x() = rotationScaleMatrix.col(0).norm();
+    scale.y() = rotationScaleMatrix.col(1).norm();
+    scale.z() = rotationScaleMatrix.col(2).norm();
 
-    // Normalize columns to get pure rotation matrix
-    if(scale.x != 0.0f) { rotationScaleMatrix[0] /= scale.x; }
-    if(scale.y != 0.0f) { rotationScaleMatrix[1] /= scale.y; }
-    if(scale.z != 0.0f) { rotationScaleMatrix[2] /= scale.z; }
+    if(scale.x() != 0.0f) { rotationScaleMatrix.col(0) /= scale.x(); }
+    if(scale.y() != 0.0f) { rotationScaleMatrix.col(1) /= scale.y(); }
+    if(scale.z() != 0.0f) { rotationScaleMatrix.col(2) /= scale.z(); }
 
-    // Convert rotation matrix to quaternion
-    rotation = glm::quat_cast(rotationScaleMatrix);
+    rotation = Eigen::Quaternionf(rotationScaleMatrix);
 }
 
 } // namespace Humongous::Utils

@@ -49,4 +49,5 @@ void main(
 
     float4 finalPosition = mul(ubo.projectionView, mul(modelTransform, localPos));
     outPosition = finalPosition;
+  
 }

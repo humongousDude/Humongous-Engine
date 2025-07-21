@@ -32,7 +32,7 @@ public:
     static void BeginUIFrame(vk::CommandBuffer cmd) { Get().Internal_BeginUIFrame(cmd); }
     static void EndUIFrame(vk::CommandBuffer cmd) { Get().Internal_EndUIFrame(cmd); }
 
-    static void Debug_DrawMetrics(const s16& draws, const glm::vec3& camPosition) { Get().Internal_Debug_DrawMetrics(draws, camPosition); }
+    static void Debug_DrawMetrics(const s16& draws, const Eigen::Vector3f& camPosition) { Get().Internal_Debug_DrawMetrics(draws, camPosition); }
     static void Debug_DrawObjectData(std::unordered_map<n32, class Entity>& objects) { Get().Internal_Debug_DrawObjectData(objects); }
 
     static void                   DrawWidgetList(const vk::CommandBuffer cmd) { Get().Internal_DrawWidgetList(); }
@@ -67,6 +67,6 @@ private:
     std::vector<UiWidget*> Internal_GetWidgetList();
 
     void Internal_Debug_DrawObjectData(std::unordered_map<n32, class Entity>& objects);
-    void Internal_Debug_DrawMetrics(const s16& draws, const glm::vec3& camPosition);
+    void Internal_Debug_DrawMetrics(const s16& draws, const Eigen::Vector3f& camPosition);
 };
 }; // namespace Humongous

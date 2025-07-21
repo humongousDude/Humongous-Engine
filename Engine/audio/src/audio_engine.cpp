@@ -1,6 +1,5 @@
 #include "audio_engine.hpp"
 #include "entity_component_system/components/transform_component.hpp"
-#include "glm/vec3.hpp"
 #include "logger.hpp"
 #include "scene_handler.hpp"
 
@@ -69,12 +68,13 @@ void AudioEngine::Internal_Shutdown()
     }
 }
 
-void AudioEngine::Internal_UpdateListener(const glm::vec3& position, const glm::vec3& velocity, const glm::vec3& forward, const glm::vec3& up)
+void AudioEngine::Internal_UpdateListener(const Eigen::Vector3f& position, const Eigen::Vector3f& velocity, const Eigen::Vector3f& forward,
+                                          const Eigen::Vector3f& up)
 {
-    AL_CHECK(alListener3f(AL_POSITION, position.x, position.y, position.z));
-    AL_CHECK(alListener3f(AL_VELOCITY, velocity.x, velocity.y, velocity.z));
+    AL_CHECK(alListener3f(AL_POSITION, position.x(), position.y(), position.z()));
+    AL_CHECK(alListener3f(AL_VELOCITY, velocity.x(), velocity.y(), velocity.z()));
 
-    float orient[6] = {forward.x, forward.y, forward.z, up.x, up.y, up.z};
+    float orient[6] = {forward.x(), forward.y(), forward.z(), up.x(), up.y(), up.z()};
     AL_CHECK(alListenerfv(AL_ORIENTATION, orient));
 }
 
@@ -136,7 +136,7 @@ void AudioEngine::Internal_UpdateSources()
 
         if(audio->GetSourceID() != AudioSourceComponent::INVALID_BUFFER)
         {
-            AL_CHECK(alSource3f(audio->GetSourceID(), AL_POSITION, translation.x, translation.y, translation.z));
+            AL_CHECK(alSource3f(audio->GetSourceID(), AL_POSITION, translation.x(), translation.y(), translation.z()));
             AL_CHECK(alSource3f(audio->GetSourceID(), AL_VELOCITY, 1.1f, 0.5f, 8.0f));
         }
     }

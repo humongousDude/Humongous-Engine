@@ -20,29 +20,29 @@ struct Node
     Node*              parent;
     n32                index;
     std::vector<Node*> children;
-    glm::mat4          localMatrix{0};
-    glm::mat4          localToModelMatrix{0};
+    Eigen::Matrix4f    localMatrix = Eigen::Matrix4f::Zero();
+    Eigen::Matrix4f    localToModelMatrix = Eigen::Matrix4f::Zero();
     std::string        name;
     Mesh*              mesh;
-    glm::vec3          translation{};
-    glm::vec3          scale{1.0f};
-    glm::quat          rotation{};
+    Eigen::Vector3f    translation{};
+    Eigen::Vector3f    scale = Eigen::Vector3f::Ones();
+    Eigen::Quaternionf rotation{};
     Skin*              skin;
     s32                skinIndex{-1};
     b32                isMatrixSpecified{false};
 
     void CalculateLocalMatrix();
-    void UpdateLocalToModelMatrix(const glm::mat4& parentWorldMatrix);
+    void UpdateLocalToModelMatrix(const Eigen::Matrix4f& parentWorldMatrix);
     void UpdateLocalToModelMatrix();
 };
 
 struct Skin
 {
-    std::string            name;
-    Node*                  skeletonRoot = nullptr;
-    std::vector<glm::mat4> jointMatrices;
-    std::vector<glm::mat4> inverseBindMatrices;
-    std::vector<Node*>     joints;
+    std::string                  name;
+    Node*                        skeletonRoot = nullptr;
+    std::vector<Eigen::Matrix4f> jointMatrices;
+    std::vector<Eigen::Matrix4f> inverseBindMatrices;
+    std::vector<Node*>           joints;
 
     void UpdateJointMatrices()
     {

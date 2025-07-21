@@ -1,15 +1,12 @@
 #pragma once
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_ENABLE_EXPERIMENTAL
 
 #include "abstractions/buffer.hpp"
 #include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool.hpp"
 
+#include <Eigen/Dense>
+
 #include <array>
-#include <glm/glm.hpp>
-#include <glm/gtx/norm.hpp> // For glm::length2
 #include <memory>
 
 namespace Humongous
@@ -17,28 +14,27 @@ namespace Humongous
 
 struct alignas(16) ProjectionUBO
 {
-    glm::mat4 projection;
-    glm::mat4 invProjection;
-    glm::mat4 view;
-    glm::mat4 invView;
-    glm::mat4 projectionView;
-    glm::vec3 cameraPos;
+    Eigen::Matrix4f projection;
+    Eigen::Matrix4f invProjection;
+    Eigen::Matrix4f view;
+    Eigen::Matrix4f invView;
+    Eigen::Matrix4f projectionView;
+    Eigen::Vector3f cameraPos;
 };
 
 struct alignas(16) UboParams
 {
-    glm::vec3 camPos{};
-    f32       _padding0;
-    glm::vec4 lightDir = glm::vec4(glm::normalize(glm::vec3(1.0f, -3.0f, 1.0f)), 0.0f);
-    f32       exposure = 1.0f, gamma = 1.0f, radiance = 0.5f, prefilteredCubeMipLevels = 9.f, scaleIBLAmbient = 0.05f;
-    s32       debugViewInputs = 0, debugViewEquation = 0;
+    Eigen::Vector3f camPos{};
+    f32             _padding0;
+    Eigen::Vector4f lightDir = Eigen::Vector4f::Random();
+    f32             exposure = 1.0f, gamma = 1.0f, radiance = 0.5f, prefilteredCubeMipLevels = 9.f, scaleIBLAmbient = 0.05f;
+    s32             debugViewInputs = 0, debugViewEquation = 0;
 };
 
-// Define a plane struct representing a plane in 3D space
 struct Plane
 {
-    glm::vec3 normal;
-    float     distance;
+    Eigen::Vector3f normal;
+    float           distance;
 };
 
 class Camera
@@ -46,10 +42,10 @@ class Camera
 public:
     struct CombinedCameraData
     {
-        glm::mat4 projection;
-        glm::mat4 view;
-        glm::mat4 projectionView;
-        glm::vec3 camPos;
+        Eigen::Matrix4f projection;
+        Eigen::Matrix4f view;
+        Eigen::Matrix4f projectionView;
+        Eigen::Vector3f camPos;
     };
 
     Camera(LogicalDevice* logicalDevice);
@@ -74,27 +70,27 @@ public:
     Buffer&                            GetProjectionBufferHandle(n32 index) const { return *m_projectionBuffers[index]; }
     Buffer&                            GetCombinedDataBufferHandle(n32 index) const { return *m_combinedCameraDataBuffers[index]; }
 
-    const glm::mat4& GetProjection() const { return m_projectionMatrix; };
-    const glm::mat4& GetView() const { return m_viewMatrix; };
+    const Eigen::Matrix4f& GetProjection() const { return m_projectionMatrix; };
+    const Eigen::Matrix4f& GetView() const { return m_viewMatrix; };
 
-    glm::mat4 GetProjectionViewMatrix() const { return m_projectionMatrix * m_viewMatrix; }
+    Eigen::Matrix4f GetProjectionViewMatrix() const { return m_projectionMatrix * m_viewMatrix; }
 
-    static void ExtractFrustumPlanes(const glm::mat4& viewProjectionMatrix, std::array<Plane, 6>& planes);
-    bool        IsAABBOutsidePlane(const Plane& plane, const glm::vec3& aabbMin, const glm::vec3& aabbMax) const;
-    bool        IsAABBInsideFrustum(const glm::vec3& aabbMin, const glm::vec3& aabbMax) const;
+    static void ExtractFrustumPlanes(const Eigen::Matrix4f& viewProjectionMatrix, std::array<Plane, 6>& planes);
+    bool        IsAABBOutsidePlane(const Plane& plane, const Eigen::Vector3f& aabbMin, const Eigen::Vector3f& aabbMax) const;
+    bool        IsAABBInsideFrustum(const Eigen::Vector3f& aabbMin, const Eigen::Vector3f& aabbMax) const;
 
     void UpdateViewMatrix(); // Function to calculate and update m_viewMatrix
 
     void Update();
 
-    void SetPosition(glm::vec3 position) { m_position = position; }
-    void SetRotation(glm::vec3 rotation) { m_rotation = rotation; }
+    void SetPosition(Eigen::Vector3f position) { m_position = position; }
+    void SetRotation(Eigen::Vector3f rotation) { m_rotation = rotation; }
 
-    glm::vec3 GetPosition() const { return m_position; }
-    glm::vec3 GetRotation() const { return m_rotation; }
+    Eigen::Vector3f GetPosition() const { return m_position; }
+    Eigen::Vector3f GetRotation() const { return m_rotation; }
 
-    glm::vec3 GetForward() const { return m_forward; }
-    glm::vec3 GetUp() const { return m_up; }
+    Eigen::Vector3f GetForward() const { return m_forward; }
+    Eigen::Vector3f GetUp() const { return m_up; }
 
 private:
     n32 m_index{0};
@@ -115,12 +111,12 @@ private:
     std::vector<vk::DescriptorSet> m_uboParamSet;
     UboParams                      m_uboParams{};
 
-    glm::mat4 m_projectionMatrix{1.f};
-    glm::mat4 m_viewMatrix{1.0f};
-    glm::vec3 m_position;
-    glm::vec3 m_rotation; // Store rotation as Euler angles (YXZ order - Yaw, Pitch, Roll) in radians
-    glm::vec3 m_forward;
-    glm::vec3 m_up;
+    Eigen::Matrix4f m_projectionMatrix{};
+    Eigen::Matrix4f m_viewMatrix{};
+    Eigen::Vector3f m_position{};
+    Eigen::Vector3f m_rotation{};
+    Eigen::Vector3f m_forward{};
+    Eigen::Vector3f m_up{};
 
     void InitDescriptorThings(LogicalDevice* logicalDevice);
 

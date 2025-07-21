@@ -38,17 +38,17 @@ public:
         Get().Internal_AddVerticesToModel(modelVertices, modelMeshes);
     }
 
-    static void UpdateNodeMatrices(const std::vector<glm::mat4>& nodeMatrices, const n32& handle)
+    static void UpdateNodeMatrices(const std::vector<Eigen::Matrix4f>& nodeMatrices, const n32& handle)
     {
         Get().Internal_UpdateNodeMatrices(nodeMatrices, handle);
     }
 
-    static void AddJointMatriciesToModel(const std::vector<glm::mat4>& jointMatricies, const n32& handle)
+    static void AddJointMatriciesToModel(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle)
     {
         Get().Internal_AddJointMatriciesToModel(jointMatricies, handle);
     }
 
-    static void UpdateJointMatrices(const std::vector<glm::mat4>& jointMatricies, const n32& handle)
+    static void UpdateJointMatrices(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle)
     {
         Get().Internal_UpdateJointMatrices(jointMatricies, handle);
     }
@@ -145,14 +145,14 @@ private:
     std::vector<n32>             m_modelIndicies;
     std::vector<Model::Vertex>   m_modelVertices;
 
-    std::vector<glm::mat4>  m_modelJointMatricies;
-    std::unique_ptr<Buffer> m_modelJointMatriciesBuffer;
+    std::vector<Eigen::Matrix4f> m_modelJointMatricies;
+    std::unique_ptr<Buffer>      m_modelJointMatriciesBuffer;
 
     std::vector<f32>        m_modelMorphTargets;
     std::unique_ptr<Buffer> m_modelMorphTargetsBuffer;
 
     std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToMatrixStart;
-    std::vector<glm::mat4>                       m_modelNodeMatricesFlat;
+    std::vector<Eigen::Matrix4f>                 m_modelNodeMatricesFlat;
     std::unique_ptr<Buffer>                      m_modelNodeMatriciesBuffer;
 
     n32 m_nextModelID{0};
@@ -168,9 +168,9 @@ private:
     void Internal_AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives);
     void Internal_AddVerticesToModel(const std::vector<Model::Vertex>& modelVertices, const std::vector<Mesh*>& modelMeshes);
 
-    void Internal_UpdateNodeMatrices(const std::vector<glm::mat4>& nodeMatrices, const n32& handle);
-    void Internal_AddJointMatriciesToModel(const std::vector<glm::mat4>& jointMatricies, const n32& handle);
-    void Internal_UpdateJointMatrices(const std::vector<glm::mat4>& jointMatricies, const n32& handle);
+    void Internal_UpdateNodeMatrices(const std::vector<Eigen::Matrix4f>& nodeMatrices, const n32& handle);
+    void Internal_AddJointMatriciesToModel(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle);
+    void Internal_UpdateJointMatrices(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle);
 
     void Internal_AddMorphTargetsToModel(const std::vector<f32>& morphTargets, const n32& handle);
     void Internal_UpdateMorphTargets(const std::vector<f32>& morphTargets, const n32& handle);

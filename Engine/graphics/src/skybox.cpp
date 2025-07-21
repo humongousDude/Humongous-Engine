@@ -18,9 +18,10 @@ Skybox::~Skybox()
 {
     m_skybox->Destroy();
     m_irradiance->Destroy();
+    m_logicalDevice->GetVkDevice().destroyImageView(m_irradianceWriteView, nullptr);
 
-    for(auto& view: m_prefilteredReadViews) { vkDestroyImageView(m_logicalDevice->GetVkDevice(), view, nullptr); }
-    for(auto& view: m_prefilteredWriteViews) { vkDestroyImageView(m_logicalDevice->GetVkDevice(), view, nullptr); }
+    for(auto& view: m_prefilteredReadViews) { m_logicalDevice->GetVkDevice().destroyImageView(view, nullptr); }
+    for(auto& view: m_prefilteredWriteViews) { m_logicalDevice->GetVkDevice().destroyImageView(view, nullptr); }
 
     m_prefilteredMap->Destroy();
     m_brdflut->Destroy();

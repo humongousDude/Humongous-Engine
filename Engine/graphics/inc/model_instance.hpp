@@ -82,24 +82,24 @@ private:
 
     b32 m_isPlaying{false};
 
-    std::vector<glm::vec3> m_nodeTranslations;
-    std::vector<glm::quat> m_nodeRotations;
-    std::vector<glm::vec3> m_nodeScales;
+    std::vector<Eigen::Vector3f>    m_nodeTranslations;
+    std::vector<Eigen::Quaternionf> m_nodeRotations;
+    std::vector<Eigen::Vector3f>    m_nodeScales;
 
     std::vector<float> m_morphWeights;
 
-    std::vector<glm::mat4> m_localNodeMatrices;
-    std::vector<glm::mat4> m_globalNodeMatrices;
-    std::vector<b32>       m_nodeIsMatrixSpecified;
+    std::vector<Eigen::Matrix4f> m_localNodeMatrices;
+    std::vector<Eigen::Matrix4f> m_globalNodeMatrices;
+    std::vector<b32>             m_nodeIsMatrixSpecified;
 
-    std::vector<glm::mat4> m_jointMatrices;
+    std::vector<Eigen::Matrix4f> m_jointMatrices;
 
     void UpdateAnimation();
     void UpdateTransforms();
     void UpdateSkins();
     void UpdateAnimatedAABB();
 
-    std::vector<glm::mat4> GetMatrixVector();
+    std::vector<Eigen::Matrix4f> GetMatrixVector();
 };
 
 } // namespace Humongous

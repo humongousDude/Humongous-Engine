@@ -75,10 +75,10 @@ void ResourceManager::InitDescriptors()
         std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t3);
 
     m_bindlessTexturePool = std::make_unique<DescriptorPoolGrowable>(
-        *m_logicalDevice, 128, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet | vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind, t1);
+        *m_logicalDevice, 32, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet | vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind, t1);
 
     DescriptorSetLayout::Builder bindlessBuilder{*m_logicalDevice};
-    bindlessBuilder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 128)
+    bindlessBuilder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 32)
         .AddBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eFragment, 1)
         .AddBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex, 1)
         .AddBinding(3, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex, 1)
@@ -186,7 +186,7 @@ std::shared_ptr<ModelInstance> ResourceManager::Internal_RequestModel(const std:
     auto m = Internal_GetModel(id);
 
     {
-        const std::vector<glm::mat4> nodeMats(m->GetLinearNodes().size());
+        const std::vector<Eigen::Matrix4f> nodeMats(m->GetLinearNodes().size());
 
         size_t newModelMatrixStartIndex = m_modelNodeMatricesFlat.size();
 
@@ -194,10 +194,10 @@ std::shared_ptr<ModelInstance> ResourceManager::Internal_RequestModel(const std:
 
         m_modelHandleToMatrixStart.emplace(m_nextInstanceID, std::pair<n32, n32>(newModelMatrixStartIndex, nodeMats.size()));
 
-        if(!m_modelNodeMatriciesBuffer || m_modelNodeMatriciesBuffer->GetBufferSize() < m_modelNodeMatricesFlat.size() * sizeof(glm::mat4))
+        if(!m_modelNodeMatriciesBuffer || m_modelNodeMatriciesBuffer->GetBufferSize() < m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f))
         {
             m_modelNodeMatriciesBuffer =
-                std::make_unique<Buffer>(m_logicalDevice, m_modelNodeMatricesFlat.size() * sizeof(glm::mat4), 1,
+                std::make_unique<Buffer>(m_logicalDevice, m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f), 1,
                                          vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                          vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
                                          VMA_MEMORY_USAGE_CPU_TO_GPU, 1, "model node matricies buffer");
@@ -214,7 +214,7 @@ std::shared_ptr<ModelInstance> ResourceManager::Internal_RequestModel(const std:
         }
 
         m_modelNodeMatriciesBuffer->Map();
-        m_modelNodeMatriciesBuffer->WriteToBuffer(m_modelNodeMatricesFlat.data(), m_modelNodeMatricesFlat.size() * sizeof(glm::mat4));
+        m_modelNodeMatriciesBuffer->WriteToBuffer(m_modelNodeMatricesFlat.data(), m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f));
         m_modelNodeMatriciesBuffer->UnMap();
     }
 
@@ -227,7 +227,7 @@ std::shared_ptr<ModelInstance> ResourceManager::Internal_RequestModel(const std:
     return it->second;
 }
 
-void Internal_AddMatriciesToModel(const std::vector<glm::mat4>& matricies) {}
+void Internal_AddMatriciesToModel(const std::vector<Eigen::Matrix4f>& matricies) {}
 
 void ResourceManager::Internal_AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives)
 {
@@ -287,6 +287,16 @@ void ResourceManager::Internal_AddVerticesToModel(const std::vector<Model::Verte
                                      vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
                                          vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
                                      vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "global vertex buffer");
+
+        vk::WriteDescriptorSet write{};
+        write.dstSet = m_bindlessSet;
+        write.dstBinding = 3;
+        write.dstArrayElement = 0;
+        write.descriptorCount = 1;
+        write.descriptorType = vk::DescriptorType::eStorageBuffer;
+        auto info = m_modelVertexBuffer->DescriptorInfo();
+        write.pBufferInfo = &info;
+        m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
     }
 
     Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
@@ -297,25 +307,15 @@ void ResourceManager::Internal_AddVerticesToModel(const std::vector<Model::Verte
     stagingBuffer.UnMap();
 
     Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelVertexBuffer, requiredBufferSize);
-
-    vk::WriteDescriptorSet write{};
-    write.dstSet = m_bindlessSet;
-    write.dstBinding = 3;
-    write.dstArrayElement = 0;
-    write.descriptorCount = 1;
-    write.descriptorType = vk::DescriptorType::eStorageBuffer;
-    auto info = m_modelVertexBuffer->DescriptorInfo();
-    write.pBufferInfo = &info;
-    m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 }
 
-void ResourceManager::Internal_UpdateNodeMatrices(const std::vector<glm::mat4>& nodeMatrices, const n32& handle)
+void ResourceManager::Internal_UpdateNodeMatrices(const std::vector<Eigen::Matrix4f>& nodeMatrices, const n32& handle)
 {
     n32 startPos = m_modelHandleToMatrixStart.at(handle).first;
 
     std::copy(nodeMatrices.begin(), nodeMatrices.end(), m_modelNodeMatricesFlat.begin() + startPos);
 
-    const vk::DeviceSize requiredBufferSize = m_modelNodeMatricesFlat.size() * sizeof(glm::mat4);
+    const vk::DeviceSize requiredBufferSize = m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f);
 
     if(!m_modelNodeMatriciesBuffer || m_modelNodeMatriciesBuffer->GetBufferSize() < requiredBufferSize)
     {
@@ -337,7 +337,7 @@ void ResourceManager::Internal_UpdateNodeMatrices(const std::vector<glm::mat4>& 
     }
 }
 
-void ResourceManager::Internal_AddJointMatriciesToModel(const std::vector<glm::mat4>& jointMatricies, const n32& handle)
+void ResourceManager::Internal_AddJointMatriciesToModel(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle)
 {
     n32 startPos = m_modelJointMatricies.size();
 
@@ -349,7 +349,7 @@ void ResourceManager::Internal_AddJointMatriciesToModel(const std::vector<glm::m
 
     HGINFO("We now have %i joint matricies", m_modelJointMatricies.size());
 
-    const vk::DeviceSize requiredBufferSize = m_modelJointMatricies.size() * sizeof(glm::mat4);
+    const vk::DeviceSize requiredBufferSize = m_modelJointMatricies.size() * sizeof(Eigen::Matrix4f);
 
     if(!m_modelJointMatriciesBuffer || m_modelJointMatriciesBuffer->GetBufferSize() < requiredBufferSize)
     {
@@ -372,13 +372,13 @@ void ResourceManager::Internal_AddJointMatriciesToModel(const std::vector<glm::m
     }
 }
 
-void ResourceManager::Internal_UpdateJointMatrices(const std::vector<glm::mat4>& jointMatricies, const n32& handle)
+void ResourceManager::Internal_UpdateJointMatrices(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle)
 {
     n32 startPos = m_modelHandleToJointStart.at(handle).first;
 
     std::copy(jointMatricies.begin(), jointMatricies.end(), m_modelJointMatricies.begin() + startPos);
 
-    const vk::DeviceSize requiredBufferSize = m_modelJointMatricies.size() * sizeof(glm::mat4);
+    const vk::DeviceSize requiredBufferSize = m_modelJointMatricies.size() * sizeof(Eigen::Matrix4f);
 
     if(!m_modelJointMatriciesBuffer || m_modelJointMatriciesBuffer->GetBufferSize() < requiredBufferSize)
     {
@@ -469,6 +469,7 @@ void ResourceManager::Internal_UpdateMorphTargets(const std::vector<f32>& morphT
 
 void ResourceManager::Internal_FinalizeGPUData()
 {
+    if(!m_modelJointMatricies.empty())
     {
         auto requiredBufferSize = m_modelJointMatriciesBuffer->GetBufferSize();
 
@@ -482,6 +483,7 @@ void ResourceManager::Internal_FinalizeGPUData()
         Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelJointMatriciesBuffer, requiredBufferSize);
     }
 
+    if(!m_modelMorphTargets.empty())
     {
         auto requiredBufferSize = m_modelMorphTargetsBuffer->GetBufferSize();
 
@@ -495,6 +497,7 @@ void ResourceManager::Internal_FinalizeGPUData()
         Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelMorphTargetsBuffer, requiredBufferSize);
     }
 
+    if(!m_modelNodeMatricesFlat.empty())
     {
         auto   requiredBufferSize = m_modelNodeMatriciesBuffer->GetBufferSize();
         Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,

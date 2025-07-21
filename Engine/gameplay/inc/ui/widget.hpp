@@ -1,9 +1,9 @@
 #pragma once
 
 #include "defines.hpp"
+#include <Eigen/Dense>
 #include <deque>
 #include <functional>
-#include <glm/ext/vector_float2.hpp>
 #include <imgui.h>
 
 namespace Humongous
@@ -25,7 +25,7 @@ class UiWidget
     };
 
 public:
-    UiWidget(const char* name, const bool show, const glm::vec2 position, const glm::vec2 scale, const ImGuiWindowFlags flags)
+    UiWidget(const char* name, const bool show, const Eigen::Vector2f position, const Eigen::Vector2f scale, const ImGuiWindowFlags flags)
         : m_position{position}, m_scale{scale}, m_name{name}, m_show{show}, m_flags{flags}
     {
     }
@@ -48,8 +48,8 @@ public:
 private:
     TextQueue m_queue;
 
-    glm::vec2        m_position{FLT_MIN, FLT_MAX};
-    glm::vec2        m_scale{FLT_MIN, FLT_MAX};
+    Eigen::Vector2f  m_position{FLT_MIN, FLT_MAX};
+    Eigen::Vector2f  m_scale{FLT_MIN, FLT_MAX};
     const char*      m_name{nullptr};
     bool             m_show{true};
     ImGuiWindowFlags m_flags{};

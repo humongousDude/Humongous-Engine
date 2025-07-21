@@ -1,11 +1,10 @@
 #pragma once
 
-#include <AL/al.h>
-#include <AL/alc.h>
 #include "audio_source.hpp"
 #include "singleton.hpp"
-
-#include "glm/vec3.hpp"
+#include <AL/al.h>
+#include <AL/alc.h>
+#include <Eigen/Dense>
 
 // #include <AL/alext.h>
 
@@ -17,7 +16,8 @@ public:
     static bool Init() { return Get().Internal_Init(); }
     static void Shutdown() { Get().Internal_Shutdown(); }
 
-    static void UpdateListener(const glm::vec3& position, const glm::vec3& velocity, const glm::vec3& forward, const glm::vec3& up)
+    static void UpdateListener(const Eigen::Vector3f& position, const Eigen::Vector3f& velocity, const Eigen::Vector3f& forward,
+                               const Eigen::Vector3f& up)
     {
         Get().Internal_UpdateListener(position, velocity, forward, up);
     }
@@ -34,7 +34,8 @@ private:
     bool Internal_Init();
     void Internal_Shutdown();
 
-    void Internal_UpdateListener(const glm::vec3& position, const glm::vec3& velocity, const glm::vec3& forward, const glm::vec3& up);
+    void Internal_UpdateListener(const Eigen::Vector3f& position, const Eigen::Vector3f& velocity, const Eigen::Vector3f& forward,
+                                 const Eigen::Vector3f& up);
 
     void Internal_UpdateSources();
 };

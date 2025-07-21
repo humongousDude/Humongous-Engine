@@ -4,14 +4,11 @@
 #include "logger.hpp"
 #include "swapchain.hpp"
 #include "ui/widget.hpp"
-#include <glm/ext/matrix_transform.hpp>
-#include <glm/gtc/matrix_access.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 
 namespace Humongous
 {
 
-Camera::Camera(LogicalDevice* logicalDevice) : m_position(0), m_rotation(0) { InitDescriptorThings(logicalDevice); }
+Camera::Camera(LogicalDevice* logicalDevice) { InitDescriptorThings(logicalDevice); }
 
 Camera::~Camera()
 {
@@ -101,19 +98,19 @@ void Camera::UpdateUBO(n32 index)
 {
     ProjectionUBO ubo{};
     ubo.projection = m_projectionMatrix;
-    ubo.invProjection = glm::inverse(m_projectionMatrix);
+    ubo.invProjection = m_projectionMatrix.inverse();
     ubo.view = m_viewMatrix;
-    ubo.invView = glm::inverse(m_viewMatrix);
+    ubo.invView = m_viewMatrix.inverse();
     ubo.projectionView = GetProjectionViewMatrix();
     ubo.cameraPos = m_position;
 
     m_projectionBuffers[index]->WriteToBuffer(&ubo);
 
     m_uboParams.camPos = m_position;
-    // m_uboParams.lightDir = glm::vec4(glm::normalize(glm::vec3(1.0f, -3.0f, 1.0f)), 0.0f); // Example directional light
+    // m_uboParams.lightDir = glm::vec4(glm::normalize(Eigen::Vector3f(1.0f, -3.0f, 1.0f)), 0.0f); // Example directional light
     // m_uboParams.exposure = 2.0f;                                  // Example exposure
     // m_uboParams.gamma = 2.2f;                                     // Standard gamma
-    m_uboParams.prefilteredCubeMipLevels = static_cast<float>(9); // Get actual mip count
+    m_uboParams.prefilteredCubeMipLevels = static_cast<f32>(9); // Get actual mip count
     // m_uboParams.scaleIBLAmbient = 1.0f;                           // Start with no ambient scaling
     // m_uboParams.debugViewInputs = 0;   // Debugging disabled
     // m_uboParams.debugViewEquation = 0; // Debugging disabled
@@ -133,111 +130,99 @@ void Camera::UpdateCombinedCameraData(n32 index)
     m_combinedCameraDataBuffers[index]->UnMap();
 }
 
-void Camera::SetOrthographicProjection(float left, float right, float top, float bottom, float near, float far)
+void Camera::SetOrthographicProjection(f32 left, f32 right, f32 top, f32 bottom, f32 near, f32 far)
 {
-    m_projectionMatrix = glm::mat4{1.0f};
-    m_projectionMatrix[0][0] = 2.f / (right - left);
-    m_projectionMatrix[1][1] = 2.f / (bottom - top);
-    m_projectionMatrix[2][2] = 1.f / (far - near);
-    m_projectionMatrix[3][0] = -(right + left) / (right - left);
-    m_projectionMatrix[3][1] = -(bottom + top) / (bottom - top);
-    m_projectionMatrix[3][2] = -near / (far - near);
+    m_projectionMatrix.setZero();
+
+    m_projectionMatrix(0, 0) = 2.0f / (right - left);
+    m_projectionMatrix(1, 1) = 2.0f / (bottom - top);
+    m_projectionMatrix(2, 2) = 1.0f / (far - near);
+    m_projectionMatrix(0, 3) = -(right + left) / (right - left);
+    m_projectionMatrix(1, 3) = -(bottom + top) / (bottom - top);
+    m_projectionMatrix(2, 3) = -near / (far - near);
+    m_projectionMatrix(3, 3) = 1.0f;
 }
 
-void Camera::SetPerspectiveProjection(float fovy, float aspect, float near, float far)
+void Camera::SetPerspectiveProjection(f32 fovy, f32 aspect, f32 near, f32 far)
 {
-    m_projectionMatrix = glm::perspectiveRH_ZO(fovy, aspect, far, near);
-    m_projectionMatrix[1][1] *= -1.0f;
+    float f = 1.0f / std::tan(fovy / 2.0f);
+
+    m_projectionMatrix = Eigen::Matrix4f::Zero();
+    m_projectionMatrix(0, 0) = f / aspect;
+    m_projectionMatrix(1, 1) = f;
+    m_projectionMatrix(2, 2) = near / (near - far);
+    m_projectionMatrix(2, 3) = -(near * far) / (near - far);
+    m_projectionMatrix(3, 2) = 1.0f;
+    m_projectionMatrix(1, 1) *= -1.0f;
 }
 
 void Camera::UpdateViewMatrix()
 {
-    glm::vec3 forwardDir = glm::vec3(0.0f, 0.0f, 1.0f);
-    glm::vec3 upDir = glm::vec3(0.0f, 1.0f, 0.0f);
-    glm::mat4 cameraRotationMatrix = glm::mat4(1.0f);
-    cameraRotationMatrix = glm::rotate(cameraRotationMatrix, m_rotation.y, glm::vec3(0.0f, 1.0f, 0.0f)); // Yaw
-    cameraRotationMatrix = glm::rotate(cameraRotationMatrix, m_rotation.x, glm::vec3(1.0f, 0.0f, 0.0f)); // Pitch
-    cameraRotationMatrix = glm::rotate(cameraRotationMatrix, m_rotation.z, glm::vec3(0.0f, 0.0f, 1.0f)); // Roll
-    forwardDir = glm::normalize(glm::vec3(cameraRotationMatrix * glm::vec4(forwardDir, 0.0f)));
+    Eigen::Vector3f forwardDir_initial = Eigen::Vector3f(0.0f, 0.0f, 1.0f);
+    Eigen::Vector3f worldUp = Eigen::Vector3f(0.0f, 1.0f, 0.0f);
 
-    m_forward = forwardDir;
-    m_up = glm ::normalize(glm::vec3(cameraRotationMatrix * glm::vec4(upDir, 0.0f)));
+    Eigen::Quaternionf cameraQuaternion = Eigen::AngleAxisf(m_rotation.y(), Eigen::Vector3f::UnitY()) * // Yaw
+                                          Eigen::AngleAxisf(m_rotation.x(), Eigen::Vector3f::UnitX()) * // Pitch
+                                          Eigen::AngleAxisf(m_rotation.z(), Eigen::Vector3f::UnitZ());  // Roll
 
-    glm::vec3 target = m_position + forwardDir;
+    m_forward = (cameraQuaternion * forwardDir_initial).normalized();
+    m_up = (cameraQuaternion * worldUp).normalized();
 
-    m_viewMatrix = glm::lookAtRH(m_position, target, glm::vec3(0.0f, 1.0f, 0.0f));
+    Eigen::Vector3f Z = m_forward;
+    Eigen::Vector3f X = worldUp.cross(Z).normalized();
+    Eigen::Vector3f Y = Z.cross(X).normalized();
+
+    m_viewMatrix = Eigen::Matrix4f::Identity();
+    m_viewMatrix.block<1, 3>(0, 0) = X.transpose();
+    m_viewMatrix.block<1, 3>(1, 0) = Y.transpose();
+    m_viewMatrix.block<1, 3>(2, 0) = Z.transpose();
+    m_viewMatrix.block<3, 1>(0, 3) << -X.dot(m_position), -Y.dot(m_position), -Z.dot(m_position);
 }
 
-void Camera::ExtractFrustumPlanes(const glm::mat4& projectionViewMatrix, std::array<Plane, 6>& frustumPlanes)
+void Camera::ExtractFrustumPlanes(const Eigen::Matrix4f& projectionViewMatrix, std::array<Plane, 6>& frustumPlanes)
 {
-    // Extract rows from the matrix
-    glm::vec4 row0 = glm::row(projectionViewMatrix, 0);
-    glm::vec4 row1 = glm::row(projectionViewMatrix, 1);
-    glm::vec4 row2 = glm::row(projectionViewMatrix, 2);
-    glm::vec4 row3 = glm::row(projectionViewMatrix, 3);
+    Eigen::Vector4f row0 = projectionViewMatrix.row(0);
+    Eigen::Vector4f row1 = projectionViewMatrix.row(1);
+    Eigen::Vector4f row2 = projectionViewMatrix.row(2);
+    Eigen::Vector4f row3 = projectionViewMatrix.row(3);
 
-    // Left plane
-    glm::vec4 left = row3 + row0;
-    frustumPlanes[0].normal = glm::vec3(left.x, left.y, left.z);
-    frustumPlanes[0].distance = left.w;
+    frustumPlanes[0].normal = (row3 + row0).head<3>();
+    frustumPlanes[0].distance = row3.w() + row0.w();
 
-    // Right plane
-    glm::vec4 right = row3 - row0;
-    frustumPlanes[1].normal = glm::vec3(right.x, right.y, right.z);
-    frustumPlanes[1].distance = right.w;
+    frustumPlanes[1].normal = (row3 - row0).head<3>();
+    frustumPlanes[1].distance = row3.w() - row0.w();
 
-    // Bottom plane
-    glm::vec4 bottom = row3 + row1;
-    frustumPlanes[2].normal = glm::vec3(bottom.x, bottom.y, bottom.z);
-    frustumPlanes[2].distance = bottom.w;
+    frustumPlanes[2].normal = (row3 + row1).head<3>();
+    frustumPlanes[2].distance = row3.w() + row1.w();
 
-    // Top plane
-    glm::vec4 top = row3 - row1;
-    frustumPlanes[3].normal = glm::vec3(top.x, top.y, top.z);
-    frustumPlanes[3].distance = top.w;
+    frustumPlanes[3].normal = (row3 - row1).head<3>();
+    frustumPlanes[3].distance = row3.w() - row1.w();
 
-    // Near plane
-    glm::vec4 nearPlane = row3 + row2;
-    frustumPlanes[4].normal = glm::vec3(nearPlane.x, nearPlane.y, nearPlane.z);
-    frustumPlanes[4].distance = nearPlane.w;
+    frustumPlanes[4].normal = (row3 - row2).head<3>();
+    frustumPlanes[4].distance = row3.w() - row2.w();
 
-    // Far plane
-    glm::vec4 farPlane = row3 - row2;
-    frustumPlanes[5].normal = glm::vec3(farPlane.x, farPlane.y, farPlane.z);
-    frustumPlanes[5].distance = farPlane.w;
+    frustumPlanes[5].normal = row2.head<3>();
+    frustumPlanes[5].distance = row2.w();
 
-    // Normalize planes
+    // Normalize all plane equations
     for(int i = 0; i < 6; ++i)
     {
-        float length = glm::length(frustumPlanes[i].normal);
+        f32 length = frustumPlanes[i].normal.norm();
         frustumPlanes[i].normal /= length;
         frustumPlanes[i].distance /= length;
     }
 }
 
-// Check if an AABB is outside a single frustum plane
-bool Camera::IsAABBOutsidePlane(const Plane& plane, const glm::vec3& aabbMin, const glm::vec3& aabbMax) const
+bool Camera::IsAABBOutsidePlane(const Plane& plane, const Eigen::Vector3f& aabbMin, const Eigen::Vector3f& aabbMax) const
 {
-    // Calculate the positive and negative vertices relative to the plane
-    glm::vec3 positiveVertex = aabbMin;
-    glm::vec3 negativeVertex = aabbMax;
+    // Find the vertex of the AABB that is furthest in the direction of the plane's normal (p-vertex)
+    Eigen::Vector3f positiveVertex = aabbMin;
+    if(plane.normal.x() >= 0.0f) { positiveVertex.x() = aabbMax.x(); }
+    if(plane.normal.y() >= 0.0f) { positiveVertex.y() = aabbMax.y(); }
+    if(plane.normal.z() >= 0.0f) { positiveVertex.z() = aabbMax.z(); }
 
-    if(plane.normal.x >= 0)
-    {
-        positiveVertex.x = aabbMax.x;
-        negativeVertex.x = aabbMin.x;
-    }
-    if(plane.normal.y >= 0)
-    {
-        positiveVertex.y = aabbMax.y;
-        negativeVertex.y = aabbMin.y;
-    }
-    if(plane.normal.z >= 0)
-    {
-        positiveVertex.z = aabbMax.z;
-        negativeVertex.z = aabbMin.z;
-    }
-    if(glm::dot(plane.normal, positiveVertex) + plane.distance < 0)
+    // If the p-vertex is on the negative side of the plane, the entire AABB is outside.
+    if(plane.normal.dot(positiveVertex) + plane.distance < 0.0f)
     {
         return true; // AABB is outside
     }
@@ -245,8 +230,7 @@ bool Camera::IsAABBOutsidePlane(const Plane& plane, const glm::vec3& aabbMin, co
     return false; // AABB is at least partially inside
 }
 
-// Check if an AABB is inside the frustum
-bool Camera::IsAABBInsideFrustum(const glm::vec3& aabbMin, const glm::vec3& aabbMax) const
+bool Camera::IsAABBInsideFrustum(const Eigen::Vector3f& aabbMin, const Eigen::Vector3f& aabbMax) const
 {
     std::array<Plane, 6> frustumPlanes;
     Camera::ExtractFrustumPlanes(GetProjectionViewMatrix(), frustumPlanes);
@@ -269,11 +253,11 @@ void Camera::DrawUI()
     if(first)
     {
         widget.Add([&]() {
-            f32 lightDir[3] = {m_uboParams.lightDir.x, m_uboParams.lightDir.y, m_uboParams.lightDir.z};
+            f32 lightDir[3] = {m_uboParams.lightDir.x(), m_uboParams.lightDir.y(), m_uboParams.lightDir.z()};
             ImGui::DragFloat3("Light direction", lightDir);
-            m_uboParams.lightDir.x = lightDir[0];
-            m_uboParams.lightDir.y = lightDir[1];
-            m_uboParams.lightDir.z = lightDir[2];
+            m_uboParams.lightDir.x() = lightDir[0];
+            m_uboParams.lightDir.y() = lightDir[1];
+            m_uboParams.lightDir.z() = lightDir[2];
 
             ImGui::DragFloat("gamma", &m_uboParams.gamma);
             ImGui::DragFloat("exposure", &m_uboParams.exposure);

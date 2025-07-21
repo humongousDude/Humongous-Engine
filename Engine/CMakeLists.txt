@@ -215,12 +215,12 @@ target_include_directories(Engine PUBLIC
     audio/inc
     
     # Third-party includes
-    "ThirdParty/glm"
-    "ThirdParty/gli"
-    "ThirdParty/VulkanMemoryAllocator/include"
-    "ThirdParty/tinygltf"
-    "ThirdParty/imgui"
-    "ThirdParty/imgui/backends"
+    ThirdParty/gli
+    ThirdParty/VulkanMemoryAllocator/include
+    ThirdParty/tinygltf
+    ThirdParty/imgui
+    ThirdParty/imgui/backends
+    ThirdParty/eigen/Eigen/
 )
 
 find_package(Vulkan REQUIRED)
@@ -231,6 +231,7 @@ target_link_libraries(Engine PUBLIC
     OpenAL
     sndfile
     Vulkan::Vulkan
+    Eigen3::Eigen
 )
 
 if(WIN32)

@@ -1,5 +1,4 @@
 #include "model.hpp"
-#include "asserts.hpp"
 #include "defines.hpp"
 #include "extra.hpp"
 #include "logger.hpp"
@@ -14,7 +13,7 @@
 namespace Humongous
 {
 // Mesh
-Mesh::Mesh(LogicalDevice* device, glm::mat4 matrix) { this->logicalDevice = device; };
+Mesh::Mesh(LogicalDevice* device, Eigen::Matrix4f matrix) { this->logicalDevice = device; };
 
 Mesh::~Mesh()
 {
@@ -98,7 +97,7 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
         for(size_t i = 0; i < scene.nodes.size(); i++)
         {
             const tinygltf::Node node = gltfModel.nodes[scene.nodes[i]];
-            LoadNode(nullptr, node, scene.nodes[i], gltfModel, loaderInfo, scale, glm::identity<glm::mat4>());
+            LoadNode(nullptr, node, scene.nodes[i], gltfModel, loaderInfo, scale, Eigen::Matrix4f::Identity());
         }
         if(gltfModel.animations.size() > 0) { LoadAnimations(gltfModel); }
         LoadSkins(gltfModel);
@@ -107,7 +106,6 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
         {
             if(node->skinIndex > -1) { node->skin = m_skins[node->skinIndex]; }
             else { node->skin = nullptr; }
-            // if(node->mesh) { node->CalculateLocalMatrix(); }
         }
     }
     else
@@ -117,6 +115,7 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
     }
 
     m_indices.insert(m_indices.begin(), loaderInfo.indexBuffer.begin(), loaderInfo.indexBuffer.end());
+    m_vertices.insert(m_vertices.begin(), loaderInfo.vertexBuffer.begin(), loaderInfo.vertexBuffer.end());
 
     for(auto& node: m_nodes) { UpdateMaterialBatches(node); }
 
@@ -136,11 +135,12 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
         }
     }
 
-    m_vertices.insert(m_vertices.begin(), loaderInfo.vertexBuffer.begin(), loaderInfo.vertexBuffer.end());
-
-    HGINFO("We have %i nodes in the model", m_nodes.size());
-    HGINFO("We have %i meshes in the model", m_meshes.size());
-    HGINFO("We have %i primitives in the model", m_primitives.size());
+    HGINFO("Model %s loaded", m_name.c_str());
+    HGINFO("Nodes: %i", m_nodes.size());
+    HGINFO("Meshes: %i", m_meshes.size());
+    HGINFO("Animations: %i", m_animations.size());
+    HGINFO("Vertices: %i", m_vertices.size());
+    HGINFO("Indices: %i", m_indices.size());
 
     CalculateRestAABB();
 
@@ -149,7 +149,7 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
 
     LoadMaterialData();
 
-    std::vector<glm::mat4> jointMatricies;
+    std::vector<Eigen::Matrix4f> jointMatricies;
     for(const auto& skin: m_skins)
     {
         if(skin->jointMatrices.empty()) { continue; }
@@ -160,7 +160,7 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
     if(!jointMatricies.empty()) { ResourceManager::AddJointMatriciesToModel(jointMatricies, m_handle); }
     else
     {
-        jointMatricies.push_back(glm::mat4(glm::identity<glm::mat4>()));
+        jointMatricies.push_back(Eigen::Matrix4f::Identity());
         ResourceManager::AddJointMatriciesToModel(jointMatricies, m_handle);
     }
 
@@ -181,7 +181,7 @@ void Model::Destroy(vk::Device device)
 // TODO: clean up this abomination
 
 void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, f32 globalscale,
-                     glm::mat4 parentTransform)
+                     Eigen::Matrix4f parentTransform)
 {
     Node* newNode = new Node{};
     newNode->index = nodeIndex;
@@ -189,26 +189,34 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
     newNode->name = node.name;
     newNode->skinIndex = node.skin;
 
-    glm::mat4 localMatrix = glm::mat4(1.0f);
-
     if(node.matrix.size() == 16)
     {
-        newNode->localMatrix = glm::make_mat4x4(node.matrix.data());
+        newNode->localMatrix = Eigen::Map<const Eigen::Matrix4d>(node.matrix.data()).cast<float>();
         newNode->isMatrixSpecified = true;
-
         Utils::DecomposeMatrix(newNode->localMatrix, newNode->translation, newNode->rotation, newNode->scale);
     }
     else
     {
-        if(node.translation.size() == 3) { newNode->translation = glm::make_vec3(node.translation.data()); }
-        if(node.rotation.size() == 4) { newNode->rotation = glm::make_quat(node.rotation.data()); }
-        if(node.scale.size() == 3) { newNode->scale = glm::make_vec3(node.scale.data()); }
+        if(node.translation.size() == 3)
+        {
+            HGINFO("Raw Translation data:");
+            for(double val: node.translation) { HGINFO("%f", val); }
+            newNode->translation = Eigen::Map<const Eigen::Vector3d>(node.translation.data()).cast<float>();
+        }
+        if(node.rotation.size() == 4) { newNode->rotation = Eigen::Map<const Eigen::Quaterniond>(node.rotation.data()).cast<float>(); }
+        if(node.scale.size() == 3) { newNode->scale = Eigen::Map<const Eigen::Vector3d>(node.scale.data()).cast<float>(); }
         newNode->isMatrixSpecified = false;
+
+        // All zero :(
+        HGINFO("Node %s has no matrix", newNode->name.c_str());
+        HGINFO("Translation: %f, %f, %f", newNode->translation.x(), newNode->translation.y(), newNode->translation.z());
+        HGINFO("Rotation: %f, %f, %f", newNode->rotation.x(), newNode->rotation.y(), newNode->rotation.z());
+        HGINFO("Scale: %f, %f, %f", newNode->scale.x(), newNode->scale.y(), newNode->scale.z());
 
         newNode->CalculateLocalMatrix();
     }
 
-    glm::mat4 currentWorldTransform = parentTransform * newNode->localMatrix;
+    Eigen::Matrix4f currentWorldTransform = parentTransform * newNode->localMatrix;
     newNode->localToModelMatrix = currentWorldTransform;
 
     if(!node.children.empty())
@@ -219,7 +227,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
         }
     }
 
-    // Node contains mesh data
     if(node.mesh > -1)
     {
         const tinygltf::Mesh mesh = model.meshes[node.mesh];
@@ -232,26 +239,26 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
 
         for(size_t j = 0; j < mesh.primitives.size(); j++)
         {
-            const tinygltf::Primitive&          primitive = mesh.primitives[j];
-            n32                                 vertexStart = static_cast<n32>(loaderInfo.vertexPos);
-            n32                                 indexStart = static_cast<n32>(loaderInfo.indexPos);
-            n32                                 indexCount = 0;
-            n32                                 vertexCount = 0;
-            bool                                hasSkin = false;
-            bool                                hasIndices = primitive.indices > -1;
-            std::vector<std::vector<glm::vec3>> morphTargetPositions;
-            std::vector<std::vector<glm::vec3>> morphTargetNormals;
-            std::vector<std::vector<glm::vec4>> morphTargetTangents;
+            const tinygltf::Primitive&                primitive = mesh.primitives[j];
+            n32                                       vertexStart = static_cast<n32>(loaderInfo.vertexPos);
+            n32                                       indexStart = static_cast<n32>(loaderInfo.indexPos);
+            n32                                       indexCount = 0;
+            n32                                       vertexCount = 0;
+            bool                                      hasSkin = false;
+            bool                                      hasIndices = primitive.indices > -1;
+            std::vector<std::vector<Eigen::Vector3f>> morphTargetPositions;
+            std::vector<std::vector<Eigen::Vector3f>> morphTargetNormals;
+            std::vector<std::vector<Eigen::Vector4f>> morphTargetTangents;
 
-            glm::vec4 currentPrimitiveMinPos = glm::vec4(std::numeric_limits<f32>::max());
-            glm::vec4 currentPrimitiveMaxPos = glm::vec4(std::numeric_limits<f32>::lowest());
-            f32       currentMaxMorphDisplacement = 0.0f;
+            Eigen::Vector4f currentPrimitiveMinPos = Eigen::Vector4f::Constant(std::numeric_limits<f32>::max());
+            Eigen::Vector4f currentPrimitiveMaxPos = Eigen::Vector4f::Constant(std::numeric_limits<f32>::lowest());
+            f32             currentMaxMorphDisplacement = 0.0f;
 
             for(const auto& target_map: primitive.targets)
             {
-                std::vector<glm::vec3> targetPositions;
-                std::vector<glm::vec3> targetNormals;
-                std::vector<glm::vec4> targetTangents;
+                std::vector<Eigen::Vector3f> targetPositions;
+                std::vector<Eigen::Vector3f> targetNormals;
+                std::vector<Eigen::Vector4f> targetTangents;
 
                 // Target Positions (_POSITION)
                 auto posIt = target_map.find("POSITION");
@@ -260,12 +267,13 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     const tinygltf::Accessor&   accessor = model.accessors[posIt->second];
                     const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
                     const tinygltf::Buffer&     buffer = model.buffers[bufferView.buffer];
-                    const glm::vec3* dataPtr = reinterpret_cast<const glm::vec3*>(buffer.data.data() + accessor.byteOffset + bufferView.byteOffset);
+                    const Eigen::Vector3f*      dataPtr =
+                        reinterpret_cast<const Eigen::Vector3f*>(buffer.data.data() + accessor.byteOffset + bufferView.byteOffset);
                     targetPositions.assign(dataPtr, dataPtr + accessor.count);
 
                     for(size_t k = 0; k < accessor.count; ++k)
                     {
-                        currentMaxMorphDisplacement = std::max(currentMaxMorphDisplacement, glm::length(targetPositions[k]));
+                        currentMaxMorphDisplacement = std::max(currentMaxMorphDisplacement, targetPositions[k].norm());
                     }
                 }
                 morphTargetPositions.push_back(targetPositions);
@@ -277,7 +285,8 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     const tinygltf::Accessor&   accessor = model.accessors[normalIt->second];
                     const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
                     const tinygltf::Buffer&     buffer = model.buffers[bufferView.buffer];
-                    const glm::vec3* dataPtr = reinterpret_cast<const glm::vec3*>(buffer.data.data() + accessor.byteOffset + bufferView.byteOffset);
+                    const Eigen::Vector3f*      dataPtr =
+                        reinterpret_cast<const Eigen::Vector3f*>(buffer.data.data() + accessor.byteOffset + bufferView.byteOffset);
                     targetNormals.assign(dataPtr, dataPtr + accessor.count);
                 }
                 morphTargetNormals.push_back(targetNormals);
@@ -289,7 +298,8 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     const tinygltf::Accessor&   accessor = model.accessors[tangentIt->second];
                     const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
                     const tinygltf::Buffer&     buffer = model.buffers[bufferView.buffer];
-                    const glm::vec4* dataPtr = reinterpret_cast<const glm::vec4*>(buffer.data.data() + accessor.byteOffset + bufferView.byteOffset);
+                    const Eigen::Vector4f*      dataPtr =
+                        reinterpret_cast<const Eigen::Vector4f*>(buffer.data.data() + accessor.byteOffset + bufferView.byteOffset);
                     targetTangents.assign(dataPtr, dataPtr + accessor.count);
                 }
                 morphTargetTangents.push_back(targetTangents);
@@ -316,7 +326,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
 
                 int jointComponentType;
 
-                // Position attribute is required
                 HGASSERT(primitive.attributes.find("POSITION") != primitive.attributes.end());
 
                 const tinygltf::Accessor&   posAccessor = model.accessors[primitive.attributes.at("POSITION")];
@@ -412,25 +421,29 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
 
                     // POSITION is guaranteed to be present and of type FLOAT.
                     {
-                        const f32* p = reinterpret_cast<const f32*>(rawPosBase + (v * posByteStride));
-                        vert.position = glm::vec4(glm::make_vec3(p), 1.0f);
+                        const f32*      p = reinterpret_cast<const f32*>(rawPosBase + (v * posByteStride));
+                        Eigen::Vector3f posVec = Eigen::Map<const Eigen::Vector3f>(p);
+                        vert.position = Eigen::Vector4f(posVec.x(), posVec.y(), posVec.z(), 1.0f);
                     }
 
                     // NORMAL (if it exists)
                     if(rawNormBase)
                     {
-                        const f32* n = reinterpret_cast<const f32*>(rawNormBase + (v * normByteStride));
-                        vert.normal = glm::vec4(glm::normalize(glm::make_vec3(n)), 1.0f);
+                        const f32*      n = reinterpret_cast<const f32*>(rawNormBase + (v * normByteStride));
+                        Eigen::Vector3f normVec = Eigen::Map<const Eigen::Vector3f>(n);
+                        normVec.normalize();
+                        vert.normal = Eigen::Vector4f(normVec.x(), normVec.y(), normVec.z(), 1.0f);
                     }
-                    else { vert.normal = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f); }
+                    else { vert.normal = Eigen::Vector4f::Zero(); }
 
                     // UV0
                     if(rawUv0Base)
                     {
-                        const f32* uv = reinterpret_cast<const f32*>(rawUv0Base + (v * uv0ByteStride));
-                        vert.uv0 = glm::vec4(glm::make_vec2(uv), 1.0f, 1.0f);
+                        const f32*      uv = reinterpret_cast<const f32*>(rawUv0Base + (v * uv0ByteStride));
+                        Eigen::Vector2f uvVec = Eigen::Map<const Eigen::Vector2f>(uv);
+                        vert.uv0 = Eigen::Vector4f(uvVec.x(), uvVec.y(), 1.0f, 1.0f);
                     }
-                    else { vert.uv0 = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); }
+                    else { vert.uv0 = Eigen::Vector4f::Zero(); }
 
                     // JOINTS_0 / WEIGHTS_0 (if present)
                     if(primitive.attributes.find("JOINTS_0") != primitive.attributes.end())
@@ -447,16 +460,16 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                         if(jointAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
                         {
                             const n16* j = reinterpret_cast<const n16*>(rawJointBase + (v * jointByteStride));
-                            vert.joint0 = glm::ivec4(j[0], j[1], j[2], j[3]);
+                            vert.joint0 = Eigen::Vector4i(j[0], j[1], j[2], j[3]);
                         }
                         else if(jointAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
                         {
                             const n8* j = reinterpret_cast<const n8*>(rawJointBase + (v * jointByteStride));
-                            vert.joint0 = glm::ivec4(j[0], j[1], j[2], j[3]);
+                            vert.joint0 = Eigen::Vector4i(j[0], j[1], j[2], j[3]);
                         }
                         else { HGERROR("Unexpected JOINTS_0 componentType = %d", jointAccessor.componentType); }
                     }
-                    else { vert.joint0 = glm::vec4(0.0f); }
+                    else { vert.joint0 = Eigen::Vector4i::Zero(); }
 
                     if(primitive.attributes.find("WEIGHTS_0") != primitive.attributes.end())
                     {
@@ -468,10 +481,10 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                                                           ? weightAccessor.ByteStride(weightView)
                                                           : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4));
                         const f32* w = reinterpret_cast<const f32*>(rawWeightBase + (v * weightByteStride));
-                        vert.weight0 = glm::make_vec4(w);
-                        if(glm::length(glm::vec3(vert.weight0)) == 0.0f) { vert.weight0 = glm::vec4(1, 0, 0, 0); }
+                        vert.weight0 = Eigen::Map<const Eigen::Vector4f>(w);
+                        if(vert.weight0.norm() == 0.0f) { vert.weight0 = Eigen::Vector4f::Zero(); }
                     }
-                    else { vert.weight0 = glm::vec4(0.0f); }
+                    else { vert.weight0 = Eigen::Vector4f::Zero(); }
 
                     // Tangent (if present)
                     if(primitive.attributes.find("TANGENT") != primitive.attributes.end())
@@ -483,42 +496,42 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                                                                  ? tanAccessor.ByteStride(tanView)
                                                                  : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4));
                         const f32*           t = reinterpret_cast<const f32*>(rawTanBase + (v * tanByteStride));
-                        glm::vec3            tangent = glm::normalize(glm::make_vec3(t));
+                        Eigen::Vector3f      tangent = Eigen::Map<const Eigen::Vector3f>(t).normalized();
                         // the w‐component in glTF TANGENT is the sign for the bitangent
-                        f32       sign = t[3];
-                        glm::vec3 bitan = glm::normalize(glm::cross(glm::vec3(vert.normal), tangent) * sign);
-                        vert.tangent = glm::vec4(tangent, 1.0f);
-                        vert.bitTangent = glm::vec4(bitan, 1.0f);
+                        f32             sign = t[3];
+                        Eigen::Vector3f bitan = (vert.normal.head<3>().cross(tangent) * sign).normalized();
+                        vert.tangent = Eigen::Vector4f(tangent.x(), tangent.y(), tangent.z(), 1.0f);
+                        vert.bitTangent = Eigen::Vector4f(bitan.x(), bitan.y(), bitan.z(), 1.0f);
                     }
                     else
                     {
-                        vert.tangent = glm::vec4(1, 0, 0, 0);
-                        vert.bitTangent = glm::vec4(0, 1, 0, 0);
+                        vert.tangent = Eigen::Vector4f::Zero();
+                        vert.bitTangent = Eigen::Vector4f::Zero();
                     }
                     const constexpr size_t MAX_SUPPORTED_TARGETS = 4;
 
                     for(size_t targetIdx = 0; targetIdx < morphTargetPositions.size() && targetIdx < MAX_SUPPORTED_TARGETS; ++targetIdx)
                     {
-                        const glm::vec3& targetOffset = morphTargetPositions[targetIdx][v];
+                        const Eigen::Vector3f& targetOffset = morphTargetPositions[targetIdx][v];
 
                         switch(targetIdx)
                         {
                             case 0:
-                                vert.targetPos0 = glm::vec4(targetOffset, 0.0f);
+                                vert.targetPos0 = Eigen::Vector4f(targetOffset.x(), targetOffset.y(), targetOffset.z(), 0.0f);
                                 break;
                             case 1:
-                                vert.targetPos1 = glm::vec4(targetOffset, 0.0f);
+                                vert.targetPos1 = Eigen::Vector4f(targetOffset.x(), targetOffset.y(), targetOffset.z(), 0.0f);
                                 break;
                             case 2:
                             default:
                                 break;
                         }
                     }
-                    if(morphTargetPositions.size() <= 0) { vert.targetPos0 = glm::vec4(0.0f); }
-                    if(morphTargetPositions.size() <= 1) { vert.targetPos1 = glm::vec4(0.0f); }
+                    if(morphTargetPositions.size() <= 0) { vert.targetPos0 = Eigen::Vector4f::Zero(); }
+                    if(morphTargetPositions.size() <= 1) { vert.targetPos1 = Eigen::Vector4f::Zero(); }
 
-                    currentPrimitiveMinPos = glm::min(currentPrimitiveMinPos, vert.position);
-                    currentPrimitiveMaxPos = glm::max(currentPrimitiveMaxPos, vert.position);
+                    currentPrimitiveMinPos = currentPrimitiveMinPos.cwiseMin(vert.position);
+                    currentPrimitiveMaxPos = currentPrimitiveMaxPos.cwiseMax(vert.position);
 
                     loaderInfo.vertexPos++;
                 } // end for v in posAccessor.count
@@ -725,7 +738,8 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         if(gltfMat.values.find("baseColorFactor") != gltfMat.values.end())
         {
             auto fc = gltfMat.values.at("baseColorFactor").ColorFactor();
-            mat.baseColorFactor = glm::vec4(static_cast<f32>(fc[0]), static_cast<f32>(fc[1]), static_cast<f32>(fc[2]), static_cast<f32>(fc[3]));
+            mat.baseColorFactor =
+                Eigen::Vector4f(static_cast<f32>(fc[0]), static_cast<f32>(fc[1]), static_cast<f32>(fc[2]), static_cast<f32>(fc[3]));
         }
         if(gltfMat.values.find("baseColorTexture") != gltfMat.values.end())
         {
@@ -768,7 +782,7 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         if(gltfMat.additionalValues.find("emissiveFactor") != gltfMat.additionalValues.end())
         {
             auto ef = gltfMat.additionalValues.at("emissiveFactor").ColorFactor();
-            mat.emissiveFactor = glm::vec4(static_cast<f32>(ef[0]), static_cast<f32>(ef[1]), static_cast<f32>(ef[2]), 1);
+            mat.emissiveFactor = Eigen::Vector4f(static_cast<f32>(ef[0]), static_cast<f32>(ef[1]), static_cast<f32>(ef[2]), 1);
         }
         if(gltfMat.additionalValues.find("emissiveTexture") != gltfMat.additionalValues.end())
         {
@@ -856,7 +870,8 @@ void Model::LoadMaterialData()
                 material.extension.specularGlossinessTextureIndex != -1 ? material.texCoordSets.specularGlossiness : -1;
             shaderMaterial.baseColorTextureSet = material.extension.diffuseTextureIndex != -1 ? material.texCoordSets.baseColor : -1;
             shaderMaterial.diffuseFactor = material.extension.diffuseFactor;
-            shaderMaterial.specularFactor = glm::vec4(material.extension.specularFactor, 1.0f);
+            shaderMaterial.specularFactor = Eigen::Vector4f(material.extension.specularFactor.x(), material.extension.specularFactor.y(),
+                                                            material.extension.specularFactor.z(), 1.0f);
         }
 
         material.index = ResourceManager::RequestMaterial(shaderMaterial);
@@ -886,7 +901,7 @@ void Model::CalculateRestAABB()
         {
             if(!primitive || !primitive->boundingBox.valid || !primitive->owner) { continue; }
 
-            const glm::mat4& primitiveToModelSpaceMatrix = primitive->owner->localToModelMatrix;
+            const Eigen::Matrix4f& primitiveToModelSpaceMatrix = primitive->owner->localToModelMatrix;
 
             BoundingBox transformedPrimitiveAABB = BoundingBox::TransformAABB(primitive->boundingBox, primitiveToModelSpaceMatrix);
 
@@ -908,21 +923,21 @@ void Model::LoadSkins(tinygltf::Model& gltfModel)
             Node* node = NodeFromIndex(jointIndex);
             if(node) { newSkin->joints.push_back(NodeFromIndex(jointIndex)); }
         }
+
         if(source.inverseBindMatrices > -1)
         {
             const tinygltf::Accessor&   accessor = gltfModel.accessors[source.inverseBindMatrices];
             const tinygltf::BufferView& bufferView = gltfModel.bufferViews[accessor.bufferView];
             const tinygltf::Buffer&     buffer = gltfModel.buffers[bufferView.buffer];
+
             newSkin->inverseBindMatrices.resize(accessor.count);
-            memcpy(newSkin->inverseBindMatrices.data(), &buffer.data[accessor.byteOffset + bufferView.byteOffset],
-                   accessor.count * sizeof(glm::mat4));
+
+            const float* srcDataPtr = reinterpret_cast<const float*>(&buffer.data[accessor.byteOffset + bufferView.byteOffset]);
+
+            for(size_t i = 0; i < accessor.count; ++i) { newSkin->inverseBindMatrices[i] = Eigen::Map<const Eigen::Matrix4f>(srcDataPtr + i * 16); }
         }
 
-        if(newSkin->joints.size() > 128)
-        {
-            HGWARN("Skin %s has %i joints, which is higher than the supported maximum of 128. This glTF scene may display incorrectly",
-                   newSkin->name.c_str(), newSkin->joints.size());
-        }
+        if(newSkin->joints.size() > 128) { HGWARN("Skin %s has %i joints", newSkin->name.c_str(), newSkin->joints.size()); }
 
         newSkin->UpdateJointMatrices();
         m_jointMatricies.insert(m_jointMatricies.end(), newSkin->jointMatrices.begin(), newSkin->jointMatrices.end());
@@ -983,10 +998,10 @@ void Model::LoadAnimations(tinygltf::Model& gltfModel)
                 {
                     case TINYGLTF_TYPE_VEC3:
                         {
-                            const glm::vec3* buf = static_cast<const glm::vec3*>(dataPtr);
+                            const Eigen::Vector3f* buf = static_cast<const Eigen::Vector3f*>(dataPtr);
                             for(size_t index = 0; index < accessor.count; index++)
                             {
-                                sampler.outputsVec4.push_back(glm::vec4(buf[index], 0.0f));
+                                sampler.outputsVec4.push_back(Eigen::Vector4f(buf[index].x(), buf[index].y(), buf[index].z(), 0.0f));
                                 sampler.outputs.push_back(buf[index][0]);
                                 sampler.outputs.push_back(buf[index][1]);
                                 sampler.outputs.push_back(buf[index][2]);
@@ -995,7 +1010,7 @@ void Model::LoadAnimations(tinygltf::Model& gltfModel)
                         }
                     case TINYGLTF_TYPE_VEC4:
                         {
-                            const glm::vec4* buf = static_cast<const glm::vec4*>(dataPtr);
+                            const Eigen::Vector4f* buf = static_cast<const Eigen::Vector4f*>(dataPtr);
                             for(size_t index = 0; index < accessor.count; index++)
                             {
                                 sampler.outputsVec4.push_back(buf[index]);
@@ -1013,7 +1028,7 @@ void Model::LoadAnimations(tinygltf::Model& gltfModel)
                             const f32* buf = static_cast<const f32*>(dataPtr);
                             for(size_t i = 0; i < accessor.count; i += actualNumMorphTargets)
                             {
-                                glm::vec4 weightsVec(0.0f);
+                                Eigen::Vector4f weightsVec = Eigen::Vector4f::Zero();
                                 for(size_t k = 0; k < actualNumMorphTargets && k < 4; ++k) { weightsVec[k] = buf[i + k]; }
                                 sampler.outputsVec4.push_back(weightsVec);
                             }
@@ -1059,7 +1074,7 @@ void Model::LoadAnimations(tinygltf::Model& gltfModel)
 // Cube spline interpolation function used for translate/scale/rotate with cubic spline animation samples
 // Details on how this works can be found in the specs
 // https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#appendix-c-spline-interpolation
-glm::vec4 Model::Model::AnimationSampler::CubicSplineInterpolation(size_t index, f32 time, n32 stride) const
+Eigen::Vector4f Model::Model::AnimationSampler::CubicSplineInterpolation(size_t index, f32 time, n32 stride) const
 {
     f32          delta = inputs[index + 1] - inputs[index];
     f32          t = (time - inputs[index]) / delta;
@@ -1069,9 +1084,9 @@ glm::vec4 Model::Model::AnimationSampler::CubicSplineInterpolation(size_t index,
     const size_t V = stride * 1;
     const size_t B = stride * 2;
 
-    f32       t2 = powf(t, 2);
-    f32       t3 = powf(t, 3);
-    glm::vec4 pt{0.0f};
+    f32             t2 = powf(t, 2);
+    f32             t3 = powf(t, 3);
+    Eigen::Vector4f pt = Eigen::Vector4f::Zero();
     for(n32 i = 0; i < stride; i++)
     {
         f32 p0 = outputs[current + i + V];         // starting point at t = 0
@@ -1083,11 +1098,89 @@ glm::vec4 Model::Model::AnimationSampler::CubicSplineInterpolation(size_t index,
     return pt;
 }
 
-void Model::AnimationSampler::ApplyTranslation(size_t index, f32 time, std::vector<glm::vec3>& translations, n32 targetNodeIndex) const
+void Model::AnimationSampler::ApplyTranslation(size_t index, f32 time, std::vector<Eigen::Vector3f>& translations, n32 targetNodeIndex) const
 {
     if(inputs.size() == 1)
     {
-        translations[targetNodeIndex] = glm::vec3(outputsVec4[0]);
+        translations[targetNodeIndex] = outputsVec4[0].head<3>(); // Take X, Y, Z from Vector4f
+        return;
+    }
+
+    switch(interpolation)
+    {
+        case Model::AnimationSampler::InterpolationType::LINEAR:
+            {
+                f32                 u = 0.0f;
+                f32                 timeSpan = inputs[index + 1] - inputs[index];
+                constexpr const f32 EPSILON = std::numeric_limits<f32>::epsilon();
+
+                if(timeSpan < EPSILON)
+                { // Check for near-zero time span
+                    u = 0.0f;
+                }
+                else { u = std::max(0.0f, time - inputs[index]) / timeSpan; }
+
+                // Eigen equivalent of glm::mix(a, b, u) for vectors: a * (1.0f - u) + b * u
+                translations[targetNodeIndex] = (outputsVec4[index] * (1.0f - u) + outputsVec4[index + 1] * u).head<3>();
+                break;
+            }
+        case Model::AnimationSampler::InterpolationType::STEP:
+            {
+                translations[targetNodeIndex] = outputsVec4[index].head<3>();
+                break;
+            }
+        case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
+            {
+                translations[targetNodeIndex] = CubicSplineInterpolation(index, time, 3).head<3>();
+                break;
+            }
+    }
+}
+
+void Model::AnimationSampler::ApplyScale(size_t index, f32 time, std::vector<Eigen::Vector3f>& scales, n32 targetNodeIndex) const
+{
+    if(inputs.size() == 1)
+    {
+        scales[targetNodeIndex] = outputsVec4[0].head<3>();
+        return;
+    }
+
+    switch(interpolation)
+    {
+        case Model::AnimationSampler::InterpolationType::LINEAR:
+            {
+                f32       u = 0.0f;
+                f32       timeSpan = inputs[index + 1] - inputs[index];
+                const f32 EPSILON = std::numeric_limits<f32>::epsilon();
+
+                if(timeSpan < EPSILON) { u = 0.0f; }
+                else { u = std::max(0.0f, time - inputs[index]) / timeSpan; }
+
+                scales[targetNodeIndex] = (outputsVec4[index] * (1.0f - u) + outputsVec4[index + 1] * u).head<3>();
+                break;
+            }
+        case Model::AnimationSampler::InterpolationType::STEP:
+            {
+                scales[targetNodeIndex] = outputsVec4[index].head<3>();
+                break;
+            }
+        case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
+            {
+                scales[targetNodeIndex] = CubicSplineInterpolation(index, time, 3).head<3>();
+                break;
+            }
+    }
+}
+
+void Model::AnimationSampler::ApplyRotation(size_t index, f32 time, std::vector<Eigen::Quaternionf>& rotations, n32 targetNodeIndex) const
+{
+    if(inputs.size() == 1)
+    {
+        // Direct construction from components, assuming outputsVec4 stores (x, y, z, w)
+        // Eigen::Quaternionf has a constructor from (w, x, y, z) or directly from Matrix3f
+        // If outputsVec4 stores (x,y,z,w), then:
+        rotations[targetNodeIndex] = Eigen::Quaternionf(outputsVec4[0].w(), outputsVec4[0].x(), outputsVec4[0].y(), outputsVec4[0].z());
+        rotations[targetNodeIndex].normalize(); // Always normalize quaternions after construction/interpolation
         return;
     }
 
@@ -1097,103 +1190,30 @@ void Model::AnimationSampler::ApplyTranslation(size_t index, f32 time, std::vect
             {
                 f32 u = std::max(0.0f, time - inputs[index]) / (inputs[index + 1] - inputs[index]);
 
-                if(glm::epsilonEqual(inputs[index + 1], inputs[index], glm::epsilon<f32>())) { u = 0.0f; }
-                else { u = std::max(0.0f, time - inputs[index]) / (inputs[index + 1] - inputs[index]); }
+                // Construct Eigen quaternions from outputsVec4 elements
+                // Assuming outputsVec4 stores (x,y,z,w) order
+                Eigen::Quaternionf q1(outputsVec4[index].w(), outputsVec4[index].x(), outputsVec4[index].y(), outputsVec4[index].z());
+                Eigen::Quaternionf q2(outputsVec4[index + 1].w(), outputsVec4[index + 1].x(), outputsVec4[index + 1].y(),
+                                      outputsVec4[index + 1].z());
 
-                translations[targetNodeIndex] = glm::vec3(glm::mix(outputsVec4[index], outputsVec4[index + 1], u));
+                // glm::slerp(q1, q2, u) -> Eigen::Quaternionf::slerp(q1, q2, u)
+                // glm::normalize(...) -> Eigen::Quaternionf::normalized()
+                rotations[targetNodeIndex] = q1.slerp(u, q2).normalized(); // slerp returns normalized if inputs are normalized
+                                                                           // but calling .normalized() explicitly is good practice.
                 break;
             }
         case Model::AnimationSampler::InterpolationType::STEP:
             {
-                translations[targetNodeIndex] = glm::vec3(outputsVec4[index]);
+                Eigen::Quaternionf q(outputsVec4[index].w(), outputsVec4[index].x(), outputsVec4[index].y(), outputsVec4[index].z());
+                rotations[targetNodeIndex] = q.normalized();
                 break;
             }
         case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
             {
-                translations[targetNodeIndex] = glm::vec3(CubicSplineInterpolation(index, time, 3));
-                break;
-            }
-    }
-}
-
-void Model::AnimationSampler::ApplyScale(size_t index, f32 time, std::vector<glm::vec3>& scales, n32 targetNodeIndex) const
-{
-    if(inputs.size() == 1)
-    {
-        scales[targetNodeIndex] = glm::vec3(outputsVec4[0]);
-        return;
-    }
-
-    switch(interpolation)
-    {
-        case Model::AnimationSampler::InterpolationType::LINEAR:
-            {
-                f32 u = std::max(0.0f, time - inputs[index]) / (inputs[index + 1] - inputs[index]);
-                scales[targetNodeIndex] = glm::vec3(glm::mix(outputsVec4[index], outputsVec4[index + 1], u));
-                break;
-            }
-        case Model::AnimationSampler::InterpolationType::STEP:
-            {
-                scales[targetNodeIndex] = glm::vec3(outputsVec4[index]);
-                break;
-            }
-        case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
-            {
-                scales[targetNodeIndex] = glm::vec3(CubicSplineInterpolation(index, time, 3));
-                break;
-            }
-    }
-}
-
-void Model::AnimationSampler::ApplyRotation(size_t index, f32 time, std::vector<glm::quat>& rotations, n32 targetNodeIndex) const
-{
-    if(inputs.size() == 1)
-    {
-        glm::quat q;
-        q.x = outputsVec4[0].x;
-        q.y = outputsVec4[0].y;
-        q.z = outputsVec4[0].z;
-        q.w = outputsVec4[0].w;
-        rotations[targetNodeIndex] = q;
-        return;
-    }
-    switch(interpolation)
-    {
-        case Model::AnimationSampler::InterpolationType::LINEAR:
-            {
-                f32       u = std::max(0.0f, time - inputs[index]) / (inputs[index + 1] - inputs[index]);
-                glm::quat q1;
-                q1.x = outputsVec4[index].x;
-                q1.y = outputsVec4[index].y;
-                q1.z = outputsVec4[index].z;
-                q1.w = outputsVec4[index].w;
-                glm::quat q2;
-                q2.x = outputsVec4[index + 1].x;
-                q2.y = outputsVec4[index + 1].y;
-                q2.z = outputsVec4[index + 1].z;
-                q2.w = outputsVec4[index + 1].w;
-                rotations[targetNodeIndex] = glm::normalize(glm::slerp(q1, q2, u));
-                break;
-            }
-        case Model::AnimationSampler::InterpolationType::STEP:
-            {
-                glm::quat q1;
-                q1.x = outputsVec4[index].x;
-                q1.y = outputsVec4[index].y;
-                q1.z = outputsVec4[index].z;
-                q1.w = outputsVec4[index].w;
-                rotations[targetNodeIndex] = q1;
-                break;
-            }
-        case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
-            {
-                glm::vec4 rot = CubicSplineInterpolation(index, time, 4);
-                glm::quat q;
-                q.x = rot.x;
-                q.y = rot.y;
-                q.z = rot.z;
-                q.w = rot.w;
-                rotations[targetNodeIndex] = glm::normalize(q);
+                // Assuming CubicSplineInterpolation returns a Vector4f for rotation (x,y,z,w)
+                Eigen::Vector4f    rot_vec = CubicSplineInterpolation(index, time, 4);
+                Eigen::Quaternionf q(rot_vec.w(), rot_vec.x(), rot_vec.y(), rot_vec.z());
+                rotations[targetNodeIndex] = q.normalized();
                 break;
             }
     }
@@ -1201,16 +1221,20 @@ void Model::AnimationSampler::ApplyRotation(size_t index, f32 time, std::vector<
 
 void Model::AnimationSampler::ApplyMorph(size_t index, f32 time, const Primitive& targetPrimitive, std::vector<float>& instanceWeights) const
 {
-    if(targetPrimitive.morphTargetPositions.size() == 0) { return; }
+    if(targetPrimitive.morphTargetPositions.empty())
+    { // Use .empty() for vector size check
+        return;
+    }
 
     size_t numMorphTargets = targetPrimitive.morphTargetPositions.size();
 
     if(inputs.size() == 1)
     {
-        for(size_t k = 0; k < numMorphTargets && k < outputsVec4[0].length(); ++k)
-        {
-            instanceWeights[targetPrimitive.globalWeightOffset + k] = outputsVec4[0][k];
-        }
+        // Using outputsVec4[0].size() is more robust for checking components if Vector4f is not fixed-size
+        // but for Eigen::Vector4f, .size() is always 4.
+        // Using `std::min` with `4` for a fixed `Vector4f` is safe.
+        size_t actual_outputs_count = std::min((size_t)outputsVec4[0].size(), numMorphTargets);
+        for(size_t k = 0; k < actual_outputs_count; ++k) { instanceWeights[targetPrimitive.globalWeightOffset + k] = outputsVec4[0][k]; }
         return;
     }
 
@@ -1218,19 +1242,27 @@ void Model::AnimationSampler::ApplyMorph(size_t index, f32 time, const Primitive
     {
         case Model::AnimationSampler::InterpolationType::LINEAR:
             {
-                f32 timeSpan = inputs[index + 1] - inputs[index];
-                f32 u = 0.0f;
-                if(timeSpan > glm::epsilon<f32>()) { u = std::max(0.0f, time - inputs[index]) / timeSpan; }
+                f32       timeSpan = inputs[index + 1] - inputs[index];
+                f32       u = 0.0f;
+                const f32 EPSILON = std::numeric_limits<f32>::epsilon(); // Re-use epsilon
 
-                for(size_t k = 0; k < numMorphTargets && k < outputsVec4[index].length(); ++k)
+                if(timeSpan > EPSILON)
+                { // Check for non-zero time span
+                    u = std::max(0.0f, time - inputs[index]) / timeSpan;
+                }
+
+                size_t actual_outputs_count = std::min({(size_t)outputsVec4[index].size(), (size_t)outputsVec4[index + 1].size(), numMorphTargets});
+                for(size_t k = 0; k < actual_outputs_count; ++k)
                 {
-                    instanceWeights[targetPrimitive.globalWeightOffset + k] = glm::mix(outputsVec4[index][k], outputsVec4[index + 1][k], u);
+                    // Eigen equivalent of glm::mix(a, b, u) for scalars: a * (1.0f - u) + b * u
+                    instanceWeights[targetPrimitive.globalWeightOffset + k] = outputsVec4[index][k] * (1.0f - u) + outputsVec4[index + 1][k] * u;
                 }
                 break;
             }
         case Model::AnimationSampler::InterpolationType::STEP:
             {
-                for(size_t k = 0; k < numMorphTargets && k < outputsVec4[index].length(); ++k)
+                size_t actual_outputs_count = std::min((size_t)outputsVec4[index].size(), numMorphTargets);
+                for(size_t k = 0; k < actual_outputs_count; ++k)
                 {
                     instanceWeights[targetPrimitive.globalWeightOffset + k] = outputsVec4[index][k];
                 }
@@ -1238,8 +1270,16 @@ void Model::AnimationSampler::ApplyMorph(size_t index, f32 time, const Primitive
             }
         case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
             {
-                glm::vec4 interpolatedWeights = CubicSplineInterpolation(index, time, (int)numMorphTargets);
-                for(size_t k = 0; k < numMorphTargets && k < interpolatedWeights.length(); ++k)
+                // Assuming CubicSplineInterpolation returns a VectorXf or Vector4f
+                // The `(int)numMorphTargets` argument to `CubicSplineInterpolation` suggests
+                // it might return a vector of variable size (Eigen::VectorXf).
+                // If it always returns Vector4f, this needs `head<numMorphTargets>` or similar.
+                Eigen::VectorXf interpolatedWeights; // Use VectorXf if numMorphTargets can be > 4
+                // Assuming CubicSplineInterpolation knows how many components to return.
+                interpolatedWeights = CubicSplineInterpolation(index, time, (int)numMorphTargets);
+
+                size_t actual_outputs_count = std::min((size_t)interpolatedWeights.size(), numMorphTargets);
+                for(size_t k = 0; k < actual_outputs_count; ++k)
                 {
                     instanceWeights[targetPrimitive.globalWeightOffset + k] = interpolatedWeights[k];
                 }
@@ -1247,5 +1287,4 @@ void Model::AnimationSampler::ApplyMorph(size_t index, f32 time, const Primitive
             }
     }
 }
-
 } // namespace Humongous
