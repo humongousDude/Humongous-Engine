@@ -25,7 +25,7 @@ void KeyboardHandler::ProcessInput(const InputData& inputData)
     accumulatedYaw += (inputData.mouseDeltaX * lookSpeed * static_cast<float>(Globals::Time::AverageDeltaTime()));
     accumulatedPitch += (inputData.mouseDeltaY * lookSpeed * static_cast<float>(Globals::Time::AverageDeltaTime()));
 
-    accumulatedPitch = std::clamp(accumulatedPitch, Utils::DegreesToRadians(-90.0f), Utils::DegreesToRadians(90.0f));
+    accumulatedPitch = std::clamp(accumulatedPitch, Utils::DegreesToRadians(-89.0f), Utils::DegreesToRadians(89.0f));
     accumulatedYaw = std::fmod(accumulatedYaw, 2.0f * EIGEN_PI);
 
     inputData.camera.SetRotation(Eigen::Vector3f(accumulatedPitch, accumulatedYaw, 0.0f));
