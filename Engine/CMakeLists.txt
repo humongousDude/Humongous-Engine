@@ -220,7 +220,8 @@ target_include_directories(Engine PUBLIC
     ThirdParty/tinygltf
     ThirdParty/imgui
     ThirdParty/imgui/backends
-    ThirdParty/eigen/Eigen/
+    ThirdParty/eigen/Eigen
+    ThirdParty/meshoptimizer/src
 )
 
 find_package(Vulkan REQUIRED)
@@ -232,6 +233,7 @@ target_link_libraries(Engine PUBLIC
     sndfile
     Vulkan::Vulkan
     Eigen3::Eigen
+    meshoptimizer
 )
 
 if(WIN32)

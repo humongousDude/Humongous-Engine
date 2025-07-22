@@ -126,7 +126,7 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
     using namespace vk;
 
     PipelineConfigInfo configInfo{.vertShaderPath = AssetManager::GetAsset(AssetManager::AssetType::SHADER, "simple.vert"),
-                                  .fragShaderPath = AssetManager::GetAsset(AssetManager::AssetType::SHADER, "unlit.frag"),
+                                  .fragShaderPath = AssetManager::GetAsset(AssetManager::AssetType::SHADER, "pbr.frag"),
                                   .bindless = true};
 
     configInfo.inputAssemblyInfo.topology = PrimitiveTopology::eTriangleList;

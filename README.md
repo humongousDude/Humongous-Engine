@@ -14,6 +14,7 @@ Project is compiled with the latest G++ compiler, and I don't plan on targeting 
 * [Spdlog](https://github.com/gabime/spdlog)
 * [OpenAL](https://github.com/kcat/openal-soft)
 * [libsndfile](https://github.com/libsndfile/libsndfile)
+* [MeshOptimizer](https://github.com/zeux/meshoptimizer)
 
 
 ## Building

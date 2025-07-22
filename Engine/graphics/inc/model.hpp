@@ -4,7 +4,6 @@
 
 // based on Sascha Willems' tinyGltf vulkan example
 
-#include "logger.hpp"
 #include "logical_device.hpp"
 #include "material.hpp"
 #include "texture.hpp"
@@ -23,13 +22,15 @@
 
 namespace Humongous
 {
+// "Local" variables are within the scope of the model's whole vertex/index buffer.
+// "Global" variables are within the scope of the entire scene's vertex/index buffer. They are written to by the ResourceManager.
 struct Primitive
 {
     Node*       owner{nullptr};
     n32         localFirstIndex{0};
     n32         globalFirstIndex{0};
-    n32         localVertexStart{0};
-    n32         vertexOffset{0};
+    n32         localVertexOffset{0};
+    n32         globalVertexOffset{0};
     n32         indexCount{0};
     n32         vertexCount{0};
     f32         maxMorphDisplacement{0};
@@ -41,13 +42,15 @@ struct Primitive
     std::vector<std::vector<Eigen::Vector4f>> morphTargetTangents;
     n32                                       globalWeightOffset{0};
 
-    Material& material;
-    bool      hasIndices;
-    Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, n32 localVertexStart, Material& material)
-        : localFirstIndex(firstIndex), indexCount(indexCount), vertexCount(vertexCount), localVertexStart(localVertexStart), vertexOffset(0),
-          material(material), hasIndices(indexCount > 0)
+    Material* material = nullptr;
+    bool      hasIndices = false;
+    Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, n32 localVertexOffset, Material* material)
+        : localFirstIndex(firstIndex), indexCount(indexCount), vertexCount(vertexCount), localVertexOffset(localVertexOffset), material(material),
+          hasIndices(indexCount > 0)
     {
     }
+
+    Primitive() {}
 };
 
 struct Mesh
@@ -59,7 +62,17 @@ struct Mesh
     n32                     baseIndex = 0;
     LogicalDevice*          logicalDevice;
     std::vector<Primitive*> primitives;
-    std::vector<float>      weights;
+    std::vector<f32>        weights;
+};
+
+struct Meshlet
+{
+    n32             vertexOffset;
+    n32             vertexCount;
+    n32             indexOffset;
+    n32             primitiveCount;
+    Eigen::Vector4f boundingSphere;
+    n32             primitiveID;
 };
 
 class Model
@@ -88,9 +101,9 @@ public:
             CUBICSPLINE
         };
         InterpolationType            interpolation;
-        std::vector<float>           inputs;
+        std::vector<f32>             inputs;
         std::vector<Eigen::Vector4f> outputsVec4;
-        std::vector<float>           outputs;
+        std::vector<f32>             outputs;
         Eigen::Vector4f              CubicSplineInterpolation(size_t index, f32 time, n32 stride) const;
         void ApplyTranslation(size_t index, f32 time, std::vector<Eigen::Vector3f>& translations, n32 targetNodeIndex) const;
         void ApplyScale(size_t index, f32 time, std::vector<Eigen::Vector3f>& scales, n32 targetNodeIndex) const;
@@ -106,8 +119,8 @@ public:
         std::string                   name;
         std::vector<AnimationSampler> samplers;
         std::vector<AnimationChannel> channels;
-        float                         start = std::numeric_limits<f32>::max();
-        float                         end = std::numeric_limits<f32>::min();
+        f32                           start = std::numeric_limits<f32>::max();
+        f32                           end = std::numeric_limits<f32>::min();
     };
 
     struct InstanceCreationInfo
@@ -143,40 +156,41 @@ public:
         Eigen::Vector4f diffuseFactor;   // 16 bytes
         Eigen::Vector4f specularFactor;  // 16 bytes
 
-        float workflow;                       // 4
-        int   baseColorTextureIndex;          // 4
-        int   baseColorTextureSet;            // 4
-        int   physicalDescriptorTextureIndex; // 4
+        f32 workflow;                       // 4
+        int baseColorTextureIndex;          // 4
+        int baseColorTextureSet;            // 4
+        int physicalDescriptorTextureIndex; // 4
 
         int physicalDescriptorTextureSet; // 4
         int normalTextureIndex;           // 4
         int normalTextureSet;             // 4
         int occlusionTextureIndex;        // 4
 
-        int   occlusionTextureSet;  // 4
-        int   emissiveTextureIndex; // 4
-        int   emissiveTextureSet;   // 4
-        float metallicFactor;       // 4
+        int occlusionTextureSet;  // 4
+        int emissiveTextureIndex; // 4
+        int emissiveTextureSet;   // 4
+        f32 metallicFactor;       // 4
 
-        float roughnessFactor;  // 4
-        float alphaMask;        // 4
-        float alphaMaskCutoff;  // 4
-        float emissiveStrength; // 4
+        f32 roughnessFactor;  // 4
+        f32 alphaMask;        // 4
+        f32 alphaMaskCutoff;  // 4
+        f32 emissiveStrength; // 4
     };
 
-    struct alignas(16) Vertex
+    // tried both with and without __attribute__((packed))
+    struct Vertex
     {
-        Eigen::Vector4f position=Eigen::Vector4f::Zero();
-        Eigen::Vector4f normal=Eigen::Vector4f::Zero();
-        Eigen::Vector4f tangent=Eigen::Vector4f::Zero();
-        Eigen::Vector4f bitTangent=Eigen::Vector4f::Zero();
-        Eigen::Vector4f uv0=Eigen::Vector4f::Zero();
-        Eigen::Vector4f uv1=Eigen::Vector4f::Zero();
-        Eigen::Vector4f color=Eigen::Vector4f::Zero();
-        Eigen::Vector4i joint0=Eigen::Vector4i::Zero();
-        Eigen::Vector4f weight0=Eigen::Vector4f::Zero();
-        Eigen::Vector4f targetPos0=Eigen::Vector4f::Zero();
-        Eigen::Vector4f targetPos1=Eigen::Vector4f::Zero();
+        Eigen::Vector4f position = Eigen::Vector4f::Zero();
+        Eigen::Vector4f normal = Eigen::Vector4f::Zero();
+        Eigen::Vector4f tangent = Eigen::Vector4f::Zero();
+        Eigen::Vector4f bitTangent = Eigen::Vector4f::Zero();
+        Eigen::Vector4f uv0 = Eigen::Vector4f::Zero();
+        Eigen::Vector4f uv1 = Eigen::Vector4f::Zero();
+        Eigen::Vector4f color = Eigen::Vector4f::Zero();
+        Eigen::Vector4i joint0 = Eigen::Vector4i::Zero();
+        Eigen::Vector4f weight0 = Eigen::Vector4f::Zero();
+        Eigen::Vector4f targetPos0 = Eigen::Vector4f::Zero();
+        Eigen::Vector4f targetPos1 = Eigen::Vector4f::Zero();
 
         bool operator==(const Vertex& other) const
         {
@@ -184,7 +198,10 @@ public:
         }
     };
 
-    Model(LogicalDevice* device, const std::string& modelPath, float scale, const n32& handle);
+    // this passes
+    static_assert(std::is_standard_layout<Vertex>::value, "Vertex must be standard‑layout for meshoptimizer to memcpy it correctly");
+
+    Model(LogicalDevice* device, const std::string& modelPath, f32 scale, const n32& handle);
     ~Model();
 
     std::vector<n32>& GetIndices() { return m_indices; }
@@ -255,6 +272,10 @@ private:
     std::vector<Eigen::Matrix4f> m_jointMatricies;
     std::vector<f32>             m_morphTargets;
 
+    std::vector<Meshlet>       m_meshlets;
+    std::vector<n32>           m_meshletVertexIndices;
+    std::vector<unsigned char> m_meshletTriangleIndices;
+
     BoundingBox m_restAABB{};
     BoundingBox m_animatedAABB{};
 
@@ -280,14 +301,16 @@ private:
     };
 
     bool m_initialized{false};
-    void LoadFromFile(std::string filepath, LogicalDevice* device, vk::Queue transferQueue, float scale = 1.0f);
+    void LoadFromFile(std::string filepath, LogicalDevice* device, vk::Queue transferQueue, f32 scale = 1.0f);
     void Destroy(vk::Device m_device);
 
-    void LoadMaterialData();
+    void OptimizeMeshes();
+    void CreateMeshlets();
 
+    void LoadMaterialData();
     void UpdateMaterialBatches(Node* node);
 
-    void LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, float globalscale,
+    void LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, f32 globalscale,
                   Eigen::Matrix4f parentTransform);
     void GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& model, size_t& vertexCount, size_t& indexCount);
     void LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* m_device, vk::Queue transferQueue);

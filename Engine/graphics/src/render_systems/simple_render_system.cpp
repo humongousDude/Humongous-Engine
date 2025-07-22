@@ -255,16 +255,19 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
                 cmd.indexCount = primitive->indexCount;
                 cmd.instanceCount = static_cast<n32>(entityIDs.size());
                 cmd.firstIndex = primitive->globalFirstIndex;
-                cmd.vertexOffset = primitive->vertexOffset;
+                cmd.vertexOffset = primitive->globalVertexOffset;
                 cmd.firstInstance = 0;
                 commands.push_back(cmd);
 
                 DrawData draw{};
-                draw.materialID = primitive->material.index;
+                draw.materialID = primitive->material->index;
                 draw.localNodeIndex = primitive->owner->index;
                 draw.isSkinned = staticModel->HasSkins();
                 draw.isMorphed =
                     !primitive->morphTargetPositions.empty() || !primitive->morphTargetNormals.empty() || !primitive->morphTargetTangents.empty();
+
+                draw.isMorphed = false;
+                draw.isSkinned = false;
                 draw.instanceOffset = instanceOffset;
                 drawDataVec.push_back(draw);
             }

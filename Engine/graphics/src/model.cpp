@@ -2,6 +2,7 @@
 #include "defines.hpp"
 #include "extra.hpp"
 #include "logger.hpp"
+#include "meshoptimizer.h"
 #include "resource_manager.hpp"
 #include <set>
 
@@ -32,8 +33,6 @@ Model::~Model() { Destroy(m_logicalDevice->GetVkDevice()); }
 void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk::Queue transferQueue, f32 scale)
 {
     if(m_initialized) { return; }
-
-    HGINFO("Creating model...");
 
     tinygltf::Model    gltfModel;
     tinygltf::TinyGLTF gltfContext;
@@ -87,10 +86,6 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
         const tinygltf::Scene& scene = gltfModel.scenes[gltfModel.defaultScene > -1 ? gltfModel.defaultScene : 0];
 
         for(size_t i = 0; i < scene.nodes.size(); i++) { GetNodeProps(gltfModel.nodes[scene.nodes[i]], gltfModel, vertexCount, indexCount); }
-        loaderInfo.vertexBuffer.resize(vertexCount);
-        loaderInfo.indexBuffer.resize(indexCount);
-
-        m_indices.resize(indexCount);
         m_linearNodes.resize(gltfModel.nodes.size());
 
         // TODO: scene handling with no default scene
@@ -142,6 +137,8 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
     HGINFO("Vertices: %i", m_vertices.size());
     HGINFO("Indices: %i", m_indices.size());
 
+    // CreateMeshlets();
+
     CalculateRestAABB();
 
     ResourceManager::AddVerticesToModel(m_vertices, allMeshesForThisModel);
@@ -168,7 +165,6 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
     for(const auto& mesh: m_meshes) { morphTargets.insert(morphTargets.begin(), mesh->weights.begin(), mesh->weights.end()); }
     if(!morphTargets.empty()) { ResourceManager::AddMorphTargetsToModel(morphTargets, m_handle); }
     m_initialized = true;
-    HGINFO("Initialized model!");
 }
 
 void Model::Destroy(vk::Device device)
@@ -179,6 +175,11 @@ void Model::Destroy(vk::Device device)
 };
 
 // TODO: clean up this abomination
+
+struct Position
+{
+    f32 x, y, z;
+};
 
 void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, f32 globalscale,
                      Eigen::Matrix4f parentTransform)
@@ -197,21 +198,10 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
     }
     else
     {
-        if(node.translation.size() == 3)
-        {
-            HGINFO("Raw Translation data:");
-            for(double val: node.translation) { HGINFO("%f", val); }
-            newNode->translation = Eigen::Map<const Eigen::Vector3d>(node.translation.data()).cast<float>();
-        }
+        if(node.translation.size() == 3) { newNode->translation = Eigen::Map<const Eigen::Vector3d>(node.translation.data()).cast<float>(); }
         if(node.rotation.size() == 4) { newNode->rotation = Eigen::Map<const Eigen::Quaterniond>(node.rotation.data()).cast<float>(); }
         if(node.scale.size() == 3) { newNode->scale = Eigen::Map<const Eigen::Vector3d>(node.scale.data()).cast<float>(); }
         newNode->isMatrixSpecified = false;
-
-        // All zero :(
-        HGINFO("Node %s has no matrix", newNode->name.c_str());
-        HGINFO("Translation: %f, %f, %f", newNode->translation.x(), newNode->translation.y(), newNode->translation.z());
-        HGINFO("Rotation: %f, %f, %f", newNode->rotation.x(), newNode->rotation.y(), newNode->rotation.z());
-        HGINFO("Scale: %f, %f, %f", newNode->scale.x(), newNode->scale.y(), newNode->scale.z());
 
         newNode->CalculateLocalMatrix();
     }
@@ -239,20 +229,26 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
 
         for(size_t j = 0; j < mesh.primitives.size(); j++)
         {
-            const tinygltf::Primitive&                primitive = mesh.primitives[j];
-            n32                                       vertexStart = static_cast<n32>(loaderInfo.vertexPos);
-            n32                                       indexStart = static_cast<n32>(loaderInfo.indexPos);
-            n32                                       indexCount = 0;
-            n32                                       vertexCount = 0;
-            bool                                      hasSkin = false;
-            bool                                      hasIndices = primitive.indices > -1;
-            std::vector<std::vector<Eigen::Vector3f>> morphTargetPositions;
-            std::vector<std::vector<Eigen::Vector3f>> morphTargetNormals;
-            std::vector<std::vector<Eigen::Vector4f>> morphTargetTangents;
+            const tinygltf::Primitive& primitive = mesh.primitives[j];
+
+            n32 vertexStart = static_cast<n32>(loaderInfo.vertexPos);
+            n32 indexStart = static_cast<n32>(loaderInfo.indexPos);
+            n32 indexCount = 0;
+            n32 vertexCount = 0;
+
+            bool hasSkin = false;
+            bool hasIndices = primitive.indices > -1;
+
+            std::vector<std::vector<Eigen::Vector3f>> morphTargetPositionsOriginal; // Store original
+            std::vector<std::vector<Eigen::Vector3f>> morphTargetNormalsOriginal;
+            std::vector<std::vector<Eigen::Vector4f>> morphTargetTangentsOriginal;
 
             Eigen::Vector4f currentPrimitiveMinPos = Eigen::Vector4f::Constant(std::numeric_limits<f32>::max());
             Eigen::Vector4f currentPrimitiveMaxPos = Eigen::Vector4f::Constant(std::numeric_limits<f32>::lowest());
             f32             currentMaxMorphDisplacement = 0.0f;
+
+            std::vector<Vertex> currentPrimitiveVertices;
+            std::vector<n32>    currentPrimitiveIndices;
 
             for(const auto& target_map: primitive.targets)
             {
@@ -276,7 +272,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                         currentMaxMorphDisplacement = std::max(currentMaxMorphDisplacement, targetPositions[k].norm());
                     }
                 }
-                morphTargetPositions.push_back(targetPositions);
+                morphTargetPositionsOriginal.push_back(targetPositions);
 
                 // Target Normals (_NORMAL) - Optional
                 auto normalIt = target_map.find("NORMAL");
@@ -289,7 +285,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                         reinterpret_cast<const Eigen::Vector3f*>(buffer.data.data() + accessor.byteOffset + bufferView.byteOffset);
                     targetNormals.assign(dataPtr, dataPtr + accessor.count);
                 }
-                morphTargetNormals.push_back(targetNormals);
+                morphTargetNormalsOriginal.push_back(targetNormals);
 
                 // Target Tangents (_TANGENT) - Optional
                 auto tangentIt = target_map.find("TANGENT");
@@ -302,218 +298,222 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                         reinterpret_cast<const Eigen::Vector4f*>(buffer.data.data() + accessor.byteOffset + bufferView.byteOffset);
                     targetTangents.assign(dataPtr, dataPtr + accessor.count);
                 }
-                morphTargetTangents.push_back(targetTangents);
+                morphTargetTangentsOriginal.push_back(targetTangents);
             }
 
+            const f32*  bufferPos = nullptr;
+            const f32*  bufferNormals = nullptr;
+            const f32*  bufferTexCoordSet0 = nullptr;
+            const f32*  bufferTexCoordSet1 = nullptr;
+            const f32*  bufferColorSet0 = nullptr;
+            const void* bufferJoints = nullptr;
+            const f32*  bufferWeights = nullptr;
+            const f32*  bufferTangents = nullptr;
+
+            int    posByteStride;
+            int    normByteStride;
+            int    uv0ByteStride;
+            int    uv1ByteStride;
+            int    color0ByteStride;
+            int    jointByteStride;
+            int    weightByteStride;
+            size_t tangentByteStride = 0;
+
+            int jointComponentType;
+
+            HGASSERT(primitive.attributes.find("POSITION") != primitive.attributes.end());
+
+            const tinygltf::Accessor&   posAccessor = model.accessors[primitive.attributes.at("POSITION")];
+            const tinygltf::BufferView& posView = model.bufferViews[posAccessor.bufferView];
+
+            posByteStride = posAccessor.ByteStride(posView) ? posAccessor.ByteStride(posView)
+                                                            : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
+
+            const unsigned char* rawPosBase = model.buffers[posView.buffer].data.data() + posView.byteOffset + posAccessor.byteOffset;
+
+            // Normals (if present)
+            normByteStride = 0;
+            const unsigned char* rawNormBase = nullptr;
+            if(primitive.attributes.find("NORMAL") != primitive.attributes.end())
             {
-                const f32*  bufferPos = nullptr;
-                const f32*  bufferNormals = nullptr;
-                const f32*  bufferTexCoordSet0 = nullptr;
-                const f32*  bufferTexCoordSet1 = nullptr;
-                const f32*  bufferColorSet0 = nullptr;
-                const void* bufferJoints = nullptr;
-                const f32*  bufferWeights = nullptr;
-                const f32*  bufferTangents = nullptr;
+                const tinygltf::Accessor&   normAccessor = model.accessors[primitive.attributes.at("NORMAL")];
+                const tinygltf::BufferView& normView = model.bufferViews[normAccessor.bufferView];
+                normByteStride = normAccessor.ByteStride(normView) ? normAccessor.ByteStride(normView)
+                                                                   : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
+                rawNormBase = model.buffers[normView.buffer].data.data() + normView.byteOffset + normAccessor.byteOffset;
+            }
 
-                int    posByteStride;
-                int    normByteStride;
-                int    uv0ByteStride;
-                int    uv1ByteStride;
-                int    color0ByteStride;
-                int    jointByteStride;
-                int    weightByteStride;
-                size_t tangentByteStride = 0;
+            // UV0 (if present)
+            uv0ByteStride = 0;
+            const unsigned char* rawUv0Base = nullptr;
+            if(primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end())
+            {
+                const tinygltf::Accessor&   uvAccessor = model.accessors[primitive.attributes.at("TEXCOORD_0")];
+                const tinygltf::BufferView& uvView = model.bufferViews[uvAccessor.bufferView];
+                uv0ByteStride = uvAccessor.ByteStride(uvView) ? uvAccessor.ByteStride(uvView)
+                                                              : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
+                rawUv0Base = model.buffers[uvView.buffer].data.data() + uvView.byteOffset + uvAccessor.byteOffset;
+            }
 
-                int jointComponentType;
+            if(primitive.attributes.find("TEXCOORD_1") != primitive.attributes.end())
+            {
+                const tinygltf::Accessor&   uvAccessor = model.accessors[primitive.attributes.find("TEXCOORD_1")->second];
+                const tinygltf::BufferView& uvView = model.bufferViews[uvAccessor.bufferView];
+                // bufferTexCoordSet1 = reinterpret_cast<const f32*>(&(model.buffers[uvView.buffer].data[uvAccessor.byteOffset +
+                // uvView.byteOffset]));
+                uv1ByteStride = uvAccessor.ByteStride(uvView) ? (uvAccessor.ByteStride(uvView) / sizeof(f32))
+                                                              : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2);
+            }
 
-                HGASSERT(primitive.attributes.find("POSITION") != primitive.attributes.end());
+            // Vertex colors
+            if(primitive.attributes.find("COLOR_0") != primitive.attributes.end())
+            {
+                const tinygltf::Accessor&   accessor = model.accessors[primitive.attributes.find("COLOR_0")->second];
+                const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
+                // bufferColorSet0 = reinterpret_cast<const f32*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+                color0ByteStride =
+                    accessor.ByteStride(view) ? (accessor.ByteStride(view) / sizeof(f32)) : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3);
+            }
 
-                const tinygltf::Accessor&   posAccessor = model.accessors[primitive.attributes.at("POSITION")];
-                const tinygltf::BufferView& posView = model.bufferViews[posAccessor.bufferView];
+            // Skinning
+            // Joints
+            if(primitive.attributes.find("JOINTS_0") != primitive.attributes.end())
+            {
+                const tinygltf::Accessor&   jointAccessor = model.accessors[primitive.attributes.find("JOINTS_0")->second];
+                const tinygltf::BufferView& jointView = model.bufferViews[jointAccessor.bufferView];
+                // bufferJoints = &(model.buffers[jointView.buffer].data[jointAccessor.byteOffset + jointView.byteOffset]);
+                jointComponentType = jointAccessor.componentType;
+                jointByteStride = jointAccessor.ByteStride(jointView)
+                                      ? (jointAccessor.ByteStride(jointView) / tinygltf::GetComponentSizeInBytes(jointComponentType))
+                                      : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4);
+            }
 
-                posByteStride = posAccessor.ByteStride(posView) ? posAccessor.ByteStride(posView)
-                                                                : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
+            if(primitive.attributes.find("WEIGHTS_0") != primitive.attributes.end())
+            {
+                const tinygltf::Accessor&   weightAccessor = model.accessors[primitive.attributes.find("WEIGHTS_0")->second];
+                const tinygltf::BufferView& weightView = model.bufferViews[weightAccessor.bufferView];
+                // bufferWeights =
+                //     reinterpret_cast<const f32*>(&(model.buffers[weightView.buffer].data[weightAccessor.byteOffset + weightView.byteOffset]));
+                weightByteStride = weightAccessor.ByteStride(weightView) ? (weightAccessor.ByteStride(weightView) / sizeof(f32))
+                                                                         : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4);
+            }
+            if(primitive.attributes.find("TANGENT") != primitive.attributes.end())
+            {
+                const tinygltf::Accessor&   tangentAccessor = model.accessors[primitive.attributes.find("TANGENT")->second];
+                const tinygltf::BufferView& tangentView = model.bufferViews[tangentAccessor.bufferView];
+                // bufferTangents =
+                //     reinterpret_cast<const f32*>(&model.buffers[tangentView.buffer].data[tangentView.byteOffset + tangentAccessor.byteOffset]);
+                tangentByteStride = tangentAccessor.ByteStride(tangentView);
+            }
 
-                const unsigned char* rawPosBase = model.buffers[posView.buffer].data.data() + posView.byteOffset + posAccessor.byteOffset;
+            hasSkin = (bufferJoints && bufferWeights);
+            vertexCount = static_cast<n32>(posAccessor.count);
 
-                // Normals (if present)
-                normByteStride = 0;
-                const unsigned char* rawNormBase = nullptr;
-                if(primitive.attributes.find("NORMAL") != primitive.attributes.end())
+            // currentPrimitiveVertices will grow to posAccessor.count
+            currentPrimitiveVertices.reserve(posAccessor.count);
+
+            for(size_t v = 0; v < posAccessor.count; v++)
+            {
+                Vertex vert{};
+
+                // POSITION is guaranteed to be present and of type FLOAT.
                 {
-                    const tinygltf::Accessor&   normAccessor = model.accessors[primitive.attributes.at("NORMAL")];
-                    const tinygltf::BufferView& normView = model.bufferViews[normAccessor.bufferView];
-                    normByteStride = normAccessor.ByteStride(normView) ? normAccessor.ByteStride(normView)
-                                                                       : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3));
-                    rawNormBase = model.buffers[normView.buffer].data.data() + normView.byteOffset + normAccessor.byteOffset;
+                    const f32*      p = reinterpret_cast<const f32*>(rawPosBase + (v * posByteStride));
+                    Eigen::Vector3f posVec = Eigen::Map<const Eigen::Vector3f>(p);
+                    vert.position = Eigen::Vector4f(posVec.x(), posVec.y(), posVec.z(), 1.0f);
                 }
 
-                // UV0 (if present)
-                uv0ByteStride = 0;
-                const unsigned char* rawUv0Base = nullptr;
-                if(primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end())
+                // NORMAL (if it exists)
+                if(rawNormBase)
                 {
-                    const tinygltf::Accessor&   uvAccessor = model.accessors[primitive.attributes.at("TEXCOORD_0")];
-                    const tinygltf::BufferView& uvView = model.bufferViews[uvAccessor.bufferView];
-                    uv0ByteStride = uvAccessor.ByteStride(uvView) ? uvAccessor.ByteStride(uvView)
-                                                                  : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
-                    rawUv0Base = model.buffers[uvView.buffer].data.data() + uvView.byteOffset + uvAccessor.byteOffset;
+                    const f32*      n = reinterpret_cast<const f32*>(rawNormBase + (v * normByteStride));
+                    Eigen::Vector3f normVec = Eigen::Map<const Eigen::Vector3f>(n);
+                    normVec.normalize();
+                    vert.normal = Eigen::Vector4f(normVec.x(), normVec.y(), normVec.z(), 1.0f);
                 }
+                else { vert.normal = Eigen::Vector4f::Zero(); }
 
-                if(primitive.attributes.find("TEXCOORD_1") != primitive.attributes.end())
+                // UV0
+                if(rawUv0Base)
                 {
-                    const tinygltf::Accessor&   uvAccessor = model.accessors[primitive.attributes.find("TEXCOORD_1")->second];
-                    const tinygltf::BufferView& uvView = model.bufferViews[uvAccessor.bufferView];
-                    bufferTexCoordSet1 =
-                        reinterpret_cast<const f32*>(&(model.buffers[uvView.buffer].data[uvAccessor.byteOffset + uvView.byteOffset]));
-                    uv1ByteStride = uvAccessor.ByteStride(uvView) ? (uvAccessor.ByteStride(uvView) / sizeof(f32))
-                                                                  : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2);
+                    const f32*      uv = reinterpret_cast<const f32*>(rawUv0Base + (v * uv0ByteStride));
+                    Eigen::Vector2f uvVec = Eigen::Map<const Eigen::Vector2f>(uv);
+                    vert.uv0 = Eigen::Vector4f(uvVec.x(), uvVec.y(), 1.0f, 1.0f);
                 }
+                else { vert.uv0 = Eigen::Vector4f::Zero(); }
 
-                // Vertex colors
-                if(primitive.attributes.find("COLOR_0") != primitive.attributes.end())
-                {
-                    const tinygltf::Accessor&   accessor = model.accessors[primitive.attributes.find("COLOR_0")->second];
-                    const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
-                    bufferColorSet0 = reinterpret_cast<const f32*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-                    color0ByteStride = accessor.ByteStride(view) ? (accessor.ByteStride(view) / sizeof(f32))
-                                                                 : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3);
-                }
-
-                // Skinning
-                // Joints
+                // JOINTS_0 / WEIGHTS_0 (if present)
                 if(primitive.attributes.find("JOINTS_0") != primitive.attributes.end())
                 {
-                    const tinygltf::Accessor&   jointAccessor = model.accessors[primitive.attributes.find("JOINTS_0")->second];
+                    const tinygltf::Accessor&   jointAccessor = model.accessors[primitive.attributes.at("JOINTS_0")];
                     const tinygltf::BufferView& jointView = model.bufferViews[jointAccessor.bufferView];
-                    bufferJoints = &(model.buffers[jointView.buffer].data[jointAccessor.byteOffset + jointView.byteOffset]);
-                    jointComponentType = jointAccessor.componentType;
-                    jointByteStride = jointAccessor.ByteStride(jointView)
-                                          ? (jointAccessor.ByteStride(jointView) / tinygltf::GetComponentSizeInBytes(jointComponentType))
-                                          : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4);
+                    const unsigned char*        rawJointBase =
+                        model.buffers[jointView.buffer].data.data() + jointView.byteOffset + jointAccessor.byteOffset;
+                    size_t currentJointByteStride = jointAccessor.ByteStride(jointView)
+                                                        ? jointAccessor.ByteStride(jointView)
+                                                        : (tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4) *
+                                                           tinygltf::GetComponentSizeInBytes(jointAccessor.componentType));
+
+                    if(jointAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+                    {
+                        const n16* j = reinterpret_cast<const n16*>(rawJointBase + (v * currentJointByteStride));
+                        vert.joint0 = Eigen::Vector4i(j[0], j[1], j[2], j[3]);
+                    }
+                    else if(jointAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
+                    {
+                        const n8* j = reinterpret_cast<const n8*>(rawJointBase + (v * currentJointByteStride));
+                        vert.joint0 = Eigen::Vector4i(j[0], j[1], j[2], j[3]);
+                    }
+                    else { HGERROR("Unexpected JOINTS_0 componentType = %d", jointAccessor.componentType); }
                 }
+                else { vert.joint0 = Eigen::Vector4i::Zero(); }
 
                 if(primitive.attributes.find("WEIGHTS_0") != primitive.attributes.end())
                 {
-                    const tinygltf::Accessor&   weightAccessor = model.accessors[primitive.attributes.find("WEIGHTS_0")->second];
+                    const tinygltf::Accessor&   weightAccessor = model.accessors[primitive.attributes.at("WEIGHTS_0")];
                     const tinygltf::BufferView& weightView = model.bufferViews[weightAccessor.bufferView];
-                    bufferWeights =
-                        reinterpret_cast<const f32*>(&(model.buffers[weightView.buffer].data[weightAccessor.byteOffset + weightView.byteOffset]));
-                    weightByteStride = weightAccessor.ByteStride(weightView) ? (weightAccessor.ByteStride(weightView) / sizeof(f32))
-                                                                             : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4);
+                    const unsigned char*        rawWeightBase =
+                        model.buffers[weightView.buffer].data.data() + weightView.byteOffset + weightAccessor.byteOffset;
+                    size_t     currentWeightByteStride = weightAccessor.ByteStride(weightView)
+                                                             ? weightAccessor.ByteStride(weightView)
+                                                             : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4));
+                    const f32* w = reinterpret_cast<const f32*>(rawWeightBase + (v * currentWeightByteStride));
+                    vert.weight0 = Eigen::Map<const Eigen::Vector4f>(w);
+                    if(vert.weight0.norm() == 0.0f) { vert.weight0 = Eigen::Vector4f::Zero(); }
                 }
+                else { vert.weight0 = Eigen::Vector4f::Zero(); }
+
+                // Tangent (if present)
                 if(primitive.attributes.find("TANGENT") != primitive.attributes.end())
                 {
-                    const tinygltf::Accessor&   tangentAccessor = model.accessors[primitive.attributes.find("TANGENT")->second];
-                    const tinygltf::BufferView& tangentView = model.bufferViews[tangentAccessor.bufferView];
-                    bufferTangents =
-                        reinterpret_cast<const f32*>(&model.buffers[tangentView.buffer].data[tangentView.byteOffset + tangentAccessor.byteOffset]);
-                    tangentByteStride = tangentAccessor.ByteStride(tangentView);
+                    const tinygltf::Accessor&   tanAccessor = model.accessors[primitive.attributes.at("TANGENT")];
+                    const tinygltf::BufferView& tanView = model.bufferViews[tanAccessor.bufferView];
+                    const unsigned char* rawTanBase = model.buffers[tanView.buffer].data.data() + tanView.byteOffset + tanAccessor.byteOffset;
+                    size_t               currentTanByteStride = tanAccessor.ByteStride(tanView)
+                                                                    ? tanAccessor.ByteStride(tanView)
+                                                                    : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4));
+                    const f32*           t = reinterpret_cast<const f32*>(rawTanBase + (v * currentTanByteStride));
+                    Eigen::Vector3f      tangent = Eigen::Map<const Eigen::Vector3f>(t).normalized();
+                    // the w‐component in glTF TANGENT is the sign for the bitangent
+                    f32             sign = t[3];
+                    Eigen::Vector3f bitan = (vert.normal.head<3>().cross(tangent) * sign).normalized();
+                    vert.tangent = Eigen::Vector4f(tangent.x(), tangent.y(), tangent.z(), 1.0f);
+                    vert.bitTangent = Eigen::Vector4f(bitan.x(), bitan.y(), bitan.z(), 1.0f);
+                }
+                else
+                {
+                    vert.tangent = Eigen::Vector4f::Zero();
+                    vert.bitTangent = Eigen::Vector4f::Zero();
                 }
 
-                hasSkin = (bufferJoints && bufferWeights);
-
-                HGASSERT(loaderInfo.vertexPos + posAccessor.count <= loaderInfo.vertexBuffer.size() &&
-                         "Not enough space in loaderInfo.vertexBuffer to hold all positions!");
-                for(size_t v = 0; v < posAccessor.count; v++)
+                // Morph Target Data (already extracted into morphTargetPositionsOriginal, etc.)
+                const constexpr size_t MAX_SUPPORTED_TARGETS = 4;
+                for(size_t targetIdx = 0; targetIdx < morphTargetPositionsOriginal.size() && targetIdx < MAX_SUPPORTED_TARGETS; ++targetIdx)
                 {
-                    Vertex& vert = loaderInfo.vertexBuffer[loaderInfo.vertexPos];
-
-                    // POSITION is guaranteed to be present and of type FLOAT.
+                    // Ensure the target position exists for this vertex (accessor.count check implicitly handled by loop)
+                    if(v < morphTargetPositionsOriginal[targetIdx].size())
                     {
-                        const f32*      p = reinterpret_cast<const f32*>(rawPosBase + (v * posByteStride));
-                        Eigen::Vector3f posVec = Eigen::Map<const Eigen::Vector3f>(p);
-                        vert.position = Eigen::Vector4f(posVec.x(), posVec.y(), posVec.z(), 1.0f);
-                    }
-
-                    // NORMAL (if it exists)
-                    if(rawNormBase)
-                    {
-                        const f32*      n = reinterpret_cast<const f32*>(rawNormBase + (v * normByteStride));
-                        Eigen::Vector3f normVec = Eigen::Map<const Eigen::Vector3f>(n);
-                        normVec.normalize();
-                        vert.normal = Eigen::Vector4f(normVec.x(), normVec.y(), normVec.z(), 1.0f);
-                    }
-                    else { vert.normal = Eigen::Vector4f::Zero(); }
-
-                    // UV0
-                    if(rawUv0Base)
-                    {
-                        const f32*      uv = reinterpret_cast<const f32*>(rawUv0Base + (v * uv0ByteStride));
-                        Eigen::Vector2f uvVec = Eigen::Map<const Eigen::Vector2f>(uv);
-                        vert.uv0 = Eigen::Vector4f(uvVec.x(), uvVec.y(), 1.0f, 1.0f);
-                    }
-                    else { vert.uv0 = Eigen::Vector4f::Zero(); }
-
-                    // JOINTS_0 / WEIGHTS_0 (if present)
-                    if(primitive.attributes.find("JOINTS_0") != primitive.attributes.end())
-                    {
-                        const tinygltf::Accessor&   jointAccessor = model.accessors[primitive.attributes.at("JOINTS_0")];
-                        const tinygltf::BufferView& jointView = model.bufferViews[jointAccessor.bufferView];
-                        const unsigned char*        rawJointBase =
-                            model.buffers[jointView.buffer].data.data() + jointView.byteOffset + jointAccessor.byteOffset;
-                        size_t jointByteStride = jointAccessor.ByteStride(jointView)
-                                                     ? jointAccessor.ByteStride(jointView)
-                                                     : (tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4) *
-                                                        tinygltf::GetComponentSizeInBytes(jointAccessor.componentType));
-
-                        if(jointAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
-                        {
-                            const n16* j = reinterpret_cast<const n16*>(rawJointBase + (v * jointByteStride));
-                            vert.joint0 = Eigen::Vector4i(j[0], j[1], j[2], j[3]);
-                        }
-                        else if(jointAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
-                        {
-                            const n8* j = reinterpret_cast<const n8*>(rawJointBase + (v * jointByteStride));
-                            vert.joint0 = Eigen::Vector4i(j[0], j[1], j[2], j[3]);
-                        }
-                        else { HGERROR("Unexpected JOINTS_0 componentType = %d", jointAccessor.componentType); }
-                    }
-                    else { vert.joint0 = Eigen::Vector4i::Zero(); }
-
-                    if(primitive.attributes.find("WEIGHTS_0") != primitive.attributes.end())
-                    {
-                        const tinygltf::Accessor&   weightAccessor = model.accessors[primitive.attributes.at("WEIGHTS_0")];
-                        const tinygltf::BufferView& weightView = model.bufferViews[weightAccessor.bufferView];
-                        const unsigned char*        rawWeightBase =
-                            model.buffers[weightView.buffer].data.data() + weightView.byteOffset + weightAccessor.byteOffset;
-                        size_t     weightByteStride = weightAccessor.ByteStride(weightView)
-                                                          ? weightAccessor.ByteStride(weightView)
-                                                          : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4));
-                        const f32* w = reinterpret_cast<const f32*>(rawWeightBase + (v * weightByteStride));
-                        vert.weight0 = Eigen::Map<const Eigen::Vector4f>(w);
-                        if(vert.weight0.norm() == 0.0f) { vert.weight0 = Eigen::Vector4f::Zero(); }
-                    }
-                    else { vert.weight0 = Eigen::Vector4f::Zero(); }
-
-                    // Tangent (if present)
-                    if(primitive.attributes.find("TANGENT") != primitive.attributes.end())
-                    {
-                        const tinygltf::Accessor&   tanAccessor = model.accessors[primitive.attributes.at("TANGENT")];
-                        const tinygltf::BufferView& tanView = model.bufferViews[tanAccessor.bufferView];
-                        const unsigned char* rawTanBase = model.buffers[tanView.buffer].data.data() + tanView.byteOffset + tanAccessor.byteOffset;
-                        size_t               tanByteStride = tanAccessor.ByteStride(tanView)
-                                                                 ? tanAccessor.ByteStride(tanView)
-                                                                 : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4));
-                        const f32*           t = reinterpret_cast<const f32*>(rawTanBase + (v * tanByteStride));
-                        Eigen::Vector3f      tangent = Eigen::Map<const Eigen::Vector3f>(t).normalized();
-                        // the w‐component in glTF TANGENT is the sign for the bitangent
-                        f32             sign = t[3];
-                        Eigen::Vector3f bitan = (vert.normal.head<3>().cross(tangent) * sign).normalized();
-                        vert.tangent = Eigen::Vector4f(tangent.x(), tangent.y(), tangent.z(), 1.0f);
-                        vert.bitTangent = Eigen::Vector4f(bitan.x(), bitan.y(), bitan.z(), 1.0f);
-                    }
-                    else
-                    {
-                        vert.tangent = Eigen::Vector4f::Zero();
-                        vert.bitTangent = Eigen::Vector4f::Zero();
-                    }
-                    const constexpr size_t MAX_SUPPORTED_TARGETS = 4;
-
-                    for(size_t targetIdx = 0; targetIdx < morphTargetPositions.size() && targetIdx < MAX_SUPPORTED_TARGETS; ++targetIdx)
-                    {
-                        const Eigen::Vector3f& targetOffset = morphTargetPositions[targetIdx][v];
-
+                        const Eigen::Vector3f& targetOffset = morphTargetPositionsOriginal[targetIdx][v];
                         switch(targetIdx)
                         {
                             case 0:
@@ -522,63 +522,51 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                             case 1:
                                 vert.targetPos1 = Eigen::Vector4f(targetOffset.x(), targetOffset.y(), targetOffset.z(), 0.0f);
                                 break;
-                            case 2:
+                            // ... handle cases for targetPos2, targetPos3 if needed
                             default:
                                 break;
                         }
                     }
-                    if(morphTargetPositions.size() <= 0) { vert.targetPos0 = Eigen::Vector4f::Zero(); }
-                    if(morphTargetPositions.size() <= 1) { vert.targetPos1 = Eigen::Vector4f::Zero(); }
+                }
+                if(morphTargetPositionsOriginal.size() <= 0) { vert.targetPos0 = Eigen::Vector4f::Zero(); }
+                if(morphTargetPositionsOriginal.size() <= 1) { vert.targetPos1 = Eigen::Vector4f::Zero(); }
+                // Handle targetPos2, targetPos3 similarly if you add them to Vertex struct
 
-                    currentPrimitiveMinPos = currentPrimitiveMinPos.cwiseMin(vert.position);
-                    currentPrimitiveMaxPos = currentPrimitiveMaxPos.cwiseMax(vert.position);
+                currentPrimitiveMinPos = currentPrimitiveMinPos.cwiseMin(vert.position);
+                currentPrimitiveMaxPos = currentPrimitiveMaxPos.cwiseMax(vert.position);
 
-                    loaderInfo.vertexPos++;
-                } // end for v in posAccessor.count
-            }
-            // Indices
+                currentPrimitiveVertices.push_back(vert);
+            } // end for v in posAccessor.count
+
             if(hasIndices)
             {
-                const tinygltf::Accessor&   accessor = model.accessors[primitive.indices > -1 ? primitive.indices : 0];
+                HGASSERT(primitive.indices > -1);
+                const tinygltf::Accessor&   accessor = model.accessors[primitive.indices];
                 const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
                 const tinygltf::Buffer&     buffer = model.buffers[bufferView.buffer];
 
                 indexCount = static_cast<n32>(accessor.count);
                 const void* dataPtr = &(buffer.data[accessor.byteOffset + bufferView.byteOffset]);
 
+                currentPrimitiveIndices.reserve(accessor.count);
                 switch(accessor.componentType)
                 {
                     case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT:
                         {
                             const n32* buf = static_cast<const n32*>(dataPtr);
-                            HGASSERT(loaderInfo.indexPos + accessor.count <= loaderInfo.indexBuffer.size() &&
-                                     "Not enough space in loaderInfo.indexBuffer to hold all indices!");
-                            for(size_t index = 0; index < accessor.count; index++)
-                            {
-
-                                loaderInfo.indexBuffer[loaderInfo.indexPos] = buf[index];
-                                loaderInfo.indexPos++;
-                            }
+                            for(size_t index = 0; index < accessor.count; index++) { currentPrimitiveIndices.push_back(buf[index]); }
                             break;
                         }
                     case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT:
                         {
                             const n16* buf = static_cast<const n16*>(dataPtr);
-                            for(size_t index = 0; index < accessor.count; index++)
-                            {
-                                loaderInfo.indexBuffer[loaderInfo.indexPos] = buf[index];
-                                loaderInfo.indexPos++;
-                            }
+                            for(size_t index = 0; index < accessor.count; index++) { currentPrimitiveIndices.push_back(buf[index]); }
                             break;
                         }
                     case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE:
                         {
                             const n8* buf = static_cast<const n8*>(dataPtr);
-                            for(size_t index = 0; index < accessor.count; index++)
-                            {
-                                loaderInfo.indexBuffer[loaderInfo.indexPos] = buf[index];
-                                loaderInfo.indexPos++;
-                            }
+                            for(size_t index = 0; index < accessor.count; index++) { currentPrimitiveIndices.push_back(buf[index]); }
                             break;
                         }
                     default:
@@ -586,17 +574,96 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                         return;
                 }
             }
-            Primitive* newPrimitive = new Primitive(indexStart, indexCount, vertexCount, vertexStart,
-                                                    primitive.material > -1 ? m_materials[primitive.material] : m_materials.back());
+
+            Primitive* newPrimitive = new Primitive();
+            newPrimitive->localFirstIndex = indexStart;
+            newPrimitive->indexCount = static_cast<n32>(currentPrimitiveIndices.size());
+            newPrimitive->localVertexOffset = vertexStart;
+            newPrimitive->vertexCount = static_cast<n32>(currentPrimitiveVertices.size());
+
+            newPrimitive->material = primitive.material > -1 ? &m_materials[primitive.material] : &m_materials.back();
             newPrimitive->owner = newNode;
-            newPrimitive->morphTargetPositions = morphTargetPositions;
-            newPrimitive->morphTargetNormals = morphTargetNormals;
-            newPrimitive->morphTargetTangents = morphTargetTangents;
             newPrimitive->maxMorphDisplacement = currentMaxMorphDisplacement;
             newPrimitive->boundingBox = BoundingBox(currentPrimitiveMinPos, currentPrimitiveMaxPos);
             newPrimitive->boundingBox.valid = true;
             newPrimitive->id = newMesh->primitives.size();
             newPrimitive->globalWeightOffset = m_morphTargets.size();
+
+            HGINFO("Primitive %i has %i vertices and %i indices pre optimization", newPrimitive->id, currentPrimitiveVertices.size(),
+                   currentPrimitiveIndices.size());
+
+            if(!currentPrimitiveIndices.empty() && !currentPrimitiveVertices.empty())
+            {
+                std::vector<n32> remap(currentPrimitiveVertices.size());
+                size_t           uniqueVertexCount =
+                    meshopt_generateVertexRemap(remap.data(), currentPrimitiveIndices.data(), currentPrimitiveIndices.size(),
+                                                currentPrimitiveVertices.data(), currentPrimitiveVertices.size(), sizeof(Vertex));
+
+                std::vector<n32>    remappedIndices(currentPrimitiveIndices.size());
+                std::vector<Vertex> remappedVertices(uniqueVertexCount);
+
+                meshopt_remapIndexBuffer(remappedIndices.data(), currentPrimitiveIndices.data(), currentPrimitiveIndices.size(), remap.data());
+                meshopt_remapVertexBuffer(remappedVertices.data(), currentPrimitiveVertices.data(), currentPrimitiveVertices.size(), sizeof(Vertex),
+                                          remap.data());
+
+                newPrimitive->morphTargetPositions.resize(morphTargetPositionsOriginal.size());
+                newPrimitive->morphTargetNormals.resize(morphTargetNormalsOriginal.size());
+                newPrimitive->morphTargetTangents.resize(morphTargetTangentsOriginal.size());
+
+                for(size_t targetIdx = 0; targetIdx < morphTargetPositionsOriginal.size(); ++targetIdx)
+                {
+                    newPrimitive->morphTargetPositions[targetIdx].resize(uniqueVertexCount);
+                    meshopt_remapVertexBuffer(newPrimitive->morphTargetPositions[targetIdx].data(), morphTargetPositionsOriginal[targetIdx].data(),
+                                              morphTargetPositionsOriginal[targetIdx].size(), sizeof(Eigen::Vector3f), remap.data());
+                }
+                for(size_t targetIdx = 0; targetIdx < morphTargetNormalsOriginal.size(); ++targetIdx)
+                {
+                    newPrimitive->morphTargetNormals[targetIdx].resize(uniqueVertexCount);
+                    meshopt_remapVertexBuffer(newPrimitive->morphTargetNormals[targetIdx].data(), morphTargetNormalsOriginal[targetIdx].data(),
+                                              morphTargetNormalsOriginal[targetIdx].size(), sizeof(Eigen::Vector3f), remap.data());
+                }
+                for(size_t targetIdx = 0; targetIdx < morphTargetTangentsOriginal.size(); ++targetIdx)
+                {
+                    newPrimitive->morphTargetTangents[targetIdx].resize(uniqueVertexCount);
+                    meshopt_remapVertexBuffer(newPrimitive->morphTargetTangents[targetIdx].data(), morphTargetTangentsOriginal[targetIdx].data(),
+                                              morphTargetTangentsOriginal[targetIdx].size(), sizeof(Eigen::Vector4f), remap.data());
+                }
+
+                meshopt_optimizeVertexCache(remappedIndices.data(), remappedIndices.data(), remappedIndices.size(), uniqueVertexCount);
+
+                meshopt_optimizeOverdraw(remappedIndices.data(), remappedIndices.data(), remappedIndices.size(), &remappedVertices[0].position.x(),
+                                         uniqueVertexCount, sizeof(Vertex), 1.05f);
+
+                meshopt_optimizeVertexFetch(remappedVertices.data(), remappedIndices.data(), remappedIndices.size(), remappedVertices.data(),
+                                            uniqueVertexCount, sizeof(Vertex));
+
+                newPrimitive->localVertexOffset = static_cast<n32>(loaderInfo.vertexBuffer.size());
+                newPrimitive->vertexCount = static_cast<n32>(remappedVertices.size());
+                newPrimitive->localFirstIndex = static_cast<n32>(loaderInfo.indexBuffer.size());
+                newPrimitive->indexCount = static_cast<n32>(remappedIndices.size());
+
+                loaderInfo.vertexBuffer.insert(loaderInfo.vertexBuffer.end(), remappedVertices.begin(), remappedVertices.end());
+                loaderInfo.indexBuffer.insert(loaderInfo.indexBuffer.end(), remappedIndices.begin(), remappedIndices.end());
+            }
+            else
+            {
+                newPrimitive->localVertexOffset = static_cast<n32>(loaderInfo.vertexBuffer.size());
+                newPrimitive->vertexCount = static_cast<n32>(currentPrimitiveVertices.size());
+                newPrimitive->localFirstIndex = static_cast<n32>(loaderInfo.indexBuffer.size());
+                newPrimitive->indexCount = static_cast<n32>(currentPrimitiveIndices.size());
+
+                loaderInfo.vertexBuffer.insert(loaderInfo.vertexBuffer.end(), currentPrimitiveVertices.begin(), currentPrimitiveVertices.end());
+                loaderInfo.indexBuffer.insert(loaderInfo.indexBuffer.end(), currentPrimitiveIndices.begin(), currentPrimitiveIndices.end());
+
+                newPrimitive->morphTargetPositions = std::move(morphTargetPositionsOriginal);
+                newPrimitive->morphTargetNormals = std::move(morphTargetNormalsOriginal);
+                newPrimitive->morphTargetTangents = std::move(morphTargetTangentsOriginal);
+            }
+
+            HGINFO("Primitive %i has %i vertices and %i indices post optimization", newPrimitive->id, newPrimitive->vertexCount,
+                   newPrimitive->indexCount);
+
+            newPrimitive->hasIndices = hasIndices;
             newMesh->primitives.push_back(newPrimitive);
             m_primitives.push_back(newPrimitive);
             m_morphTargets.insert(m_morphTargets.end(), newMesh->weights.begin(), newMesh->weights.end());
@@ -609,6 +676,8 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
     else { m_nodes.push_back(newNode); }
     m_linearNodes[newNode->index] = newNode;
 }
+
+void Model::CreateMeshlets() { HGINFO("Meshlets created. Total meshlets: %zu", m_meshlets.size()); }
 
 // Node Helpers
 
@@ -883,7 +952,7 @@ void Model::UpdateMaterialBatches(Node* node)
 {
     if(node->mesh)
     {
-        for(auto* prim: node->mesh->primitives) { m_materialBatches[prim->material.index].push_back(prim); }
+        for(auto* prim: node->mesh->primitives) { m_materialBatches[prim->material->index].push_back(prim); }
     }
     for(auto& c: node->children) { UpdateMaterialBatches(c); }
 }

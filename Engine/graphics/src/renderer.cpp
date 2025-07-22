@@ -20,7 +20,6 @@ Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice&
                    vk::Format depthFormat)
     : m_window{window}, m_logicalDevice{logicalDevice}, m_physicalDevice{physicalDevice}, m_allocator{allocator}
 {
-
     CreateCommandPool();
     CreateCommandBuffers();
     CreateComputePipeline();

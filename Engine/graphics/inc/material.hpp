@@ -19,7 +19,7 @@ struct alignas(16) BoundingBox : public EntityComponent
     static BoundingBox LocalToGlobal(const BoundingBox& localBoundingBox, const Eigen::Matrix4f& model);
     static BoundingBox TransformAABB(const BoundingBox& aabb, const Eigen::Matrix4f& transform)
     {
-        // if(!aabb.valid) { return BoundingBox{}; }
+        if(!aabb.valid) { return BoundingBox{}; }
 
         Eigen::Vector4f newMin = Eigen::Vector4f::Constant(std::numeric_limits<f32>::max());
         Eigen::Vector4f newMax = Eigen::Vector4f::Constant(std::numeric_limits<f32>::lowest());

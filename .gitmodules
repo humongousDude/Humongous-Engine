@@ -28,3 +28,6 @@
 [submodule "Engine/ThirdParty/eigen"]
 	path = Engine/ThirdParty/eigen
 	url = https://gitlab.com/libeigen/eigen/
+[submodule "Engine/ThirdParty/meshoptimizer"]
+	path = Engine/ThirdParty/meshoptimizer
+	url = https://github.com/zeux/meshoptimizer

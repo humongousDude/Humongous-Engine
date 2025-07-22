@@ -271,7 +271,7 @@ void ResourceManager::Internal_AddVerticesToModel(const std::vector<Model::Verte
     {
         mesh->baseVertex = static_cast<n32>(baseVertex);
 
-        for(Primitive* prim: mesh->primitives) { prim->vertexOffset = static_cast<n32>(baseVertex + prim->localVertexStart); }
+        for(Primitive* prim: mesh->primitives) { prim->globalVertexOffset = static_cast<n32>(baseVertex + prim->localVertexOffset); }
     }
 
     HGINFO("We now have %i vertices", modelVertices.size());

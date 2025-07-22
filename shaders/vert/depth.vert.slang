@@ -15,7 +15,7 @@ void main(
     InstanceData currentInstance = instData[globalInstanceIndex];
     float4x4 modelMatrix = currentInstance.modelMatrix;
 
-    float4 localPos = v.position;
+    float4 localPos = float4(v.position);
     float3 localNormal = v.normal.xyz;
     float3 localTangent = v.tangent.xyz;
 

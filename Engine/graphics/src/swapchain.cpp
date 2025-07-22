@@ -67,9 +67,11 @@ void SwapChain::CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, 
 
     createInfo.oldSwapchain = oldSwap == nullptr ? VK_NULL_HANDLE : *oldSwap;
 
-    if(m_logicalDevice.GetVkDevice().createSwapchainKHR(&createInfo, nullptr, &m_swapChain) != vk::Result::eSuccess)
+    auto result = m_logicalDevice.GetVkDevice().createSwapchainKHR(&createInfo, nullptr, &m_swapChain);
+    if(result != vk::Result::eSuccess)
     {
-        HGFATAL("Failed to create swapchain!");
+        HGFATAL("Failed to create swapchain! Error: %s", vk::to_string(result).c_str());
+        return;
     }
     else
     {
@@ -80,16 +82,19 @@ void SwapChain::CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, 
 
     HGINFO("Created SwapChain");
 
-    if(m_logicalDevice.GetVkDevice().getSwapchainImagesKHR(m_swapChain, &imageCount, nullptr) != vk::Result::eSuccess)
+    result = m_logicalDevice.GetVkDevice().getSwapchainImagesKHR(m_swapChain, &imageCount, nullptr);
+    if(result != vk::Result::eSuccess)
     {
-        HGFATAL("Failed to acquire swaphchain image count!");
+        HGFATAL("Failed to acquire swaphchain image count! Error: %s", vk::to_string(result).c_str());
+        return;
     }
 
     m_images.resize(imageCount);
-    if(m_logicalDevice.GetVkDevice().getSwapchainImagesKHR(m_swapChain, &imageCount, m_images.data()) != vk::Result::eSuccess)
+    result = m_logicalDevice.GetVkDevice().getSwapchainImagesKHR(m_swapChain, &imageCount, m_images.data());
+    if(result != vk::Result::eSuccess)
     {
-        // throw error
-        HGFATAL("Failed to acquire swaphchain images!");
+        HGFATAL("Failed to acquire swaphchain images! Error: %s", vk::to_string(result).c_str());
+        return;
     }
 
     HGINFO("Got %d swapchain images", imageCount);

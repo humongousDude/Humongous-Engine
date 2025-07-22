@@ -41,9 +41,9 @@ struct InstanceData {
 }  ubo;
 
 [[vk::binding(2, 1)]] StructuredBuffer<float4x4> node;
-[[vk::binding(3, 1)]]StructuredBuffer<Vertex> globalVertices;
-[[vk::binding(4, 1)]]StructuredBuffer<float4x4> joints;
-[[vk::binding(5, 1)]]StructuredBuffer<float> morphs;
+[[vk::binding(3, 1)]] StructuredBuffer<Vertex> globalVertices;
+[[vk::binding(4, 1)]] StructuredBuffer<float4x4> joints;
+[[vk::binding(5, 1)]] StructuredBuffer<float> morphs;
 [[vk::binding(0, 2)]] StructuredBuffer<DrawData> drawData;
-[[vk::binding(1, 2)]]StructuredBuffer<InstanceData> instData;
-[[vk::binding(0, 3)]]RWStructuredBuffer<uint> debugData;
+[[vk::binding(1, 2)]] StructuredBuffer<InstanceData> instData;
+[[vk::binding(0, 3)]] RWStructuredBuffer<uint> debugData;
