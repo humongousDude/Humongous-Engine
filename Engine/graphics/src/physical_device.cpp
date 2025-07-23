@@ -25,37 +25,86 @@ PhysicalDevice::~PhysicalDevice()
 void PhysicalDevice::PickPhysicalDevice()
 {
     HGINFO("looking for a physical device...");
-    n32        deviceCount = 0;
+    uint32_t   deviceCount = 0;
     vk::Result result;
+
     result = m_instance.GetVkInstance().enumeratePhysicalDevices(&deviceCount, nullptr);
     if(result != vk::Result::eSuccess)
     {
         HGFATAL("Failed to get number of physical devices! Error: %s", string_VkResult(static_cast<VkResult>(result)));
     }
-
     if(deviceCount == 0) { HGFATAL("Failed to find GPUs with Vulkan support!"); }
     HGINFO("found %d devices", deviceCount);
+
     std::vector<vk::PhysicalDevice> devices(deviceCount);
     result = m_instance.GetVkInstance().enumeratePhysicalDevices(&deviceCount, devices.data());
-
     if(result != vk::Result::eSuccess)
     {
         HGFATAL("Failed to enumerate physical devices! Error: %s", string_VkResult(static_cast<VkResult>(result)));
     }
 
+    m_physicalDevice = VK_NULL_HANDLE;
+    m_currentCapabilities = {};
+
+    // Keep track of the best device found so far
+    vk::PhysicalDevice bestPhysicalDevice = VK_NULL_HANDLE;
+    DeviceSupportLevel bestSupportLevel = DeviceSupportLevel::BaseGraphics;
+    DeviceCapabilities bestCapabilities = {};
+
     for(const auto& device: devices)
     {
-        HGINFO("checking device");
-        if(IsDeviceSuitable(device))
+        vk::PhysicalDeviceProperties deviceProperties = device.getProperties();
+        HGINFO("Evaluating device: %s", deviceProperties.deviceName.data());
+
+        DeviceCapabilities capabilities = GetDeviceCapabilities(device);
+        DeviceSupportLevel currentLevel = EvaluateDeviceSupportLevel(capabilities);
+
+        HGINFO("  Support Level: %s", [currentLevel]() { // Lambda for string conversion
+            switch(currentLevel)
+            {
+                case DeviceSupportLevel::BaseGraphics:
+                    return "Base Graphics";
+                case DeviceSupportLevel::MeshShaders:
+                    return "Mesh Shaders";
+                default:
+                    return "Unknown";
+            }
+        }());
+
+        if(currentLevel >= bestSupportLevel)
         {
-            m_physicalDevice = device;
-            HGINFO("found a suitable physical device!");
-            break;
+            bestSupportLevel = currentLevel;
+            bestPhysicalDevice = device;
+            bestCapabilities = capabilities;
         }
-        HGINFO("device not suitable");
+
+        // TODO: Scoring for multiple Mesh Shader capable devices
+        if(bestSupportLevel == DeviceSupportLevel::MeshShaders) { break; }
     }
 
-    HGASSERT(m_physicalDevice != VK_NULL_HANDLE && "Failed to find a suitable GPU!");
+    m_physicalDevice = bestPhysicalDevice;
+    m_currentSupportLevel = bestSupportLevel;
+    m_currentCapabilities = bestCapabilities; // Save capabilities of the chosen device
+
+    if(m_physicalDevice == VK_NULL_HANDLE)
+    {
+        HGFATAL("Failed to find a suitable GPU! No device meets even the minimum 'BaseGraphics' requirements.");
+    }
+    else
+    {
+        vk::PhysicalDeviceProperties chosenDeviceProperties = m_physicalDevice.getProperties();
+        HGINFO("Selected Physical Device: %s (Support Level: %s)", chosenDeviceProperties.deviceName.data(), [bestSupportLevel]() {
+            switch(bestSupportLevel)
+            {
+                case DeviceSupportLevel::BaseGraphics:
+                    return "Base Graphics";
+                case DeviceSupportLevel::MeshShaders:
+                    return "Mesh Shaders";
+                default:
+                    return "Unknown";
+            }
+        }());
+    }
 }
 
 PhysicalDevice::SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(vk::PhysicalDevice physicalDevice)
@@ -99,6 +148,20 @@ PhysicalDevice::SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(vk
     return details;
 }
 
+b32 PhysicalDevice::CheckExtensionAvailability(vk::PhysicalDevice physicalDevice, const char* extensionName)
+{
+    uint32_t extensionCount;
+    physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr);
+    std::vector<vk::ExtensionProperties> availableExtensions(extensionCount);
+    physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions.data());
+
+    for(const auto& extension: availableExtensions)
+    {
+        if(strcmp(extension.extensionName, extensionName) == 0) { return true; }
+    }
+    return false;
+}
+
 bool PhysicalDevice::IsDeviceSuitable(vk::PhysicalDevice physicalDevice)
 {
     vk::PhysicalDeviceProperties2 deviceProperties{};
@@ -125,6 +188,72 @@ bool PhysicalDevice::IsDeviceSuitable(vk::PhysicalDevice physicalDevice)
     return haveAllRequiredIndices && deviceHasExtensions && swapChainAdequate;
 }
 
+template <typename T>
+b32 PhysicalDevice::CheckPhysicalDeviceFeature(vk::PhysicalDevice physicalDevice, T& featuresStruct, std::function<bool(const T&)> featureCheck)
+{
+    vk::PhysicalDeviceFeatures2 features2{};
+    features2.pNext = &featuresStruct;
+    physicalDevice.getFeatures2(&features2);
+    return featureCheck(featuresStruct);
+}
+
+PhysicalDevice::DeviceSupportLevel PhysicalDevice::EvaluateDeviceSupportLevel(const DeviceCapabilities& capabilities)
+{
+    if(capabilities.supportsMeshShaders) { return DeviceSupportLevel::MeshShaders; }
+
+    return DeviceSupportLevel::BaseGraphics;
+}
+
+PhysicalDevice::DeviceCapabilities PhysicalDevice::GetDeviceCapabilities(vk::PhysicalDevice physicalDevice)
+{
+    DeviceCapabilities capabilities{};
+
+    SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(physicalDevice);
+
+    bool allBaseExtensionsPresent = true;
+    for(const char* ext: REQUIRED_BASE_DEVICE_EXTENSIONS)
+    {
+        if(!CheckExtensionAvailability(physicalDevice, ext))
+        {
+            HGINFO("Device %s is missing base extension: %s", physicalDevice.getProperties().deviceName.data(), ext);
+            allBaseExtensionsPresent = false;
+            break;
+        }
+    }
+
+    if(!allBaseExtensionsPresent) { return capabilities; }
+
+    vk::PhysicalDeviceFeatures features{};
+    physicalDevice.getFeatures(&features);
+    capabilities.supportsSamplerAnisotropy = features.samplerAnisotropy;
+
+    b8 supportsMeshShaderExtension = CheckExtensionAvailability(physicalDevice, VK_EXT_MESH_SHADER_EXTENSION_NAME);
+
+    if(supportsMeshShaderExtension)
+    {
+        vk::PhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{};
+
+        b8 supportsTaskShaders = CheckPhysicalDeviceFeature<vk::PhysicalDeviceMeshShaderFeaturesEXT>(
+            physicalDevice, meshShaderFeatures, [](const vk::PhysicalDeviceMeshShaderFeaturesEXT& f) { return f.taskShader; });
+
+        b8 supportsMeshShaders = CheckPhysicalDeviceFeature<vk::PhysicalDeviceMeshShaderFeaturesEXT>(
+            physicalDevice, meshShaderFeatures, [](const vk::PhysicalDeviceMeshShaderFeaturesEXT& f) { return f.meshShader; });
+
+        capabilities.supportsMeshShaders = supportsTaskShaders && supportsMeshShaders;
+    }
+
+    capabilities.supportsBindlessDescriptors = CheckExtensionAvailability(physicalDevice, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+    if(capabilities.supportsBindlessDescriptors)
+    {
+        vk::PhysicalDeviceDescriptorIndexingFeaturesEXT indexingFeatures{};
+        capabilities.supportsBindlessDescriptors = CheckPhysicalDeviceFeature<vk::PhysicalDeviceDescriptorIndexingFeaturesEXT>(
+            physicalDevice, indexingFeatures,
+            [](const vk::PhysicalDeviceDescriptorIndexingFeaturesEXT& f) { return f.descriptorBindingPartiallyBound && f.runtimeDescriptorArray; });
+    }
+
+    return capabilities;
+}
+
 bool PhysicalDevice::CheckDeviceExtensionSupport(vk::PhysicalDevice physicalDevice)
 {
     n32  extensionCount;
@@ -136,15 +265,15 @@ bool PhysicalDevice::CheckDeviceExtensionSupport(vk::PhysicalDevice physicalDevi
     result = physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions.data());
     if(result != vk::Result::eSuccess) { HGFATAL("Couldn't acquire device extension properties! Error: %s", vk::to_string(result).c_str()); }
 
-    std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+    // std::set<std::string> requiredExtensions(D.begin(), deviceExtensions.end());
 
     HGDEBUG("%d extensions avablialbi", extensionCount);
 
-    for(const auto& extension: availableExtensions) { requiredExtensions.erase(extension.extensionName); }
-
-    for(const auto& extension: requiredExtensions) { HGINFO("Missing extension: %s", extension.c_str()); }
-
-    return requiredExtensions.empty();
+    // for(const auto& extension: availableExtensions) { requiredExtensions.erase(extension.extensionName); }
+    //
+    // for(const auto& extension: requiredExtensions) { HGINFO("Missing extension: %s", extension.c_str()); }
+    //
+    // return requiredExtensions.empty();
 }
 
 PhysicalDevice::QueueFamilyData PhysicalDevice::FindQueueFamilies(vk::PhysicalDevice physicalDevice)

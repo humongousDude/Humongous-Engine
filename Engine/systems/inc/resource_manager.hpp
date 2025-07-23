@@ -103,6 +103,20 @@ public:
 
     std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToJointStart;
     std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToMorphStart;
+    std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToMeshletStart;
+    std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToMeshletIndexStart;
+    std::unique_ptr<Buffer>                      m_meshletBuffer;
+    std::unique_ptr<Buffer>                      m_meshletVertexBuffer;
+    std::unique_ptr<Buffer>                      m_meshletPrimitiveBuffer;
+    std::vector<Meshlet>                         m_meshlets;
+    std::vector<n32>                             m_meshletVertices;
+    std::vector<n8>                              m_meshletPrimitives;
+
+    static void AddMeshletsToModel(const std::vector<Meshlet>& meshlets, const std::vector<n32>& meshletVertices,
+                                   const std::vector<n8>& meshletPrimitives, const n32& handle)
+    {
+        Get().Internal_AddMeshletsToModel(meshlets, meshletVertices, meshletPrimitives, handle);
+    };
 
 private:
     struct DescriptorPools
@@ -171,6 +185,9 @@ private:
     void Internal_UpdateNodeMatrices(const std::vector<Eigen::Matrix4f>& nodeMatrices, const n32& handle);
     void Internal_AddJointMatriciesToModel(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle);
     void Internal_UpdateJointMatrices(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle);
+
+    void Internal_AddMeshletsToModel(const std::vector<Meshlet>& meshlets, const std::vector<n32>& meshletVertices,
+                                     const std::vector<n8>& meshletPrimitives, const n32& handle);
 
     void Internal_AddMorphTargetsToModel(const std::vector<f32>& morphTargets, const n32& handle);
     void Internal_UpdateMorphTargets(const std::vector<f32>& morphTargets, const n32& handle);

@@ -101,7 +101,7 @@ void VulkanApp::LoadGameObjects()
     auto house = world->CreateEntity();
     world->AddComponent<ModelComponent>(house);
     auto comp = world->GetComponent<ModelComponent>(house);
-    comp->instance = ResourceManager::RequestModel("duplicate_vertex_cone");
+    comp->instance = ResourceManager::RequestModel("buster_drone");
     std::string name = comp->instance->GetModel()->GetName();
 
     auto transform = world->GetComponent<TransformComponent>(house);

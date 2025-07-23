@@ -1,5 +1,4 @@
 #include "asset_manager.hpp"
-#include "audio_source.hpp"
 #include "cstring"
 #include "filesystem"
 #include "logger.hpp"
@@ -16,7 +15,7 @@ void AssetManager::Internal_Init(const std::vector<std::string>* paths)
 
     if(!fs::exists(assetDir) || !std::filesystem::is_directory(assetDir))
     {
-        HGFATAL("Unable to access asset directory!");
+        HGFATAL("Unable to access main asset directory!");
         return;
     }
 
@@ -29,6 +28,8 @@ void AssetManager::Internal_Init(const std::vector<std::string>* paths)
             std::string fileNameWithExtension = entry.path().filename().string();
             size_t      dotPos = fileNameWithExtension.find('.', fileNameWithExtension.find('.') + 1);
             std::string fileName = entry.path().stem().string().substr(0, dotPos);
+
+            HGINFO("Found shader: %s added as %s", entry.path().string().c_str(), fileName.c_str());
 
             m_shaderMap.emplace(fileName, entry.path().string());
         }

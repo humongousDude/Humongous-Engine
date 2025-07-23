@@ -22,8 +22,6 @@
 
 namespace Humongous
 {
-// "Local" variables are within the scope of the model's whole vertex/index buffer.
-// "Global" variables are within the scope of the entire scene's vertex/index buffer. They are written to by the ResourceManager.
 struct Primitive
 {
     Node*       owner{nullptr};
@@ -44,6 +42,10 @@ struct Primitive
 
     Material* material = nullptr;
     bool      hasIndices = false;
+
+    n32 meshletCount{0};
+    n32 meshletOffset{0};
+
     Primitive(n32 firstIndex, n32 indexCount, n32 vertexCount, n32 localVertexOffset, Material* material)
         : localFirstIndex(firstIndex), indexCount(indexCount), vertexCount(vertexCount), localVertexOffset(localVertexOffset), material(material),
           hasIndices(indexCount > 0)
@@ -108,10 +110,7 @@ public:
         void ApplyTranslation(size_t index, f32 time, std::vector<Eigen::Vector3f>& translations, n32 targetNodeIndex) const;
         void ApplyScale(size_t index, f32 time, std::vector<Eigen::Vector3f>& scales, n32 targetNodeIndex) const;
         void ApplyRotation(size_t index, f32 time, std::vector<Eigen::Quaternionf>& rotations, n32 targetNodeIndex) const;
-
-        void ApplyMorph(size_t index, f32 time,
-                        const Primitive&  targetPrimitive,        // IN: The blueprint for the primitive being morphed
-                        std::vector<f32>& instanceWeights) const; // OUT: The instance's state vector to be modified
+        void ApplyMorph(size_t index, f32 time, const Primitive& targetPrimitive, std::vector<f32>& instanceWeights) const;
     };
 
     struct Animation
@@ -177,7 +176,6 @@ public:
         f32 emissiveStrength; // 4
     };
 
-    // tried both with and without __attribute__((packed))
     struct Vertex
     {
         Eigen::Vector4f position = Eigen::Vector4f::Zero();
@@ -272,9 +270,9 @@ private:
     std::vector<Eigen::Matrix4f> m_jointMatricies;
     std::vector<f32>             m_morphTargets;
 
-    std::vector<Meshlet>       m_meshlets;
-    std::vector<n32>           m_meshletVertexIndices;
-    std::vector<unsigned char> m_meshletTriangleIndices;
+    std::vector<Meshlet> m_meshlets;
+    std::vector<n32>     m_meshletVertices;
+    std::vector<n8>      m_meshletPrimitives;
 
     BoundingBox m_restAABB{};
     BoundingBox m_animatedAABB{};
@@ -305,7 +303,7 @@ private:
     void Destroy(vk::Device m_device);
 
     void OptimizeMeshes();
-    void CreateMeshlets();
+    void CreateMeshlets(const LoaderInfo& loaderInfo);
 
     void LoadMaterialData();
     void UpdateMaterialBatches(Node* node);

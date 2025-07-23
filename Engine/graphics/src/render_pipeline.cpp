@@ -25,84 +25,119 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
 {
     HGINFO("Creating Render Pipeline...");
     HGINFO("Reading shader files...");
-    auto vertCode = ReadFile(configInfo.vertShaderPath);
+
+    std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
+
+    vk::ShaderModule vertShaderModule = VK_NULL_HANDLE;
+    vk::ShaderModule fragShaderModule = VK_NULL_HANDLE;
+    vk::ShaderModule meshShaderModule = VK_NULL_HANDLE;
+    vk::ShaderModule taskShaderModule = VK_NULL_HANDLE;
+
+    b8 useMeshShaders = configInfo.useMeshShaders;
+
+    if(!m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders)
+    {
+        HGWARN("Tried to create a render pipeline with mesh shaders, but the device does not support them!");
+        useMeshShaders = false;
+    }
+
+    if(useMeshShaders)
+    {
+        auto taskCode = ReadFile(configInfo.taskShaderPath);
+        CreateShaderModule(taskCode, &taskShaderModule);
+        vk::PipelineShaderStageCreateInfo taskShaderStageInfo{};
+        taskShaderStageInfo.stage = vk::ShaderStageFlagBits::eTaskEXT;
+        taskShaderStageInfo.module = taskShaderModule;
+        taskShaderStageInfo.pName = "main";
+        shaderStages.push_back(taskShaderStageInfo);
+
+        auto meshCode = ReadFile(configInfo.meshShaderPath);
+        CreateShaderModule(meshCode, &meshShaderModule);
+        vk::PipelineShaderStageCreateInfo meshShaderStageInfo{};
+        meshShaderStageInfo.stage = vk::ShaderStageFlagBits::eMeshEXT;
+        meshShaderStageInfo.module = meshShaderModule;
+        meshShaderStageInfo.pName = "main";
+        shaderStages.push_back(meshShaderStageInfo);
+    }
+    else
+    {
+        auto vertCode = ReadFile(configInfo.vertShaderPath);
+        CreateShaderModule(vertCode, &vertShaderModule);
+
+        vk::PipelineShaderStageCreateInfo vertShaderStageInfo{};
+        vertShaderStageInfo.stage = vk::ShaderStageFlagBits::eVertex;
+        vertShaderStageInfo.module = vertShaderModule;
+        vertShaderStageInfo.pName = "main";
+        shaderStages.push_back(vertShaderStageInfo);
+    }
+
     auto fragCode = ReadFile(configInfo.fragShaderPath);
-    HGINFO("Successfully read shader files");
-
-    vk::ShaderModule vertShaderModule;
-    vk::ShaderModule fragShaderModule;
-
-    CreateShaderModule(vertCode, &vertShaderModule);
     CreateShaderModule(fragCode, &fragShaderModule);
-
-    HGINFO("Successfully created shader modules");
-
-    vk::PipelineShaderStageCreateInfo vertShaderStageInfo{};
-    vertShaderStageInfo.stage = vk::ShaderStageFlagBits::eVertex;
-    vertShaderStageInfo.module = vertShaderModule;
-    vertShaderStageInfo.pName = "main";
-
     vk::PipelineShaderStageCreateInfo fragShaderStageInfo{};
     fragShaderStageInfo.stage = vk::ShaderStageFlagBits::eFragment;
     fragShaderStageInfo.module = fragShaderModule;
     fragShaderStageInfo.pName = "main";
-
-    vk::PipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+    shaderStages.push_back(fragShaderStageInfo);
 
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.vertexBindingDescriptionCount = 0;      // MUST be 0
-    vertexInputInfo.pVertexBindingDescriptions = nullptr;   // MUST be nullptr
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;    // MUST be 0
-    vertexInputInfo.pVertexAttributeDescriptions = nullptr; // MUST be nullptr
-    vertexInputInfo.pNext = nullptr;
-
-    if(!configInfo.bindless)
+    if(!useMeshShaders)
     {
-        if(configInfo.inputBindings.size() == 0)
-        {
-            HGERROR("Trying to make a non-bindless render pipeline, but no vertex input bindings were specified!");
-        }
-        if(configInfo.attribBindings.size() == 0)
-        {
-            HGERROR("Trying to make a non-bindless render pipeline, but no vertex attribute bindings were specified!");
-        }
-
         vertexInputInfo.vertexBindingDescriptionCount = static_cast<n32>(configInfo.inputBindings.size());
         vertexInputInfo.pVertexBindingDescriptions = configInfo.inputBindings.data();
         vertexInputInfo.vertexAttributeDescriptionCount = static_cast<n32>(configInfo.attribBindings.size());
         vertexInputInfo.pVertexAttributeDescriptions = configInfo.attribBindings.data();
+        vertexInputInfo.pNext = nullptr;
+    }
+    else
+    {
+        vertexInputInfo.vertexBindingDescriptionCount = 0;
+        vertexInputInfo.pVertexBindingDescriptions = nullptr;
+        vertexInputInfo.vertexAttributeDescriptionCount = 0;
+        vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+        vertexInputInfo.pNext = nullptr;
     }
 
     vk::PipelineViewportStateCreateInfo viewportState{};
     viewportState.viewportCount = 1;
     viewportState.scissorCount = 1;
 
-    vk::GraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.pNext = &configInfo.renderingInfo;
-    pipelineInfo.stageCount = 2;
-    pipelineInfo.pStages = shaderStages;
-    pipelineInfo.pVertexInputState = &vertexInputInfo;
+    vk::Result                     result;
+    vk::GraphicsPipelineCreateInfo pipelineInfoGraphics{};
+    pipelineInfoGraphics.pNext = &configInfo.renderingInfo;
+    pipelineInfoGraphics.stageCount = static_cast<n32>(shaderStages.size());
+    pipelineInfoGraphics.pStages = shaderStages.data();
+    pipelineInfoGraphics.pViewportState = &viewportState;
+    pipelineInfoGraphics.pVertexInputState = nullptr;
+    pipelineInfoGraphics.pInputAssemblyState = nullptr;
+    pipelineInfoGraphics.pRasterizationState = &configInfo.rasterizationInfo;
+    pipelineInfoGraphics.pMultisampleState = &configInfo.multisampleInfo;
+    pipelineInfoGraphics.pColorBlendState = &configInfo.colorBlendInfo;
+    pipelineInfoGraphics.pDepthStencilState = &configInfo.depthStencilInfo;
+    pipelineInfoGraphics.pDynamicState = &configInfo.dynamicStateInfo;
+    pipelineInfoGraphics.layout = configInfo.pipelineLayout;
+    pipelineInfoGraphics.renderPass = VK_NULL_HANDLE;
+    pipelineInfoGraphics.subpass = 0;
+    pipelineInfoGraphics.basePipelineHandle = VK_NULL_HANDLE;
+    pipelineInfoGraphics.basePipelineIndex = -1;
 
-    pipelineInfo.pInputAssemblyState = &configInfo.inputAssemblyInfo;
-    pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pRasterizationState = &configInfo.rasterizationInfo;
-    pipelineInfo.pMultisampleState = &configInfo.multisampleInfo;
-    pipelineInfo.pColorBlendState = &configInfo.colorBlendInfo;
-    pipelineInfo.pDepthStencilState = &configInfo.depthStencilInfo;
-    pipelineInfo.pDynamicState = &configInfo.dynamicStateInfo;
+    if(!useMeshShaders)
+    {
+        pipelineInfoGraphics.pVertexInputState = &vertexInputInfo;
+        pipelineInfoGraphics.pInputAssemblyState = &configInfo.inputAssemblyInfo;
+    }
 
-    pipelineInfo.layout = configInfo.pipelineLayout;
-    pipelineInfo.renderPass = VK_NULL_HANDLE;
+    HGINFO("Created graphics pipeline with %i render attachments", configInfo.colorBlendInfo.attachmentCount);
 
-    HGINFO("Created pipeline with %i render attachments", configInfo.colorBlendInfo.attachmentCount);
+    result = m_logicalDevice.GetVkDevice().createGraphicsPipelines(VK_NULL_HANDLE, 1, &pipelineInfoGraphics, nullptr, &m_pipeline);
 
-    auto result = m_logicalDevice.GetVkDevice().createGraphicsPipelines(VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline);
-    if(result != vk::Result::eSuccess) { HGERROR("Failed to create graphics pipeline! Error: %s", vk::to_string(result).c_str()); }
+    if(result != vk::Result::eSuccess) { HGERROR("Failed to create pipeline! Error: %s", vk::to_string(result).c_str()); }
 
-    HGINFO("Successfully created graphics pipeline");
+    HGINFO("Successfully created pipeline");
 
-    vkDestroyShaderModule(m_logicalDevice.GetVkDevice(), vertShaderModule, nullptr);
-    vkDestroyShaderModule(m_logicalDevice.GetVkDevice(), fragShaderModule, nullptr);
+    if(vertShaderModule != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyShaderModule(vertShaderModule, nullptr); }
+    if(fragShaderModule != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyShaderModule(fragShaderModule, nullptr); }
+    if(meshShaderModule != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyShaderModule(meshShaderModule, nullptr); }
+    if(taskShaderModule != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyShaderModule(taskShaderModule, nullptr); }
 
     HGINFO("Successfully destroyed shader modules");
     HGINFO("Created render pipeline");
@@ -120,6 +155,7 @@ void RenderPipeline::CreateShaderModule(const std::vector<char>& code, vk::Shade
     }
 }
 
+// NOTE: You should still assign the vertex shader path in case the used physical device does not support mesh shaders
 RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
 {
     using namespace Systems;

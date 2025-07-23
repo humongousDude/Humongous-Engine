@@ -15,24 +15,28 @@ public:
     {
         std::string vertShaderPath;
         std::string fragShaderPath;
-        bool        bindless;
+        b32         bindless;
+
+        b32         useMeshShaders{false};
+        std::string meshShaderPath;
+        std::string taskShaderPath;
 
         std::vector<vk::VertexInputBindingDescription>   inputBindings;
         std::vector<vk::VertexInputAttributeDescription> attribBindings;
 
-        vk::PipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
-        vk::PipelineRasterizationStateCreateInfo rasterizationInfo;
-        vk::PipelineMultisampleStateCreateInfo   multisampleInfo;
-        vk::PipelineColorBlendAttachmentState    colorBlendAttachment;
-        vk::PipelineColorBlendStateCreateInfo    colorBlendInfo;
-        vk::PipelineDepthStencilStateCreateInfo  depthStencilInfo;
-        std::vector<vk::DynamicState>            dynamicStateEnables;
-        vk::PipelineDynamicStateCreateInfo       dynamicStateInfo;
-        vk::PipelineLayout                       pipelineLayout = nullptr;
-        vk::PipelineRenderingCreateInfo          renderingInfo;
-        vk::Format                               colorAttachmentFormat;
+        vk::PipelineInputAssemblyStateCreateInfo           inputAssemblyInfo;
+        vk::PipelineRasterizationStateCreateInfo           rasterizationInfo;
+        vk::PipelineMultisampleStateCreateInfo             multisampleInfo;
+        vk::PipelineColorBlendAttachmentState              colorBlendAttachment;
+        vk::PipelineColorBlendStateCreateInfo              colorBlendInfo;
+        vk::PipelineDepthStencilStateCreateInfo            depthStencilInfo;
+        std::vector<vk::DynamicState>                      dynamicStateEnables;
+        vk::PipelineDynamicStateCreateInfo                 dynamicStateInfo;
+        vk::PipelineLayout                                 pipelineLayout = nullptr;
+        vk::PipelineRenderingCreateInfo                    renderingInfo;
+        vk::Format                                         colorAttachmentFormat;
         std::vector<vk::Format>                            colorAttachmentFormats;
-        std::vector<vk::PipelineColorBlendAttachmentState> colorBlendAttachments;  
+        std::vector<vk::PipelineColorBlendAttachmentState> colorBlendAttachments;
     };
 
     RenderPipeline(LogicalDevice& logicalDevice, const PipelineConfigInfo& configInfo);

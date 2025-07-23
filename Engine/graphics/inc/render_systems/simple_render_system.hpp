@@ -37,6 +37,7 @@ public:
     SimpleRenderSystem(LogicalDevice& logicalDevice, const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts, const ShaderSet& shaderSet);
     ~SimpleRenderSystem();
 
+    void RenderObjectsMesh(RenderData& renderData, const bool& depthOnly);
     void RenderObjects(RenderData& renderData, const bool& depthOnly);
     n32  GetObjectsDrawn() { return m_verticesDrawn; }
 

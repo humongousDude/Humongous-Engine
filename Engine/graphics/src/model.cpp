@@ -114,22 +114,6 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
 
     for(auto& node: m_nodes) { UpdateMaterialBatches(node); }
 
-    std::set<Mesh*> uniqueMeshes;
-    for(Node* node: m_linearNodes)
-    {
-        if(node->mesh) { uniqueMeshes.insert(node->mesh); }
-    }
-
-    std::vector<Mesh*>      allMeshesForThisModel(uniqueMeshes.begin(), uniqueMeshes.end());
-    std::vector<Primitive*> allPrimitivesForThisModel;
-    for(Node* node: m_linearNodes)
-    {
-        if(node->mesh)
-        {
-            allPrimitivesForThisModel.insert(allPrimitivesForThisModel.end(), node->mesh->primitives.begin(), node->mesh->primitives.end());
-        }
-    }
-
     HGINFO("Model %s loaded", m_name.c_str());
     HGINFO("Nodes: %i", m_nodes.size());
     HGINFO("Meshes: %i", m_meshes.size());
@@ -137,12 +121,14 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
     HGINFO("Vertices: %i", m_vertices.size());
     HGINFO("Indices: %i", m_indices.size());
 
-    // CreateMeshlets();
+    CreateMeshlets(loaderInfo);
 
     CalculateRestAABB();
 
-    ResourceManager::AddVerticesToModel(m_vertices, allMeshesForThisModel);
-    ResourceManager::AddIndicesToModel(m_indices, allPrimitivesForThisModel);
+    ResourceManager::AddVerticesToModel(m_vertices, m_meshes);
+    ResourceManager::AddIndicesToModel(m_indices, m_primitives);
+
+    if(!m_meshlets.empty()) { ResourceManager::AddMeshletsToModel(m_meshlets, m_meshletVertices, m_meshletPrimitives, m_handle); }
 
     LoadMaterialData();
 
@@ -175,11 +161,6 @@ void Model::Destroy(vk::Device device)
 };
 
 // TODO: clean up this abomination
-
-struct Position
-{
-    f32 x, y, z;
-};
 
 void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, f32 globalscale,
                      Eigen::Matrix4f parentTransform)
@@ -359,8 +340,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             {
                 const tinygltf::Accessor&   uvAccessor = model.accessors[primitive.attributes.find("TEXCOORD_1")->second];
                 const tinygltf::BufferView& uvView = model.bufferViews[uvAccessor.bufferView];
-                // bufferTexCoordSet1 = reinterpret_cast<const f32*>(&(model.buffers[uvView.buffer].data[uvAccessor.byteOffset +
-                // uvView.byteOffset]));
                 uv1ByteStride = uvAccessor.ByteStride(uvView) ? (uvAccessor.ByteStride(uvView) / sizeof(f32))
                                                               : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2);
             }
@@ -370,7 +349,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             {
                 const tinygltf::Accessor&   accessor = model.accessors[primitive.attributes.find("COLOR_0")->second];
                 const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
-                // bufferColorSet0 = reinterpret_cast<const f32*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
                 color0ByteStride =
                     accessor.ByteStride(view) ? (accessor.ByteStride(view) / sizeof(f32)) : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3);
             }
@@ -381,7 +359,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             {
                 const tinygltf::Accessor&   jointAccessor = model.accessors[primitive.attributes.find("JOINTS_0")->second];
                 const tinygltf::BufferView& jointView = model.bufferViews[jointAccessor.bufferView];
-                // bufferJoints = &(model.buffers[jointView.buffer].data[jointAccessor.byteOffset + jointView.byteOffset]);
                 jointComponentType = jointAccessor.componentType;
                 jointByteStride = jointAccessor.ByteStride(jointView)
                                       ? (jointAccessor.ByteStride(jointView) / tinygltf::GetComponentSizeInBytes(jointComponentType))
@@ -392,8 +369,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             {
                 const tinygltf::Accessor&   weightAccessor = model.accessors[primitive.attributes.find("WEIGHTS_0")->second];
                 const tinygltf::BufferView& weightView = model.bufferViews[weightAccessor.bufferView];
-                // bufferWeights =
-                //     reinterpret_cast<const f32*>(&(model.buffers[weightView.buffer].data[weightAccessor.byteOffset + weightView.byteOffset]));
                 weightByteStride = weightAccessor.ByteStride(weightView) ? (weightAccessor.ByteStride(weightView) / sizeof(f32))
                                                                          : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4);
             }
@@ -401,29 +376,24 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             {
                 const tinygltf::Accessor&   tangentAccessor = model.accessors[primitive.attributes.find("TANGENT")->second];
                 const tinygltf::BufferView& tangentView = model.bufferViews[tangentAccessor.bufferView];
-                // bufferTangents =
-                //     reinterpret_cast<const f32*>(&model.buffers[tangentView.buffer].data[tangentView.byteOffset + tangentAccessor.byteOffset]);
                 tangentByteStride = tangentAccessor.ByteStride(tangentView);
             }
 
             hasSkin = (bufferJoints && bufferWeights);
             vertexCount = static_cast<n32>(posAccessor.count);
 
-            // currentPrimitiveVertices will grow to posAccessor.count
             currentPrimitiveVertices.reserve(posAccessor.count);
 
             for(size_t v = 0; v < posAccessor.count; v++)
             {
                 Vertex vert{};
 
-                // POSITION is guaranteed to be present and of type FLOAT.
                 {
                     const f32*      p = reinterpret_cast<const f32*>(rawPosBase + (v * posByteStride));
                     Eigen::Vector3f posVec = Eigen::Map<const Eigen::Vector3f>(p);
                     vert.position = Eigen::Vector4f(posVec.x(), posVec.y(), posVec.z(), 1.0f);
                 }
 
-                // NORMAL (if it exists)
                 if(rawNormBase)
                 {
                     const f32*      n = reinterpret_cast<const f32*>(rawNormBase + (v * normByteStride));
@@ -433,7 +403,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                 }
                 else { vert.normal = Eigen::Vector4f::Zero(); }
 
-                // UV0
                 if(rawUv0Base)
                 {
                     const f32*      uv = reinterpret_cast<const f32*>(rawUv0Base + (v * uv0ByteStride));
@@ -442,7 +411,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                 }
                 else { vert.uv0 = Eigen::Vector4f::Zero(); }
 
-                // JOINTS_0 / WEIGHTS_0 (if present)
                 if(primitive.attributes.find("JOINTS_0") != primitive.attributes.end())
                 {
                     const tinygltf::Accessor&   jointAccessor = model.accessors[primitive.attributes.at("JOINTS_0")];
@@ -483,7 +451,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                 }
                 else { vert.weight0 = Eigen::Vector4f::Zero(); }
 
-                // Tangent (if present)
                 if(primitive.attributes.find("TANGENT") != primitive.attributes.end())
                 {
                     const tinygltf::Accessor&   tanAccessor = model.accessors[primitive.attributes.at("TANGENT")];
@@ -506,11 +473,9 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                     vert.bitTangent = Eigen::Vector4f::Zero();
                 }
 
-                // Morph Target Data (already extracted into morphTargetPositionsOriginal, etc.)
                 const constexpr size_t MAX_SUPPORTED_TARGETS = 4;
                 for(size_t targetIdx = 0; targetIdx < morphTargetPositionsOriginal.size() && targetIdx < MAX_SUPPORTED_TARGETS; ++targetIdx)
                 {
-                    // Ensure the target position exists for this vertex (accessor.count check implicitly handled by loop)
                     if(v < morphTargetPositionsOriginal[targetIdx].size())
                     {
                         const Eigen::Vector3f& targetOffset = morphTargetPositionsOriginal[targetIdx][v];
@@ -522,7 +487,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                             case 1:
                                 vert.targetPos1 = Eigen::Vector4f(targetOffset.x(), targetOffset.y(), targetOffset.z(), 0.0f);
                                 break;
-                            // ... handle cases for targetPos2, targetPos3 if needed
                             default:
                                 break;
                         }
@@ -580,7 +544,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             newPrimitive->indexCount = static_cast<n32>(currentPrimitiveIndices.size());
             newPrimitive->localVertexOffset = vertexStart;
             newPrimitive->vertexCount = static_cast<n32>(currentPrimitiveVertices.size());
-
             newPrimitive->material = primitive.material > -1 ? &m_materials[primitive.material] : &m_materials.back();
             newPrimitive->owner = newNode;
             newPrimitive->maxMorphDisplacement = currentMaxMorphDisplacement;
@@ -588,9 +551,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             newPrimitive->boundingBox.valid = true;
             newPrimitive->id = newMesh->primitives.size();
             newPrimitive->globalWeightOffset = m_morphTargets.size();
-
-            HGINFO("Primitive %i has %i vertices and %i indices pre optimization", newPrimitive->id, currentPrimitiveVertices.size(),
-                   currentPrimitiveIndices.size());
+            newPrimitive->hasIndices = hasIndices;
 
             if(!currentPrimitiveIndices.empty() && !currentPrimitiveVertices.empty())
             {
@@ -660,10 +621,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                 newPrimitive->morphTargetTangents = std::move(morphTargetTangentsOriginal);
             }
 
-            HGINFO("Primitive %i has %i vertices and %i indices post optimization", newPrimitive->id, newPrimitive->vertexCount,
-                   newPrimitive->indexCount);
-
-            newPrimitive->hasIndices = hasIndices;
             newMesh->primitives.push_back(newPrimitive);
             m_primitives.push_back(newPrimitive);
             m_morphTargets.insert(m_morphTargets.end(), newMesh->weights.begin(), newMesh->weights.end());
@@ -677,7 +634,97 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
     m_linearNodes[newNode->index] = newNode;
 }
 
-void Model::CreateMeshlets() { HGINFO("Meshlets created. Total meshlets: %zu", m_meshlets.size()); }
+void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
+{
+    HGINFO("Creating meshlets...");
+
+    m_meshlets.clear();
+    m_meshletVertices.clear();
+    m_meshletPrimitives.clear();
+
+    const size_t maxVertices = 64;
+    const size_t maxTriangles = 124;
+    const float  coneWeight = 0.0f;
+
+    for(Primitive* primitive: m_primitives)
+    {
+        if(!primitive->hasIndices || primitive->indexCount == 0)
+        {
+            primitive->meshletOffset = 0;
+            primitive->meshletCount = 0;
+            continue;
+        }
+
+        const Vertex* vertices = &loaderInfo.vertexBuffer[primitive->localVertexOffset];
+        const n32*    indices = &loaderInfo.indexBuffer[primitive->localFirstIndex];
+
+        const size_t vertexCount = primitive->vertexCount;
+        const size_t indexCount = primitive->indexCount;
+
+        size_t boundMeshlets = meshopt_buildMeshletsBound(indexCount, maxVertices, maxTriangles);
+
+        std::vector<meshopt_Meshlet> tempMeshlets(boundMeshlets);
+        std::vector<n32>             tempMeshletVertices(boundMeshlets * maxVertices);
+        std::vector<unsigned char>   tempMeshletPrimitives(boundMeshlets * maxTriangles * 3);
+
+        size_t actualMeshletCount =
+            meshopt_buildMeshlets(tempMeshlets.data(), tempMeshletVertices.data(), tempMeshletPrimitives.data(), (unsigned int*)indices, indexCount,
+                                  reinterpret_cast<const float*>(vertices), vertexCount, sizeof(Vertex), maxVertices, maxTriangles, coneWeight);
+
+        tempMeshlets.resize(actualMeshletCount);
+        if(actualMeshletCount > 0)
+        {
+            tempMeshletVertices.resize(tempMeshlets.back().vertex_offset + tempMeshlets.back().vertex_count);
+            tempMeshletPrimitives.resize(tempMeshlets.back().triangle_offset + tempMeshlets.back().triangle_count * 3);
+        }
+        else
+        {
+            tempMeshletVertices.clear();
+            tempMeshletPrimitives.clear();
+        }
+
+        std::vector<Eigen::Vector4f> temp_boundingSpheres(actualMeshletCount);
+        for(size_t i = 0; i < actualMeshletCount; ++i)
+        {
+            const meshopt_Meshlet& moMeshlet = tempMeshlets[i];
+
+            const n32* meshletVertexIndices = tempMeshletVertices.data() + moMeshlet.vertex_offset;
+
+            std::vector<Eigen::Vector3f> currentMeshletPositions;
+            currentMeshletPositions.reserve(moMeshlet.vertex_count);
+            for(size_t i = 0; i < moMeshlet.vertex_count; ++i)
+            {
+                n32           vertexIndex = meshletVertexIndices[i];
+                const Vertex& vtx = loaderInfo.vertexBuffer[vertexIndex];
+                currentMeshletPositions.push_back(vtx.position.head<3>());
+            }
+        }
+
+        primitive->meshletOffset = static_cast<n32>(m_meshlets.size());
+        primitive->meshletCount = static_cast<n32>(actualMeshletCount);
+
+        size_t currentBaseVertexOffset = m_meshletVertices.size();
+        size_t currentPrimitiveBaseOffset = m_meshletPrimitives.size();
+
+        for(size_t i = 0; i < actualMeshletCount; ++i)
+        {
+            Meshlet m;
+            m.vertexOffset = static_cast<n32>(currentBaseVertexOffset + tempMeshlets[i].vertex_offset);
+            m.vertexCount = tempMeshlets[i].vertex_count;
+            m.indexOffset = static_cast<n32>(currentPrimitiveBaseOffset + tempMeshlets[i].triangle_offset);
+            m.primitiveCount = tempMeshlets[i].triangle_count;
+            m.boundingSphere = temp_boundingSpheres[i];
+            m.primitiveID = primitive->id;
+
+            m_meshlets.push_back(m);
+        }
+
+        m_meshletVertices.insert(m_meshletVertices.end(), tempMeshletVertices.begin(), tempMeshletVertices.end());
+        m_meshletPrimitives.insert(m_meshletPrimitives.end(), tempMeshletPrimitives.begin(), tempMeshletPrimitives.end());
+    }
+
+    HGINFO("Created %zu total meshlets across all primitives.", m_meshlets.size());
+}
 
 // Node Helpers
 
@@ -1040,7 +1087,7 @@ void Model::LoadAnimations(tinygltf::Model& gltfModel)
                 const tinygltf::BufferView& bufferView = gltfModel.bufferViews[accessor.bufferView];
                 const tinygltf::Buffer&     buffer = gltfModel.buffers[bufferView.buffer];
 
-                assert(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
+                HGASSERT(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
 
                 const void* dataPtr = &buffer.data[accessor.byteOffset + bufferView.byteOffset];
                 const f32*  buf = static_cast<const f32*>(dataPtr);
@@ -1059,7 +1106,7 @@ void Model::LoadAnimations(tinygltf::Model& gltfModel)
                 const tinygltf::BufferView& bufferView = gltfModel.bufferViews[accessor.bufferView];
                 const tinygltf::Buffer&     buffer = gltfModel.buffers[bufferView.buffer];
 
-                assert(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
+                HGASSERT(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
 
                 const void* dataPtr = &buffer.data[accessor.byteOffset + bufferView.byteOffset];
 

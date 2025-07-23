@@ -163,6 +163,12 @@ set(SHADER_SOURCES
     ../shaders/comp/mip.comp.slang
     ../shaders/comp/occlusion.comp.slang
     ../shaders/comp/prefiltredmap.comp.slang
+
+    #task
+    ../shaders/task/simple.task.slang
+
+    #mesh
+    ../shaders/mesh/simple.mesh.slang
     
 )
 set(SHADER_INCLUDES

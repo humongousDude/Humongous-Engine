@@ -86,17 +86,39 @@ void SimpleRenderSystem::AllocateDescriptorSet()
     }
 }
 
+struct MeshletDrawCallInfo
+{
+    n32 drawDataIndex;
+    n32 meshletOffset;
+    n32 meshletCount;
+    n32 instanceOffset;
+    n32 instanceCount;
+};
+
+struct MeshletPushConstants
+{
+    n32 meshletOffset;
+    n32 drawDataIndex;
+    n32 instanceOffset;
+    n32 instanceCount;
+};
+
 void SimpleRenderSystem::CreatePipelineLayout(const std::vector<vk::DescriptorSetLayout>& layouts)
 {
     HGINFO("Creating pipeline layout...");
     auto descriptorSetLayouts = ResourceManager::GetLayoutVector();
     descriptorSetLayouts.insert(descriptorSetLayouts.begin(), layouts.begin(), layouts.end());
 
+    vk::PushConstantRange pushConstantRange{};
+    pushConstantRange.offset = 0;
+    pushConstantRange.size = sizeof(MeshletPushConstants);
+    pushConstantRange.stageFlags = vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT;
+
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.setLayoutCount = static_cast<n32>(descriptorSetLayouts.size());
     pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
-    pipelineLayoutInfo.pushConstantRangeCount = 0;
-    pipelineLayoutInfo.pPushConstantRanges = nullptr;
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
     if(m_logicalDevice.GetVkDevice().createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_pipelineLayout) != vk::Result::eSuccess)
     {
@@ -145,13 +167,19 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.depthStencilInfo.depthWriteEnable = false;
     configInfo.depthStencilInfo.stencilTestEnable = true;
 
+    configInfo.useMeshShaders = true;
+    configInfo.meshShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.mesh");
+    configInfo.taskShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.task");
+
+    HGINFO("mesh shader path: %s", configInfo.meshShaderPath.c_str());
+    HGINFO("task shader path: %s", configInfo.taskShaderPath.c_str());
+
     vk::StencilOpState stencilState{};
     stencilState.compareOp = vk::CompareOp::eAlways;
     stencilState.passOp = vk::StencilOp::eReplace;
     stencilState.reference = static_cast<n32>(Globals::StencilMasks::Model);
     stencilState.compareMask = 0xFF;
     stencilState.writeMask = 0xFF;
-
     configInfo.depthStencilInfo.front = stencilState;
     configInfo.depthStencilInfo.back = stencilState;
     configInfo.renderingInfo.stencilAttachmentFormat = vk::Format::eD32SfloatS8Uint;
@@ -216,6 +244,247 @@ struct alignas(16) InstanceData
     n32             jointMatrixStart;
     n32             morphTargetStart;
 };
+
+void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const bool& depthOnly)
+{
+    if(!m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders)
+    {
+        HGWARN("Tried to render objects with mesh shaders, but the device does not support them! Switching to non-mesh shaders...");
+        RenderObjects(renderData, depthOnly);
+        return;
+    }
+
+    std::vector<DrawData>     drawDataVec;
+    std::vector<InstanceData> instanceDataVec;
+    n32                       instanceOffset = 0;
+
+    std::unordered_map<n32, std::vector<n32>> staticModelIDToEntityIDs;
+
+    for(const auto& entity: *renderData.visibleEntities)
+    {
+        auto modelComp = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entity.id);
+        if(modelComp && modelComp->instance && modelComp->instance->GetModel())
+        {
+            staticModelIDToEntityIDs[modelComp->instance->GetModel()->GetHandle()].push_back(entity.id);
+        }
+    }
+
+    drawDataVec.reserve(staticModelIDToEntityIDs.size() * 4);
+    instanceDataVec.reserve(renderData.visibleEntities->size());
+
+    std::vector<MeshletDrawCallInfo> meshletDrawCalls;
+
+    for(const auto& [staticModelID, entityIDs]: staticModelIDToEntityIDs)
+    {
+        if(entityIDs.empty()) { continue; }
+
+        auto someModelComponent = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entityIDs[0]);
+        if(!someModelComponent || !someModelComponent->instance || !someModelComponent->instance->GetModel()) { continue; }
+        const auto& staticModel = someModelComponent->instance->GetModel();
+
+        for(const auto& [materialId, primitivesInBatch]: staticModel->GetMaterialBatches())
+        {
+            for(const auto& primitive: primitivesInBatch)
+            {
+                // Only create a draw call if the primitive has meshlets
+                if(primitive->meshletCount > 0)
+                {
+                    // Store the index of the DrawData for this specific primitive
+                    n32 currentDrawDataIndex = static_cast<n32>(drawDataVec.size());
+
+                    // Prepare DrawData (per-primitive uniform/SSBO data)
+                    DrawData draw{};
+                    draw.materialID = primitive->material->index;
+                    draw.localNodeIndex = primitive->owner->index;
+                    draw.isSkinned = staticModel->HasSkins();
+                    draw.isMorphed = !primitive->morphTargetPositions.empty() || !primitive->morphTargetNormals.empty() ||
+                                     !primitive->morphTargetTangents.empty();
+                    draw.instanceOffset = instanceOffset; // Link DrawData to instance batch
+                    drawDataVec.push_back(draw);
+
+                    // Collect the dispatch information
+                    meshletDrawCalls.push_back({
+                        currentDrawDataIndex,
+                        primitive->meshletOffset,          // Offset into global meshlets buffer
+                        primitive->meshletCount,           // Number of meshlets to dispatch for this primitive
+                        instanceOffset,                    // Offset into global instanceData buffer
+                        static_cast<n32>(entityIDs.size()) // Number of instances in this batch
+                    });
+                }
+            }
+        }
+
+        // Prepare InstanceData (per-instance uniform/SSBO data)
+        for(const auto& entityId: entityIDs)
+        {
+            const auto modelComp = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entityId);
+            if(!modelComp || !modelComp->instance) { continue; }
+
+            const auto& currentModelInstance = modelComp->instance;
+
+            InstanceData instance{};
+            instance.modelMatrix = SceneHandler::GetWorld()->GetComponent<TransformComponent>(entityId)->Mat4();
+            instance.modelID = currentModelInstance->GetInstanceID();
+            instance.globalNodeIndex = ResourceManager::GetModelHandleToMatrixStart(currentModelInstance->GetInstanceID());
+
+            // Ensure these are correctly populated based on your resource manager setup
+            // This logic needs to align with how you populate joint and morph data globally
+            if(staticModel->HasSkins()) // Check the model for skins, not just the last drawDataVec entry
+            {
+                instance.jointMatrixStart = ResourceManager::Get().m_modelHandleToJointStart[currentModelInstance->GetInstanceID()].first;
+            }
+            if(staticModel->HasMorphs()) // Check the model for morphs
+            {
+                instance.morphTargetStart = ResourceManager::Get().m_modelHandleToMorphStart[currentModelInstance->GetInstanceID()].first;
+            }
+
+            instanceDataVec.push_back(instance);
+        }
+        instanceOffset += static_cast<n32>(entityIDs.size());
+    }
+
+    vk::DeviceSize drawDataSize = sizeof(DrawData) * drawDataVec.size();
+    vk::DeviceSize instanceDataSize = sizeof(InstanceData) * instanceDataVec.size();
+
+    if(meshletDrawCalls.empty())
+    {
+        return;
+
+        DescriptorPool* poolToUse = depthOnly ? m_depthPool[renderData.frameIndex].get() : m_pool[renderData.frameIndex].get();
+
+        Buffer* drawDataBufferToUse = nullptr;
+        Buffer* instanceBufferToUse = nullptr;
+
+        if(depthOnly)
+        {
+            if(m_depthDrawDataBuffers[renderData.frameIndex]->GetBuffer() == VK_NULL_HANDLE ||
+               m_depthDrawDataBuffers[renderData.frameIndex]->GetBufferSize() < drawDataSize)
+            {
+                m_depthDrawDataBuffers[renderData.frameIndex].reset();
+                m_depthDrawDataBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
+            }
+            if(m_depthInstanceBuffers[renderData.frameIndex]->GetBuffer() == VK_NULL_HANDLE ||
+               m_depthInstanceBuffers[renderData.frameIndex]->GetBufferSize() < instanceDataSize)
+            {
+                m_depthInstanceBuffers[renderData.frameIndex].reset();
+                m_depthInstanceBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
+            }
+            drawDataBufferToUse = m_depthDrawDataBuffers[renderData.frameIndex].get();
+            instanceBufferToUse = m_depthInstanceBuffers[renderData.frameIndex].get();
+        }
+        else
+        {
+            if(m_drawDataBuffers[renderData.frameIndex]->GetBuffer() == VK_NULL_HANDLE ||
+               m_drawDataBuffers[renderData.frameIndex]->GetBufferSize() < drawDataSize)
+            {
+                m_drawDataBuffers[renderData.frameIndex].reset();
+                m_drawDataBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
+            }
+            if(m_drawInstanceBuffers[renderData.frameIndex]->GetBuffer() == VK_NULL_HANDLE ||
+               m_drawInstanceBuffers[renderData.frameIndex]->GetBufferSize() < instanceDataSize)
+            {
+                m_drawInstanceBuffers[renderData.frameIndex].reset();
+                m_drawInstanceBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
+            }
+            drawDataBufferToUse = m_drawDataBuffers[renderData.frameIndex].get();
+            instanceBufferToUse = m_drawInstanceBuffers[renderData.frameIndex].get();
+        }
+
+        // Draw data buffer upload
+        {
+            // Init buffer if it's new or needed resize
+            drawDataBufferToUse->Init(&m_logicalDevice, drawDataSize, 1,
+                                      vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                                      vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw data buffer");
+
+            Buffer stagingBuffer{&m_logicalDevice,
+                                 drawDataSize,
+                                 1,
+                                 vk::BufferUsageFlagBits::eTransferSrc,
+                                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                                 VMA_MEMORY_USAGE_CPU_TO_GPU,
+                                 1,
+                                 "draw data staging buffer"};
+
+            stagingBuffer.Map();
+            stagingBuffer.WriteToBuffer((void*)drawDataVec.data(), drawDataSize);
+            stagingBuffer.Flush();
+            stagingBuffer.UnMap();
+
+            Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *drawDataBufferToUse, drawDataSize);
+        }
+
+        // Instance data buffer upload
+        {
+            instanceBufferToUse->Init(&m_logicalDevice, instanceDataSize, 1,
+                                      vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                                      vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "instance data buffer");
+
+            Buffer stagingBuffer{&m_logicalDevice,
+                                 instanceDataSize,
+                                 1,
+                                 vk::BufferUsageFlagBits::eTransferSrc,
+                                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                                 VMA_MEMORY_USAGE_CPU_TO_GPU,
+                                 1,
+                                 "instance data staging buffer"};
+
+            stagingBuffer.Map();
+            stagingBuffer.WriteToBuffer((void*)instanceDataVec.data(), instanceDataSize);
+            stagingBuffer.Flush();
+            stagingBuffer.UnMap();
+
+            Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *instanceBufferToUse, instanceDataSize);
+        }
+
+        if(depthOnly) { m_depthOnlyPipeline->Bind(renderData.commandBuffer); }
+        else { m_geometryPipeline->Bind(renderData.commandBuffer); }
+
+        vk::DescriptorSet debugSet;
+        auto              debugBufferInfo = m_debugBuffer->DescriptorInfo();
+        DescriptorWriter  debugWriter{*ResourceManager::GetModelDescriptors().debugLayout, ResourceManager::GetDescriptorPools().debugPool.get()};
+        debugWriter.WriteBuffer(0, &debugBufferInfo);
+        if(debugSet == VK_NULL_HANDLE) { debugWriter.Build(debugSet); }
+        else { debugWriter.Overwrite(debugSet); }
+        poolToUse->ResetPool();
+
+        vk::DescriptorSet setToUse = depthOnly ? m_depthSet[renderData.frameIndex] : m_set[renderData.frameIndex];
+
+        auto             drawDataBufferInfo = drawDataBufferToUse->DescriptorInfo();
+        auto             instBufInfo = instanceBufferToUse->DescriptorInfo();
+        DescriptorWriter writer{*m_layout, poolToUse};
+        writer.WriteBuffer(0, &drawDataBufferInfo).WriteBuffer(1, &instBufInfo);
+        writer.Build(setToUse);
+
+        ResourceManager::BindGlobalDescriptorSets(renderData.commandBuffer, m_pipelineLayout);
+
+        if(!renderData.uboSets.empty())
+        {
+            renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
+                                                        static_cast<n32>(Globals::ModelDescriptorIndices::Camera),
+                                                        static_cast<n32>(renderData.uboSets.size()), renderData.uboSets.data(), 0, nullptr);
+        }
+
+        std::vector<vk::DescriptorSet> sets{setToUse};
+        renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
+                                                    static_cast<n32>(Globals::ModelDescriptorIndices::Model) + 1, sets.size(), sets.data(), 0,
+                                                    nullptr);
+
+        renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
+                                                    static_cast<n32>(Globals::ModelDescriptorIndices::Debug), 1, &debugSet, 0, nullptr);
+
+        for(const auto& drawCall: meshletDrawCalls)
+        {
+
+            MeshletPushConstants pushConstants = {drawCall.meshletOffset, drawCall.drawDataIndex, drawCall.instanceOffset, drawCall.instanceCount};
+
+            renderData.commandBuffer.pushConstants(m_pipelineLayout, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 0,
+                                                   sizeof(MeshletPushConstants), &pushConstants);
+
+            renderData.commandBuffer.drawMeshTasksEXT(drawCall.meshletCount, 1, 1);
+        }
+    }
+}
 
 void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depthOnly)
 {

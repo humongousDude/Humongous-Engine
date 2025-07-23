@@ -77,27 +77,40 @@ void ResourceManager::InitDescriptors()
     m_bindlessTexturePool = std::make_unique<DescriptorPoolGrowable>(
         *m_logicalDevice, 32, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet | vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind, t1);
 
+    b8                      canUseMeshShaders = m_logicalDevice->GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders;
+    vk::ShaderStageFlagBits vertexStage = canUseMeshShaders ? vk::ShaderStageFlagBits::eMeshEXT : vk::ShaderStageFlagBits::eVertex;
+
     DescriptorSetLayout::Builder bindlessBuilder{*m_logicalDevice};
-    bindlessBuilder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 32)
-        .AddBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eFragment, 1)
-        .AddBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex, 1)
-        .AddBinding(3, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex, 1)
-        .AddBinding(4, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex, 1)
-        .AddBinding(5, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex, 1);
+    bindlessBuilder
+        .AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 32) // textures
+        .AddBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eFragment, 1)         // materials
+        .AddBinding(2, vk::DescriptorType::eStorageBuffer, vertexStage, 1)                                // nodes
+        .AddBinding(3, vk::DescriptorType::eStorageBuffer, vertexStage, 1)                                // vertices
+        .AddBinding(4, vk::DescriptorType::eStorageBuffer, vertexStage, 1)                                // joints
+        .AddBinding(5, vk::DescriptorType::eStorageBuffer, vertexStage, 1);                               // morphs
+
+    if(canUseMeshShaders)
+    {
+        bindlessBuilder
+            .AddBinding(6, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eMeshEXT, 1)  // meshlets
+            .AddBinding(7, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eMeshEXT, 1)  // meshlet vertices
+            .AddBinding(8, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eMeshEXT, 1); // meshlet primitives
+    }
+
     m_bindlessLayout = bindlessBuilder.Build();
 
     m_bindlessSet = m_bindlessTexturePool->AllocateDescriptor(m_bindlessLayout->GetDescriptorSetLayout());
 
     DescriptorSetLayout::Builder nodeBuilder{*m_logicalDevice};
-    nodeBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex);
-    nodeBuilder.AddBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex);
+    nodeBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, vertexStage);
+    nodeBuilder.AddBinding(1, vk::DescriptorType::eStorageBuffer, vertexStage);
     m_modelDescriptors.vertices = nodeBuilder.Build();
 
     m_descriptorPools.storageBufferPool->AllocateDescriptor(m_modelDescriptors.vertices->GetDescriptorSetLayout(),
                                                             m_modelDescriptors.vertexDescriptor);
 
     DescriptorSetLayout::Builder debugBuilder{*m_logicalDevice};
-    debugBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex);
+    debugBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, vertexStage);
     m_modelDescriptors.debugLayout = debugBuilder.Build();
 
     DescriptorSetLayout::Builder builder{*m_logicalDevice};
@@ -201,6 +214,132 @@ n32 ResourceManager::LoadModel(const std::string& name)
     return handleToReturn;
 }
 
+void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& meshlets, const std::vector<n32>& meshletVertices,
+                                                  const std::vector<n8>& meshletPrimitives, const n32& handle)
+{
+    if(!m_logicalDevice->GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders)
+    {
+        HGWARN("Tried to add meshlets to a model, but the device does not support them! Skipping...");
+        return;
+    }
+
+    const n32 meshletStartIndex = m_meshlets.size();
+    m_modelHandleToMeshletStart.emplace(handle, std::pair<n32, n32>(meshletStartIndex, meshlets.size()));
+    m_meshlets.insert(m_meshlets.end(), meshlets.begin(), meshlets.end());
+    m_meshletVertices.insert(m_meshletVertices.end(), meshletVertices.begin(), meshletVertices.end());
+    m_meshletPrimitives.insert(m_meshletPrimitives.end(), meshletPrimitives.begin(), meshletPrimitives.end());
+
+    // Meshlets
+    {
+        if(!m_meshletBuffer || m_meshletBuffer->GetBufferSize() < m_meshlets.size() * sizeof(Meshlet))
+        {
+            m_meshletBuffer.reset();
+            m_meshletBuffer = std::make_unique<Buffer>(m_logicalDevice, m_meshlets.size() * sizeof(Meshlet), 1,
+                                                       vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                                                       vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "meshlet buffer");
+
+            vk::WriteDescriptorSet write{};
+            write.dstSet = m_bindlessSet;
+            write.dstBinding = 6;
+            write.dstArrayElement = 0;
+            write.descriptorCount = 1;
+            write.descriptorType = vk::DescriptorType::eStorageBuffer;
+            auto info = m_meshletBuffer->DescriptorInfo();
+            write.pBufferInfo = &info;
+            m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+        }
+
+        Buffer stagingBuffer{m_logicalDevice,
+                             m_meshlets.size() * sizeof(Meshlet),
+                             1,
+                             vk::BufferUsageFlagBits::eTransferSrc,
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                             VMA_MEMORY_USAGE_CPU_TO_GPU,
+                             1,
+                             "meshlet staging buffer"};
+
+        stagingBuffer.Map();
+        stagingBuffer.WriteToBuffer(m_meshlets.data(), m_meshlets.size() * sizeof(Meshlet));
+        stagingBuffer.UnMap();
+
+        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_meshletBuffer, m_meshlets.size() * sizeof(Meshlet));
+    }
+
+    // Meshlet vertices
+    {
+        if(!m_meshletVertexBuffer || m_meshletVertexBuffer->GetBufferSize() < m_meshletVertices.size() * sizeof(n32))
+        {
+            m_meshletVertexBuffer.reset();
+            m_meshletVertexBuffer =
+                std::make_unique<Buffer>(m_logicalDevice, m_meshletVertices.size() * sizeof(n32), 1,
+                                         vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                                         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "meshlet vertex buffer");
+
+            vk::WriteDescriptorSet write{};
+            write.dstSet = m_bindlessSet;
+            write.dstBinding = 7;
+            write.dstArrayElement = 0;
+            write.descriptorCount = 1;
+            write.descriptorType = vk::DescriptorType::eStorageBuffer;
+            auto info = m_meshletVertexBuffer->DescriptorInfo();
+            write.pBufferInfo = &info;
+            m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+        }
+
+        Buffer stagingBuffer{m_logicalDevice,
+                             m_meshletVertices.size() * sizeof(n32),
+                             1,
+                             vk::BufferUsageFlagBits::eTransferSrc,
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                             VMA_MEMORY_USAGE_CPU_TO_GPU,
+                             1,
+                             "meshlet vertex staging buffer"};
+
+        stagingBuffer.Map();
+        stagingBuffer.WriteToBuffer(m_meshletVertices.data(), m_meshletVertices.size() * sizeof(n32));
+        stagingBuffer.UnMap();
+
+        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_meshletVertexBuffer, m_meshletVertices.size() * sizeof(n32));
+    }
+
+    // Meshlet primitives
+    {
+        if(!m_meshletPrimitiveBuffer || m_meshletPrimitiveBuffer->GetBufferSize() < m_meshletPrimitives.size() * sizeof(n8))
+        {
+            m_meshletPrimitiveBuffer.reset();
+            m_meshletPrimitiveBuffer =
+                std::make_unique<Buffer>(m_logicalDevice, m_meshletPrimitives.size() * sizeof(n8), 1,
+                                         vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                                         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "meshlet primitive buffer");
+
+            vk::WriteDescriptorSet write{};
+            write.dstSet = m_bindlessSet;
+            write.dstBinding = 8;
+            write.dstArrayElement = 0;
+            write.descriptorCount = 1;
+            write.descriptorType = vk::DescriptorType::eStorageBuffer;
+            auto info = m_meshletPrimitiveBuffer->DescriptorInfo();
+            write.pBufferInfo = &info;
+            m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+        }
+
+        Buffer stagingBuffer{m_logicalDevice,
+                             m_meshletPrimitives.size() * sizeof(n8),
+                             1,
+                             vk::BufferUsageFlagBits::eTransferSrc,
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                             VMA_MEMORY_USAGE_CPU_TO_GPU,
+                             1,
+                             "meshlet primitive staging buffer"};
+
+        stagingBuffer.Map();
+        stagingBuffer.WriteToBuffer(m_meshletPrimitives.data(), m_meshletPrimitives.size() * sizeof(n8));
+        stagingBuffer.UnMap();
+
+        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_meshletPrimitiveBuffer, m_meshletPrimitives.size() * sizeof(n8));
+    }
+}
+
 std::shared_ptr<ModelInstance> ResourceManager::Internal_RequestModel(const std::string& name)
 {
     auto id = LoadModel(name);
@@ -252,6 +391,7 @@ void Internal_AddMatriciesToModel(const std::vector<Eigen::Matrix4f>& matricies)
 
 void ResourceManager::Internal_AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives)
 {
+    HGINFO("Adding indices to model...");
     size_t globalOffsetForNewModel = m_modelIndicies.size();
 
     m_modelIndicies.insert(m_modelIndicies.end(), modelIndices.begin(), modelIndices.end());
@@ -280,6 +420,8 @@ void ResourceManager::Internal_AddIndicesToModel(const std::vector<n32>& modelIn
     stagingBuffer.UnMap();
 
     Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelIndexBuffer, requiredBufferSize);
+
+    HGINFO("Indices added to model");
 }
 
 void ResourceManager::Internal_AddVerticesToModel(const std::vector<Model::Vertex>& modelVertices, const std::vector<Mesh*>& modelMeshes)
