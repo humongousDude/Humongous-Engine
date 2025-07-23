@@ -157,6 +157,27 @@ void ResourceManager::InitializeInitials()
     info = m_modelMorphTargetsBuffer->DescriptorInfo();
     write.pBufferInfo = &info;
     m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+
+    Texture tex{};
+    tex.FillWithEmpty(m_logicalDevice, 512, 512);
+
+    n32                     bindlessIndex = 0;
+    vk::DescriptorImageInfo imageInfo = tex.GetDescriptorInfo();
+
+    if(m_bindlessImageInfos.size() <= bindlessIndex) { m_bindlessImageInfos.resize(bindlessIndex + 1); }
+    m_bindlessImageInfos[bindlessIndex] = imageInfo;
+
+    write.dstSet = m_bindlessSet;
+    write.dstBinding = 0;
+    write.dstArrayElement = bindlessIndex;
+    write.descriptorCount = 1;
+    write.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    write.pImageInfo = &m_bindlessImageInfos[bindlessIndex];
+
+    m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+
+    std::string key = "img_0_default";
+    m_textureMap[key] = TextureBinding{std::move(tex), bindlessIndex};
 }
 
 n32 ResourceManager::LoadModel(const std::string& name)
@@ -575,7 +596,7 @@ n32 ResourceManager::Internal_RequestTexture(class tinygltf::Image img, struct T
     Texture tex{};
     tex.CreateFromGLTFImage(img, sampler, m_logicalDevice, m_logicalDevice->GetGraphicsQueue());
 
-    uint32_t bindlessIndex = m_nextBindlessIndex++;
+    n32 bindlessIndex = m_nextBindlessIndex++;
 
     vk::DescriptorImageInfo imageInfo{};
     imageInfo.imageView = tex.GetRawImageViewHandle();
