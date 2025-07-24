@@ -1,5 +1,3 @@
-#pragma once
-
 #include "images.hpp"
 #include "logger.hpp"
 

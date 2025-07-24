@@ -76,4 +76,23 @@ void DecomposeMatrix(const Eigen::Matrix4f& matrix, Eigen::Vector3f& translation
     rotation = Eigen::Quaternionf(rotationScaleMatrix);
 }
 
+vk::ShaderModule CreateShaderModule(const LogicalDevice& logicalDevice, const std::string& shaderFile)
+{
+    std::vector<char> shaderCode = ReadFile(shaderFile);
+    if(shaderCode.empty()) { return VK_NULL_HANDLE; }
+
+    vk::ShaderModuleCreateInfo createInfo{};
+    createInfo.codeSize = shaderCode.size();
+    createInfo.pCode = reinterpret_cast<const n32*>(shaderCode.data());
+
+    vk::ShaderModule shaderModule;
+    if(logicalDevice.GetVkDevice().createShaderModule(&createInfo, nullptr, &shaderModule) != vk::Result::eSuccess)
+    {
+        HGERROR("Failed to create shader module!");
+        return VK_NULL_HANDLE;
+    }
+
+    return shaderModule;
+}
+
 } // namespace Humongous::Utils

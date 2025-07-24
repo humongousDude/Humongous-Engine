@@ -310,6 +310,10 @@ private:
 
     void LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, f32 globalscale,
                   Eigen::Matrix4f parentTransform);
+
+    void OptimizePrimitive(Primitive* primitive, LoaderInfo& loaderInfo, std::vector<Vertex>& primitiveVertices,
+                           std::vector<n32>& primitiveIndices);
+
     void GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& model, size_t& vertexCount, size_t& indexCount);
     void LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* m_device, vk::Queue transferQueue);
 

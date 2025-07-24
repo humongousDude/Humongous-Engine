@@ -2,7 +2,6 @@
 #include "logger.hpp"
 #include <abstractions/descriptor_pool.hpp>
 
-// TODO: Change this to use vulkan.hpp
 namespace Humongous
 {
 // *************** Descriptor Pool Builder *********************

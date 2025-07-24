@@ -89,10 +89,11 @@ void main(uint3 gl_GlobalInvocationID : SV_DispatchThreadID)
 
     float2 uv = (float2(pixelCoords) + 0.5f) / float2(imageDims);
 
-    float4 albSample = gAlbedo.Sample(uv);
-    float4 nrSample = gNormalRough.Sample(uv);
-    float4 mpSample = gMatParams.Sample(uv);
-    float depth = gDepth.Sample(uv).r;
+
+    float4 albSample = float4(0);
+    float4 nrSample  = float4(0);
+    float4 mpSample  = float4(0);
+    float depth      = 0;
 
     float3 albedo = albSample.rgb;
     float4 outColor;
@@ -101,15 +102,19 @@ void main(uint3 gl_GlobalInvocationID : SV_DispatchThreadID)
         int index = uboParams.debugViewInputs;
         switch (index) {
             case 1:
+                albSample = gAlbedo.Sample(uv);
                 outColor.rgba = albSample;
                 break;
             case 2:
+                nrSample = gNormalRough.Sample(uv);
                 outColor.rgba = nrSample;
                 break;
             case 3:
+                mpSample = gMatParams.Sample(uv);
                 outColor.rgba = mpSample;
                 break;
             case 4:
+                depth = gDepth.Sample(uv).r;
                 outColor.rgba = float4(depth, depth, depth, 1.0f);
                 break;
             case 5:
@@ -118,6 +123,15 @@ void main(uint3 gl_GlobalInvocationID : SV_DispatchThreadID)
         }
         drawImage[pixelCoords] = outColor;
         return;
+    }
+    else{
+         albSample = gAlbedo.Sample(uv);
+         nrSample = gNormalRough.Sample(uv);
+         mpSample = gMatParams.Sample(uv);
+         depth = gDepth.Sample(uv).r;
+
+         albedo = albSample.rgb;
+         outColor;
     }
 
     float alpha = albSample.a;

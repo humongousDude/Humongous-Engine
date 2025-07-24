@@ -1,6 +1,7 @@
 #include "skybox.hpp"
 #include "abstractions/descriptor_writer.hpp"
 #include "asset_manager.hpp"
+#include "compute_pipeline.hpp"
 #include "extra.hpp"
 #include "logger.hpp"
 
@@ -113,48 +114,6 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
     m_brdflut = std::make_unique<Texture>();
     m_brdflut->FillWithEmpty(m_logicalDevice, 512, 512, true);
 
-    vk::ShaderModule irradianceMod;
-    {
-        auto code = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "irradiance.comp"));
-
-        vk::ShaderModuleCreateInfo createInfo{};
-        createInfo.codeSize = code.size();
-        createInfo.pCode = reinterpret_cast<const n32*>(code.data());
-
-        if(m_logicalDevice->GetVkDevice().createShaderModule(&createInfo, nullptr, &irradianceMod) != vk::Result::eSuccess)
-        {
-            HGERROR("Failed to create shader module!");
-        }
-    }
-
-    vk::ShaderModule prefiltredMod;
-    {
-        auto code = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "prefiltredmap.comp"));
-
-        vk::ShaderModuleCreateInfo createInfo{};
-        createInfo.codeSize = code.size();
-        createInfo.pCode = reinterpret_cast<const n32*>(code.data());
-
-        if(m_logicalDevice->GetVkDevice().createShaderModule(&createInfo, nullptr, &prefiltredMod) != vk::Result::eSuccess)
-        {
-            HGERROR("Failed to create shader module!");
-        }
-    }
-
-    vk::ShaderModule brdfMod;
-    {
-        auto code = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "brdflut.comp"));
-
-        vk::ShaderModuleCreateInfo createInfo{};
-        createInfo.codeSize = code.size();
-        createInfo.pCode = reinterpret_cast<const n32*>(code.data());
-
-        if(m_logicalDevice->GetVkDevice().createShaderModule(&createInfo, nullptr, &brdfMod) != vk::Result::eSuccess)
-        {
-            HGERROR("Failed to create shader module!");
-        }
-    }
-
     DescriptorSetLayout::Builder envImageBuilder{*m_logicalDevice};
     envImageBuilder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
     auto envLayout = envImageBuilder.Build();
@@ -239,25 +198,17 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
     // Irradiance map
     HGINFO("Generating irradiance map");
     {
-        vk::PipelineShaderStageCreateInfo irradianceStage{};
-        irradianceStage.stage = vk::ShaderStageFlagBits::eCompute;
-        irradianceStage.pName = "main";
-        irradianceStage.module = irradianceMod;
+        ComputePipeline::ComputePipelineCreateInfo configInfo;
+        configInfo.logicalDevice = m_logicalDevice;
+        configInfo.pipelineLayout = irradePipelineLayout;
+        configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "irradiance.comp");
 
-        vk::ComputePipelineCreateInfo compInfo{};
-        compInfo.layout = irradePipelineLayout;
-        compInfo.stage = irradianceStage;
-
-        vk::Pipeline irradiancePipeline;
-        if(m_logicalDevice->GetVkDevice().createComputePipelines(nullptr, 1, &compInfo, nullptr, &irradiancePipeline) != vk::Result::eSuccess)
-        {
-            HGFATAL("Failed to create irradiance compute pipeline!");
-        }
-        auto cmd = m_logicalDevice->BeginSingleTimeCommands();
+        ComputePipeline irradiancePipeline{configInfo};
+        auto            cmd = m_logicalDevice->BeginSingleTimeCommands();
 
         std::array<vk::DescriptorSet, 2> irradianceSets = {envSet, irradSet};
 
-        cmd.bindPipeline(vk::PipelineBindPoint::eCompute, irradiancePipeline);
+        irradiancePipeline.BindPipeline(cmd);
         cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, irradePipelineLayout, 0, irradianceSets.size(), irradianceSets.data(), 0, nullptr);
 
         n32 irradianceMapSize = 512;
@@ -268,31 +219,22 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
         vkCmdDispatch(cmd, irradianceGroupCountX, irradianceGroupCountY, irradianceGroupCountZ);
 
         m_logicalDevice->EndSingleTimeCommands(cmd);
-        m_logicalDevice->GetVkDevice().destroyPipeline(irradiancePipeline, nullptr);
     }
     HGINFO("Done generating irradiance map");
+
     // Prefiltered map
     HGINFO("Generating prefiltered map");
     {
-        vk::PipelineShaderStageCreateInfo prefilteredStage{};
-        prefilteredStage.stage = vk::ShaderStageFlagBits::eCompute;
-        prefilteredStage.pName = "main";
-        prefilteredStage.module = prefiltredMod;
-
-        vk::ComputePipelineCreateInfo compInfo{};
-        compInfo.layout = prefiltPipelineLayout;
-        compInfo.stage = prefilteredStage;
-
-        vk::Pipeline prefilteredPipeline;
-        if(m_logicalDevice->GetVkDevice().createComputePipelines(nullptr, 1, &compInfo, nullptr, &prefilteredPipeline) != vk::Result::eSuccess)
-        {
-            HGFATAL("Failed to create prefiltered compute pipeline!");
-        }
+        ComputePipeline::ComputePipelineCreateInfo configInfo;
+        configInfo.logicalDevice = m_logicalDevice;
+        configInfo.pipelineLayout = prefiltPipelineLayout;
+        configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "prefiltredmap.comp");
+        ComputePipeline prefilteredPipeline{configInfo};
 
         std::array<vk::DescriptorSet, 2> prefilteredSets = {envSet};
 
         auto cmd = m_logicalDevice->BeginSingleTimeCommands();
-        cmd.bindPipeline(vk::PipelineBindPoint::eCompute, prefilteredPipeline);
+        prefilteredPipeline.BindPipeline(cmd);
 
         for(n32 mipLevel = 0; mipLevel < m_prefilteredMap->GetMipLevels(); mipLevel++)
         {
@@ -323,56 +265,36 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
         }
 
         m_logicalDevice->EndSingleTimeCommands(cmd);
-
-        m_logicalDevice->GetVkDevice().destroyPipeline(prefilteredPipeline, nullptr);
     }
     HGINFO("Done generating prefiltered map");
     // BRDF LUT
     HGINFO("Generating BRDF LUT");
     {
-        vk::PipelineShaderStageCreateInfo brdfStage{};
-        brdfStage.stage = vk::ShaderStageFlagBits::eCompute;
-        brdfStage.pName = "main";
-        brdfStage.module = brdfMod;
+        ComputePipeline::ComputePipelineCreateInfo configInfo;
+        configInfo.logicalDevice = m_logicalDevice;
+        configInfo.pipelineLayout = brdfPipelineLayout;
+        configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "brdflut.comp");
+        ComputePipeline brdfPipeline{configInfo};
 
-        vk::ComputePipelineCreateInfo compInfo{};
-        compInfo.layout = brdfPipelineLayout;
-        compInfo.stage = brdfStage;
-
-        vk::Pipeline brdfPipeline;
-        if(m_logicalDevice->GetVkDevice().createComputePipelines(nullptr, 1, &compInfo, nullptr, &brdfPipeline) != vk::Result::eSuccess)
-        {
-            HGFATAL("Failed to create brdf compute pipeline!");
-        }
         auto cmd = m_logicalDevice->BeginSingleTimeCommands();
 
         std::array<vk::DescriptorSet, 1> brdfSets = {brdfSet};
 
-        cmd.bindPipeline(vk::PipelineBindPoint::eCompute, brdfPipeline);
+        brdfPipeline.BindPipeline(cmd);
         cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, brdfPipelineLayout, 0, brdfSets.size(), brdfSets.data(), 0, nullptr);
 
         n32 brdfMapSize = 512;
         n32 brdfGroupCountX = (brdfMapSize + LOCAL_SIZE_X - 1) / LOCAL_SIZE_X;
         n32 brdfGroupCountY = (brdfMapSize + LOCAL_SIZE_Y - 1) / LOCAL_SIZE_Y;
-        n32 brdfGroupCountZ = (6 + LOCAL_SIZE_Z - 1) / LOCAL_SIZE_Z; // Since LOCAL_SIZE_Z is 1, this is 6
+        n32 brdfGroupCountZ = (6 + LOCAL_SIZE_Z - 1) / LOCAL_SIZE_Z;
 
         vkCmdDispatch(cmd, brdfGroupCountX, brdfGroupCountY, brdfGroupCountZ);
 
         m_logicalDevice->EndSingleTimeCommands(cmd);
-
-        m_logicalDevice->GetVkDevice().destroyPipeline(brdfPipeline, nullptr);
     }
     HGINFO("Done generating BRDF LUT");
 
-    // auto cmd = m_logicalDevice->BeginSingleTimeCommands();
-    // Renderer::WaitForCompute(cmd);
-    // m_logicalDevice->EndSingleTimeCommands(cmd);
-
     // Afterwork
-    m_logicalDevice->GetVkDevice().destroyShaderModule(irradianceMod, nullptr);
-    m_logicalDevice->GetVkDevice().destroyShaderModule(prefiltredMod, nullptr);
-    m_logicalDevice->GetVkDevice().destroyShaderModule(brdfMod, nullptr);
-
     m_logicalDevice->GetVkDevice().destroyPipelineLayout(irradePipelineLayout, nullptr);
     m_logicalDevice->GetVkDevice().destroyPipelineLayout(prefiltPipelineLayout, nullptr);
     m_logicalDevice->GetVkDevice().destroyPipelineLayout(brdfPipelineLayout, nullptr);

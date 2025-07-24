@@ -1,9 +1,8 @@
+#include "render_pipeline.hpp"
 #include "asset_manager.hpp"
 #include "defines.hpp"
 #include "extra.hpp"
 #include "logger.hpp"
-#include <model.hpp>
-#include <render_pipeline.hpp>
 
 using namespace Humongous::Utils;
 

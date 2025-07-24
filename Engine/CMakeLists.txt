@@ -39,6 +39,7 @@ set(ENGINE_SOURCES
     graphics/src/model_instance.cpp
     graphics/src/physical_device.cpp
     graphics/src/render_pipeline.cpp
+    graphics/src/compute_pipeline.cpp
     graphics/src/renderer.cpp
     graphics/src/scene.cpp
     graphics/src/skybox.cpp
@@ -109,6 +110,7 @@ set(ENGINE_HEADERS
     graphics/inc/model_instance.hpp
     graphics/inc/physical_device.hpp
     graphics/inc/render_pipeline.hpp
+    graphics/inc/compute_pipeline.hpp
     graphics/inc/renderer.hpp
     graphics/inc/scene.hpp
     graphics/inc/skybox.hpp

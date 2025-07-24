@@ -1,0 +1,33 @@
+#pragma once
+
+#include "logical_device.hpp"
+#include "non_copyable.hpp"
+
+namespace Humongous
+{
+
+class ComputePipeline : NonCopyable
+{
+public:
+    struct ComputePipelineCreateInfo
+    {
+        LogicalDevice*     logicalDevice = nullptr;
+        std::string        shaderFile = "";
+        vk::PipelineLayout pipelineLayout;
+    };
+
+    ComputePipeline(const ComputePipelineCreateInfo& createInfo);
+    ~ComputePipeline();
+
+    vk::Pipeline GetPipeline() const { return m_pipeline; }
+
+    void BindPipeline(vk::CommandBuffer cmd) { cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_pipeline); }
+
+private:
+    LogicalDevice* m_logicalDevice = nullptr;
+    vk::Pipeline   m_pipeline = VK_NULL_HANDLE;
+
+    void CreatePipeline(const ComputePipelineCreateInfo& createInfo);
+};
+
+} // namespace Humongous

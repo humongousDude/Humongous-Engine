@@ -15,8 +15,6 @@
 #include <cstring>
 #include <vulkan/vk_enum_string_helper.h>
 
-// TODO: Change this to use vulkan.hpp
-
 namespace Humongous
 {
 

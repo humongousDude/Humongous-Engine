@@ -62,13 +62,13 @@ Renderer::~Renderer()
     if(m_depthImageSampler != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroySampler(m_depthImageSampler); }
     if(m_debugImageSampler != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroySampler(m_debugImageSampler); }
 
-    m_logicalDevice.GetVkDevice().destroyPipeline(m_occlusionPipeline, nullptr);
+    m_occlusionPipeline.reset();
     m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_occlusionPipelineLayout, nullptr);
 
-    m_logicalDevice.GetVkDevice().destroyPipeline(m_mipPipeline, nullptr);
+    m_mipPipeline.reset();
     m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_mipPipelineLayout, nullptr);
 
-    m_logicalDevice.GetVkDevice().destroyPipeline(m_lightingPipeline, nullptr);
+    m_lightingPipeline.reset();
     m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_lightingPipelineLayout, nullptr);
 
     m_lightingDescriptorLayout.reset();
@@ -410,36 +410,12 @@ void Renderer::CreateLightingPipeline()
 
     HGINFO("Creating pipeline...");
 
-    {
-        auto compCode = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "lighting.comp"));
+    ComputePipeline::ComputePipelineCreateInfo configInfo;
+    configInfo.logicalDevice = &m_logicalDevice;
+    configInfo.pipelineLayout = m_lightingPipelineLayout;
+    configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "lighting.comp");
 
-        vk::ShaderModuleCreateInfo createInfo{};
-        createInfo.codeSize = compCode.size();
-        createInfo.pCode = reinterpret_cast<const n32*>(compCode.data());
-
-        vk::ShaderModule compModule;
-
-        if(m_logicalDevice.GetVkDevice().createShaderModule(&createInfo, nullptr, &compModule) != vk::Result::eSuccess)
-        {
-            HGERROR("Failed to create shader module!");
-        }
-
-        vk::PipelineShaderStageCreateInfo why{};
-        why.stage = vk::ShaderStageFlagBits::eCompute;
-        why.pName = "main";
-        why.module = compModule;
-
-        vk::ComputePipelineCreateInfo compInfo{};
-        compInfo.layout = m_lightingPipelineLayout;
-        compInfo.stage = why;
-
-        if(m_logicalDevice.GetVkDevice().createComputePipelines(nullptr, 1, &compInfo, nullptr, &m_lightingPipeline) != vk::Result::eSuccess)
-        {
-            HGFATAL("Failed to create renderer compute pipeline!");
-        }
-
-        vkDestroyShaderModule(m_logicalDevice.GetVkDevice(), compModule, nullptr);
-    }
+    m_lightingPipeline = std::make_unique<ComputePipeline>(configInfo);
 
     HGINFO("Created pipeline");
 }
@@ -576,36 +552,13 @@ void Renderer::CreateComputePipeline()
             HGERROR("Failed to create pipeline layout");
         }
 
-        auto compCode = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "occlusion.comp"));
+        ComputePipeline::ComputePipelineCreateInfo configInfo;
+        configInfo.logicalDevice = &m_logicalDevice;
+        configInfo.pipelineLayout = m_occlusionPipelineLayout;
+        configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "occlusion.comp");
 
-        vk::ShaderModuleCreateInfo createInfo{};
-        createInfo.codeSize = compCode.size();
-        createInfo.pCode = reinterpret_cast<const n32*>(compCode.data());
-
-        vk::ShaderModule compModule;
-
-        if(m_logicalDevice.GetVkDevice().createShaderModule(&createInfo, nullptr, &compModule) != vk::Result::eSuccess)
-        {
-            HGERROR("Failed to create shader module!");
-        }
-
-        vk::PipelineShaderStageCreateInfo why{};
-        why.stage = vk::ShaderStageFlagBits::eCompute;
-        why.pName = "main";
-        why.module = compModule;
-
-        vk::ComputePipelineCreateInfo compInfo{};
-        compInfo.layout = m_occlusionPipelineLayout;
-        compInfo.stage = why;
-
-        if(m_logicalDevice.GetVkDevice().createComputePipelines(nullptr, 1, &compInfo, nullptr, &m_occlusionPipeline) != vk::Result::eSuccess)
-        {
-            HGFATAL("Failed to create renderer compute pipeline!");
-        }
-
-        vkDestroyShaderModule(m_logicalDevice.GetVkDevice(), compModule, nullptr);
+        m_occlusionPipeline = std::make_unique<ComputePipeline>(configInfo);
     }
-
     // Mipmap
     {
         auto layout = m_mipDescriptorLayout->GetDescriptorSetLayout();
@@ -623,34 +576,12 @@ void Renderer::CreateComputePipeline()
             HGERROR("Failed to create pipeline layout");
         }
 
-        auto compCode = Utils::ReadFile(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "mip.comp"));
+        ComputePipeline::ComputePipelineCreateInfo configInfo;
+        configInfo.logicalDevice = &m_logicalDevice;
+        configInfo.pipelineLayout = m_mipPipelineLayout;
+        configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "mip.comp");
 
-        vk::ShaderModuleCreateInfo createInfo{};
-        createInfo.codeSize = compCode.size();
-        createInfo.pCode = reinterpret_cast<const n32*>(compCode.data());
-
-        vk::ShaderModule compModule;
-
-        if(m_logicalDevice.GetVkDevice().createShaderModule(&createInfo, nullptr, &compModule) != vk::Result::eSuccess)
-        {
-            HGERROR("Failed to create shader module!");
-        }
-
-        vk::PipelineShaderStageCreateInfo why{};
-        why.stage = vk::ShaderStageFlagBits::eCompute;
-        why.pName = "main";
-        why.module = compModule;
-
-        vk::ComputePipelineCreateInfo compInfo{};
-        compInfo.layout = m_mipPipelineLayout;
-        compInfo.stage = why;
-
-        if(m_logicalDevice.GetVkDevice().createComputePipelines(nullptr, 1, &compInfo, nullptr, &m_mipPipeline) != vk::Result::eSuccess)
-        {
-            HGFATAL("Failed to create renderer compute pipeline!");
-        }
-
-        vkDestroyShaderModule(m_logicalDevice.GetVkDevice(), compModule, nullptr);
+        m_mipPipeline = std::make_unique<ComputePipeline>(configInfo);
     }
     HGINFO("Created compute pipeline");
 }
@@ -1020,7 +951,7 @@ void Renderer::DoLightingPass(vk::CommandBuffer cmd, vk::DescriptorSet camSet, v
         .WriteImage(5, &drawInfo)
         .Overwrite(currentFrame.gbuffer.imageSet);
 
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_lightingPipeline);
+    m_lightingPipeline->BindPipeline(cmd);
 
     std::vector<vk::DescriptorSet> sets = {camSet, sceneSet, skyboxSet, currentFrame.gbuffer.imageSet};
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_lightingPipelineLayout, 0, sets.size(), sets.data(), 0, nullptr);
@@ -1159,7 +1090,7 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
                                   const Camera& cam)
 {
     auto& currentFrame = GetCurrentFrame();
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_mipPipeline);
+    m_mipPipeline->BindPipeline(cmd);
 
     {
         Utils::ImageTransitionInfo transSrcInfo{cmd,
@@ -1298,7 +1229,7 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
 
     WaitForCompute(cmd);
 
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_occlusionPipeline);
+    m_occlusionPipeline->BindPipeline(cmd);
 
     std::vector<OcclusionObjectData> objectDataForGPU;
     objectDataForGPU.reserve(frustumCulledEntities.size());

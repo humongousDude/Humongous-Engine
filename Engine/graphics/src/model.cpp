@@ -162,6 +162,78 @@ void Model::Destroy(vk::Device device)
 
 // TODO: clean up this abomination
 
+void Model::OptimizePrimitive(Primitive* primitive, LoaderInfo& loaderInfo, std::vector<Vertex>& primitiveVertices,
+                              std::vector<n32>& primitiveIndices)
+{
+    if(!primitiveIndices.empty() && !primitiveVertices.empty())
+    {
+        std::vector<n32> remap(primitiveVertices.size());
+        size_t           uniqueVertexCount = meshopt_generateVertexRemap(remap.data(), primitiveIndices.data(), primitiveIndices.size(),
+                                                                         primitiveVertices.data(), primitiveVertices.size(), sizeof(Vertex));
+
+        std::vector<n32>    remappedIndices(primitiveIndices.size());
+        std::vector<Vertex> remappedVertices(uniqueVertexCount);
+
+        meshopt_remapIndexBuffer(remappedIndices.data(), primitiveIndices.data(), primitiveIndices.size(), remap.data());
+        meshopt_remapVertexBuffer(remappedVertices.data(), primitiveVertices.data(), primitiveVertices.size(), sizeof(Vertex), remap.data());
+
+        // Do we actually need to remap the morph target positions?
+        // primitive->morphTargetPositions.resize(morphTargetPositionsOriginal.size());
+        // primitive->morphTargetNormals.resize(morphTargetNormalsOriginal.size());
+        // primitive->morphTargetTangents.resize(morphTargetTangentsOriginal.size());
+
+        // for(size_t targetIdx = 0; targetIdx < morphTargetPositionsOriginal.size(); ++targetIdx)
+        // {
+        //     primitive->morphTargetPositions[targetIdx].resize(uniqueVertexCount);
+        //     meshopt_remapVertexBuffer(primitive->morphTargetPositions[targetIdx].data(), morphTargetPositionsOriginal[targetIdx].data(),
+        //                               morphTargetPositionsOriginal[targetIdx].size(), sizeof(Eigen::Vector3f), remap.data());
+        // }
+        // for(size_t targetIdx = 0; targetIdx < morphTargetNormalsOriginal.size(); ++targetIdx)
+        // {
+        //     primitive->morphTargetNormals[targetIdx].resize(uniqueVertexCount);
+        //     meshopt_remapVertexBuffer(primitive->morphTargetNormals[targetIdx].data(), morphTargetNormalsOriginal[targetIdx].data(),
+        //                               morphTargetNormalsOriginal[targetIdx].size(), sizeof(Eigen::Vector3f), remap.data());
+        // }
+        // for(size_t targetIdx = 0; targetIdx < morphTargetTangentsOriginal.size(); ++targetIdx)
+        // {
+        //     primitive->morphTargetTangents[targetIdx].resize(uniqueVertexCount);
+        //     meshopt_remapVertexBuffer(primitive->morphTargetTangents[targetIdx].data(), morphTargetTangentsOriginal[targetIdx].data(),
+        //                               morphTargetTangentsOriginal[targetIdx].size(), sizeof(Eigen::Vector4f), remap.data());
+        // }
+
+        meshopt_optimizeVertexCache(remappedIndices.data(), remappedIndices.data(), remappedIndices.size(), uniqueVertexCount);
+
+        meshopt_optimizeOverdraw(remappedIndices.data(), remappedIndices.data(), remappedIndices.size(), &remappedVertices[0].position.x(),
+                                 uniqueVertexCount, sizeof(Vertex), 1.05f);
+
+        meshopt_optimizeVertexFetch(remappedVertices.data(), remappedIndices.data(), remappedIndices.size(), remappedVertices.data(),
+                                    uniqueVertexCount, sizeof(Vertex));
+
+        primitive->localVertexOffset = static_cast<n32>(loaderInfo.vertexBuffer.size());
+        primitive->vertexCount = static_cast<n32>(remappedVertices.size());
+        primitive->localFirstIndex = static_cast<n32>(loaderInfo.indexBuffer.size());
+        primitive->indexCount = static_cast<n32>(remappedIndices.size());
+
+        loaderInfo.vertexBuffer.insert(loaderInfo.vertexBuffer.end(), remappedVertices.begin(), remappedVertices.end());
+        loaderInfo.indexBuffer.insert(loaderInfo.indexBuffer.end(), remappedIndices.begin(), remappedIndices.end());
+    }
+    else
+    {
+        primitive->localVertexOffset = static_cast<n32>(loaderInfo.vertexBuffer.size());
+        primitive->vertexCount = static_cast<n32>(primitiveVertices.size());
+        primitive->localFirstIndex = static_cast<n32>(loaderInfo.indexBuffer.size());
+        primitive->indexCount = static_cast<n32>(primitiveIndices.size());
+
+        loaderInfo.vertexBuffer.insert(loaderInfo.vertexBuffer.end(), primitiveVertices.begin(), primitiveVertices.end());
+        loaderInfo.indexBuffer.insert(loaderInfo.indexBuffer.end(), primitiveIndices.begin(), primitiveIndices.end());
+
+        // Same as above, do we need to remap the morph target positions?
+        // primitive->morphTargetPositions = std::move(morphTargetPositionsOriginal);
+        // primitive->morphTargetNormals = std::move(morphTargetNormalsOriginal);
+        // primitive->morphTargetTangents = std::move(morphTargetTangentsOriginal);
+    }
+}
+
 void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, f32 globalscale,
                      Eigen::Matrix4f parentTransform)
 {
@@ -220,7 +292,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             bool hasSkin = false;
             bool hasIndices = primitive.indices > -1;
 
-            std::vector<std::vector<Eigen::Vector3f>> morphTargetPositionsOriginal; // Store original
+            std::vector<std::vector<Eigen::Vector3f>> morphTargetPositionsOriginal;
             std::vector<std::vector<Eigen::Vector3f>> morphTargetNormalsOriginal;
             std::vector<std::vector<Eigen::Vector4f>> morphTargetTangentsOriginal;
 
@@ -291,16 +363,9 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             const f32*  bufferWeights = nullptr;
             const f32*  bufferTangents = nullptr;
 
-            int    posByteStride;
-            int    normByteStride;
-            int    uv0ByteStride;
-            int    uv1ByteStride;
-            int    color0ByteStride;
-            int    jointByteStride;
-            int    weightByteStride;
-            size_t tangentByteStride = 0;
-
-            int jointComponentType;
+            s32 posByteStride = 0;
+            s32 normByteStride = 0;
+            s32 uv0ByteStride = 0;
 
             HGASSERT(primitive.attributes.find("POSITION") != primitive.attributes.end());
 
@@ -312,8 +377,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
 
             const unsigned char* rawPosBase = model.buffers[posView.buffer].data.data() + posView.byteOffset + posAccessor.byteOffset;
 
-            // Normals (if present)
-            normByteStride = 0;
             const unsigned char* rawNormBase = nullptr;
             if(primitive.attributes.find("NORMAL") != primitive.attributes.end())
             {
@@ -324,8 +387,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                 rawNormBase = model.buffers[normView.buffer].data.data() + normView.byteOffset + normAccessor.byteOffset;
             }
 
-            // UV0 (if present)
-            uv0ByteStride = 0;
             const unsigned char* rawUv0Base = nullptr;
             if(primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end())
             {
@@ -334,49 +395,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                 uv0ByteStride = uvAccessor.ByteStride(uvView) ? uvAccessor.ByteStride(uvView)
                                                               : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
                 rawUv0Base = model.buffers[uvView.buffer].data.data() + uvView.byteOffset + uvAccessor.byteOffset;
-            }
-
-            if(primitive.attributes.find("TEXCOORD_1") != primitive.attributes.end())
-            {
-                const tinygltf::Accessor&   uvAccessor = model.accessors[primitive.attributes.find("TEXCOORD_1")->second];
-                const tinygltf::BufferView& uvView = model.bufferViews[uvAccessor.bufferView];
-                uv1ByteStride = uvAccessor.ByteStride(uvView) ? (uvAccessor.ByteStride(uvView) / sizeof(f32))
-                                                              : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2);
-            }
-
-            // Vertex colors
-            if(primitive.attributes.find("COLOR_0") != primitive.attributes.end())
-            {
-                const tinygltf::Accessor&   accessor = model.accessors[primitive.attributes.find("COLOR_0")->second];
-                const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
-                color0ByteStride =
-                    accessor.ByteStride(view) ? (accessor.ByteStride(view) / sizeof(f32)) : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3);
-            }
-
-            // Skinning
-            // Joints
-            if(primitive.attributes.find("JOINTS_0") != primitive.attributes.end())
-            {
-                const tinygltf::Accessor&   jointAccessor = model.accessors[primitive.attributes.find("JOINTS_0")->second];
-                const tinygltf::BufferView& jointView = model.bufferViews[jointAccessor.bufferView];
-                jointComponentType = jointAccessor.componentType;
-                jointByteStride = jointAccessor.ByteStride(jointView)
-                                      ? (jointAccessor.ByteStride(jointView) / tinygltf::GetComponentSizeInBytes(jointComponentType))
-                                      : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4);
-            }
-
-            if(primitive.attributes.find("WEIGHTS_0") != primitive.attributes.end())
-            {
-                const tinygltf::Accessor&   weightAccessor = model.accessors[primitive.attributes.find("WEIGHTS_0")->second];
-                const tinygltf::BufferView& weightView = model.bufferViews[weightAccessor.bufferView];
-                weightByteStride = weightAccessor.ByteStride(weightView) ? (weightAccessor.ByteStride(weightView) / sizeof(f32))
-                                                                         : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC4);
-            }
-            if(primitive.attributes.find("TANGENT") != primitive.attributes.end())
-            {
-                const tinygltf::Accessor&   tangentAccessor = model.accessors[primitive.attributes.find("TANGENT")->second];
-                const tinygltf::BufferView& tangentView = model.bufferViews[tangentAccessor.bufferView];
-                tangentByteStride = tangentAccessor.ByteStride(tangentView);
             }
 
             hasSkin = (bufferJoints && bufferWeights);
@@ -388,11 +406,9 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             {
                 Vertex vert{};
 
-                {
-                    const f32*      p = reinterpret_cast<const f32*>(rawPosBase + (v * posByteStride));
-                    Eigen::Vector3f posVec = Eigen::Map<const Eigen::Vector3f>(p);
-                    vert.position = Eigen::Vector4f(posVec.x(), posVec.y(), posVec.z(), 1.0f);
-                }
+                const f32*      p = reinterpret_cast<const f32*>(rawPosBase + (v * posByteStride));
+                Eigen::Vector3f posVec = Eigen::Map<const Eigen::Vector3f>(p);
+                vert.position = Eigen::Vector4f(posVec.x(), posVec.y(), posVec.z(), 1.0f);
 
                 if(rawNormBase)
                 {
@@ -494,7 +510,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                 }
                 if(morphTargetPositionsOriginal.size() <= 0) { vert.targetPos0 = Eigen::Vector4f::Zero(); }
                 if(morphTargetPositionsOriginal.size() <= 1) { vert.targetPos1 = Eigen::Vector4f::Zero(); }
-                // Handle targetPos2, targetPos3 similarly if you add them to Vertex struct
 
                 currentPrimitiveMinPos = currentPrimitiveMinPos.cwiseMin(vert.position);
                 currentPrimitiveMaxPos = currentPrimitiveMaxPos.cwiseMax(vert.position);
@@ -553,73 +568,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             newPrimitive->globalWeightOffset = m_morphTargets.size();
             newPrimitive->hasIndices = hasIndices;
 
-            if(!currentPrimitiveIndices.empty() && !currentPrimitiveVertices.empty())
-            {
-                std::vector<n32> remap(currentPrimitiveVertices.size());
-                size_t           uniqueVertexCount =
-                    meshopt_generateVertexRemap(remap.data(), currentPrimitiveIndices.data(), currentPrimitiveIndices.size(),
-                                                currentPrimitiveVertices.data(), currentPrimitiveVertices.size(), sizeof(Vertex));
-
-                std::vector<n32>    remappedIndices(currentPrimitiveIndices.size());
-                std::vector<Vertex> remappedVertices(uniqueVertexCount);
-
-                meshopt_remapIndexBuffer(remappedIndices.data(), currentPrimitiveIndices.data(), currentPrimitiveIndices.size(), remap.data());
-                meshopt_remapVertexBuffer(remappedVertices.data(), currentPrimitiveVertices.data(), currentPrimitiveVertices.size(), sizeof(Vertex),
-                                          remap.data());
-
-                newPrimitive->morphTargetPositions.resize(morphTargetPositionsOriginal.size());
-                newPrimitive->morphTargetNormals.resize(morphTargetNormalsOriginal.size());
-                newPrimitive->morphTargetTangents.resize(morphTargetTangentsOriginal.size());
-
-                for(size_t targetIdx = 0; targetIdx < morphTargetPositionsOriginal.size(); ++targetIdx)
-                {
-                    newPrimitive->morphTargetPositions[targetIdx].resize(uniqueVertexCount);
-                    meshopt_remapVertexBuffer(newPrimitive->morphTargetPositions[targetIdx].data(), morphTargetPositionsOriginal[targetIdx].data(),
-                                              morphTargetPositionsOriginal[targetIdx].size(), sizeof(Eigen::Vector3f), remap.data());
-                }
-                for(size_t targetIdx = 0; targetIdx < morphTargetNormalsOriginal.size(); ++targetIdx)
-                {
-                    newPrimitive->morphTargetNormals[targetIdx].resize(uniqueVertexCount);
-                    meshopt_remapVertexBuffer(newPrimitive->morphTargetNormals[targetIdx].data(), morphTargetNormalsOriginal[targetIdx].data(),
-                                              morphTargetNormalsOriginal[targetIdx].size(), sizeof(Eigen::Vector3f), remap.data());
-                }
-                for(size_t targetIdx = 0; targetIdx < morphTargetTangentsOriginal.size(); ++targetIdx)
-                {
-                    newPrimitive->morphTargetTangents[targetIdx].resize(uniqueVertexCount);
-                    meshopt_remapVertexBuffer(newPrimitive->morphTargetTangents[targetIdx].data(), morphTargetTangentsOriginal[targetIdx].data(),
-                                              morphTargetTangentsOriginal[targetIdx].size(), sizeof(Eigen::Vector4f), remap.data());
-                }
-
-                meshopt_optimizeVertexCache(remappedIndices.data(), remappedIndices.data(), remappedIndices.size(), uniqueVertexCount);
-
-                meshopt_optimizeOverdraw(remappedIndices.data(), remappedIndices.data(), remappedIndices.size(), &remappedVertices[0].position.x(),
-                                         uniqueVertexCount, sizeof(Vertex), 1.05f);
-
-                meshopt_optimizeVertexFetch(remappedVertices.data(), remappedIndices.data(), remappedIndices.size(), remappedVertices.data(),
-                                            uniqueVertexCount, sizeof(Vertex));
-
-                newPrimitive->localVertexOffset = static_cast<n32>(loaderInfo.vertexBuffer.size());
-                newPrimitive->vertexCount = static_cast<n32>(remappedVertices.size());
-                newPrimitive->localFirstIndex = static_cast<n32>(loaderInfo.indexBuffer.size());
-                newPrimitive->indexCount = static_cast<n32>(remappedIndices.size());
-
-                loaderInfo.vertexBuffer.insert(loaderInfo.vertexBuffer.end(), remappedVertices.begin(), remappedVertices.end());
-                loaderInfo.indexBuffer.insert(loaderInfo.indexBuffer.end(), remappedIndices.begin(), remappedIndices.end());
-            }
-            else
-            {
-                newPrimitive->localVertexOffset = static_cast<n32>(loaderInfo.vertexBuffer.size());
-                newPrimitive->vertexCount = static_cast<n32>(currentPrimitiveVertices.size());
-                newPrimitive->localFirstIndex = static_cast<n32>(loaderInfo.indexBuffer.size());
-                newPrimitive->indexCount = static_cast<n32>(currentPrimitiveIndices.size());
-
-                loaderInfo.vertexBuffer.insert(loaderInfo.vertexBuffer.end(), currentPrimitiveVertices.begin(), currentPrimitiveVertices.end());
-                loaderInfo.indexBuffer.insert(loaderInfo.indexBuffer.end(), currentPrimitiveIndices.begin(), currentPrimitiveIndices.end());
-
-                newPrimitive->morphTargetPositions = std::move(morphTargetPositionsOriginal);
-                newPrimitive->morphTargetNormals = std::move(morphTargetNormalsOriginal);
-                newPrimitive->morphTargetTangents = std::move(morphTargetTangentsOriginal);
-            }
+            OptimizePrimitive(newPrimitive, loaderInfo, currentPrimitiveVertices, currentPrimitiveIndices);
 
             newMesh->primitives.push_back(newPrimitive);
             m_primitives.push_back(newPrimitive);

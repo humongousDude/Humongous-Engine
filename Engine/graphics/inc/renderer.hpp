@@ -4,6 +4,7 @@
 #include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool.hpp"
 #include "camera.hpp"
+#include "compute_pipeline.hpp"
 #include "defines.hpp"
 #include "extra.hpp"
 #include "images.hpp"
@@ -131,16 +132,16 @@ private:
     LogicalDevice&             m_logicalDevice;
     PhysicalDevice&            m_physicalDevice;
 
-    vk::Pipeline       m_occlusionPipeline;
-    vk::PipelineLayout m_occlusionPipelineLayout;
-    vk::Pipeline       m_mipPipeline;
-    vk::PipelineLayout m_mipPipelineLayout;
+    std::unique_ptr<ComputePipeline> m_occlusionPipeline;
+    vk::PipelineLayout               m_occlusionPipelineLayout;
+    std::unique_ptr<ComputePipeline> m_mipPipeline;
+    vk::PipelineLayout               m_mipPipelineLayout;
 
     std::unique_ptr<DescriptorPool>      m_computePool;
     std::unique_ptr<DescriptorSetLayout> m_occlusionDescriptorLayout;
     std::unique_ptr<DescriptorSetLayout> m_mipDescriptorLayout;
 
-    vk::Pipeline                         m_lightingPipeline;
+    std::unique_ptr<ComputePipeline>     m_lightingPipeline;
     vk::PipelineLayout                   m_lightingPipelineLayout;
     std::unique_ptr<DescriptorSetLayout> m_lightingDescriptorLayout;
     std::unique_ptr<DescriptorPool>      m_lightingPool;

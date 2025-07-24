@@ -14,8 +14,48 @@
 #define M_PI 3.14159265358979323846f
 #endif
 
+namespace Humongous
+{
+namespace Utils
+{
+
+std::vector<char> ReadFile(const std::string& filePath);
+
+struct VisibleEntityInfo
+{
+    Humongous::EntityID id;
+    f32                 distanceToCamera;
+};
+
+std::vector<VisibleEntityInfo> SortAndCullEntities(Camera& camera, World& world);
+
+template <typename T, typename... Rest> void HashCombine(std::size_t& seed, const T& v, const Rest&... rest)
+{
+    seed ^= std::hash<T>{}(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    (HashCombine(seed, rest), ...);
+};
+
+void DecomposeMatrix(const Eigen::Matrix4f& matrix, Eigen::Vector3f& translation, Eigen::Quaternionf& rotation, Eigen::Vector3f& scale);
+
+inline f32 DegreesToRadians(f32 degrees) { return degrees * (M_PI / 180.0f); }
+
+vk::ShaderModule CreateShaderModule(const LogicalDevice& logicalDevice, const std::string& shaderFile);
+
+} // namespace Utils
+} // namespace Humongous
+
 namespace std
 {
+template <> struct hash<Humongous::Model::Vertex>
+{
+    size_t operator()(Humongous::Model::Vertex const& vertex) const
+    {
+        size_t seed = 0;
+        Humongous::Utils::HashCombine(seed, vertex.position, vertex.color, vertex.normal, vertex.uv0, vertex.uv1);
+        return seed;
+    }
+};
+
 template <> struct hash<Eigen::Vector3f>
 {
     size_t operator()(const Eigen::Vector3f& v) const
@@ -71,47 +111,6 @@ template <> struct hash<Eigen::Matrix<float, 2, 1, 0, 2, 1>>
         {
             for(int j = 0; j < m.cols(); ++j) { seed ^= hasher(m(i, j)) + 0x9e3779b9 + (seed << 6) + (seed >> 2); }
         }
-        return seed;
-    }
-};
-} // namespace std
-
-namespace Humongous
-{
-namespace Utils
-{
-
-std::vector<char> ReadFile(const std::string& filePath);
-
-struct VisibleEntityInfo
-{
-    Humongous::EntityID id;
-    f32                 distanceToCamera;
-};
-
-std::vector<VisibleEntityInfo> SortAndCullEntities(Camera& camera, World& world);
-
-template <typename T, typename... Rest> void HashCombine(std::size_t& seed, const T& v, const Rest&... rest)
-{
-    seed ^= std::hash<T>{}(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-    (HashCombine(seed, rest), ...);
-};
-
-void DecomposeMatrix(const Eigen::Matrix4f& matrix, Eigen::Vector3f& translation, Eigen::Quaternionf& rotation, Eigen::Vector3f& scale);
-
-inline f32 DegreesToRadians(f32 degrees) { return degrees * (M_PI / 180.0f); }
-
-} // namespace Utils
-} // namespace Humongous
-
-namespace std
-{
-template <> struct hash<Humongous::Model::Vertex>
-{
-    size_t operator()(Humongous::Model::Vertex const& vertex) const
-    {
-        size_t seed = 0;
-        Humongous::Utils::HashCombine(seed, vertex.position, vertex.color, vertex.normal, vertex.uv0, vertex.uv1);
         return seed;
     }
 };
