@@ -14,17 +14,17 @@ public:
     class Builder
     {
     public:
-        Builder(LogicalDevice& device) : m_device{device} {}
+        Builder(const LogicalDevice& device) : m_device{device} {}
 
         Builder& AddBinding(n32 binding, vk::DescriptorType descriptorType, vk::ShaderStageFlags stageFlags, n32 count = 1);
         std::unique_ptr<DescriptorSetLayout> Build() const;
 
     private:
-        LogicalDevice&                                          m_device;
+        const LogicalDevice&                                    m_device;
         std::unordered_map<n32, vk::DescriptorSetLayoutBinding> m_bindings{};
     };
 
-    DescriptorSetLayout(LogicalDevice& device, std::unordered_map<n32, vk::DescriptorSetLayoutBinding> bindings);
+    DescriptorSetLayout(const LogicalDevice& device, std::unordered_map<n32, vk::DescriptorSetLayoutBinding> bindings);
     ~DescriptorSetLayout();
     DescriptorSetLayout(const DescriptorSetLayout&) = delete;
     DescriptorSetLayout& operator=(const DescriptorSetLayout&) = delete;
@@ -34,7 +34,7 @@ public:
     n32 GetBindingCount() const { return m_bindings.size(); }
 
 private:
-    LogicalDevice&                                          m_device;
+    const LogicalDevice&                                    m_device;
     vk::DescriptorSetLayout                                 m_descriptorSetLayout;
     std::unordered_map<n32, vk::DescriptorSetLayoutBinding> m_bindings;
 

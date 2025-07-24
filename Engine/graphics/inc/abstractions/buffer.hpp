@@ -13,18 +13,16 @@ namespace Humongous
 class Buffer : NonCopyable
 {
 public:
-    Buffer(LogicalDevice* device, vk::DeviceSize instanceSize, n32 instanceCount, vk::BufferUsageFlags usageFlags,
+    Buffer(const LogicalDevice& device, vk::DeviceSize instanceSize, n32 instanceCount, vk::BufferUsageFlags usageFlags,
            vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment = 1,
            const std::string& name = "");
-    Buffer();
     ~Buffer();
 
     vk::Result Map(vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0);
     void       UnMap();
 
-    void Init(LogicalDevice* device, vk::DeviceSize instanceSize, n32 instanceCount, vk::BufferUsageFlags usageFlags,
-              vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment = 1,
-              const std::string& name = "");
+    void Init(vk::DeviceSize instanceSize, n32 instanceCount, vk::BufferUsageFlags usageFlags, vk::MemoryPropertyFlags memoryPropertyFlags,
+              VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment = 1, const std::string& name = "");
 
     void                     WriteToBuffer(void* data, vk::DeviceSize size = vk::WholeSize, vk::DeviceSize offset = 0);
     vk::Result               Flush(vk::DeviceSize size = vk::WholeSize, vk::DeviceSize offset = 0);
@@ -52,14 +50,14 @@ public:
         return m_deviceAddress;
     }
 
-    static void CopyBuffer(LogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size);
+    static void CopyBuffer(const LogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size);
 
     bool IsMapped() const { return m_mapCallCount > 0 ? true : false; }
 
 private:
     struct CreateInfo
     {
-        LogicalDevice*          device;
+        const LogicalDevice&    device;
         vk::DeviceSize          size;
         vk::BufferUsageFlags    bufferUsage;
         VmaMemoryUsage          memoryUsage;
@@ -74,11 +72,11 @@ private:
     static vk::DeviceSize GetAlignment(vk::DeviceSize instanceSize, vk::DeviceSize minOffsetAlignment);
     void                  CreateBuffer(CreateInfo& createInfo);
 
-    LogicalDevice*    m_logicalDevice;
-    vk::Buffer        m_buffer = VK_NULL_HANDLE;
-    VmaAllocation     m_allocation;
-    VmaAllocationInfo m_allocationInfo;
-    vk::DeviceAddress m_deviceAddress;
+    const LogicalDevice& m_logicalDevice;
+    vk::Buffer           m_buffer = VK_NULL_HANDLE;
+    VmaAllocation        m_allocation;
+    VmaAllocationInfo    m_allocationInfo;
+    vk::DeviceAddress    m_deviceAddress;
 
     vk::DeviceSize          m_bufferSize;
     n32                     m_instanceCount;

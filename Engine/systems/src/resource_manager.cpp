@@ -11,10 +11,10 @@
 namespace Humongous
 {
 
-void ResourceManager::Internal_Init(LogicalDevice* device)
+void ResourceManager::Internal_Init(const LogicalDevice& device)
 {
     HGINFO("Initializing Resource manager...");
-    m_logicalDevice = device;
+    m_logicalDevice = &device;
     InitDescriptors();
     InitializeInitials();
     HGINFO("Resource manager initialized");
@@ -28,30 +28,34 @@ void ResourceManager::Internal_Shutdown()
     HGINFO("Destroying %i textures", m_textureMap.size());
 
     for(auto& [key, model]: m_modelMap) { model.reset(); }
-    for(auto& [key, texture]: m_textureMap) { texture.texture.Destroy(); }
+    for(auto& [key, texture]: m_textureMap)
+    {
+        if(!texture.texture) { continue; }
+        texture.texture->Destroy();
+    }
 
-    m_modelDescriptors.vertices.reset();
-    m_modelDescriptors.rendererBuffer.reset();
-    m_modelDescriptors.debugLayout.reset();
+    if(m_modelDescriptors.vertices) { m_modelDescriptors.vertices.reset(); }
+    if(m_modelDescriptors.rendererBuffer) { m_modelDescriptors.rendererBuffer.reset(); }
+    if(m_modelDescriptors.debugLayout) { m_modelDescriptors.debugLayout.reset(); }
 
-    m_materialDataBuffer.reset();
-    m_bindlessTexturePool.reset();
-    m_bindlessLayout.reset();
-    m_modelNodeMatriciesBuffer.reset();
-    m_modelIndexBuffer.reset();
-    m_modelVertexBuffer.reset();
+    if(m_materialDataBuffer) { m_materialDataBuffer.reset(); }
+    if(m_bindlessTexturePool) { m_bindlessTexturePool.reset(); }
+    if(m_bindlessLayout) { m_bindlessLayout.reset(); }
+    if(m_modelNodeMatriciesBuffer) { m_modelNodeMatriciesBuffer.reset(); }
+    if(m_modelIndexBuffer) { m_modelIndexBuffer.reset(); }
+    if(m_modelVertexBuffer) { m_modelVertexBuffer.reset(); }
 
-    m_descriptorPools.imagePool.reset();
-    m_descriptorPools.uniformPool.reset();
-    m_descriptorPools.storageBufferPool.reset();
-    m_descriptorPools.storageImagePool.reset();
-    m_descriptorPools.debugPool.reset();
+    if(m_descriptorPools.imagePool) { m_descriptorPools.imagePool.reset(); }
+    if(m_descriptorPools.uniformPool) { m_descriptorPools.uniformPool.reset(); }
+    if(m_descriptorPools.storageBufferPool) { m_descriptorPools.storageBufferPool.reset(); }
+    if(m_descriptorPools.storageImagePool) { m_descriptorPools.storageImagePool.reset(); }
+    if(m_descriptorPools.debugPool) { m_descriptorPools.debugPool.reset(); }
 
-    m_modelMorphTargetsBuffer.reset();
-    m_modelJointMatriciesBuffer.reset();
+    if(m_modelMorphTargetsBuffer) { m_modelMorphTargetsBuffer.reset(); }
+    if(m_modelJointMatriciesBuffer) { m_modelJointMatriciesBuffer.reset(); }
 
-    m_skyboxLayout.reset();
-    m_skyboxCompLayout.reset();
+    if(m_skyboxLayout) { m_skyboxLayout.reset(); }
+    if(m_skyboxCompLayout) { m_skyboxCompLayout.reset(); }
 
     HGINFO("Resource manager shutdown");
 }
@@ -131,7 +135,7 @@ void ResourceManager::InitDescriptors()
 void ResourceManager::InitializeInitials()
 {
     m_modelNodeMatriciesBuffer =
-        std::make_unique<Buffer>(m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+        std::make_unique<Buffer>(*m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                  vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible, VMA_MEMORY_USAGE_CPU_TO_GPU,
                                  1, "model node matricies buffer");
 
@@ -146,7 +150,7 @@ void ResourceManager::InitializeInitials()
     m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 
     m_modelJointMatriciesBuffer =
-        std::make_unique<Buffer>(m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+        std::make_unique<Buffer>(*m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                  vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "global jointMatricies buffer");
 
     write.dstSet = m_bindlessSet;
@@ -159,7 +163,7 @@ void ResourceManager::InitializeInitials()
     m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 
     m_modelMorphTargetsBuffer =
-        std::make_unique<Buffer>(m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+        std::make_unique<Buffer>(*m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                  vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 1, "global morphTargets buffer");
 
     write.dstSet = m_bindlessSet;
@@ -171,11 +175,16 @@ void ResourceManager::InitializeInitials()
     write.pBufferInfo = &info;
     m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 
-    Texture tex{};
-    tex.FillWithEmpty(m_logicalDevice, 512, 512);
+    auto newTex = std::make_unique<Texture>(*m_logicalDevice);
+    newTex->FillWithEmpty(*m_logicalDevice, 512, 512, false);
 
-    n32                     bindlessIndex = 0;
-    vk::DescriptorImageInfo imageInfo = tex.GetDescriptorInfo();
+    n32 bindlessIndex = m_nextBindlessIndex++;
+
+    m_textures.push_back(std::move(newTex));
+
+    Texture* actualTexturePtr = m_textures[bindlessIndex].get();
+
+    vk::DescriptorImageInfo imageInfo = actualTexturePtr->GetDescriptorInfo();
 
     if(m_bindlessImageInfos.size() <= bindlessIndex) { m_bindlessImageInfos.resize(bindlessIndex + 1); }
     m_bindlessImageInfos[bindlessIndex] = imageInfo;
@@ -189,8 +198,14 @@ void ResourceManager::InitializeInitials()
 
     m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 
-    std::string key = "img_0_default";
-    m_textureMap[key] = TextureBinding{std::move(tex), bindlessIndex};
+    std::string key =
+        "img_0_emptyifthissomehowcausesacachehitthenimgonnascreamnowaythishappensright?"
+        "alsothisisverylongiwonderiftheresalimitimagineifthelengthofthiskeycausedthelookuptoslowdownthatwouldbeveryfunnyalsoiatesomegoodfoodtodayit"
+        "wasverytastyhighlyrecommendanywayhowasyourdayimcurrentlywatchingavtuberreacttogabrieliglesiassracistgiftbasketvideoalsojapaneseisveryfunhi"
+        "ghlyrecommendyoulearnitandthememesoverinjapanarealsoveryfunyoushouldlookthemupevenifyoudontunderstandjapaneseyoumightstillenjoythemwealthf"
+        "amepowerthelegendarypirategolDrogerobtainedallofthisandmoreyouwantmytreasureyoucanhaveitileftallthereattheendoftheworldandsopeopleracedtot"
+        "heseasinsearchoftheirdreamsthisistrulythebeginningofthegreatpirateera";
+    m_textureMap[key] = TextureBinding{actualTexturePtr, bindlessIndex};
 }
 
 n32 ResourceManager::LoadModel(const std::string& name)
@@ -201,7 +216,7 @@ n32 ResourceManager::LoadModel(const std::string& name)
 
     n32 handleToReturn = m_nextModelID++;
 
-    auto m = std::make_shared<Model>(m_logicalDevice, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, name), 1.0f,
+    auto m = std::make_shared<Model>(*m_logicalDevice, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, name), 1.0f,
                                      handleToReturn);
 
     HGINFO("Model %s loaded. Added to map with handle %i. Map size: %zu", name.c_str(), handleToReturn, m_modelMap.size());
@@ -234,7 +249,7 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
         if(!m_meshletBuffer || m_meshletBuffer->GetBufferSize() < m_meshlets.size() * sizeof(Meshlet))
         {
             m_meshletBuffer.reset();
-            m_meshletBuffer = std::make_unique<Buffer>(m_logicalDevice, m_meshlets.size() * sizeof(Meshlet), 1,
+            m_meshletBuffer = std::make_unique<Buffer>(*m_logicalDevice, m_meshlets.size() * sizeof(Meshlet), 1,
                                                        vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                                        vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "meshlet buffer");
 
@@ -249,7 +264,7 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
             m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
         }
 
-        Buffer stagingBuffer{m_logicalDevice,
+        Buffer stagingBuffer{*m_logicalDevice,
                              m_meshlets.size() * sizeof(Meshlet),
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
@@ -271,7 +286,7 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
         {
             m_meshletVertexBuffer.reset();
             m_meshletVertexBuffer =
-                std::make_unique<Buffer>(m_logicalDevice, m_meshletVertices.size() * sizeof(n32), 1,
+                std::make_unique<Buffer>(*m_logicalDevice, m_meshletVertices.size() * sizeof(n32), 1,
                                          vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                          vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "meshlet vertex buffer");
 
@@ -286,7 +301,7 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
             m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
         }
 
-        Buffer stagingBuffer{m_logicalDevice,
+        Buffer stagingBuffer{*m_logicalDevice,
                              m_meshletVertices.size() * sizeof(n32),
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
@@ -308,7 +323,7 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
         {
             m_meshletPrimitiveBuffer.reset();
             m_meshletPrimitiveBuffer =
-                std::make_unique<Buffer>(m_logicalDevice, m_meshletPrimitives.size() * sizeof(n8), 1,
+                std::make_unique<Buffer>(*m_logicalDevice, m_meshletPrimitives.size() * sizeof(n8), 1,
                                          vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                          vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "meshlet primitive buffer");
 
@@ -323,7 +338,7 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
             m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
         }
 
-        Buffer stagingBuffer{m_logicalDevice,
+        Buffer stagingBuffer{*m_logicalDevice,
                              m_meshletPrimitives.size() * sizeof(n8),
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
@@ -357,7 +372,7 @@ std::shared_ptr<ModelInstance> ResourceManager::Internal_RequestModel(const std:
         if(!m_modelNodeMatriciesBuffer || m_modelNodeMatriciesBuffer->GetBufferSize() < m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f))
         {
             m_modelNodeMatriciesBuffer =
-                std::make_unique<Buffer>(m_logicalDevice, m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f), 1,
+                std::make_unique<Buffer>(*m_logicalDevice, m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f), 1,
                                          vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                          vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
                                          VMA_MEMORY_USAGE_CPU_TO_GPU, 1, "model node matricies buffer");
@@ -406,13 +421,13 @@ void ResourceManager::Internal_AddIndicesToModel(const std::vector<n32>& modelIn
     if(!m_modelIndexBuffer || m_modelIndexBuffer->GetBufferSize() < requiredBufferSize)
     {
         m_modelIndexBuffer =
-            std::make_unique<Buffer>(m_logicalDevice, requiredBufferSize,
+            std::make_unique<Buffer>(*m_logicalDevice, requiredBufferSize,
                                      1, // Alignment
                                      vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                      vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 1, "global index buffer");
     }
 
-    Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
+    Buffer stagingBuffer(*m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
                          vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     stagingBuffer.Map();
@@ -446,7 +461,7 @@ void ResourceManager::Internal_AddVerticesToModel(const std::vector<Model::Verte
         m_modelVertexBuffer.reset();
 
         m_modelVertexBuffer =
-            std::make_unique<Buffer>(m_logicalDevice, requiredBufferSize, 1,
+            std::make_unique<Buffer>(*m_logicalDevice, requiredBufferSize, 1,
                                      vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
                                          vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
                                      vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "global vertex buffer");
@@ -462,7 +477,7 @@ void ResourceManager::Internal_AddVerticesToModel(const std::vector<Model::Verte
         m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
     }
 
-    Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
+    Buffer stagingBuffer(*m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
                          vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     stagingBuffer.Map();
@@ -485,7 +500,7 @@ void ResourceManager::Internal_UpdateNodeMatrices(const std::vector<Eigen::Matri
         m_modelNodeMatriciesBuffer.reset();
 
         m_modelNodeMatriciesBuffer = std::make_unique<Buffer>(
-            m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+            *m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
             vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "global nodeMatrices buffer");
 
         vk::WriteDescriptorSet write{};
@@ -519,7 +534,7 @@ void ResourceManager::Internal_AddJointMatriciesToModel(const std::vector<Eigen:
         m_modelJointMatriciesBuffer.reset();
 
         m_modelJointMatriciesBuffer = std::make_unique<Buffer>(
-            m_logicalDevice, requiredBufferSize, 1,
+            *m_logicalDevice, requiredBufferSize, 1,
             vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
             vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "global jointMatricies buffer");
 
@@ -548,7 +563,7 @@ void ResourceManager::Internal_UpdateJointMatrices(const std::vector<Eigen::Matr
         m_modelJointMatriciesBuffer.reset();
 
         m_modelJointMatriciesBuffer = std::make_unique<Buffer>(
-            m_logicalDevice, requiredBufferSize, 1,
+            *m_logicalDevice, requiredBufferSize, 1,
             vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
             vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "global jointMatricies buffer");
 
@@ -583,7 +598,7 @@ void ResourceManager::Internal_AddMorphTargetsToModel(const std::vector<f32>& mo
         m_modelMorphTargetsBuffer.reset();
 
         m_modelMorphTargetsBuffer = std::make_unique<Buffer>(
-            m_logicalDevice, requiredBufferSize, 1,
+            *m_logicalDevice, requiredBufferSize, 1,
             vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
             vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 1, "global morphTargets buffer");
 
@@ -614,7 +629,7 @@ void ResourceManager::Internal_UpdateMorphTargets(const std::vector<f32>& morphT
         m_modelMorphTargetsBuffer.reset();
 
         m_modelMorphTargetsBuffer = std::make_unique<Buffer>(
-            m_logicalDevice, requiredBufferSize, 1,
+            *m_logicalDevice, requiredBufferSize, 1,
             vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
             vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 1, "global morphTargets buffer");
 
@@ -636,7 +651,7 @@ void ResourceManager::Internal_FinalizeGPUData()
     {
         auto requiredBufferSize = m_modelJointMatriciesBuffer->GetBufferSize();
 
-        Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
+        Buffer stagingBuffer(*m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         stagingBuffer.Map();
@@ -650,7 +665,7 @@ void ResourceManager::Internal_FinalizeGPUData()
     {
         auto requiredBufferSize = m_modelMorphTargetsBuffer->GetBufferSize();
 
-        Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
+        Buffer stagingBuffer(*m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         stagingBuffer.Map();
@@ -663,7 +678,7 @@ void ResourceManager::Internal_FinalizeGPUData()
     if(!m_modelNodeMatricesFlat.empty())
     {
         auto   requiredBufferSize = m_modelNodeMatriciesBuffer->GetBufferSize();
-        Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
+        Buffer stagingBuffer(*m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         stagingBuffer.Map();
@@ -684,7 +699,7 @@ n32 ResourceManager::Internal_RequestModelNodeMatriciesIndex(const n32& modelHan
 
 std::shared_ptr<Skybox> ResourceManager::Internal_LoadSkybox(const std::string& name)
 {
-    SkyboxCreateInfo info{.logicalDevice = m_logicalDevice,
+    SkyboxCreateInfo info{.logicalDevice = *m_logicalDevice,
                           .cubemapPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::TEXTURE, name),
                           .descriptorSetLayout = *m_skyboxLayout,
                           .compDescriptorSetLayout = *m_skyboxCompLayout,
@@ -735,15 +750,16 @@ n32 ResourceManager::Internal_RequestTexture(class tinygltf::Image img, struct T
     auto it = m_textureMap.find(key);
     if(it != m_textureMap.end()) { return it->second.bindlessIndex; }
 
-    Texture tex{};
-    tex.CreateFromGLTFImage(img, sampler, m_logicalDevice, m_logicalDevice->GetGraphicsQueue());
+    auto newTex = std::make_unique<Texture>(*m_logicalDevice);
+    newTex->CreateFromGLTFImage(img, sampler, *m_logicalDevice, m_logicalDevice->GetGraphicsQueue());
 
     n32 bindlessIndex = m_nextBindlessIndex++;
 
-    vk::DescriptorImageInfo imageInfo{};
-    imageInfo.imageView = tex.GetRawImageViewHandle();
-    imageInfo.sampler = tex.GetRawSamplerHandle();
-    imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    m_textures.push_back(std::move(newTex));
+
+    Texture* actualTexturePtr = m_textures[bindlessIndex].get();
+
+    vk::DescriptorImageInfo imageInfo = actualTexturePtr->GetDescriptorInfo();
 
     if(m_bindlessImageInfos.size() <= bindlessIndex) { m_bindlessImageInfos.resize(bindlessIndex + 1); }
     m_bindlessImageInfos[bindlessIndex] = imageInfo;
@@ -758,7 +774,8 @@ n32 ResourceManager::Internal_RequestTexture(class tinygltf::Image img, struct T
 
     m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 
-    m_textureMap[key] = TextureBinding{std::move(tex), bindlessIndex};
+    m_textureMap[key] = TextureBinding{actualTexturePtr, bindlessIndex};
+
     return bindlessIndex;
 }
 
@@ -780,7 +797,7 @@ n32 ResourceManager::Internal_RequestMaterial(const Model::ShaderMaterial& mat)
 
     if(!m_materialDataBuffer || m_materialDataBuffer->GetBufferSize() < rawMaterials.size() * sizeof(Model::ShaderMaterial))
     {
-        m_materialDataBuffer = std::make_unique<Buffer>(m_logicalDevice, rawMaterials.size() * sizeof(Model::ShaderMaterial), 1,
+        m_materialDataBuffer = std::make_unique<Buffer>(*m_logicalDevice, rawMaterials.size() * sizeof(Model::ShaderMaterial), 1,
                                                         vk::BufferUsageFlagBits::eStorageBuffer,
                                                         vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
                                                         VMA_MEMORY_USAGE_CPU_TO_GPU, 1, "global material data buffer");

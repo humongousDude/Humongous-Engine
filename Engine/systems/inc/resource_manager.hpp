@@ -21,7 +21,7 @@ private:
     struct MaterialKey;
 
 public:
-    static void Init(LogicalDevice* logicalDevice) { Get().Internal_Init(logicalDevice); }
+    static void Init(const LogicalDevice& logicalDevice) { Get().Internal_Init(logicalDevice); }
     static void Shutdown() { Get().Internal_Shutdown(); }
 
     static std::shared_ptr<ModelInstance> RequestModel(const std::string& name) { return Get().Internal_RequestModel(name); };
@@ -139,9 +139,9 @@ private:
     std::unique_ptr<DescriptorSetLayout> m_skyboxLayout;
     std::unique_ptr<DescriptorSetLayout> m_skyboxCompLayout;
 
-    LogicalDevice* m_logicalDevice{nullptr};
+    const LogicalDevice* m_logicalDevice;
 
-    void Internal_Init(LogicalDevice* device);
+    void Internal_Init(const LogicalDevice& device);
     void InitDescriptors();
     void InitializeInitials();
     void Internal_Shutdown();
@@ -199,10 +199,11 @@ private:
 
     struct TextureBinding
     {
-        Texture texture;
-        n32     bindlessIndex;
+        Texture* texture;
+        n32      bindlessIndex;
     };
 
+    std::vector<std::unique_ptr<Texture>>           m_textures;
     std::unordered_map<std::string, TextureBinding> m_textureMap;
     std::vector<vk::DescriptorImageInfo>            m_bindlessImageInfos;
     vk::DescriptorSet                               m_bindlessSet;

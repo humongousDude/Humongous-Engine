@@ -48,11 +48,11 @@ void VulkanApp::Init(const int argc, char* argv[])
         Systems::AssetManager::Init();
     }
 
-    Allocator::Initialize(m_logicalDevice.get());
+    Allocator::Initialize(*m_logicalDevice);
 
-    ResourceManager::Init(m_logicalDevice.get());
+    ResourceManager::Init(*m_logicalDevice);
 
-    UI::Init(m_instance.get(), m_logicalDevice.get(), m_window.get());
+    UI::Init(*m_instance, *m_logicalDevice, *m_window);
 
     AudioEngine::Init();
 
@@ -61,14 +61,14 @@ void VulkanApp::Init(const int argc, char* argv[])
     m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator(),
                                             vk::Format::eR16G16B16A16Sfloat, vk::Format::eD32SfloatS8Uint);
 
-    m_cam = std::make_unique<Camera>(m_logicalDevice.get());
+    m_cam = std::make_unique<Camera>(*m_logicalDevice);
 
     std::vector<vk::DescriptorSetLayout> skyboxLayouts = {m_cam->GetVertexDescriptorLayout()};
 
     ShaderSet set = {Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert"),
                      Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "pbr.frag")};
 
-    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(m_logicalDevice.get(), "papermill", skyboxLayouts);
+    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(*m_logicalDevice, "papermill", skyboxLayouts);
 
     std::vector<vk::DescriptorSetLayout> simpleLayouts = {
         m_cam->GetVertexDescriptorLayout(),
@@ -252,7 +252,6 @@ void VulkanApp::Run()
         for(n32 entityId = 0; entityId < world->GetComponentStorage<TransformComponent>().GetDense().size(); entityId++)
         {
             TransformComponent* transform = world->GetComponent<TransformComponent>(entityId);
-            if(!transform) { continue; }
 
             ImGui::PushID(entityId);
 
@@ -384,12 +383,15 @@ void VulkanApp::Run()
         if(!minimized && focused)
         {
             m_cam->Update();
+
             AudioEngine::UpdateListener(m_cam->GetPosition(), {0, 0, 0}, m_cam->GetForward(), m_cam->GetUp());
 
             world->BoundingVolumeUpdateSystem();
+
             AudioEngine::UpdateSources();
 
             auto frustumAndSortedEntities = Utils::SortAndCullEntities(*m_cam, *world);
+
             auto sortedObjs = frustumAndSortedEntities;
 
             auto world = SceneHandler::GetWorld();
@@ -404,6 +406,7 @@ void VulkanApp::Run()
             ResourceManager::FinalizeGPUData();
 
             const auto cmd = m_renderer->BeginFrame(frustumAndSortedEntities);
+
             if(cmd != VK_NULL_HANDLE)
             {
                 RenderData data{
@@ -450,6 +453,7 @@ void VulkanApp::Run()
                 UI::Debug_DrawMetrics(m_simpleRenderSystem->GetObjectsDrawn(), m_cam->GetPosition());
 
                 UI::EndUIFrame(cmd);
+
                 m_renderer->EndUIRendering(cmd);
 
                 m_renderer->EndFrame();

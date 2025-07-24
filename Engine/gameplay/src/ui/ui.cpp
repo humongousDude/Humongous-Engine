@@ -12,23 +12,23 @@
 namespace Humongous
 {
 
-void UI::Internal_Init(const class Instance* instance, LogicalDevice* logicalDevice, const Window* window)
+void UI::Internal_Init(const class Instance& instance, const LogicalDevice& logicalDevice, const Window& window)
 {
     if(m_hasInitialized) { return; }
     HGINFO("Initializing UI...");
 
-    m_logicalDevice = logicalDevice;
+    m_logicalDevice = &logicalDevice;
 
     InitDescriptorThings();
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGui_ImplSDL3_InitForVulkan(window->GetWindow());
+    ImGui_ImplSDL3_InitForVulkan(window.GetWindow());
 
     ImGui::StyleColorsDark();
 
     ImGui_ImplVulkan_InitInfo initInfo{};
-    initInfo.Instance = instance->GetVkInstance();
+    initInfo.Instance = instance.GetVkInstance();
     initInfo.Device = m_logicalDevice->GetVkDevice();
 
     initInfo.MinImageCount = m_logicalDevice->GetPhysicalDevice()

@@ -15,7 +15,7 @@ public:
     class Builder
     {
     public:
-        Builder(LogicalDevice& logicalDevice) : m_logicalDevice{logicalDevice} {}
+        Builder(const LogicalDevice& logicalDevice) : m_logicalDevice{logicalDevice} {}
 
         Builder&                        AddPoolSize(vk::DescriptorType descriptorType, n32 count);
         Builder&                        SetPoolFlags(vk::DescriptorPoolCreateFlagBits flags);
@@ -23,13 +23,13 @@ public:
         std::unique_ptr<DescriptorPool> Build() const;
 
     private:
-        LogicalDevice&                      m_logicalDevice;
+        const LogicalDevice&                m_logicalDevice;
         std::vector<vk::DescriptorPoolSize> m_poolSizes{};
         n32                                 m_maxSets = 1000;
         vk::DescriptorPoolCreateFlagBits    m_poolFlags{};
     };
 
-    DescriptorPool(LogicalDevice& logicalDevice, n32 maxSets, vk::DescriptorPoolCreateFlagBits poolFlags,
+    DescriptorPool(const LogicalDevice& logicalDevice, n32 maxSets, vk::DescriptorPoolCreateFlagBits poolFlags,
                    const std::vector<vk::DescriptorPoolSize>& poolSizes);
     ~DescriptorPool();
     DescriptorPool(const DescriptorPool&) = delete;
@@ -42,8 +42,8 @@ public:
     vk::DescriptorPool GetRawPoolHandle() const { return m_descriptorPool; }
 
 private:
-    LogicalDevice&     m_logicalDevice;
-    vk::DescriptorPool m_descriptorPool;
+    const LogicalDevice& m_logicalDevice;
+    vk::DescriptorPool   m_descriptorPool;
 
     friend class DescriptorWriter;
 };

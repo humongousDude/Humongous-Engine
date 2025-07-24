@@ -8,7 +8,7 @@ namespace Humongous
 class Allocator : public Singleton<Allocator>
 {
 public:
-    static void Initialize(LogicalDevice* logicalDevice) { Get().Internal_Initialize(logicalDevice); }
+    static void Initialize(const LogicalDevice& logicalDevice) { Get().Internal_Initialize(logicalDevice); }
     static void Shutdown() { Get().Internal_Shutdown(); }
 
     static VmaPool& GetBufferPool() { return Get().Internal_GetBufferPool(); }
@@ -17,17 +17,16 @@ public:
 private:
     bool m_initialized = false;
 
-    LogicalDevice* m_logicalDevice = nullptr;
+    const LogicalDevice* m_logicalDevice;
 
     VmaPool m_vertexBufPool;
 
     VmaPool m_gltfImgPool;
     VmaPool m_2dImgPool;
 
-    // Unusued for now
     VmaPool m_cubeMapPool;
 
-    void     Internal_Initialize(LogicalDevice* logicalDevice);
+    void     Internal_Initialize(const LogicalDevice& logicalDevice);
     void     Internal_Shutdown();
     VmaPool& Internal_GetBufferPool() { return m_vertexBufPool; };
     VmaPool& Internal_GetglTFImagePool() { return m_gltfImgPool; };

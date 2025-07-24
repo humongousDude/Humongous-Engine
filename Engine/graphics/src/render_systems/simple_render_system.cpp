@@ -11,7 +11,7 @@
 
 namespace Humongous
 {
-SimpleRenderSystem::SimpleRenderSystem(LogicalDevice& logicalDevice, const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
+SimpleRenderSystem::SimpleRenderSystem(const LogicalDevice& logicalDevice, const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
                                        const ShaderSet& shaderSet)
     : m_logicalDevice{logicalDevice}, m_pipelineLayout{VK_NULL_HANDLE}
 {
@@ -26,16 +26,6 @@ SimpleRenderSystem::SimpleRenderSystem(LogicalDevice& logicalDevice, const std::
     m_drawDataBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_depthDrawDataBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_depthInstanceBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-
-    for(n32 i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
-    {
-        m_indirectDrawBuffers[i] = std::make_unique<Buffer>();
-        m_drawInstanceBuffers[i] = std::make_unique<Buffer>();
-        m_depthIndirectDrawBuffers[i] = std::make_unique<Buffer>();
-        m_drawDataBuffers[i] = std::make_unique<Buffer>();
-        m_depthInstanceBuffers[i] = std::make_unique<Buffer>();
-        m_depthDrawDataBuffers[i] = std::make_unique<Buffer>();
-    }
 
     HGINFO("Created simple render system");
 }
@@ -218,7 +208,7 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     m_depthOnlyPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
     HGINFO("Created depth pipeline");
 
-    m_debugBuffer = std::make_unique<Buffer>(&m_logicalDevice, 1, sizeof(n32), vk::BufferUsageFlagBits::eStorageBuffer,
+    m_debugBuffer = std::make_unique<Buffer>(m_logicalDevice, 1, sizeof(n32), vk::BufferUsageFlagBits::eStorageBuffer,
                                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                                              VMA_MEMORY_USAGE_AUTO, 1, "Render system debug buffer");
     m_debugBuffer->Map();
@@ -352,52 +342,26 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const bool& d
 
         DescriptorPool* poolToUse = depthOnly ? m_depthPool[renderData.frameIndex].get() : m_pool[renderData.frameIndex].get();
 
-        Buffer* drawDataBufferToUse = nullptr;
-        Buffer* instanceBufferToUse = nullptr;
+        auto& drawDataBufferToUse = depthOnly ? m_depthDrawDataBuffers[renderData.frameIndex] : m_drawDataBuffers[renderData.frameIndex];
+        auto& instanceBufferToUse = depthOnly ? m_depthInstanceBuffers[renderData.frameIndex] : m_drawInstanceBuffers[renderData.frameIndex];
 
-        if(depthOnly)
+        if(drawDataBufferToUse->GetBuffer() == VK_NULL_HANDLE || drawDataBufferToUse->GetBufferSize() < drawDataSize)
         {
-            if(m_depthDrawDataBuffers[renderData.frameIndex]->GetBuffer() == VK_NULL_HANDLE ||
-               m_depthDrawDataBuffers[renderData.frameIndex]->GetBufferSize() < drawDataSize)
-            {
-                m_depthDrawDataBuffers[renderData.frameIndex].reset();
-                m_depthDrawDataBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
-            }
-            if(m_depthInstanceBuffers[renderData.frameIndex]->GetBuffer() == VK_NULL_HANDLE ||
-               m_depthInstanceBuffers[renderData.frameIndex]->GetBufferSize() < instanceDataSize)
-            {
-                m_depthInstanceBuffers[renderData.frameIndex].reset();
-                m_depthInstanceBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
-            }
-            drawDataBufferToUse = m_depthDrawDataBuffers[renderData.frameIndex].get();
-            instanceBufferToUse = m_depthInstanceBuffers[renderData.frameIndex].get();
+            drawDataBufferToUse.reset();
         }
-        else
+        if(instanceBufferToUse->GetBuffer() == VK_NULL_HANDLE || instanceBufferToUse->GetBufferSize() < instanceDataSize)
         {
-            if(m_drawDataBuffers[renderData.frameIndex]->GetBuffer() == VK_NULL_HANDLE ||
-               m_drawDataBuffers[renderData.frameIndex]->GetBufferSize() < drawDataSize)
-            {
-                m_drawDataBuffers[renderData.frameIndex].reset();
-                m_drawDataBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
-            }
-            if(m_drawInstanceBuffers[renderData.frameIndex]->GetBuffer() == VK_NULL_HANDLE ||
-               m_drawInstanceBuffers[renderData.frameIndex]->GetBufferSize() < instanceDataSize)
-            {
-                m_drawInstanceBuffers[renderData.frameIndex].reset();
-                m_drawInstanceBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
-            }
-            drawDataBufferToUse = m_drawDataBuffers[renderData.frameIndex].get();
-            instanceBufferToUse = m_drawInstanceBuffers[renderData.frameIndex].get();
+            instanceBufferToUse.reset();
         }
 
         // Draw data buffer upload
         {
             // Init buffer if it's new or needed resize
-            drawDataBufferToUse->Init(&m_logicalDevice, drawDataSize, 1,
-                                      vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                      vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw data buffer");
+            drawDataBufferToUse = std::make_unique<Buffer>(
+                m_logicalDevice, drawDataSize, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw data buffer");
 
-            Buffer stagingBuffer{&m_logicalDevice,
+            Buffer stagingBuffer{m_logicalDevice,
                                  drawDataSize,
                                  1,
                                  vk::BufferUsageFlagBits::eTransferSrc,
@@ -416,11 +380,11 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const bool& d
 
         // Instance data buffer upload
         {
-            instanceBufferToUse->Init(&m_logicalDevice, instanceDataSize, 1,
-                                      vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                      vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "instance data buffer");
+            instanceBufferToUse = std::make_unique<Buffer>(
+                m_logicalDevice, instanceDataSize, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "instance data buffer");
 
-            Buffer stagingBuffer{&m_logicalDevice,
+            Buffer stagingBuffer{m_logicalDevice,
                                  instanceDataSize,
                                  1,
                                  vk::BufferUsageFlagBits::eTransferSrc,
@@ -577,58 +541,19 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
 
     DescriptorPool* poolToUse = depthOnly ? m_depthPool[renderData.frameIndex].get() : m_pool[renderData.frameIndex].get();
 
-    Buffer* indirectBufferToUse = nullptr;
-    Buffer* drawDataBufferToUse = nullptr;
-    Buffer* instanceBufferToUse = nullptr;
+    auto& indirectBufferToUse = depthOnly ? m_depthIndirectDrawBuffers[renderData.frameIndex] : m_indirectDrawBuffers[renderData.frameIndex];
+    auto& drawDataBufferToUse = depthOnly ? m_depthDrawDataBuffers[renderData.frameIndex] : m_drawDataBuffers[renderData.frameIndex];
+    auto& instanceBufferToUse = depthOnly ? m_depthInstanceBuffers[renderData.frameIndex] : m_drawInstanceBuffers[renderData.frameIndex];
 
-    if(depthOnly)
-    {
-        if(m_depthIndirectDrawBuffers[renderData.frameIndex]->GetBuffer() != VK_NULL_HANDLE)
-        {
-            m_depthIndirectDrawBuffers[renderData.frameIndex].reset();
-            m_depthIndirectDrawBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
-        }
-        if(m_depthDrawDataBuffers[renderData.frameIndex]->GetBuffer() != VK_NULL_HANDLE)
-        {
-            m_depthDrawDataBuffers[renderData.frameIndex].reset();
-            m_depthDrawDataBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
-        }
-        if(m_depthInstanceBuffers[renderData.frameIndex]->GetBuffer() != VK_NULL_HANDLE)
-        {
-
-            m_depthInstanceBuffers[renderData.frameIndex].reset();
-            m_depthInstanceBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
-        }
-        indirectBufferToUse = m_depthIndirectDrawBuffers[renderData.frameIndex].get();
-        drawDataBufferToUse = m_depthDrawDataBuffers[renderData.frameIndex].get();
-        instanceBufferToUse = m_depthInstanceBuffers[renderData.frameIndex].get();
-    }
-    else
-    {
-        if(m_indirectDrawBuffers[renderData.frameIndex]->GetBuffer() != VK_NULL_HANDLE)
-        {
-            m_indirectDrawBuffers[renderData.frameIndex].reset();
-            m_indirectDrawBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
-        }
-        if(m_drawDataBuffers[renderData.frameIndex]->GetBuffer() != VK_NULL_HANDLE)
-        {
-            m_drawDataBuffers[renderData.frameIndex].reset();
-            m_drawDataBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
-        }
-        if(m_drawInstanceBuffers[renderData.frameIndex]->GetBuffer() != VK_NULL_HANDLE)
-        {
-            m_drawInstanceBuffers[renderData.frameIndex].reset();
-            m_drawInstanceBuffers[renderData.frameIndex] = std::make_unique<Buffer>();
-        }
-        indirectBufferToUse = m_indirectDrawBuffers[renderData.frameIndex].get();
-        drawDataBufferToUse = m_drawDataBuffers[renderData.frameIndex].get();
-        instanceBufferToUse = m_drawInstanceBuffers[renderData.frameIndex].get();
-    }
+    if(indirectBufferToUse && indirectBufferToUse->GetBufferSize() < indirectCommandsSize) { indirectBufferToUse.reset(); }
+    if(drawDataBufferToUse && drawDataBufferToUse->GetBufferSize() < drawDataSize) { drawDataBufferToUse.reset(); }
+    if(instanceBufferToUse && instanceBufferToUse->GetBufferSize() < instanceDataSize) { instanceBufferToUse.reset(); }
 
     // uploading data
     // indirect buffer
+
     {
-        Buffer stagingBuffer{&m_logicalDevice,
+        Buffer stagingBuffer{m_logicalDevice,
                              indirectCommandsSize,
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
@@ -637,9 +562,9 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
                              4,
                              "indirect staging buffer"};
 
-        indirectBufferToUse->Init(&m_logicalDevice, indirectCommandsSize, 1,
-                                  vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                  vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw indiret commmand buffer");
+        indirectBufferToUse = std::make_unique<Buffer>(
+            m_logicalDevice, indirectCommandsSize, 1, vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eTransferDst,
+            vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw indiret commmand buffer");
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer((void*)commands.data(), commands.size() * sizeof(vk::DrawIndexedIndirectCommand));
@@ -649,8 +574,9 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
         Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *indirectBufferToUse, indirectCommandsSize);
     }
     // draw data buffer
+
     {
-        Buffer stagingBuffer{&m_logicalDevice,
+        Buffer stagingBuffer{m_logicalDevice,
                              drawDataSize,
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
@@ -659,9 +585,9 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
                              1,
                              "draw data staging buffer"};
 
-        drawDataBufferToUse->Init(&m_logicalDevice, drawDataSize, 1,
-                                  vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                  vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw data buffer");
+        drawDataBufferToUse = std::make_unique<Buffer>(
+            m_logicalDevice, drawDataSize, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+            vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw data buffer");
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer((void*)drawDataVec.data(), drawDataVec.size() * sizeof(DrawData));
@@ -671,8 +597,9 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
         Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *drawDataBufferToUse, drawDataVec.size() * sizeof(DrawData));
     }
     // instance data buffer
+
     {
-        Buffer stagingBuffer{&m_logicalDevice,
+        Buffer stagingBuffer{m_logicalDevice,
                              instanceDataSize,
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
@@ -681,9 +608,9 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
                              1,
                              "instance data staging buffer"};
 
-        instanceBufferToUse->Init(&m_logicalDevice, instanceDataSize, 1,
-                                  vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                  vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "instance data buffer");
+        instanceBufferToUse = std::make_unique<Buffer>(
+            m_logicalDevice, instanceDataSize, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+            vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "instance data buffer");
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer((void*)instanceDataVec.data(), instanceDataVec.size() * sizeof(InstanceData));
@@ -698,8 +625,11 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
 
     vk::DescriptorSet debugSet;
     auto              debugBufferInfo = m_debugBuffer->DescriptorInfo();
-    DescriptorWriter  debugWriter{*ResourceManager::GetModelDescriptors().debugLayout, ResourceManager::GetDescriptorPools().debugPool.get()};
+
+    DescriptorWriter debugWriter{*ResourceManager::GetModelDescriptors().debugLayout, ResourceManager::GetDescriptorPools().debugPool.get()};
+
     debugWriter.WriteBuffer(0, &debugBufferInfo);
+
     if(debugSet == VK_NULL_HANDLE) { debugWriter.Build(debugSet); }
     else { debugWriter.Overwrite(debugSet); }
 
@@ -707,10 +637,14 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
 
     vk::DescriptorSet setToUse = depthOnly ? m_depthSet[renderData.frameIndex] : m_set[renderData.frameIndex];
 
-    auto             buferInfo = drawDataBufferToUse->DescriptorInfo();
-    auto             instBufInfo = instanceBufferToUse->DescriptorInfo();
+    auto buferInfo = drawDataBufferToUse->DescriptorInfo();
+
+    auto instBufInfo = instanceBufferToUse->DescriptorInfo();
+
     DescriptorWriter writer{*m_layout, poolToUse};
+
     writer.WriteBuffer(0, &buferInfo).WriteBuffer(1, &instBufInfo);
+
     writer.Build(setToUse);
 
     auto globalIndexBuffer = &ResourceManager::GetModelIndexBuffer();

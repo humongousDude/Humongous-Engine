@@ -16,12 +16,12 @@ namespace Humongous
 class DescriptorWriter : NonCopyable
 {
 public:
-    DescriptorWriter(DescriptorSetLayout& setLayout, DescriptorPool* pool);
-    DescriptorWriter(DescriptorSetLayout& setLayout, DescriptorPoolGrowable* pool);
+    DescriptorWriter(const DescriptorSetLayout& setLayout, DescriptorPool* pool);
+    DescriptorWriter(const DescriptorSetLayout& setLayout, DescriptorPoolGrowable* pool);
 
-    DescriptorWriter& WriteBuffer(n32 binding, vk::DescriptorBufferInfo* bufferInfo);
-    DescriptorWriter& WriteImage(n32 binding, vk::DescriptorImageInfo* imageInfo);
-    DescriptorWriter& Write(vk::WriteDescriptorSet write)
+    DescriptorWriter& WriteBuffer(const n32 binding, vk::DescriptorBufferInfo* bufferInfo);
+    DescriptorWriter& WriteImage(const n32 binding, vk::DescriptorImageInfo* imageInfo);
+    DescriptorWriter& Write(const vk::WriteDescriptorSet& write)
     {
         m_writes.push_back(write);
         return *this;
@@ -31,7 +31,7 @@ public:
     void Overwrite(vk::DescriptorSet& set);
 
 private:
-    DescriptorSetLayout&                m_setLayout;
+    const DescriptorSetLayout&          m_setLayout;
     DescriptorPool*                     m_pool{nullptr};
     DescriptorPoolGrowable*             m_poolGrowable{nullptr};
     std::vector<vk::WriteDescriptorSet> m_writes;

@@ -4,18 +4,18 @@
 namespace Humongous
 {
 
-DescriptorWriter::DescriptorWriter(DescriptorSetLayout& m_setLayout, DescriptorPool* m_pool) : m_setLayout{m_setLayout}, m_pool{m_pool} {}
+DescriptorWriter::DescriptorWriter(const DescriptorSetLayout& m_setLayout, DescriptorPool* m_pool) : m_setLayout{m_setLayout}, m_pool{m_pool} {}
 
-DescriptorWriter::DescriptorWriter(DescriptorSetLayout& m_setLayout, DescriptorPoolGrowable* m_pool)
+DescriptorWriter::DescriptorWriter(const DescriptorSetLayout& m_setLayout, DescriptorPoolGrowable* m_pool)
     : m_setLayout{m_setLayout}, m_poolGrowable{m_pool}
 {
 }
 
-DescriptorWriter& DescriptorWriter::WriteBuffer(n32 binding, vk::DescriptorBufferInfo* bufferInfo)
+DescriptorWriter& DescriptorWriter::WriteBuffer(const n32 binding, vk::DescriptorBufferInfo* bufferInfo)
 {
     HGASSERT(m_setLayout.m_bindings.count(binding) == 1 && "Layout does not contain specified binding")
 
-    auto& bindingDescription = m_setLayout.m_bindings[binding];
+    auto& bindingDescription = m_setLayout.m_bindings.at(binding);
 
     HGASSERT(bindingDescription.descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple")
 
@@ -32,11 +32,11 @@ DescriptorWriter& DescriptorWriter::WriteBuffer(n32 binding, vk::DescriptorBuffe
     return *this;
 }
 
-DescriptorWriter& DescriptorWriter::WriteImage(n32 binding, vk::DescriptorImageInfo* imageInfo)
+DescriptorWriter& DescriptorWriter::WriteImage(const n32 binding, vk::DescriptorImageInfo* imageInfo)
 {
     HGASSERT(m_setLayout.m_bindings.count(binding) == 1 && "Layout does not contain specified binding")
 
-    auto& bindingDescription = m_setLayout.m_bindings[binding];
+    auto& bindingDescription = m_setLayout.m_bindings.at(binding);
 
     HGASSERT(bindingDescription.descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple")
 

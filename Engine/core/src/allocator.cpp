@@ -2,11 +2,11 @@
 
 namespace Humongous
 {
-void Allocator::Internal_Initialize(LogicalDevice* logicalDevice)
+void Allocator::Internal_Initialize(const LogicalDevice& logicalDevice)
 {
     if(m_initialized) { return; }
 
-    m_logicalDevice = logicalDevice;
+    m_logicalDevice = &logicalDevice;
 
     VkBufferCreateInfo bufInfo{};
     bufInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;

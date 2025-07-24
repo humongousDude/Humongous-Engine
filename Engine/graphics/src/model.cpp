@@ -4,7 +4,6 @@
 #include "logger.hpp"
 #include "meshoptimizer.h"
 #include "resource_manager.hpp"
-#include <set>
 
 #define TINYGLTF_IMPLEMENTATION
 #define STBI_MSC_SECURE_CRT
@@ -14,23 +13,23 @@
 namespace Humongous
 {
 // Mesh
-Mesh::Mesh(LogicalDevice* device, Eigen::Matrix4f matrix) { this->logicalDevice = device; };
+Mesh::Mesh(const LogicalDevice& device, Eigen::Matrix4f matrix) : logicalDevice(device) {};
 
 Mesh::~Mesh()
 {
     for(Primitive* p: primitives) { delete p; }
 }
 
-Model::Model(LogicalDevice* device, const std::string& modelPath, f32 scale, const n32& handle) : m_handle(handle)
+Model::Model(const LogicalDevice& device, const std::string& modelPath, f32 scale, const n32& handle) : m_handle(handle), m_logicalDevice(device)
 {
     HGINFO("Creating model...");
-    LoadFromFile(modelPath, device, device->GetGraphicsQueue(), scale);
+    LoadFromFile(modelPath, device, device.GetGraphicsQueue(), scale);
     HGINFO("Created model");
 }
 
-Model::~Model() { Destroy(m_logicalDevice->GetVkDevice()); }
+Model::~Model() { Destroy(m_logicalDevice.GetVkDevice()); }
 
-void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk::Queue transferQueue, f32 scale)
+void Model::LoadFromFile(std::string filePath, const LogicalDevice& logicalDevice, vk::Queue transferQueue, f32 scale)
 {
     if(m_initialized) { return; }
 
@@ -39,8 +38,6 @@ void Model::LoadFromFile(std::string filePath, LogicalDevice* logicalDevice, vk:
 
     std::string error;
     std::string warning;
-
-    this->m_logicalDevice = logicalDevice;
 
     bool   binary = false;
     size_t extpos = filePath.rfind('.', filePath.length());
@@ -760,7 +757,7 @@ vk::Filter Model::GetVkFilterMode(s32 filterMode)
     return vk::Filter::eNearest;
 }
 
-void Model::LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* device, vk::Queue transferQueue)
+void Model::LoadTextures(tinygltf::Model& gltfModel, const LogicalDevice& device, vk::Queue transferQueue)
 {
     for(tinygltf::Texture& tex: gltfModel.textures)
     {

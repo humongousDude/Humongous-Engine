@@ -8,7 +8,7 @@
 namespace Humongous
 {
 
-SkyboxRenderSystem::SkyboxRenderSystem(LogicalDevice* logicalDevice, const std::string& skyboxImgPath,
+SkyboxRenderSystem::SkyboxRenderSystem(const LogicalDevice& logicalDevice, const std::string& skyboxImgPath,
                                        const std::vector<vk::DescriptorSetLayout>& globalLayouts)
     : m_logicalDevice{logicalDevice}
 {
@@ -19,7 +19,7 @@ SkyboxRenderSystem::SkyboxRenderSystem(LogicalDevice* logicalDevice, const std::
     HGINFO("Initialized skybox render system");
 }
 
-SkyboxRenderSystem::~SkyboxRenderSystem() { vkDestroyPipelineLayout(m_logicalDevice->GetVkDevice(), m_pipelineLayout, nullptr); }
+SkyboxRenderSystem::~SkyboxRenderSystem() { vkDestroyPipelineLayout(m_logicalDevice.GetVkDevice(), m_pipelineLayout, nullptr); }
 
 void SkyboxRenderSystem::CreatePipelineLayout(const std::vector<vk::DescriptorSetLayout>& globalLayouts)
 {
@@ -38,7 +38,7 @@ void SkyboxRenderSystem::CreatePipelineLayout(const std::vector<vk::DescriptorSe
     layoutCI.pPushConstantRanges = nullptr;
     layoutCI.pushConstantRangeCount = 0;
 
-    if(m_logicalDevice->GetVkDevice().createPipelineLayout(&layoutCI, nullptr, &m_pipelineLayout) != vk::Result::eSuccess)
+    if(m_logicalDevice.GetVkDevice().createPipelineLayout(&layoutCI, nullptr, &m_pipelineLayout) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create pipeline layout for skybox");
     }
@@ -66,7 +66,7 @@ void SkyboxRenderSystem::CreatePipeline()
     ppCI.depthStencilInfo.front.passOp = vk::StencilOp::eKeep;
     ppCI.depthStencilInfo.front.depthFailOp = vk::StencilOp::eKeep;
     ppCI.depthStencilInfo.back = ppCI.depthStencilInfo.front;
-    m_renderPipeline = std::make_unique<RenderPipeline>(*m_logicalDevice, ppCI);
+    m_renderPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, ppCI);
     HGINFO("CREATED SKYBOX PIPELINE");
 }
 

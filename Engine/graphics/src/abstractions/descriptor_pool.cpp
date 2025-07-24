@@ -30,7 +30,7 @@ std::unique_ptr<DescriptorPool> DescriptorPool::Builder::Build() const
 
 // *************** Descriptor Pool *********************
 
-DescriptorPool::DescriptorPool(LogicalDevice& logicalDevice, n32 m_maxSets, vk::DescriptorPoolCreateFlagBits m_poolFlags,
+DescriptorPool::DescriptorPool(const LogicalDevice& logicalDevice, n32 m_maxSets, vk::DescriptorPoolCreateFlagBits m_poolFlags,
                                const std::vector<vk::DescriptorPoolSize>& m_poolSizes)
     : m_logicalDevice{logicalDevice}
 {

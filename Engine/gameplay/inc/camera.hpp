@@ -48,27 +48,27 @@ public:
         Eigen::Vector3f camPos;
     };
 
-    Camera(LogicalDevice* logicalDevice);
+    Camera(const LogicalDevice& logicalDevice);
     ~Camera();
 
     void SetOrthographicProjection(float left, float right, float top, float bottom, float near, float far);
     void SetPerspectiveProjection(float fovy, float spect, float near, float far);
 
-    VkDescriptorSet GetVertexDescriptorSet(n32 index) const { return m_vertProjectionMatrixSet[index]; };
-    VkDescriptorSet GetFragmentDescriptorSet(n32 index) const { return m_fragProjectionMatrixSet[index]; };
-    VkDescriptorSet GetComputeDescriptorSet(n32 index) const { return m_compProjectionMatrixSet[index]; };
-    VkDescriptorSet GetParamDescriptorSet(n32 index) const { return m_uboParamSet[index]; };
+    vk::DescriptorSet GetVertexDescriptorSet(n32 index) const { return m_vertProjectionMatrixSet[index]; };
+    vk::DescriptorSet GetFragmentDescriptorSet(n32 index) const { return m_fragProjectionMatrixSet[index]; };
+    vk::DescriptorSet GetComputeDescriptorSet(n32 index) const { return m_compProjectionMatrixSet[index]; };
+    vk::DescriptorSet GetParamDescriptorSet(n32 index) const { return m_uboParamSet[index]; };
 
     void DrawUI();
 
-    VkDescriptorSetLayout              GetParamDescriptorSetLayout() const { return m_paramDescriptorLayout->GetDescriptorSetLayout(); };
-    const std::vector<VkDescriptorSet> GetCombinedSets(n32 index) const { return {m_vertProjectionMatrixSet[index], m_uboParamSet[index]}; };
-    VkDescriptorSetLayout              GetVertexDescriptorLayout() const { return m_vertProjectionLayout->GetDescriptorSetLayout(); };
-    VkDescriptorSetLayout              GetFragmentDescriptorSetLayout() const { return m_fragProjectionLayout->GetDescriptorSetLayout(); };
-    VkDescriptorSetLayout              GetComputeDescriptorSetLayout() const { return m_compProjectionLayout->GetDescriptorSetLayout(); };
-    VkBuffer                           GetProjectionBuffer(n32 index) const { return m_projectionBuffers[index]->GetBuffer(); };
-    Buffer&                            GetProjectionBufferHandle(n32 index) const { return *m_projectionBuffers[index]; }
-    Buffer&                            GetCombinedDataBufferHandle(n32 index) const { return *m_combinedCameraDataBuffers[index]; }
+    vk::DescriptorSetLayout              GetParamDescriptorSetLayout() const { return m_paramDescriptorLayout->GetDescriptorSetLayout(); };
+    const std::vector<vk::DescriptorSet> GetCombinedSets(n32 index) const { return {m_vertProjectionMatrixSet[index], m_uboParamSet[index]}; };
+    vk::DescriptorSetLayout              GetVertexDescriptorLayout() const { return m_vertProjectionLayout->GetDescriptorSetLayout(); };
+    vk::DescriptorSetLayout              GetFragmentDescriptorSetLayout() const { return m_fragProjectionLayout->GetDescriptorSetLayout(); };
+    vk::DescriptorSetLayout              GetComputeDescriptorSetLayout() const { return m_compProjectionLayout->GetDescriptorSetLayout(); };
+    vk::Buffer                           GetProjectionBuffer(n32 index) const { return m_projectionBuffers[index]->GetBuffer(); };
+    Buffer&                              GetProjectionBufferHandle(n32 index) const { return *m_projectionBuffers[index]; }
+    Buffer&                              GetCombinedDataBufferHandle(n32 index) const { return *m_combinedCameraDataBuffers[index]; }
 
     const Eigen::Matrix4f& GetProjection() const { return m_projectionMatrix; };
     const Eigen::Matrix4f& GetView() const { return m_viewMatrix; };
@@ -118,7 +118,7 @@ private:
     Eigen::Vector3f m_forward{};
     Eigen::Vector3f m_up{};
 
-    void InitDescriptorThings(LogicalDevice* logicalDevice);
+    void InitDescriptorThings(const LogicalDevice& logicalDevice);
 
     void UpdateUBO(n32 index);
     void UpdateCombinedCameraData(n32 index);

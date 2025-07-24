@@ -57,12 +57,12 @@ struct Primitive
 
 struct Mesh
 {
-    Mesh(LogicalDevice* device, Eigen::Matrix4f matrix);
+    Mesh(const LogicalDevice& device, Eigen::Matrix4f matrix);
     ~Mesh();
 
     n32                     baseVertex = 0;
     n32                     baseIndex = 0;
-    LogicalDevice*          logicalDevice;
+    const LogicalDevice&    logicalDevice;
     std::vector<Primitive*> primitives;
     std::vector<f32>        weights;
 };
@@ -199,7 +199,7 @@ public:
     // this passes
     static_assert(std::is_standard_layout<Vertex>::value, "Vertex must be standard‑layout for meshoptimizer to memcpy it correctly");
 
-    Model(LogicalDevice* device, const std::string& modelPath, f32 scale, const n32& handle);
+    Model(const LogicalDevice& device, const std::string& modelPath, f32 scale, const n32& handle);
     ~Model();
 
     std::vector<n32>& GetIndices() { return m_indices; }
@@ -259,7 +259,7 @@ private:
 
     std::unordered_map<n32, std::vector<Primitive*>> m_materialBatches;
 
-    LogicalDevice* m_logicalDevice;
+    const LogicalDevice& m_logicalDevice;
 
     std::vector<Node*>      m_nodes;
     std::vector<Node*>      m_linearNodes;
@@ -277,7 +277,6 @@ private:
     BoundingBox m_restAABB{};
     BoundingBox m_animatedAABB{};
 
-    Texture                              m_emptyTexture;
     std::vector<n32>                     m_textures;
     std::vector<Texture::TexSamplerInfo> m_textureSamplers;
     std::vector<Material>                m_materials;
@@ -299,7 +298,7 @@ private:
     };
 
     bool m_initialized{false};
-    void LoadFromFile(std::string filepath, LogicalDevice* device, vk::Queue transferQueue, f32 scale = 1.0f);
+    void LoadFromFile(std::string filepath, const LogicalDevice& device, vk::Queue transferQueue, f32 scale = 1.0f);
     void Destroy(vk::Device m_device);
 
     void OptimizeMeshes();
@@ -315,7 +314,7 @@ private:
                            std::vector<n32>& primitiveIndices);
 
     void GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& model, size_t& vertexCount, size_t& indexCount);
-    void LoadTextures(tinygltf::Model& gltfModel, LogicalDevice* m_device, vk::Queue transferQueue);
+    void LoadTextures(tinygltf::Model& gltfModel, const LogicalDevice& m_device, vk::Queue transferQueue);
 
     void LoadSkins(tinygltf::Model& gltfModel);
     void LoadAnimations(tinygltf::Model& gltfModel);

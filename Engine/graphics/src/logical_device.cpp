@@ -211,7 +211,7 @@ void LogicalDevice::CreateCommandPool(PhysicalDevice& physicalDevice)
     if(m_logicalDevice.createCommandPool(&poolInfo, nullptr, &m_commandPool) != vk::Result::eSuccess) { HGFATAL("Failed to create command pool!"); }
 }
 
-vk::CommandBuffer LogicalDevice::BeginSingleTimeCommands()
+vk::CommandBuffer LogicalDevice::BeginSingleTimeCommands() const
 {
     vk::CommandBufferAllocateInfo allocInfo{};
     allocInfo.level = vk::CommandBufferLevel::ePrimary;
@@ -230,7 +230,7 @@ vk::CommandBuffer LogicalDevice::BeginSingleTimeCommands()
     return commandBuffer;
 }
 
-void LogicalDevice::EndSingleTimeCommands(vk::CommandBuffer commandBuffer)
+void LogicalDevice::EndSingleTimeCommands(vk::CommandBuffer commandBuffer) const
 {
     vkEndCommandBuffer(commandBuffer);
 

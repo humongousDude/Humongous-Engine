@@ -1,8 +1,7 @@
 // Original from Brendan Galea's vulkan tutorial, adapted to use VMA
+#include "abstractions/descriptor_layout.hpp"
 #include "asserts.hpp"
 #include "logger.hpp"
-#include <abstractions/descriptor_layout.hpp>
-#include <abstractions/descriptor_pool.hpp>
 
 namespace Humongous
 {
@@ -29,7 +28,7 @@ std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::Builder::Build() const
 
 // *************** Descriptor Set Layout *********************
 
-DescriptorSetLayout::DescriptorSetLayout(LogicalDevice& m_device, std::unordered_map<n32, vk::DescriptorSetLayoutBinding> m_bindings)
+DescriptorSetLayout::DescriptorSetLayout(const LogicalDevice& m_device, std::unordered_map<n32, vk::DescriptorSetLayoutBinding> m_bindings)
     : m_device{m_device}, m_bindings{m_bindings}
 {
     std::vector<vk::DescriptorSetLayoutBinding> setLayoutBindings{};

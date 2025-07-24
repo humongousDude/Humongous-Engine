@@ -25,8 +25,8 @@ public:
 
     VmaAllocator GetVmaAllocator() const { return m_allocator; }
 
-    vk::CommandBuffer BeginSingleTimeCommands();
-    void              EndSingleTimeCommands(vk::CommandBuffer cmd);
+    vk::CommandBuffer BeginSingleTimeCommands() const;
+    void              EndSingleTimeCommands(vk::CommandBuffer cmd) const;
 
     struct VMAData
     {

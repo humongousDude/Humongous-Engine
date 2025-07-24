@@ -34,7 +34,8 @@ struct ShaderSet
 class SimpleRenderSystem
 {
 public:
-    SimpleRenderSystem(LogicalDevice& logicalDevice, const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts, const ShaderSet& shaderSet);
+    SimpleRenderSystem(const LogicalDevice& logicalDevice, const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
+                       const ShaderSet& shaderSet);
     ~SimpleRenderSystem();
 
     void RenderObjectsMesh(RenderData& renderData, const bool& depthOnly);
@@ -44,7 +45,7 @@ public:
     vk::PipelineLayout m_pipelineLayout{};
 
 private:
-    LogicalDevice&                  m_logicalDevice;
+    const LogicalDevice&            m_logicalDevice;
     std::unique_ptr<RenderPipeline> m_geometryPipeline;
     std::unique_ptr<RenderPipeline> m_depthOnlyPipeline;
     n32                             m_verticesDrawn{0};

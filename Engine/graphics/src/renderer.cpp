@@ -145,7 +145,7 @@ void Renderer::CreateDrawImage()
         imgCI.allocatedImage = &frame.drawImage;
         Utils::CreateAllocatedImage(imgCI);
 
-        Utils::ImageTransitionInfo transInfo{};
+        Utils::ImageTransitionInfo transInfo{.logicalDevice = m_logicalDevice};
         transInfo.image = frame.drawImage.image;
         transInfo.oldLayout = vk::ImageLayout::eUndefined;
         transInfo.newLayout = vk::ImageLayout::eGeneral;
@@ -227,7 +227,7 @@ void Renderer::CreateGBuffer()
         Utils::CreateAllocatedImage(imgCI);
 
         {
-            Utils::ImageTransitionInfo trans{};
+            Utils::ImageTransitionInfo trans{.logicalDevice = m_logicalDevice};
             trans.cmd = cmd;
             trans.image = m_frames[i].gbuffer.albedo.image;
             trans.oldLayout = vk::ImageLayout::eUndefined;
@@ -240,7 +240,7 @@ void Renderer::CreateGBuffer()
         imgCI.allocatedImage = &m_frames[i].gbuffer.normalRough;
         Utils::CreateAllocatedImage(imgCI);
         {
-            Utils::ImageTransitionInfo trans{};
+            Utils::ImageTransitionInfo trans{.logicalDevice = m_logicalDevice};
             trans.cmd = cmd;
             trans.image = m_frames[i].gbuffer.normalRough.image;
             trans.oldLayout = vk::ImageLayout::eUndefined;
@@ -253,7 +253,7 @@ void Renderer::CreateGBuffer()
         imgCI.allocatedImage = &m_frames[i].gbuffer.materialParam;
         Utils::CreateAllocatedImage(imgCI);
         {
-            Utils::ImageTransitionInfo trans{};
+            Utils::ImageTransitionInfo trans{.logicalDevice = m_logicalDevice};
             trans.cmd = cmd;
             trans.image = m_frames[i].gbuffer.materialParam.image;
             trans.oldLayout = vk::ImageLayout::eUndefined;
@@ -266,7 +266,7 @@ void Renderer::CreateGBuffer()
         imgCI.allocatedImage = &m_frames[i].gbuffer.position;
         Utils::CreateAllocatedImage(imgCI);
         {
-            Utils::ImageTransitionInfo trans{};
+            Utils::ImageTransitionInfo trans{.logicalDevice = m_logicalDevice};
             trans.cmd = cmd;
             trans.image = m_frames[i].gbuffer.position.image;
             trans.oldLayout = vk::ImageLayout::eUndefined;
@@ -288,7 +288,7 @@ void Renderer::CreateGBuffer()
         imgCI.initialLayout = vk::ImageLayout::eUndefined;
         Utils::CreateAllocatedImage(imgCI);
         {
-            Utils::ImageTransitionInfo trans{};
+            Utils::ImageTransitionInfo trans{.logicalDevice = m_logicalDevice};
             trans.cmd = cmd;
             trans.image = m_frames[i].gbuffer.depth.image;
             trans.oldLayout = vk::ImageLayout::eUndefined;
@@ -305,7 +305,7 @@ void Renderer::CreateGBuffer()
         imgCI.mipLevels = mipLevels;
         Utils::CreateAllocatedImage(imgCI);
         {
-            Utils::ImageTransitionInfo trans{};
+            Utils::ImageTransitionInfo trans{.logicalDevice = m_logicalDevice};
             trans.cmd = cmd;
             trans.image = m_frames[i].hiZImage.image;
             trans.oldLayout = vk::ImageLayout::eUndefined;
@@ -324,7 +324,7 @@ void Renderer::CreateGBuffer()
         m_frames[i].hiZMips.resize(imgCI.mipLevels);
         for(n32 level = 0; level < imgCI.mipLevels; ++level)
         {
-            Utils::ImageTransitionInfo transition{.cmd = cmd, .logicalDevice = &m_logicalDevice, .image = m_frames[i].hiZImage.image};
+            Utils::ImageTransitionInfo transition{.cmd = cmd, .logicalDevice = m_logicalDevice, .image = m_frames[i].hiZImage.image};
             transition.oldLayout = vk::ImageLayout::eUndefined;
             transition.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
             transition.imageAspect = vk::ImageAspectFlagBits::eColor;
@@ -410,8 +410,7 @@ void Renderer::CreateLightingPipeline()
 
     HGINFO("Creating pipeline...");
 
-    ComputePipeline::ComputePipelineCreateInfo configInfo;
-    configInfo.logicalDevice = &m_logicalDevice;
+    ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice};
     configInfo.pipelineLayout = m_lightingPipelineLayout;
     configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "lighting.comp");
 
@@ -552,8 +551,7 @@ void Renderer::CreateComputePipeline()
             HGERROR("Failed to create pipeline layout");
         }
 
-        ComputePipeline::ComputePipelineCreateInfo configInfo;
-        configInfo.logicalDevice = &m_logicalDevice;
+        ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice};
         configInfo.pipelineLayout = m_occlusionPipelineLayout;
         configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "occlusion.comp");
 
@@ -576,8 +574,7 @@ void Renderer::CreateComputePipeline()
             HGERROR("Failed to create pipeline layout");
         }
 
-        ComputePipeline::ComputePipelineCreateInfo configInfo;
-        configInfo.logicalDevice = &m_logicalDevice;
+        ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice};
         configInfo.pipelineLayout = m_mipPipelineLayout;
         configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "mip.comp");
 
@@ -643,7 +640,7 @@ void Renderer::PreGeometryPassTransitions(vk::CommandBuffer cmd)
 {
     auto& currentFrame = GetCurrentFrame();
 
-    Utils::ImageTransitionInfo drawInfo{};
+    Utils::ImageTransitionInfo drawInfo{.logicalDevice = m_logicalDevice};
     drawInfo.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
     drawInfo.imageAspect = vk::ImageAspectFlagBits::eColor;
     drawInfo.cmd = cmd;
@@ -686,7 +683,7 @@ void Renderer::PostGeometryPassTransitions(vk::CommandBuffer cmd)
 {
     auto& currentFrame = GetCurrentFrame();
 
-    Utils::ImageTransitionInfo drawInfo{};
+    Utils::ImageTransitionInfo drawInfo{.logicalDevice = m_logicalDevice};
     drawInfo.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     drawInfo.cmd = cmd;
     drawInfo.imageAspect = vk::ImageAspectFlagBits::eColor;
@@ -752,7 +749,7 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
     if(GetCurrentFrame().drawImage.imageLayout == vk::ImageLayout::eTransferSrcOptimal)
     {
         auto                       cmd = m_logicalDevice.BeginSingleTimeCommands();
-        Utils::ImageTransitionInfo transInfo{};
+        Utils::ImageTransitionInfo transInfo{.logicalDevice = m_logicalDevice};
         transInfo.image = GetCurrentFrame().drawImage.image;
         transInfo.oldLayout = GetCurrentFrame().drawImage.imageLayout;
         transInfo.newLayout = vk::ImageLayout::eGeneral;
@@ -799,7 +796,7 @@ void Renderer::EndFrame()
 {
     auto cmd = GetCurrentFrame().commandBuffer;
 
-    Utils::ImageTransitionInfo drawInfo{};
+    Utils::ImageTransitionInfo drawInfo{.logicalDevice = m_logicalDevice};
     drawInfo.image = GetCurrentFrame().drawImage.image;
     drawInfo.oldLayout = GetCurrentFrame().drawImage.imageLayout;
     drawInfo.newLayout = vk::ImageLayout::eTransferSrcOptimal;
@@ -808,7 +805,7 @@ void Renderer::EndFrame()
 
     GetCurrentFrame().drawImage.imageLayout = vk::ImageLayout::eTransferSrcOptimal;
 
-    Utils::ImageTransitionInfo swapInfo{};
+    Utils::ImageTransitionInfo swapInfo{.logicalDevice = m_logicalDevice};
     swapInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
     swapInfo.oldLayout = vk::ImageLayout::eUndefined;
     swapInfo.newLayout = vk::ImageLayout::eTransferDstOptimal;
@@ -819,7 +816,7 @@ void Renderer::EndFrame()
     Utils::CopyImageToImage(cmd, GetCurrentFrame().drawImage.image, m_swapChain->GetImages()[m_currentImageIndex], m_screenImageExtent,
                             m_swapChain->GetExtent());
 
-    Utils::ImageTransitionInfo presentTransitionInfo{};
+    Utils::ImageTransitionInfo presentTransitionInfo{.logicalDevice = m_logicalDevice};
     presentTransitionInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
     presentTransitionInfo.oldLayout = vk::ImageLayout::eTransferDstOptimal;
     presentTransitionInfo.newLayout = vk::ImageLayout::ePresentSrcKHR;
@@ -965,7 +962,7 @@ void Renderer::DoLightingPass(vk::CommandBuffer cmd, vk::DescriptorSet camSet, v
 
     WaitForCompute(cmd);
 
-    Utils::ImageTransitionInfo transitionInfo{};
+    Utils::ImageTransitionInfo transitionInfo{.logicalDevice = m_logicalDevice};
     transitionInfo.image = GetCurrentFrame().drawImage.image;
     transitionInfo.oldLayout = GetCurrentFrame().drawImage.imageLayout;
     transitionInfo.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
@@ -1096,7 +1093,7 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
         Utils::ImageTransitionInfo transSrcInfo{cmd,
                                                 currentFrame.gbuffer.depth.imageLayout,
                                                 vk::ImageLayout::eShaderReadOnlyOptimal,
-                                                &m_logicalDevice,
+                                                m_logicalDevice,
                                                 currentFrame.gbuffer.depth.image,
                                                 vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil,
                                                 0,
@@ -1108,18 +1105,17 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
     }
 
     {
-        Utils::ImageTransitionInfo hiZMip0_destTransition{};
-        hiZMip0_destTransition.cmd = cmd;
-        hiZMip0_destTransition.oldLayout = currentFrame.hiZMips[0].layout;
-        hiZMip0_destTransition.newLayout = vk::ImageLayout::eGeneral;
-        hiZMip0_destTransition.image = currentFrame.hiZImage.image;
-        hiZMip0_destTransition.baseMipLevel = 0;
-        hiZMip0_destTransition.imageAspect = vk::ImageAspectFlagBits::eColor;
-        hiZMip0_destTransition.logicalDevice = &m_logicalDevice;
-        hiZMip0_destTransition.levelCount = 1;
-        hiZMip0_destTransition.baseArrayLayer = 0;
-        hiZMip0_destTransition.layerCount = 1;
-        Utils::TransitionImageLayout(hiZMip0_destTransition);
+        Utils::ImageTransitionInfo mip0DestTransition{.logicalDevice = m_logicalDevice};
+        mip0DestTransition.cmd = cmd;
+        mip0DestTransition.oldLayout = currentFrame.hiZMips[0].layout;
+        mip0DestTransition.newLayout = vk::ImageLayout::eGeneral;
+        mip0DestTransition.image = currentFrame.hiZImage.image;
+        mip0DestTransition.baseMipLevel = 0;
+        mip0DestTransition.imageAspect = vk::ImageAspectFlagBits::eColor;
+        mip0DestTransition.levelCount = 1;
+        mip0DestTransition.baseArrayLayer = 0;
+        mip0DestTransition.layerCount = 1;
+        Utils::TransitionImageLayout(mip0DestTransition);
         currentFrame.hiZMips[0].layout = vk::ImageLayout::eGeneral;
 
         DescriptorWriter        writer_mip0(*m_mipDescriptorLayout, m_computePool.get());
@@ -1139,31 +1135,29 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
         n32 initialMipHeight = currentFrame.hiZImage.height;
         cmd.dispatch((initialMipWidth + 7) / 8, (initialMipHeight + 7) / 8, 1);
 
-        Utils::ImageTransitionInfo hiZMip0_dest2Transition{};
-        hiZMip0_dest2Transition.cmd = cmd;
-        hiZMip0_dest2Transition.oldLayout = currentFrame.hiZMips[0].layout;
-        hiZMip0_dest2Transition.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        hiZMip0_dest2Transition.image = currentFrame.hiZImage.image;
-        hiZMip0_dest2Transition.baseMipLevel = 0;
-        hiZMip0_dest2Transition.imageAspect = vk::ImageAspectFlagBits::eColor;
-        hiZMip0_dest2Transition.logicalDevice = &m_logicalDevice;
-        hiZMip0_dest2Transition.levelCount = 1;
-        hiZMip0_dest2Transition.baseArrayLayer = 0;
-        hiZMip0_dest2Transition.layerCount = 1;
-        Utils::TransitionImageLayout(hiZMip0_dest2Transition);
+        Utils::ImageTransitionInfo mip0DestTranstition2{.logicalDevice = m_logicalDevice};
+        mip0DestTranstition2.cmd = cmd;
+        mip0DestTranstition2.oldLayout = currentFrame.hiZMips[0].layout;
+        mip0DestTranstition2.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        mip0DestTranstition2.image = currentFrame.hiZImage.image;
+        mip0DestTranstition2.baseMipLevel = 0;
+        mip0DestTranstition2.imageAspect = vk::ImageAspectFlagBits::eColor;
+        mip0DestTranstition2.levelCount = 1;
+        mip0DestTranstition2.baseArrayLayer = 0;
+        mip0DestTranstition2.layerCount = 1;
+        Utils::TransitionImageLayout(mip0DestTranstition2);
         currentFrame.hiZMips[0].layout = vk::ImageLayout::eShaderReadOnlyOptimal;
     }
 
     for(n32 i = 0; i < currentFrame.hiZImage.mipLevels - 1; ++i)
     {
-        Utils::ImageTransitionInfo srcTransition{};
+        Utils::ImageTransitionInfo srcTransition{.logicalDevice = m_logicalDevice};
         srcTransition.cmd = cmd;
         srcTransition.oldLayout = currentFrame.hiZMips[i].layout;
         srcTransition.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
         srcTransition.image = currentFrame.hiZImage.image;
         srcTransition.baseMipLevel = i;
         srcTransition.imageAspect = vk::ImageAspectFlagBits::eColor;
-        srcTransition.logicalDevice = &m_logicalDevice;
         srcTransition.levelCount = 1;
         srcTransition.baseArrayLayer = 0;
         srcTransition.layerCount = 1;
@@ -1171,14 +1165,13 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
 
         currentFrame.hiZMips[i].layout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
-        Utils::ImageTransitionInfo destTransition{};
+        Utils::ImageTransitionInfo destTransition{.logicalDevice = m_logicalDevice};
         destTransition.cmd = cmd;
         destTransition.oldLayout = currentFrame.hiZMips[i + 1].layout;
         destTransition.newLayout = vk::ImageLayout::eGeneral;
         destTransition.image = currentFrame.hiZImage.image;
         destTransition.baseMipLevel = i + 1;
         destTransition.imageAspect = vk::ImageAspectFlagBits::eColor;
-        destTransition.logicalDevice = &m_logicalDevice;
         destTransition.levelCount = 1;
         destTransition.baseArrayLayer = 0;
         destTransition.layerCount = 1;
@@ -1211,14 +1204,13 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
 
         cmd.dispatch((destMipWidth + 7) / 8, (destMipHeight + 7) / 8, 1);
 
-        Utils::ImageTransitionInfo sourceNextIterTransition{};
+        Utils::ImageTransitionInfo sourceNextIterTransition{.logicalDevice = m_logicalDevice};
         sourceNextIterTransition.cmd = cmd;
         sourceNextIterTransition.oldLayout = currentFrame.hiZMips[i + 1].layout;
         sourceNextIterTransition.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
         sourceNextIterTransition.image = currentFrame.hiZImage.image;
         sourceNextIterTransition.baseMipLevel = i + 1;
         sourceNextIterTransition.imageAspect = vk::ImageAspectFlagBits::eColor;
-        sourceNextIterTransition.logicalDevice = &m_logicalDevice;
         sourceNextIterTransition.levelCount = 1;
         sourceNextIterTransition.baseArrayLayer = 0;
         sourceNextIterTransition.layerCount = 1;
@@ -1263,17 +1255,17 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
     visibilityResultsBuffer.reset();
     rendererDataBuffer.reset();
 
-    objectDataBuffer = std::make_unique<Buffer>(&m_logicalDevice, objectDataForGPU.size() * sizeof(OcclusionObjectData), 1,
-                                                vk::BufferUsageFlagBits::eStorageBuffer,
-                                                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                                                VMA_MEMORY_USAGE_AUTO, 1, "occlusion object data buffer");
+    objectDataBuffer =
+        std::make_unique<Buffer>(m_logicalDevice, objectDataForGPU.size() * sizeof(OcclusionObjectData), 1, vk::BufferUsageFlagBits::eStorageBuffer,
+                                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO, 1,
+                                 "occlusion object data buffer");
 
     visibilityResultsBuffer =
-        std::make_unique<Buffer>(&m_logicalDevice, objectDataForGPU.size() * sizeof(VisiblityResultSet), 1, vk::BufferUsageFlagBits::eStorageBuffer,
+        std::make_unique<Buffer>(m_logicalDevice, objectDataForGPU.size() * sizeof(VisiblityResultSet), 1, vk::BufferUsageFlagBits::eStorageBuffer,
                                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO, 1,
                                  "occlusion visibility results buffer");
 
-    rendererDataBuffer = std::make_unique<Buffer>(&m_logicalDevice, sizeof(RendererData), 1, vk::BufferUsageFlagBits::eUniformBuffer,
+    rendererDataBuffer = std::make_unique<Buffer>(m_logicalDevice, sizeof(RendererData), 1, vk::BufferUsageFlagBits::eUniformBuffer,
                                                   vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                                                   VMA_MEMORY_USAGE_AUTO, 1, "occlusion renderer data buffer");
 
@@ -1317,7 +1309,7 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
         Utils::ImageTransitionInfo transSrcInfo{cmd,
                                                 currentFrame.gbuffer.depth.imageLayout,
                                                 vk::ImageLayout::eDepthStencilAttachmentOptimal,
-                                                &m_logicalDevice,
+                                                m_logicalDevice,
                                                 currentFrame.gbuffer.depth.image,
                                                 vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil,
                                                 0,

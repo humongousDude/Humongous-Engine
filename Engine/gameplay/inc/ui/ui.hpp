@@ -18,13 +18,14 @@ class UI : public Singleton<UI>
 public:
     struct UICreationInfo
     {
-        Humongous::Instance* instance;
-        LogicalDevice*       logicalDevice;
-        Window*              window;
-        Renderer*            renderer;
+        // Apparently we can't just have "instance", we need "class Instance" for some reason.
+        const class Instance& instance;
+        const LogicalDevice&  logicalDevice;
+        const Window&         window;
+        const Renderer&       renderer;
     };
 
-    static void Init(class Instance* instance, LogicalDevice* logicalDevice, Window* window)
+    static void Init(class Instance& instance, const LogicalDevice& logicalDevice, const Window& window)
     {
         Get().Internal_Init(instance, logicalDevice, window);
     }
@@ -44,7 +45,7 @@ private:
     bool m_hasInitialized{false};
     bool m_startedFrame{false};
 
-    LogicalDevice* m_logicalDevice{nullptr};
+    const LogicalDevice* m_logicalDevice;
 
     std::unique_ptr<DescriptorPool>      m_pool;
     std::unique_ptr<DescriptorSetLayout> m_setLayout;
@@ -55,7 +56,7 @@ private:
 
     void InitDescriptorThings();
 
-    void Internal_Init(const class Instance* instance, LogicalDevice* logicalDevice, const Window* window);
+    void Internal_Init(const class Instance& instance, const LogicalDevice& logicalDevice, const Window& window);
     void Internal_Shutdown();
     void Internal_BeginUIFrame(vk::CommandBuffer cmd);
     void Internal_EndUIFrame(vk::CommandBuffer cmd);

@@ -8,7 +8,7 @@
 namespace Humongous
 {
 
-Camera::Camera(LogicalDevice* logicalDevice) { InitDescriptorThings(logicalDevice); }
+Camera::Camera(const LogicalDevice& logicalDevice) { InitDescriptorThings(logicalDevice); }
 
 Camera::~Camera()
 {
@@ -26,28 +26,28 @@ Camera::~Camera()
     m_paramDescriptorLayout.reset();
 }
 
-void Camera::InitDescriptorThings(LogicalDevice* logicalDevice)
+void Camera::InitDescriptorThings(const LogicalDevice& logicalDevice)
 {
     HGINFO("Initializing descriptor things...");
 
-    DescriptorPool::Builder builder{*logicalDevice};
+    DescriptorPool::Builder builder{logicalDevice};
     builder.SetMaxSets(25);
     builder.AddPoolSize(vk::DescriptorType::eUniformBuffer, 25);
     m_projectionPool = builder.Build();
 
-    DescriptorSetLayout::Builder builder2{*logicalDevice};
+    DescriptorSetLayout::Builder builder2{logicalDevice};
     builder2.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex);
     m_vertProjectionLayout = builder2.Build();
 
-    DescriptorSetLayout::Builder builder3{*logicalDevice};
+    DescriptorSetLayout::Builder builder3{logicalDevice};
     builder3.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eFragment);
     m_fragProjectionLayout = builder3.Build();
 
-    DescriptorSetLayout::Builder builder4{*logicalDevice};
+    DescriptorSetLayout::Builder builder4{logicalDevice};
     builder4.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute);
     m_compProjectionLayout = builder4.Build();
 
-    DescriptorSetLayout::Builder builder5{*logicalDevice};
+    DescriptorSetLayout::Builder builder5{logicalDevice};
     builder5.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute);
     m_paramDescriptorLayout = builder5.Build();
 

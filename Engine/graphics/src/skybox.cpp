@@ -2,7 +2,6 @@
 #include "abstractions/descriptor_writer.hpp"
 #include "asset_manager.hpp"
 #include "compute_pipeline.hpp"
-#include "extra.hpp"
 #include "logger.hpp"
 
 namespace Humongous
@@ -19,10 +18,10 @@ Skybox::~Skybox()
 {
     m_skybox->Destroy();
     m_irradiance->Destroy();
-    m_logicalDevice->GetVkDevice().destroyImageView(m_irradianceWriteView, nullptr);
+    m_logicalDevice.GetVkDevice().destroyImageView(m_irradianceWriteView, nullptr);
 
-    for(auto& view: m_prefilteredReadViews) { m_logicalDevice->GetVkDevice().destroyImageView(view, nullptr); }
-    for(auto& view: m_prefilteredWriteViews) { m_logicalDevice->GetVkDevice().destroyImageView(view, nullptr); }
+    for(auto& view: m_prefilteredReadViews) { m_logicalDevice.GetVkDevice().destroyImageView(view, nullptr); }
+    for(auto& view: m_prefilteredWriteViews) { m_logicalDevice.GetVkDevice().destroyImageView(view, nullptr); }
 
     m_prefilteredMap->Destroy();
     m_brdflut->Destroy();
@@ -79,19 +78,19 @@ void Skybox::CreatePrefilteredMipViews()
         viewInfo.subresourceRange.baseMipLevel = mipLevel;
         viewInfo.subresourceRange.levelCount = 1;
 
-        if(m_logicalDevice->GetVkDevice().createImageView(&viewInfo, nullptr, &m_prefilteredReadViews[mipLevel]) != vk::Result::eSuccess)
+        if(m_logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &m_prefilteredReadViews[mipLevel]) != vk::Result::eSuccess)
         {
             HGERROR("Failed to create image view for prefiltered map read mip level %u", mipLevel);
         }
 
         viewInfo.viewType = vk::ImageViewType::e2DArray;
-        if(m_logicalDevice->GetVkDevice().createImageView(&viewInfo, nullptr, &m_prefilteredWriteViews[mipLevel]) != vk::Result::eSuccess)
+        if(m_logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &m_prefilteredWriteViews[mipLevel]) != vk::Result::eSuccess)
         {
             HGERROR("Failed to create image view for prefiltered map write mip level %u", mipLevel);
         }
     }
 
-    if(m_logicalDevice->GetVkDevice().createImageView(&viewInfo, nullptr, &m_irradianceWriteView) != vk::Result::eSuccess)
+    if(m_logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &m_irradianceWriteView) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create image view for irradiance map");
     }
@@ -111,22 +110,22 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
 
     CreatePrefilteredMipViews();
 
-    m_brdflut = std::make_unique<Texture>();
+    m_brdflut = std::make_unique<Texture>(m_logicalDevice);
     m_brdflut->FillWithEmpty(m_logicalDevice, 512, 512, true);
 
-    DescriptorSetLayout::Builder envImageBuilder{*m_logicalDevice};
+    DescriptorSetLayout::Builder envImageBuilder{m_logicalDevice};
     envImageBuilder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
     auto envLayout = envImageBuilder.Build();
 
-    DescriptorSetLayout::Builder IrradImageBuilder{*m_logicalDevice};
+    DescriptorSetLayout::Builder IrradImageBuilder{m_logicalDevice};
     IrradImageBuilder.AddBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute);
     auto irradLayout = IrradImageBuilder.Build();
 
-    DescriptorSetLayout::Builder PrefiltImageBuilder{*m_logicalDevice};
+    DescriptorSetLayout::Builder PrefiltImageBuilder{m_logicalDevice};
     PrefiltImageBuilder.AddBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute);
     auto prefilteredLayout = PrefiltImageBuilder.Build();
 
-    DescriptorSetLayout::Builder brdfImageBuilder{*m_logicalDevice};
+    DescriptorSetLayout::Builder brdfImageBuilder{m_logicalDevice};
     brdfImageBuilder.AddBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute);
     auto brdfLayout = brdfImageBuilder.Build();
 
@@ -139,7 +138,7 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
     irradPipelineLayoutInfo.pPushConstantRanges = nullptr;
 
     vk::PipelineLayout irradePipelineLayout;
-    if(m_logicalDevice->GetVkDevice().createPipelineLayout(&irradPipelineLayoutInfo, nullptr, &irradePipelineLayout) != vk::Result::eSuccess)
+    if(m_logicalDevice.GetVkDevice().createPipelineLayout(&irradPipelineLayoutInfo, nullptr, &irradePipelineLayout) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create pipeline layout");
     }
@@ -159,7 +158,7 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
     prefiltPipelineLayoutInfo.pPushConstantRanges = &range;
 
     vk::PipelineLayout prefiltPipelineLayout;
-    if(m_logicalDevice->GetVkDevice().createPipelineLayout(&prefiltPipelineLayoutInfo, nullptr, &prefiltPipelineLayout) != vk::Result::eSuccess)
+    if(m_logicalDevice.GetVkDevice().createPipelineLayout(&prefiltPipelineLayoutInfo, nullptr, &prefiltPipelineLayout) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create pipeline layout");
     }
@@ -173,7 +172,7 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
     brdfPipelineLayoutInfo.pPushConstantRanges = nullptr;
 
     vk::PipelineLayout brdfPipelineLayout;
-    if(m_logicalDevice->GetVkDevice().createPipelineLayout(&brdfPipelineLayoutInfo, nullptr, &brdfPipelineLayout) != vk::Result::eSuccess)
+    if(m_logicalDevice.GetVkDevice().createPipelineLayout(&brdfPipelineLayoutInfo, nullptr, &brdfPipelineLayout) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create pipeline layout");
     }
@@ -198,13 +197,12 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
     // Irradiance map
     HGINFO("Generating irradiance map");
     {
-        ComputePipeline::ComputePipelineCreateInfo configInfo;
-        configInfo.logicalDevice = m_logicalDevice;
+        ComputePipeline::ComputePipelineCreateInfo configInfo{m_logicalDevice};
         configInfo.pipelineLayout = irradePipelineLayout;
         configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "irradiance.comp");
 
         ComputePipeline irradiancePipeline{configInfo};
-        auto            cmd = m_logicalDevice->BeginSingleTimeCommands();
+        auto            cmd = m_logicalDevice.BeginSingleTimeCommands();
 
         std::array<vk::DescriptorSet, 2> irradianceSets = {envSet, irradSet};
 
@@ -218,22 +216,21 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
 
         vkCmdDispatch(cmd, irradianceGroupCountX, irradianceGroupCountY, irradianceGroupCountZ);
 
-        m_logicalDevice->EndSingleTimeCommands(cmd);
+        m_logicalDevice.EndSingleTimeCommands(cmd);
     }
     HGINFO("Done generating irradiance map");
 
     // Prefiltered map
     HGINFO("Generating prefiltered map");
     {
-        ComputePipeline::ComputePipelineCreateInfo configInfo;
-        configInfo.logicalDevice = m_logicalDevice;
+        ComputePipeline::ComputePipelineCreateInfo configInfo{m_logicalDevice};
         configInfo.pipelineLayout = prefiltPipelineLayout;
         configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "prefiltredmap.comp");
         ComputePipeline prefilteredPipeline{configInfo};
 
         std::array<vk::DescriptorSet, 2> prefilteredSets = {envSet};
 
-        auto cmd = m_logicalDevice->BeginSingleTimeCommands();
+        auto cmd = m_logicalDevice.BeginSingleTimeCommands();
         prefilteredPipeline.BindPipeline(cmd);
 
         for(n32 mipLevel = 0; mipLevel < m_prefilteredMap->GetMipLevels(); mipLevel++)
@@ -264,19 +261,18 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
             vkCmdDispatch(cmd, prefilteredGroupCountX, prefilteredGroupCountY, prefilteredGroupCountZ);
         }
 
-        m_logicalDevice->EndSingleTimeCommands(cmd);
+        m_logicalDevice.EndSingleTimeCommands(cmd);
     }
     HGINFO("Done generating prefiltered map");
     // BRDF LUT
     HGINFO("Generating BRDF LUT");
     {
-        ComputePipeline::ComputePipelineCreateInfo configInfo;
-        configInfo.logicalDevice = m_logicalDevice;
+        ComputePipeline::ComputePipelineCreateInfo configInfo{m_logicalDevice};
         configInfo.pipelineLayout = brdfPipelineLayout;
         configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "brdflut.comp");
         ComputePipeline brdfPipeline{configInfo};
 
-        auto cmd = m_logicalDevice->BeginSingleTimeCommands();
+        auto cmd = m_logicalDevice.BeginSingleTimeCommands();
 
         std::array<vk::DescriptorSet, 1> brdfSets = {brdfSet};
 
@@ -290,14 +286,14 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
 
         vkCmdDispatch(cmd, brdfGroupCountX, brdfGroupCountY, brdfGroupCountZ);
 
-        m_logicalDevice->EndSingleTimeCommands(cmd);
+        m_logicalDevice.EndSingleTimeCommands(cmd);
     }
     HGINFO("Done generating BRDF LUT");
 
     // Afterwork
-    m_logicalDevice->GetVkDevice().destroyPipelineLayout(irradePipelineLayout, nullptr);
-    m_logicalDevice->GetVkDevice().destroyPipelineLayout(prefiltPipelineLayout, nullptr);
-    m_logicalDevice->GetVkDevice().destroyPipelineLayout(brdfPipelineLayout, nullptr);
+    m_logicalDevice.GetVkDevice().destroyPipelineLayout(irradePipelineLayout, nullptr);
+    m_logicalDevice.GetVkDevice().destroyPipelineLayout(prefiltPipelineLayout, nullptr);
+    m_logicalDevice.GetVkDevice().destroyPipelineLayout(brdfPipelineLayout, nullptr);
 }
 
 } // namespace Humongous
