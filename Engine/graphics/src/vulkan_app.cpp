@@ -110,62 +110,62 @@ void VulkanApp::LoadGameObjects()
     transform->SetTranslation(0, 0, 10);
     world->GetComponent<NameComponent>(house)->name = name + std::to_string(house);
 
-    // auto helmet = world->CreateEntity();
-    // world->AddComponent<BoundingBox>(helmet);
-    // world->AddComponent<ModelComponent>(helmet);
-    // comp = world->GetComponent<ModelComponent>(helmet);
-    // comp->instance = ResourceManager::RequestModel("buster_drone");
-    // world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-    // name = comp->instance->GetModel()->GetName();
-    // world->GetComponent<NameComponent>(helmet)->name = name + std::to_string(helmet);
-    //
-    // transform = world->GetComponent<TransformComponent>(helmet);
-    // transform->SetTranslation(-10, 10, -20);
-    // transform->SetScale(1, 1, 1);
-    //
-    // auto drone = world->CreateEntity();
-    // world->AddComponent<BoundingBox>(drone);
-    // world->AddComponent<ModelComponent>(drone);
-    // comp = world->GetComponent<ModelComponent>(drone);
-    // comp->instance = ResourceManager::RequestModel("buster_drone");
-    // world->AddComponent<AudioSourceComponent>(drone, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-    // name = comp->instance->GetModel()->GetName();
-    // world->GetComponent<NameComponent>(drone)->name = name + std::to_string(helmet);
-    //
-    // transform = world->GetComponent<TransformComponent>(drone);
-    // transform->SetTranslation(10, 10, -20);
-    // transform->SetScale(1, 1, 1);
-    //
-    // f32 start = 0;
-    // f32 end = 50;
-    // f32 step = 2.5;
-    // f32 border = 15;
-    // f32 x = start, y = start, z = start;
-    // for(n32 i = 0; i < end; i++)
-    // {
-    //     x += step;
-    //
-    //     if(x > border)
-    //     {
-    //         x = start;
-    //         z += step;
-    //     }
-    //     if(z > border)
-    //     {
-    //         z = start;
-    //         y += step;
-    //     }
-    //
-    //     auto model = world->CreateEntity();
-    //     world->AddComponent<ModelComponent>(model);
-    //     auto comp = world->GetComponent<ModelComponent>(model);
-    //     comp->instance = ResourceManager::RequestModel("buster_drone");
-    //
-    //     auto transform = world->GetComponent<TransformComponent>(model);
-    //     transform->SetTranslation(x, y, z);
-    //     std::string name = comp->instance->GetModel()->GetName();
-    //     world->GetComponent<NameComponent>(model)->name = name + std::to_string(model);
-    // }
+    auto helmet = world->CreateEntity();
+    world->AddComponent<BoundingBox>(helmet);
+    world->AddComponent<ModelComponent>(helmet);
+    comp = world->GetComponent<ModelComponent>(helmet);
+    comp->instance = ResourceManager::RequestModel("buster_drone");
+    world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    name = comp->instance->GetModel()->GetName();
+    world->GetComponent<NameComponent>(helmet)->name = name + std::to_string(helmet);
+
+    transform = world->GetComponent<TransformComponent>(helmet);
+    transform->SetTranslation(-10, 10, -20);
+    transform->SetScale(1, 1, 1);
+
+    auto drone = world->CreateEntity();
+    world->AddComponent<BoundingBox>(drone);
+    world->AddComponent<ModelComponent>(drone);
+    comp = world->GetComponent<ModelComponent>(drone);
+    comp->instance = ResourceManager::RequestModel("buster_drone");
+    world->AddComponent<AudioSourceComponent>(drone, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    name = comp->instance->GetModel()->GetName();
+    world->GetComponent<NameComponent>(drone)->name = name + std::to_string(helmet);
+
+    transform = world->GetComponent<TransformComponent>(drone);
+    transform->SetTranslation(10, 10, -20);
+    transform->SetScale(1, 1, 1);
+
+    f32 start = 0;
+    f32 end = 50;
+    f32 step = 2.5;
+    f32 border = 15;
+    f32 x = start, y = start, z = start;
+    for(n32 i = 0; i < end; i++)
+    {
+        x += step;
+
+        if(x > border)
+        {
+            x = start;
+            z += step;
+        }
+        if(z > border)
+        {
+            z = start;
+            y += step;
+        }
+
+        auto model = world->CreateEntity();
+        world->AddComponent<ModelComponent>(model);
+        auto comp = world->GetComponent<ModelComponent>(model);
+        comp->instance = ResourceManager::RequestModel("buster_drone");
+
+        auto transform = world->GetComponent<TransformComponent>(model);
+        transform->SetTranslation(x, y, z);
+        std::string name = comp->instance->GetModel()->GetName();
+        world->GetComponent<NameComponent>(model)->name = name + std::to_string(model);
+    }
 
     HGINFO("Loaded game objects");
 }
@@ -178,11 +178,22 @@ void VulkanApp::HandleInput(const float frameTime, SDL_Event* event)
     KeyboardHandler handler;
 
     const bool* keyboardState = SDL_GetKeyboardState(nullptr);
-    if(keyboardState[SDL_SCANCODE_I] && !m_window->IsCursorHidden()) { m_window->HideCursor(); }
-    if((keyboardState[SDL_SCANCODE_O] || keyboardState[SDL_SCANCODE_ESCAPE]) && m_window->IsCursorHidden()) { m_window->ShowCursor(); }
-    if(!m_window->IsCursorHidden()) { return; }
 
     SDL_GetRelativeMouseState(&deltaX, &deltaY);
+
+    if(keyboardState[SDL_SCANCODE_I] && !m_window->IsCursorHidden())
+    {
+        m_window->HideCursor();
+        deltaX = 0;
+        deltaY = 0;
+    }
+    if((keyboardState[SDL_SCANCODE_O] || keyboardState[SDL_SCANCODE_ESCAPE]) && m_window->IsCursorHidden())
+    {
+        m_window->ShowCursor();
+        deltaX = 0;
+        deltaY = 0;
+    }
+    if(!m_window->IsCursorHidden()) { return; }
 
     if(keyboardState[SDL_SCANCODE_W]) { movementType = KeyboardHandler::Movements::FORWARD; }
     if(keyboardState[SDL_SCANCODE_S])
