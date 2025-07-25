@@ -11,8 +11,6 @@
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_enums.hpp>
 
-// TODO: compute pipeline abstraction
-
 namespace Humongous
 {
 
@@ -41,7 +39,6 @@ Renderer::~Renderer()
         frame.gbuffer.albedo.Destroy(m_logicalDevice);
         frame.gbuffer.normalRough.Destroy(m_logicalDevice);
         frame.gbuffer.materialParam.Destroy(m_logicalDevice);
-        frame.gbuffer.position.Destroy(m_logicalDevice);
         frame.gbuffer.depth.Destroy(m_logicalDevice);
 
         frame.visiblityResultBuffer.reset();
@@ -214,13 +211,12 @@ void Renderer::CreateGBuffer()
         if(m_frames[i].gbuffer.albedo.image != VK_NULL_HANDLE) { m_frames[i].gbuffer.albedo.Destroy(m_logicalDevice); }
         if(m_frames[i].gbuffer.normalRough.image != VK_NULL_HANDLE) { m_frames[i].gbuffer.normalRough.Destroy(m_logicalDevice); }
         if(m_frames[i].gbuffer.materialParam.image != VK_NULL_HANDLE) { m_frames[i].gbuffer.materialParam.Destroy(m_logicalDevice); }
-        if(m_frames[i].gbuffer.position.image != VK_NULL_HANDLE) { m_frames[i].gbuffer.position.Destroy(m_logicalDevice); }
         if(m_frames[i].gbuffer.depth.image != VK_NULL_HANDLE) { m_frames[i].gbuffer.depth.Destroy(m_logicalDevice); }
         if(m_frames[i].hiZImage.image != VK_NULL_HANDLE) { m_frames[i].hiZImage.Destroy(m_logicalDevice); }
 
         imgCI.allocatedImage = &m_frames[i].gbuffer.albedo;
         imgCI.usage = colorUsages;
-        imgCI.format = vk::Format::eR16G16B16A16Sfloat;
+        imgCI.format = vk::Format::eR8G8B8A8Unorm;
         imgCI.aspectFlags = vk::ImageAspectFlagBits::eColor;
         imgCI.initialLayout = vk::ImageLayout::eUndefined;
         imgCI.mipLevels = 1;
@@ -261,19 +257,6 @@ void Renderer::CreateGBuffer()
             trans.imageAspect = vk::ImageAspectFlagBits::eColor;
             Utils::TransitionImageLayout(trans);
             m_frames[i].gbuffer.materialParam.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
-        }
-
-        imgCI.allocatedImage = &m_frames[i].gbuffer.position;
-        Utils::CreateAllocatedImage(imgCI);
-        {
-            Utils::ImageTransitionInfo trans{.logicalDevice = m_logicalDevice};
-            trans.cmd = cmd;
-            trans.image = m_frames[i].gbuffer.position.image;
-            trans.oldLayout = vk::ImageLayout::eUndefined;
-            trans.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
-            trans.imageAspect = vk::ImageAspectFlagBits::eColor;
-            Utils::TransitionImageLayout(trans);
-            m_frames[i].gbuffer.position.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
         }
 
         imgCI.allocatedImage = &m_frames[i].gbuffer.depth;
@@ -377,8 +360,7 @@ void Renderer::CreateLightingPipeline()
     builder.AddBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute, 1);
     builder.AddBinding(2, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute, 1);
     builder.AddBinding(3, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute, 1);
-    builder.AddBinding(4, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute, 1);
-    builder.AddBinding(5, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute, 1);
+    builder.AddBinding(4, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute, 1);
     m_lightingDescriptorLayout = builder.Build();
 
     DescriptorSetLayout::Builder scene{m_logicalDevice};
@@ -664,12 +646,6 @@ void Renderer::PreGeometryPassTransitions(vk::CommandBuffer cmd)
         Utils::TransitionImageLayout(drawInfo);
     }
     {
-        drawInfo.image = currentFrame.gbuffer.position.image;
-        drawInfo.oldLayout = currentFrame.gbuffer.position.imageLayout;
-        currentFrame.gbuffer.position.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
-        Utils::TransitionImageLayout(drawInfo);
-    }
-    {
         drawInfo.image = currentFrame.gbuffer.depth.image;
         drawInfo.oldLayout = currentFrame.gbuffer.depth.imageLayout;
         drawInfo.newLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
@@ -704,12 +680,6 @@ void Renderer::PostGeometryPassTransitions(vk::CommandBuffer cmd)
         drawInfo.image = currentFrame.gbuffer.materialParam.image;
         drawInfo.oldLayout = currentFrame.gbuffer.materialParam.imageLayout;
         currentFrame.gbuffer.materialParam.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        Utils::TransitionImageLayout(drawInfo);
-    }
-    {
-        drawInfo.image = currentFrame.gbuffer.position.image;
-        drawInfo.oldLayout = currentFrame.gbuffer.position.imageLayout;
-        currentFrame.gbuffer.position.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
         Utils::TransitionImageLayout(drawInfo);
     }
     {
@@ -887,11 +857,10 @@ void Renderer::BeginGeometryPass(vk::CommandBuffer cmd)
 
     auto& currentFrame = GetCurrentFrame();
 
-    std::array<vk::RenderingAttachmentInfo, 4> colorAttachments{attach, attach, attach, attach};
+    std::array<vk::RenderingAttachmentInfo, 3> colorAttachments{attach, attach, attach};
     colorAttachments[0].imageView = currentFrame.gbuffer.albedo.imageView;
     colorAttachments[1].imageView = currentFrame.gbuffer.normalRough.imageView;
     colorAttachments[2].imageView = currentFrame.gbuffer.materialParam.imageView;
-    colorAttachments[3].imageView = currentFrame.gbuffer.position.imageView;
 
     vk::RenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = vk::StructureType::eRenderingAttachmentInfo;
@@ -935,7 +904,6 @@ void Renderer::DoLightingPass(vk::CommandBuffer cmd, vk::DescriptorSet camSet, v
     auto  albedoInfo = currentFrame.gbuffer.albedo.GetDescriptorInfo();
     auto  normalInfo = currentFrame.gbuffer.normalRough.GetDescriptorInfo();
     auto  matInfo = currentFrame.gbuffer.materialParam.GetDescriptorInfo();
-    auto  posInfo = currentFrame.gbuffer.position.GetDescriptorInfo();
     auto  depthInfo = currentFrame.gbuffer.depth.GetDescriptorInfo();
     auto  drawInfo = currentFrame.drawImage.GetDescriptorInfo();
 
@@ -943,9 +911,8 @@ void Renderer::DoLightingPass(vk::CommandBuffer cmd, vk::DescriptorSet camSet, v
     writer.WriteImage(0, &albedoInfo)
         .WriteImage(1, &normalInfo)
         .WriteImage(2, &matInfo)
-        .WriteImage(3, &posInfo)
-        .WriteImage(4, &depthInfo)
-        .WriteImage(5, &drawInfo)
+        .WriteImage(3, &depthInfo)
+        .WriteImage(4, &drawInfo)
         .Overwrite(currentFrame.gbuffer.imageSet);
 
     m_lightingPipeline->BindPipeline(cmd);

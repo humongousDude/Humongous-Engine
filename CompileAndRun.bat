@@ -48,7 +48,8 @@ set "EXE_DIR=.\Binaries\App"
         echo Ninja build successful.
         popd
         echo Running application: "%EXE_DIR%\App.exe" %app_args%
-        "%EXE_DIR%\App.exe" %app_args%
+        cd "%EXE_DIR%"
+        "App.exe" %app_args%
     ) else (
         echo Ninja build failed!
         popd

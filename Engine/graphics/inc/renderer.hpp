@@ -34,7 +34,6 @@ private:
         AllocatedImage albedo;
         AllocatedImage normalRough;
         AllocatedImage materialParam;
-        AllocatedImage position;
         AllocatedImage depth;
     };
 

@@ -16,7 +16,6 @@ struct FragmentOutput
     float4 outAlbedo          : SV_Target0; // RGBA: base‐color.rgb, alpha = opacity
     float4 outNormalRoughness : SV_Target1; // RGBA: normal.xyz (0..1), roughness = w
     float4 outMaterialParams  : SV_Target2; // RGBA: emissive.rgb, metallic = a
-    float4 outPosition        : SV_Target3; // World-space position
 };
 
 struct MaterialData {
@@ -136,7 +135,6 @@ FragmentOutput main(FragmentInput input)
     // output.outAlbedo = float4(input.inUV0.xyxy);
     output.outNormalRoughness = float4(n01, roughness);
     output.outMaterialParams = float4(emissiveCol, metallic);
-    output.outPosition = float4(input.inWorldPos, 1.0f);
 
     return output;
 }

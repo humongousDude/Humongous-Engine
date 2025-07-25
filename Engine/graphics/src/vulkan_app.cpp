@@ -137,7 +137,7 @@ void VulkanApp::LoadGameObjects()
     transform->SetScale(1, 1, 1);
 
     f32 start = 0;
-    f32 end = 50;
+    f32 end = 1000;
     f32 step = 2.5;
     f32 border = 15;
     f32 x = start, y = start, z = start;

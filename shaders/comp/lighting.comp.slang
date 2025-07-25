@@ -29,11 +29,10 @@
 [[vk::binding(0, 3)]] Sampler2D gAlbedo;
 [[vk::binding(1, 3)]] Sampler2D gNormalRough;
 [[vk::binding(2, 3)]] Sampler2D gMatParams;
-[[vk::binding(3, 3)]] Sampler2D gPosition;
-[[vk::binding(4, 3)]] Sampler2D gDepth;
-[[vk::binding(5, 3)]] RWTexture2D<float4> drawImage;
+[[vk::binding(3, 3)]] Sampler2D gDepth;
+[[vk::binding(4, 3)]] RWTexture2D<float4> drawImage;
 
-const float PI = 3.14159265359f;
+static const float PI = 3.14159265359f;
 
 float3 ReconstructWorldPos(float2 uv, float depth, uint2 imageDims) 
 {
@@ -118,7 +117,8 @@ void main(uint3 gl_GlobalInvocationID : SV_DispatchThreadID)
                 outColor.rgba = float4(depth, depth, depth, 1.0f);
                 break;
             case 5:
-                outColor.rgba = gPosition.Sample(uv);
+                float3 p = ReconstructWorldPos(uv, depth, imageDims);
+                outColor.rgba = float4(p, 1.0f);
                 break;
         }
         drawImage[pixelCoords] = outColor;
@@ -140,7 +140,7 @@ void main(uint3 gl_GlobalInvocationID : SV_DispatchThreadID)
 
     float3 emissive = mpSample.rgb;
     float metallic = mpSample.a;
-    float3 worldPos = gPosition.Sample(uv).rgb;
+    float3 worldPos = ReconstructWorldPos(uv, depth, imageDims);
     float3 V = normalize(uboParams.camPos - worldPos);
     float3 L = normalize(-uboParams.lightDir.xyz);
     float3 H = normalize(V + L);

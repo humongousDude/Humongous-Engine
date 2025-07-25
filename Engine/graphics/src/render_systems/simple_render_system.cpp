@@ -133,16 +133,14 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 
     configInfo.colorBlendAttachment.blendEnable = false;
 
-    configInfo.colorAttachmentFormat = vk::Format::eR16G16B16A16Sfloat;
+    configInfo.colorAttachmentFormat = vk::Format::eR8G8B8A8Unorm;
 
     configInfo.colorBlendAttachments.clear();
     configInfo.colorBlendAttachments.push_back(configInfo.colorBlendAttachment);
     configInfo.colorBlendAttachments.push_back(configInfo.colorBlendAttachment);
     configInfo.colorBlendAttachments.push_back(configInfo.colorBlendAttachment);
-    configInfo.colorBlendAttachments.push_back(configInfo.colorBlendAttachment);
 
     configInfo.colorAttachmentFormats.clear();
-    configInfo.colorAttachmentFormats.push_back(configInfo.colorAttachmentFormat);
     configInfo.colorAttachmentFormats.push_back(configInfo.colorAttachmentFormat);
     configInfo.colorAttachmentFormats.push_back(configInfo.colorAttachmentFormat);
     configInfo.colorAttachmentFormats.push_back(configInfo.colorAttachmentFormat);
@@ -276,35 +274,25 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const bool& d
         {
             for(const auto& primitive: primitivesInBatch)
             {
-                // Only create a draw call if the primitive has meshlets
                 if(primitive->meshletCount > 0)
                 {
-                    // Store the index of the DrawData for this specific primitive
                     n32 currentDrawDataIndex = static_cast<n32>(drawDataVec.size());
 
-                    // Prepare DrawData (per-primitive uniform/SSBO data)
                     DrawData draw{};
                     draw.materialID = primitive->material->index;
                     draw.localNodeIndex = primitive->owner->index;
                     draw.isSkinned = staticModel->HasSkins();
                     draw.isMorphed = !primitive->morphTargetPositions.empty() || !primitive->morphTargetNormals.empty() ||
                                      !primitive->morphTargetTangents.empty();
-                    draw.instanceOffset = instanceOffset; // Link DrawData to instance batch
+                    draw.instanceOffset = instanceOffset;
                     drawDataVec.push_back(draw);
 
-                    // Collect the dispatch information
-                    meshletDrawCalls.push_back({
-                        currentDrawDataIndex,
-                        primitive->meshletOffset,          // Offset into global meshlets buffer
-                        primitive->meshletCount,           // Number of meshlets to dispatch for this primitive
-                        instanceOffset,                    // Offset into global instanceData buffer
-                        static_cast<n32>(entityIDs.size()) // Number of instances in this batch
-                    });
+                    meshletDrawCalls.push_back({currentDrawDataIndex, primitive->meshletOffset, primitive->meshletCount, instanceOffset,
+                                                static_cast<n32>(entityIDs.size())});
                 }
             }
         }
 
-        // Prepare InstanceData (per-instance uniform/SSBO data)
         for(const auto& entityId: entityIDs)
         {
             const auto modelComp = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entityId);
@@ -317,13 +305,11 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const bool& d
             instance.modelID = currentModelInstance->GetInstanceID();
             instance.globalNodeIndex = ResourceManager::GetModelHandleToMatrixStart(currentModelInstance->GetInstanceID());
 
-            // Ensure these are correctly populated based on your resource manager setup
-            // This logic needs to align with how you populate joint and morph data globally
-            if(staticModel->HasSkins()) // Check the model for skins, not just the last drawDataVec entry
+            if(staticModel->HasSkins())
             {
                 instance.jointMatrixStart = ResourceManager::Get().m_modelHandleToJointStart[currentModelInstance->GetInstanceID()].first;
             }
-            if(staticModel->HasMorphs()) // Check the model for morphs
+            if(staticModel->HasMorphs())
             {
                 instance.morphTargetStart = ResourceManager::Get().m_modelHandleToMorphStart[currentModelInstance->GetInstanceID()].first;
             }
@@ -356,7 +342,6 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const bool& d
 
         // Draw data buffer upload
         {
-            // Init buffer if it's new or needed resize
             drawDataBufferToUse = std::make_unique<Buffer>(
                 m_logicalDevice, drawDataSize, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                 vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw data buffer");
