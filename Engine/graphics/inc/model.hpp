@@ -202,7 +202,8 @@ public:
     Model(const LogicalDevice& device, const std::string& modelPath, f32 scale, const n32& handle);
     ~Model();
 
-    std::vector<n32>& GetIndices() { return m_indices; }
+    std::vector<n32>&    GetIndices() { return m_indices; }
+    std::vector<Vertex>& GetVertices() { return m_vertices; }
 
     struct Dimensions
     {
@@ -229,10 +230,14 @@ public:
     b32 HasAnimations() const { return !m_animations.empty(); }
     b32 HasSkins() const { return !m_skins.empty(); }
 
-    std::vector<Skin*> GetSkins() const { return m_skins; }
-    std::vector<Mesh*> GetMeshes() const { return m_meshes; }
-    std::vector<Node*> GetNodes() const { return m_nodes; }
-    std::vector<Node*> GetLinearNodes() const { return m_linearNodes; }
+    std::vector<Skin*>      GetSkins() const { return m_skins; }
+    std::vector<Mesh*>      GetMeshes() const { return m_meshes; }
+    std::vector<Primitive*> GetPrimitives() const { return m_primitives; }
+    std::vector<Meshlet>    GetMeshlets() const { return m_meshlets; }
+    std::vector<n32>        GetMeshletVertices() const { return m_meshletVertices; }
+    std::vector<n8>         GetMeshletPrimitives() const { return m_meshletPrimitives; }
+    std::vector<Node*>      GetNodes() const { return m_nodes; }
+    std::vector<Node*>      GetLinearNodes() const { return m_linearNodes; }
 
     n32                           GetAnimationCount() const { return m_animations.size(); }
     const std::vector<Animation>& GetAnimations() const { return m_animations; }

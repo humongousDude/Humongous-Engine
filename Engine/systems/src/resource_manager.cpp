@@ -221,7 +221,18 @@ n32 ResourceManager::LoadModel(const std::string& name)
 
     HGINFO("Model %s loaded. Added to map with handle %i. Map size: %zu", name.c_str(), handleToReturn, m_modelMap.size());
 
-    // Node Matricies
+    auto vertices = m->GetVertices();
+    auto indices = m->GetIndices();
+    auto meshes = m->GetMeshes();
+    auto primitives = m->GetPrimitives();
+    auto meshlets = m->GetMeshlets();
+    auto meshletVertices = m->GetMeshletVertices();
+    auto meshletPrimitives = m->GetMeshletPrimitives();
+
+    Internal_AddVerticesToModel(vertices, meshes);
+    Internal_AddIndicesToModel(indices, primitives);
+
+    if(!meshlets.empty()) { Internal_AddMeshletsToModel(meshlets, meshletVertices, meshletPrimitives, handleToReturn); }
 
     m_modelMap.emplace(handleToReturn, std::move(m));
     m_modelNameToHandle.emplace(name, handleToReturn);

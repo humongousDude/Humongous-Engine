@@ -10,6 +10,8 @@
 
 #include "tiny_gltf.h"
 
+// TODO: Rewrite texture/material creation, too convoluted. Model shouldn't depend on ResourceManager.
+
 namespace Humongous
 {
 // Mesh
@@ -119,34 +121,9 @@ void Model::LoadFromFile(std::string filePath, const LogicalDevice& logicalDevic
     HGINFO("Indices: %i", m_indices.size());
 
     CreateMeshlets(loaderInfo);
-
     CalculateRestAABB();
-
-    ResourceManager::AddVerticesToModel(m_vertices, m_meshes);
-    ResourceManager::AddIndicesToModel(m_indices, m_primitives);
-
-    if(!m_meshlets.empty()) { ResourceManager::AddMeshletsToModel(m_meshlets, m_meshletVertices, m_meshletPrimitives, m_handle); }
-
     LoadMaterialData();
 
-    std::vector<Eigen::Matrix4f> jointMatricies;
-    for(const auto& skin: m_skins)
-    {
-        if(skin->jointMatrices.empty()) { continue; }
-
-        jointMatricies.insert(jointMatricies.end(), skin->jointMatrices.begin(), skin->jointMatrices.end());
-    }
-
-    if(!jointMatricies.empty()) { ResourceManager::AddJointMatriciesToModel(jointMatricies, m_handle); }
-    else
-    {
-        jointMatricies.push_back(Eigen::Matrix4f::Identity());
-        ResourceManager::AddJointMatriciesToModel(jointMatricies, m_handle);
-    }
-
-    std::vector<f32> morphTargets;
-    for(const auto& mesh: m_meshes) { morphTargets.insert(morphTargets.begin(), mesh->weights.begin(), mesh->weights.end()); }
-    if(!morphTargets.empty()) { ResourceManager::AddMorphTargetsToModel(morphTargets, m_handle); }
     m_initialized = true;
 }
 
@@ -777,6 +754,17 @@ void Model::LoadTextures(tinygltf::Model& gltfModel, const LogicalDevice& device
 
 void Model::LoadTextureSamplers(tinygltf::Model& gltfModel)
 {
+    if(gltfModel.samplers.size() == 0)
+    {
+        Texture::TexSamplerInfo sampler{};
+        sampler.minFilter = vk::Filter::eLinear;
+        sampler.magFilter = vk::Filter::eLinear;
+        sampler.addressModeU = vk::SamplerAddressMode::eRepeat;
+        sampler.addressModeV = vk::SamplerAddressMode::eRepeat;
+        sampler.addressModeW = sampler.addressModeV;
+        m_textureSamplers.push_back(sampler);
+        return;
+    }
     for(tinygltf::Sampler smpl: gltfModel.samplers)
     {
         Texture::TexSamplerInfo sampler{};
@@ -804,9 +792,19 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         }
         if(gltfMat.values.find("baseColorTexture") != gltfMat.values.end())
         {
-            int texIndex = gltfMat.values.at("baseColorTexture").TextureIndex();
-            mat.baseColorTextureIndex = ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[texIndex].source],
-                                                                        m_textureSamplers[gltfModel.textures[texIndex].sampler]);
+            int  texIndex = gltfMat.values.at("baseColorTexture").TextureIndex();
+            auto samplerIndex = gltfModel.textures[texIndex].sampler;
+
+            if(samplerIndex != -1)
+            {
+                mat.baseColorTextureIndex =
+                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[texIndex].source], m_textureSamplers[samplerIndex]);
+            }
+            else
+            {
+                mat.baseColorTextureIndex =
+                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[texIndex].source], m_textureSamplers[0]);
+            }
         }
 
         if(gltfMat.values.find("metallicFactor") != gltfMat.values.end())
@@ -820,24 +818,54 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         if(gltfMat.values.find("metallicRoughnessTexture") != gltfMat.values.end())
         {
             int mrIndex = gltfMat.values.at("metallicRoughnessTexture").TextureIndex();
-            mat.metallicRoughnessTextureIndex = ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[mrIndex].source],
-                                                                                m_textureSamplers[gltfModel.textures[mrIndex].sampler]);
+            int samplerIndex = gltfModel.textures[mrIndex].sampler;
+
+            if(samplerIndex != -1)
+            {
+                mat.metallicRoughnessTextureIndex =
+                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[mrIndex].source], m_textureSamplers[samplerIndex]);
+            }
+            else
+            {
+                mat.metallicRoughnessTextureIndex =
+                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[mrIndex].source], m_textureSamplers[0]);
+            }
         }
 
         if(gltfMat.additionalValues.find("normalTexture") != gltfMat.additionalValues.end())
         {
             auto& nv = gltfMat.additionalValues.at("normalTexture");
             int   normalIndex = nv.TextureIndex();
-            mat.normalTextureIndex = ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[normalIndex].source],
-                                                                     m_textureSamplers[gltfModel.textures[normalIndex].sampler]);
+            int   samplerIndex = gltfModel.textures[normalIndex].sampler;
+
+            if(samplerIndex != -1)
+            {
+                mat.normalTextureIndex =
+                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[normalIndex].source], m_textureSamplers[samplerIndex]);
+            }
+            else
+            {
+                mat.normalTextureIndex =
+                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[normalIndex].source], m_textureSamplers[0]);
+            }
         }
 
         if(gltfMat.additionalValues.find("occlusionTexture") != gltfMat.additionalValues.end())
         {
             auto& ov = gltfMat.additionalValues.at("occlusionTexture");
             int   occIndex = ov.TextureIndex();
-            mat.occlusionTextureIndex = ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[occIndex].source],
-                                                                        m_textureSamplers[gltfModel.textures[occIndex].sampler]);
+            int   samplerIndex = gltfModel.textures[occIndex].sampler;
+
+            if(samplerIndex != -1)
+            {
+                mat.occlusionTextureIndex =
+                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[occIndex].source], m_textureSamplers[samplerIndex]);
+            }
+            else
+            {
+                mat.occlusionTextureIndex =
+                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[occIndex].source], m_textureSamplers[0]);
+            }
         }
 
         if(gltfMat.additionalValues.find("emissiveFactor") != gltfMat.additionalValues.end())
@@ -849,9 +877,17 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
         {
             auto& ev = gltfMat.additionalValues.at("emissiveTexture");
             int   emIndex = ev.TextureIndex();
-
-            mat.emissiveTextureIndex = ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[emIndex].source],
-                                                                       m_textureSamplers[gltfModel.textures[emIndex].sampler]);
+            int   samplerIndex = gltfModel.textures[emIndex].sampler;
+            if(samplerIndex != -1)
+            {
+                mat.emissiveTextureIndex =
+                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[emIndex].source], m_textureSamplers[samplerIndex]);
+            }
+            else
+            {
+                mat.emissiveTextureIndex =
+                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[emIndex].source], m_textureSamplers[0]);
+            }
         }
         if(gltfMat.extensions.find("KHR_materials_emissive_strength") != gltfMat.extensions.end())
         {

@@ -110,31 +110,31 @@ void VulkanApp::LoadGameObjects()
     transform->SetTranslation(0, 0, 10);
     world->GetComponent<NameComponent>(house)->name = name + std::to_string(house);
 
-    // auto helmet = world->CreateEntity();
-    // world->AddComponent<BoundingBox>(helmet);
-    // world->AddComponent<ModelComponent>(helmet);
-    // comp = world->GetComponent<ModelComponent>(helmet);
-    // comp->instance = ResourceManager::RequestModel("buster_drone");
-    // world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-    // name = comp->instance->GetModel()->GetName();
-    // world->GetComponent<NameComponent>(helmet)->name = name + std::to_string(helmet);
+    auto helmet = world->CreateEntity();
+    world->AddComponent<BoundingBox>(helmet);
+    world->AddComponent<ModelComponent>(helmet);
+    comp = world->GetComponent<ModelComponent>(helmet);
+    comp->instance = ResourceManager::RequestModel("buster_drone");
+    world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    name = comp->instance->GetModel()->GetName();
+    world->GetComponent<NameComponent>(helmet)->name = name + std::to_string(helmet);
+
+    transform = world->GetComponent<TransformComponent>(helmet);
+    transform->SetTranslation(5, 0, 10);
+    transform->SetScale(1, 1, 1);
     //
-    // transform = world->GetComponent<TransformComponent>(helmet);
-    // transform->SetTranslation(-10, 10, -20);
-    // transform->SetScale(1, 1, 1);
-    //
-    // auto drone = world->CreateEntity();
-    // world->AddComponent<BoundingBox>(drone);
-    // world->AddComponent<ModelComponent>(drone);
-    // comp = world->GetComponent<ModelComponent>(drone);
-    // comp->instance = ResourceManager::RequestModel("buster_drone");
-    // world->AddComponent<AudioSourceComponent>(drone, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
-    // name = comp->instance->GetModel()->GetName();
-    // world->GetComponent<NameComponent>(drone)->name = name + std::to_string(helmet);
-    //
-    // transform = world->GetComponent<TransformComponent>(drone);
-    // transform->SetTranslation(10, 10, -20);
-    // transform->SetScale(1, 1, 1);
+    auto drone = world->CreateEntity();
+    world->AddComponent<BoundingBox>(drone);
+    world->AddComponent<ModelComponent>(drone);
+    comp = world->GetComponent<ModelComponent>(drone);
+    comp->instance = ResourceManager::RequestModel("CommercialRefrigerator");
+    world->AddComponent<AudioSourceComponent>(drone, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    name = comp->instance->GetModel()->GetName();
+    world->GetComponent<NameComponent>(drone)->name = name + std::to_string(helmet);
+
+    transform = world->GetComponent<TransformComponent>(drone);
+    transform->SetTranslation(10, 10, -20);
+    transform->SetScale(1, 1, 1);
     //
     // f32 start = 0;
     // f32 end = 100;
