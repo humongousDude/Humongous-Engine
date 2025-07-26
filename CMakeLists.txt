@@ -39,6 +39,11 @@ FetchContent_Declare(
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Engine/ThirdParty/meshoptimizer"
 )
 
+FetchContent_Declare(
+    GoogleTest
+    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Engine/ThirdParty/googletest"
+)
+
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 set(SDL_SHARED ON CACHE BOOL "" FORCE) 
 set(SDL_STATIC OFF CACHE BOOL "" FORCE)
@@ -50,7 +55,7 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(LIBTYPE "SHARED" CACHE STRING "" FORCE) 
 set(ALSOFT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
-FetchContent_MakeAvailable(SDL3 spdlog OpenAL32 Sndfile eigen meshoptimizer)
+FetchContent_MakeAvailable(SDL3 spdlog OpenAL32 Sndfile eigen meshoptimizer GoogleTest)
 
 add_subdirectory(Engine)
 add_subdirectory(App)

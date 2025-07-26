@@ -107,8 +107,11 @@ void SimpleRenderSystem::CreatePipelineLayout(const std::vector<vk::DescriptorSe
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.setLayoutCount = static_cast<n32>(descriptorSetLayouts.size());
     pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
-    pipelineLayoutInfo.pushConstantRangeCount = 1;
-    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+    if(m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders)
+    {
+        pipelineLayoutInfo.pushConstantRangeCount = 1;
+        pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+    }
 
     if(m_logicalDevice.GetVkDevice().createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_pipelineLayout) != vk::Result::eSuccess)
     {
@@ -155,12 +158,9 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.depthStencilInfo.depthWriteEnable = false;
     configInfo.depthStencilInfo.stencilTestEnable = true;
 
-    configInfo.useMeshShaders = true;
+    configInfo.useMeshShaders = false;
     configInfo.meshShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.mesh");
     configInfo.taskShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.task");
-
-    HGINFO("mesh shader path: %s", configInfo.meshShaderPath.c_str());
-    HGINFO("task shader path: %s", configInfo.taskShaderPath.c_str());
 
     vk::StencilOpState stencilState{};
     stencilState.compareOp = vk::CompareOp::eAlways;
@@ -176,8 +176,7 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 
     HGINFO("Created geometry pipeline, now creating depth pipeline...");
 
-    ShaderSet depthSet{Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "depth.vert"),
-                       Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "nothing.frag")};
+    ShaderSet depthSet{Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert"), ""};
 
     configInfo.vertShaderPath = depthSet.vertShaderPath;
     configInfo.fragShaderPath = depthSet.fragShaderPath;
@@ -202,6 +201,8 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 
     configInfo.depthStencilInfo.front = vk::StencilOpState{};
     configInfo.depthStencilInfo.front = vk::StencilOpState{};
+
+    configInfo.useRasterization = false;
 
     m_depthOnlyPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
     HGINFO("Created depth pipeline");
@@ -430,7 +431,7 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const bool& d
             renderData.commandBuffer.pushConstants(m_pipelineLayout, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 0,
                                                    sizeof(MeshletPushConstants), &pushConstants);
 
-            renderData.commandBuffer.drawMeshTasksEXT(drawCall.meshletCount, 1, 1);
+            // renderData.commandBuffer.drawMeshTasksEXT(drawCall.meshletCount, 1, 1);
         }
     }
 }
@@ -484,8 +485,6 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
                 draw.isMorphed =
                     !primitive->morphTargetPositions.empty() || !primitive->morphTargetNormals.empty() || !primitive->morphTargetTangents.empty();
 
-                draw.isMorphed = false;
-                draw.isSkinned = false;
                 draw.instanceOffset = instanceOffset;
                 drawDataVec.push_back(draw);
             }

@@ -31,3 +31,6 @@
 [submodule "Engine/ThirdParty/meshoptimizer"]
 	path = Engine/ThirdParty/meshoptimizer
 	url = https://github.com/zeux/meshoptimizer
+[submodule "Engine/ThirdParty/googletest"]
+	path = Engine/ThirdParty/googletest
+	url = https://github.com/google/googletest

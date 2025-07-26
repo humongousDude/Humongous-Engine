@@ -150,6 +150,21 @@ public:
         }
     }
 
+    void ModelInstanceUpdateSystem()
+    {
+        for(Humongous::EntityID entity: m_models.GetDense())
+        {
+            ModelInstance* modelInstance = GetComponent<ModelComponent>(entity)->instance.get();
+            modelInstance->Update();
+
+            const n32& modelInstanceID = modelInstance->GetInstanceID();
+            ResourceManager::UpdateNodeMatrices(modelInstance->GetNodeMatrices(), modelInstanceID);
+
+            if(modelInstance->HasJoints()) { ResourceManager::UpdateJointMatrices(modelInstance->GetJointMatrices(), modelInstanceID); }
+            if(modelInstance->HasMorphs()) { ResourceManager::UpdateMorphTargets(modelInstance->GetMorphWeights(), modelInstanceID); }
+        }
+    }
+
     template <typename T> SparseSet<T>& GetComponentStorage();
 
 private:

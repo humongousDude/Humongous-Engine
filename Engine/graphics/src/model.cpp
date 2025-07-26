@@ -174,29 +174,28 @@ void Model::OptimizePrimitive(Primitive* primitive, LoaderInfo& loaderInfo, std:
         meshopt_remapIndexBuffer(remappedIndices.data(), primitiveIndices.data(), primitiveIndices.size(), remap.data());
         meshopt_remapVertexBuffer(remappedVertices.data(), primitiveVertices.data(), primitiveVertices.size(), sizeof(Vertex), remap.data());
 
-        // Do we actually need to remap the morph target positions?
-        // primitive->morphTargetPositions.resize(morphTargetPositionsOriginal.size());
-        // primitive->morphTargetNormals.resize(morphTargetNormalsOriginal.size());
-        // primitive->morphTargetTangents.resize(morphTargetTangentsOriginal.size());
+        std::vector<std::vector<Eigen::Vector3f>> morphTargetPositionsOriginal = primitive->morphTargetPositions;
+        std::vector<std::vector<Eigen::Vector3f>> morphTargetNormalsOriginal = primitive->morphTargetNormals;
+        std::vector<std::vector<Eigen::Vector4f>> morphTargetTangentsOriginal = primitive->morphTargetTangents;
 
-        // for(size_t targetIdx = 0; targetIdx < morphTargetPositionsOriginal.size(); ++targetIdx)
-        // {
-        //     primitive->morphTargetPositions[targetIdx].resize(uniqueVertexCount);
-        //     meshopt_remapVertexBuffer(primitive->morphTargetPositions[targetIdx].data(), morphTargetPositionsOriginal[targetIdx].data(),
-        //                               morphTargetPositionsOriginal[targetIdx].size(), sizeof(Eigen::Vector3f), remap.data());
-        // }
-        // for(size_t targetIdx = 0; targetIdx < morphTargetNormalsOriginal.size(); ++targetIdx)
-        // {
-        //     primitive->morphTargetNormals[targetIdx].resize(uniqueVertexCount);
-        //     meshopt_remapVertexBuffer(primitive->morphTargetNormals[targetIdx].data(), morphTargetNormalsOriginal[targetIdx].data(),
-        //                               morphTargetNormalsOriginal[targetIdx].size(), sizeof(Eigen::Vector3f), remap.data());
-        // }
-        // for(size_t targetIdx = 0; targetIdx < morphTargetTangentsOriginal.size(); ++targetIdx)
-        // {
-        //     primitive->morphTargetTangents[targetIdx].resize(uniqueVertexCount);
-        //     meshopt_remapVertexBuffer(primitive->morphTargetTangents[targetIdx].data(), morphTargetTangentsOriginal[targetIdx].data(),
-        //                               morphTargetTangentsOriginal[targetIdx].size(), sizeof(Eigen::Vector4f), remap.data());
-        // }
+        for(size_t targetIdx = 0; targetIdx < morphTargetPositionsOriginal.size(); ++targetIdx)
+        {
+            primitive->morphTargetPositions[targetIdx].resize(uniqueVertexCount);
+            meshopt_remapVertexBuffer(primitive->morphTargetPositions[targetIdx].data(), morphTargetPositionsOriginal[targetIdx].data(),
+                                      morphTargetPositionsOriginal[targetIdx].size(), sizeof(Eigen::Vector3f), remap.data());
+        }
+        for(size_t targetIdx = 0; targetIdx < morphTargetNormalsOriginal.size(); ++targetIdx)
+        {
+            primitive->morphTargetNormals[targetIdx].resize(uniqueVertexCount);
+            meshopt_remapVertexBuffer(primitive->morphTargetNormals[targetIdx].data(), morphTargetNormalsOriginal[targetIdx].data(),
+                                      morphTargetNormalsOriginal[targetIdx].size(), sizeof(Eigen::Vector3f), remap.data());
+        }
+        for(size_t targetIdx = 0; targetIdx < morphTargetTangentsOriginal.size(); ++targetIdx)
+        {
+            primitive->morphTargetTangents[targetIdx].resize(uniqueVertexCount);
+            meshopt_remapVertexBuffer(primitive->morphTargetTangents[targetIdx].data(), morphTargetTangentsOriginal[targetIdx].data(),
+                                      morphTargetTangentsOriginal[targetIdx].size(), sizeof(Eigen::Vector4f), remap.data());
+        }
 
         meshopt_optimizeVertexCache(remappedIndices.data(), remappedIndices.data(), remappedIndices.size(), uniqueVertexCount);
 
@@ -210,6 +209,9 @@ void Model::OptimizePrimitive(Primitive* primitive, LoaderInfo& loaderInfo, std:
         primitive->vertexCount = static_cast<n32>(remappedVertices.size());
         primitive->localFirstIndex = static_cast<n32>(loaderInfo.indexBuffer.size());
         primitive->indexCount = static_cast<n32>(remappedIndices.size());
+        primitive->morphTargetPositions = std::move(morphTargetPositionsOriginal);
+        primitive->morphTargetNormals = std::move(morphTargetNormalsOriginal);
+        primitive->morphTargetTangents = std::move(morphTargetTangentsOriginal);
 
         loaderInfo.vertexBuffer.insert(loaderInfo.vertexBuffer.end(), remappedVertices.begin(), remappedVertices.end());
         loaderInfo.indexBuffer.insert(loaderInfo.indexBuffer.end(), remappedIndices.begin(), remappedIndices.end());
@@ -223,11 +225,6 @@ void Model::OptimizePrimitive(Primitive* primitive, LoaderInfo& loaderInfo, std:
 
         loaderInfo.vertexBuffer.insert(loaderInfo.vertexBuffer.end(), primitiveVertices.begin(), primitiveVertices.end());
         loaderInfo.indexBuffer.insert(loaderInfo.indexBuffer.end(), primitiveIndices.begin(), primitiveIndices.end());
-
-        // Same as above, do we need to remap the morph target positions?
-        // primitive->morphTargetPositions = std::move(morphTargetPositionsOriginal);
-        // primitive->morphTargetNormals = std::move(morphTargetNormalsOriginal);
-        // primitive->morphTargetTangents = std::move(morphTargetTangentsOriginal);
     }
 }
 
@@ -255,7 +252,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
 
         newNode->CalculateLocalMatrix();
     }
-
     Eigen::Matrix4f currentWorldTransform = parentTransform * newNode->localMatrix;
     newNode->localToModelMatrix = currentWorldTransform;
 
@@ -564,6 +560,9 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             newPrimitive->id = newMesh->primitives.size();
             newPrimitive->globalWeightOffset = m_morphTargets.size();
             newPrimitive->hasIndices = hasIndices;
+            newPrimitive->morphTargetPositions = std::move(morphTargetPositionsOriginal);
+            newPrimitive->morphTargetNormals = std::move(morphTargetNormalsOriginal);
+            newPrimitive->morphTargetTangents = std::move(morphTargetTangentsOriginal);
 
             OptimizePrimitive(newPrimitive, loaderInfo, currentPrimitiveVertices, currentPrimitiveIndices);
 
@@ -1151,10 +1150,10 @@ Eigen::Vector4f Model::Model::AnimationSampler::CubicSplineInterpolation(size_t 
     Eigen::Vector4f pt = Eigen::Vector4f::Zero();
     for(n32 i = 0; i < stride; i++)
     {
-        f32 p0 = outputs[current + i + V];         // starting point at t = 0
-        f32 m0 = delta * outputs[current + i + A]; // scaled starting tangent at t = 0
-        f32 p1 = outputs[next + i + V];            // ending point at t = 1
-        f32 m1 = delta * outputs[next + i + B];    // scaled ending tangent at t = 1
+        f32 p0 = outputs[current + i + V];
+        f32 m0 = delta * outputs[current + i + A];
+        f32 p1 = outputs[next + i + V];
+        f32 m1 = delta * outputs[next + i + B];
         pt[i] = ((2.f * t3 - 3.f * t2 + 1.f) * p0) + ((t3 - 2.f * t2 + t) * m0) + ((-2.f * t3 + 3.f * t2) * p1) + ((t3 - t2) * m1);
     }
     return pt;
@@ -1164,7 +1163,7 @@ void Model::AnimationSampler::ApplyTranslation(size_t index, f32 time, std::vect
 {
     if(inputs.size() == 1)
     {
-        translations[targetNodeIndex] = outputsVec4[0].head<3>(); // Take X, Y, Z from Vector4f
+        translations[targetNodeIndex] = outputsVec4[0].head<3>();
         return;
     }
 
@@ -1176,13 +1175,9 @@ void Model::AnimationSampler::ApplyTranslation(size_t index, f32 time, std::vect
                 f32                 timeSpan = inputs[index + 1] - inputs[index];
                 constexpr const f32 EPSILON = std::numeric_limits<f32>::epsilon();
 
-                if(timeSpan < EPSILON)
-                { // Check for near-zero time span
-                    u = 0.0f;
-                }
+                if(timeSpan < EPSILON) { u = 0.0f; }
                 else { u = std::max(0.0f, time - inputs[index]) / timeSpan; }
 
-                // Eigen equivalent of glm::mix(a, b, u) for vectors: a * (1.0f - u) + b * u
                 translations[targetNodeIndex] = (outputsVec4[index] * (1.0f - u) + outputsVec4[index + 1] * u).head<3>();
                 break;
             }
@@ -1238,11 +1233,8 @@ void Model::AnimationSampler::ApplyRotation(size_t index, f32 time, std::vector<
 {
     if(inputs.size() == 1)
     {
-        // Direct construction from components, assuming outputsVec4 stores (x, y, z, w)
-        // Eigen::Quaternionf has a constructor from (w, x, y, z) or directly from Matrix3f
-        // If outputsVec4 stores (x,y,z,w), then:
         rotations[targetNodeIndex] = Eigen::Quaternionf(outputsVec4[0].w(), outputsVec4[0].x(), outputsVec4[0].y(), outputsVec4[0].z());
-        rotations[targetNodeIndex].normalize(); // Always normalize quaternions after construction/interpolation
+        rotations[targetNodeIndex].normalize();
         return;
     }
 
@@ -1252,16 +1244,11 @@ void Model::AnimationSampler::ApplyRotation(size_t index, f32 time, std::vector<
             {
                 f32 u = std::max(0.0f, time - inputs[index]) / (inputs[index + 1] - inputs[index]);
 
-                // Construct Eigen quaternions from outputsVec4 elements
-                // Assuming outputsVec4 stores (x,y,z,w) order
                 Eigen::Quaternionf q1(outputsVec4[index].w(), outputsVec4[index].x(), outputsVec4[index].y(), outputsVec4[index].z());
                 Eigen::Quaternionf q2(outputsVec4[index + 1].w(), outputsVec4[index + 1].x(), outputsVec4[index + 1].y(),
                                       outputsVec4[index + 1].z());
 
-                // glm::slerp(q1, q2, u) -> Eigen::Quaternionf::slerp(q1, q2, u)
-                // glm::normalize(...) -> Eigen::Quaternionf::normalized()
-                rotations[targetNodeIndex] = q1.slerp(u, q2).normalized(); // slerp returns normalized if inputs are normalized
-                                                                           // but calling .normalized() explicitly is good practice.
+                rotations[targetNodeIndex] = q1.slerp(u, q2).normalized();
                 break;
             }
         case Model::AnimationSampler::InterpolationType::STEP:
@@ -1272,7 +1259,6 @@ void Model::AnimationSampler::ApplyRotation(size_t index, f32 time, std::vector<
             }
         case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
             {
-                // Assuming CubicSplineInterpolation returns a Vector4f for rotation (x,y,z,w)
                 Eigen::Vector4f    rot_vec = CubicSplineInterpolation(index, time, 4);
                 Eigen::Quaternionf q(rot_vec.w(), rot_vec.x(), rot_vec.y(), rot_vec.z());
                 rotations[targetNodeIndex] = q.normalized();
@@ -1284,7 +1270,8 @@ void Model::AnimationSampler::ApplyRotation(size_t index, f32 time, std::vector<
 void Model::AnimationSampler::ApplyMorph(size_t index, f32 time, const Primitive& targetPrimitive, std::vector<float>& instanceWeights) const
 {
     if(targetPrimitive.morphTargetPositions.empty())
-    { // Use .empty() for vector size check
+    {
+        HGWARN("Morph target positions empty");
         return;
     }
 
@@ -1292,11 +1279,8 @@ void Model::AnimationSampler::ApplyMorph(size_t index, f32 time, const Primitive
 
     if(inputs.size() == 1)
     {
-        // Using outputsVec4[0].size() is more robust for checking components if Vector4f is not fixed-size
-        // but for Eigen::Vector4f, .size() is always 4.
-        // Using `std::min` with `4` for a fixed `Vector4f` is safe.
-        size_t actual_outputs_count = std::min((size_t)outputsVec4[0].size(), numMorphTargets);
-        for(size_t k = 0; k < actual_outputs_count; ++k) { instanceWeights[targetPrimitive.globalWeightOffset + k] = outputsVec4[0][k]; }
+        size_t actualOutputsGroup = std::min((size_t)outputsVec4[0].size(), numMorphTargets);
+        for(size_t k = 0; k < actualOutputsGroup; ++k) { instanceWeights[targetPrimitive.globalWeightOffset + k] = outputsVec4[0][k]; }
         return;
     }
 
@@ -1306,17 +1290,13 @@ void Model::AnimationSampler::ApplyMorph(size_t index, f32 time, const Primitive
             {
                 f32       timeSpan = inputs[index + 1] - inputs[index];
                 f32       u = 0.0f;
-                const f32 EPSILON = std::numeric_limits<f32>::epsilon(); // Re-use epsilon
+                const f32 EPSILON = std::numeric_limits<f32>::epsilon();
 
-                if(timeSpan > EPSILON)
-                { // Check for non-zero time span
-                    u = std::max(0.0f, time - inputs[index]) / timeSpan;
-                }
+                if(timeSpan > EPSILON) { u = std::max(0.0f, time - inputs[index]) / timeSpan; }
 
-                size_t actual_outputs_count = std::min({(size_t)outputsVec4[index].size(), (size_t)outputsVec4[index + 1].size(), numMorphTargets});
-                for(size_t k = 0; k < actual_outputs_count; ++k)
+                size_t actualOutputsCount = std::min({(size_t)outputsVec4[index].size(), (size_t)outputsVec4[index + 1].size(), numMorphTargets});
+                for(size_t k = 0; k < actualOutputsCount; ++k)
                 {
-                    // Eigen equivalent of glm::mix(a, b, u) for scalars: a * (1.0f - u) + b * u
                     instanceWeights[targetPrimitive.globalWeightOffset + k] = outputsVec4[index][k] * (1.0f - u) + outputsVec4[index + 1][k] * u;
                 }
                 break;
@@ -1332,12 +1312,7 @@ void Model::AnimationSampler::ApplyMorph(size_t index, f32 time, const Primitive
             }
         case Model::AnimationSampler::InterpolationType::CUBICSPLINE:
             {
-                // Assuming CubicSplineInterpolation returns a VectorXf or Vector4f
-                // The `(int)numMorphTargets` argument to `CubicSplineInterpolation` suggests
-                // it might return a vector of variable size (Eigen::VectorXf).
-                // If it always returns Vector4f, this needs `head<numMorphTargets>` or similar.
-                Eigen::VectorXf interpolatedWeights; // Use VectorXf if numMorphTargets can be > 4
-                // Assuming CubicSplineInterpolation knows how many components to return.
+                Eigen::VectorXf interpolatedWeights;
                 interpolatedWeights = CubicSplineInterpolation(index, time, (int)numMorphTargets);
 
                 size_t actual_outputs_count = std::min((size_t)interpolatedWeights.size(), numMorphTargets);

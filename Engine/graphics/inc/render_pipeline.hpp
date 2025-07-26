@@ -14,12 +14,14 @@ public:
     struct PipelineConfigInfo
     {
         std::string vertShaderPath;
-        std::string fragShaderPath;
         b32         bindless;
 
         b32         useMeshShaders{false};
         std::string meshShaderPath;
         std::string taskShaderPath;
+
+        b32         useRasterization{true};
+        std::string fragShaderPath;
 
         std::vector<vk::VertexInputBindingDescription>   inputBindings;
         std::vector<vk::VertexInputAttributeDescription> attribBindings;

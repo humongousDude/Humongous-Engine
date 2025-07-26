@@ -71,13 +71,16 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
         shaderStages.push_back(vertShaderStageInfo);
     }
 
-    auto fragCode = ReadFile(configInfo.fragShaderPath);
-    CreateShaderModule(fragCode, &fragShaderModule);
-    vk::PipelineShaderStageCreateInfo fragShaderStageInfo{};
-    fragShaderStageInfo.stage = vk::ShaderStageFlagBits::eFragment;
-    fragShaderStageInfo.module = fragShaderModule;
-    fragShaderStageInfo.pName = "main";
-    shaderStages.push_back(fragShaderStageInfo);
+    if(configInfo.useRasterization)
+    {
+        auto fragCode = ReadFile(configInfo.fragShaderPath);
+        CreateShaderModule(fragCode, &fragShaderModule);
+        vk::PipelineShaderStageCreateInfo fragShaderStageInfo{};
+        fragShaderStageInfo.stage = vk::ShaderStageFlagBits::eFragment;
+        fragShaderStageInfo.module = fragShaderModule;
+        fragShaderStageInfo.pName = "main";
+        shaderStages.push_back(fragShaderStageInfo);
+    }
 
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
     if(!useMeshShaders)
@@ -161,9 +164,10 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
     using namespace Systems;
     using namespace vk;
 
-    PipelineConfigInfo configInfo{.vertShaderPath = AssetManager::GetAsset(AssetManager::AssetType::SHADER, "simple.vert"),
-                                  .fragShaderPath = AssetManager::GetAsset(AssetManager::AssetType::SHADER, "pbr.frag"),
-                                  .bindless = true};
+    PipelineConfigInfo configInfo{};
+    configInfo.vertShaderPath = AssetManager::GetAsset(AssetManager::AssetType::SHADER, "simple.vert"),
+    configInfo.fragShaderPath = AssetManager::GetAsset(AssetManager::AssetType::SHADER, "pbr.frag");
+    configInfo.bindless = true;
 
     configInfo.inputAssemblyInfo.topology = PrimitiveTopology::eTriangleList;
     configInfo.inputAssemblyInfo.primitiveRestartEnable = false;

@@ -268,7 +268,7 @@ bool PhysicalDevice::CheckDeviceExtensionSupport(vk::PhysicalDevice physicalDevi
     // std::set<std::string> requiredExtensions(D.begin(), deviceExtensions.end());
 
     HGDEBUG("%d extensions avablialbi", extensionCount);
-
+    return 1;
     // for(const auto& extension: availableExtensions) { requiredExtensions.erase(extension.extensionName); }
     //
     // for(const auto& extension: requiredExtensions) { HGINFO("Missing extension: %s", extension.c_str()); }

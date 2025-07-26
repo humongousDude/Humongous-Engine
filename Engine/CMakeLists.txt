@@ -230,6 +230,8 @@ target_include_directories(Engine PUBLIC
     ThirdParty/imgui/backends
     ThirdParty/eigen/Eigen
     ThirdParty/meshoptimizer/src
+    ThirdParty/googletest/googletest/include
+    ThirdParty/googletest/googlemock/include
 )
 
 find_package(Vulkan REQUIRED)
@@ -242,6 +244,8 @@ target_link_libraries(Engine PUBLIC
     Vulkan::Vulkan
     Eigen3::Eigen
     meshoptimizer
+    gtest
+    gmock
 )
 
 if(WIN32)

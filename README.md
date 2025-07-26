@@ -15,6 +15,7 @@ Project is compiled with the latest G++ compiler, and I don't plan on targeting 
 * [OpenAL](https://github.com/kcat/openal-soft)
 * [libsndfile](https://github.com/libsndfile/libsndfile)
 * [MeshOptimizer](https://github.com/zeux/meshoptimizer)
+* [GoogleTest](https://github.com/google/googletest)
 
 
 ## Building

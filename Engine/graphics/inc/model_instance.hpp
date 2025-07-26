@@ -51,6 +51,11 @@ public:
     f32                                  GetAnimationTime() const { return m_animationTime; }
     const std::vector<Model::Animation>& GetAnimations() const { return m_model->GetAnimations(); }
     b32                                  HasMorphs() const { return m_hasMorphTargets; }
+    b32                                  HasJoints() const { return !m_jointMatrices.empty(); }
+
+    const std::vector<Eigen::Matrix4f>& GetNodeMatrices() const { return m_globalNodeMatrices; }
+    const std::vector<Eigen::Matrix4f>& GetJointMatrices() const { return m_jointMatrices; }
+    const std::vector<f32>&             GetMorphWeights() const { return m_morphWeights; }
 
     f32 GetMorph(const n32& index) const { return m_morphWeights[index]; }
     n32 GetMorphCount() const { return m_morphWeights.size(); }

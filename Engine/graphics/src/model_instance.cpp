@@ -23,43 +23,22 @@ ModelInstance::ModelInstance(std::shared_ptr<Model> model, const n32& instanceID
         m_nodeTranslations[i] = nodeBlueprint->translation;
         m_nodeRotations[i] = nodeBlueprint->rotation;
         m_nodeScales[i] = nodeBlueprint->scale;
-        m_nodeIsMatrixSpecified[i] = nodeBlueprint->isMatrixSpecified; // Store the flag
+        m_nodeIsMatrixSpecified[i] = nodeBlueprint->isMatrixSpecified;
 
         m_localNodeMatrices[i] = nodeBlueprint->localMatrix;
     }
 
-    if(!m_model->GetSkins().empty()) { m_jointMatrices.resize(m_model->GetJointMatrices().size()); }
-
-    if(m_model->HasMorphs()) { m_morphWeights.resize(m_model->GetMorphTargets().size()); }
-
-    std::vector<Eigen::Matrix4f> jointMatricies = model->GetJointMatrices();
-    if(!jointMatricies.empty()) { ResourceManager::AddJointMatriciesToModel(jointMatricies, m_instanceID); }
-    else
+    if(!m_model->GetJointMatrices().empty()) { m_jointMatrices.resize(model->GetJointMatrices().size()); }
+    else { m_jointMatrices.push_back(Eigen::Matrix4f::Identity()); }
+    if(m_model->HasMorphs())
     {
-        jointMatricies.push_back(Eigen::Matrix4f::Identity());
-        ResourceManager::AddJointMatriciesToModel(jointMatricies, m_instanceID);
+        m_morphWeights.resize(model->GetMorphTargets().size());
+        m_hasMorphTargets = true;
     }
-
-    std::vector<f32> morphTargets = model->GetMorphTargets();
-    if(!morphTargets.empty()) { ResourceManager::AddMorphTargetsToModel(morphTargets, m_instanceID); }
 
     UpdateTransforms();
     UpdateSkins();
     UpdateAnimatedAABB();
-
-    ResourceManager::UpdateNodeMatrices(m_globalNodeMatrices, m_instanceID);
-
-    if(!m_jointMatrices.empty()) { ResourceManager::UpdateJointMatrices(m_jointMatrices, m_instanceID); }
-    else
-    {
-        m_jointMatrices.push_back(Eigen::Matrix4f::Identity());
-        ResourceManager::UpdateJointMatrices(m_jointMatrices, m_instanceID);
-    }
-
-    if(m_model->HasMorphs())
-    {
-        if(!m_morphWeights.empty()) { ResourceManager::UpdateMorphTargets(m_morphWeights, m_instanceID); }
-    }
 
     HGINFO("Created a new model instance");
 }
@@ -160,9 +139,17 @@ void ModelInstance::UpdateAnimation()
                 break;
             case Model::AnimationChannel::PathType::WEIGHTS:
                 auto node = m_model->NodeFromIndex(channel.node->index);
-                if(!node) { continue; }
+                if(!node)
+                {
+                    HGWARN("Node %i not found", channel.node->index);
+                    continue;
+                }
                 const auto& targetPrimitive = node->mesh->primitives;
-                if(targetPrimitive.empty()) { continue; }
+                if(targetPrimitive.empty())
+                {
+                    HGWARN("No primitives found for node %i", channel.node->index);
+                    continue;
+                }
 
                 for(auto& prim: targetPrimitive) { sampler.ApplyMorph(index, m_animationTime, *prim, m_morphWeights); }
                 break;
@@ -217,20 +204,6 @@ void ModelInstance::Update()
     UpdateTransforms();
     UpdateSkins();
     UpdateAnimatedAABB();
-
-    ResourceManager::UpdateNodeMatrices(m_globalNodeMatrices, m_instanceID);
-
-    if(!m_jointMatrices.empty()) { ResourceManager::UpdateJointMatrices(m_jointMatrices, m_instanceID); }
-    else
-    {
-        m_jointMatrices.push_back(Eigen::Matrix4f::Identity());
-        ResourceManager::UpdateJointMatrices(m_jointMatrices, m_instanceID);
-    }
-
-    if(m_model->HasMorphs())
-    {
-        if(!m_morphWeights.empty()) { ResourceManager::UpdateMorphTargets(m_morphWeights, m_instanceID); }
-    }
 }
 
 } // namespace Humongous
