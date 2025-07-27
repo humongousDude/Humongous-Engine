@@ -14,9 +14,9 @@
 namespace Humongous
 {
 
-Renderer::Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator, vk::Format drawFormat,
-                   vk::Format depthFormat)
-    : m_window{window}, m_logicalDevice{logicalDevice}, m_physicalDevice{physicalDevice}, m_allocator{allocator}
+Renderer::Renderer(Window& window, const LogicalDevice& logicalDevice, const PhysicalDevice& physicalDevice, ResourceManager& resourceManager,
+                   VmaAllocator allocator, vk::Format drawFormat, vk::Format depthFormat)
+    : m_window{window}, m_logicalDevice{logicalDevice}, m_resourceManager{resourceManager}, m_physicalDevice{physicalDevice}, m_allocator{allocator}
 {
     CreateCommandPool();
     CreateCommandBuffers();
@@ -374,7 +374,7 @@ void Renderer::CreateLightingPipeline()
     std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;
     descriptorSetLayouts.push_back(camlayout->GetDescriptorSetLayout());
     descriptorSetLayouts.push_back(layout->GetDescriptorSetLayout());
-    descriptorSetLayouts.push_back(ResourceManager::GetSkyboxCompDescriptorLayout());
+    descriptorSetLayouts.push_back(m_resourceManager.GetSkyboxCompDescriptorLayout());
     descriptorSetLayouts.push_back(m_lightingDescriptorLayout->GetDescriptorSetLayout());
 
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};

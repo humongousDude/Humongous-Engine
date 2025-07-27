@@ -46,6 +46,7 @@ private:
     std::unique_ptr<SimpleRenderSystem> m_simpleRenderSystem;
     std::unique_ptr<SkyboxRenderSystem> m_skyboxRenderSystem;
     std::unique_ptr<Camera>             m_cam;
+    std::unique_ptr<ResourceManager>    m_resourceManager;
 
     void Init(int argc, char* argv[]);
     void LoadGameObjects();

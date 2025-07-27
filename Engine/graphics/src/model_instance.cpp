@@ -5,7 +5,8 @@
 namespace Humongous
 {
 
-ModelInstance::ModelInstance(std::shared_ptr<Model> model, const n32& instanceID) : m_model(model), m_instanceID(instanceID)
+ModelInstance::ModelInstance(std::shared_ptr<Model> model, ResourceManager& resourceManager, const n32& instanceID)
+    : m_model(model), m_resourceManager(resourceManager), m_instanceID(instanceID)
 {
     HGINFO("Creating new model instance...");
     const n32 nodeCount = m_model->GetLinearNodes().size();
@@ -45,9 +46,9 @@ ModelInstance::ModelInstance(std::shared_ptr<Model> model, const n32& instanceID
 
 ModelInstance::~ModelInstance() {}
 
-n32 ModelInstance::GetNodeMatrixOffset() const { return ResourceManager::GetModelHandleToMatrixStart(m_instanceID); }
-n32 ModelInstance::GetJointMatrixOffset() const { return ResourceManager::Get().m_modelHandleToJointStart[m_instanceID].first; }
-n32 ModelInstance::GetMorphTargetOffset() const { return ResourceManager::Get().m_modelHandleToMorphStart[m_instanceID].first; }
+n32 ModelInstance::GetNodeMatrixOffset() const { return m_resourceManager.GetModelHandleToMatrixStart(m_instanceID); }
+n32 ModelInstance::GetJointMatrixOffset() const { return m_resourceManager.m_modelHandleToJointStart[m_instanceID].first; }
+n32 ModelInstance::GetMorphTargetOffset() const { return m_resourceManager.m_modelHandleToMorphStart[m_instanceID].first; }
 
 // FIXME: This way of calculating the AABB is very loose, and should be improved.
 void ModelInstance::UpdateAnimatedAABB()

@@ -7,7 +7,7 @@ namespace Humongous
 class ModelInstance
 {
 public:
-    ModelInstance(std::shared_ptr<Model> model, const n32& instanceID);
+    ModelInstance(std::shared_ptr<Model> model, class ResourceManager& resourceManager, const n32& instanceID);
     ~ModelInstance();
 
     std::shared_ptr<Model> GetModel() const { return m_model; }
@@ -72,6 +72,7 @@ public:
 
 private:
     std::shared_ptr<Model> m_model;
+    class ResourceManager& m_resourceManager;
 
     std::unordered_map<std::string, n32> m_animNameToIndex;
     std::unordered_map<n32, std::string> m_animIndexToName;

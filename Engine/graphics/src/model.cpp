@@ -22,7 +22,8 @@ Mesh::~Mesh()
     for(Primitive* p: primitives) { delete p; }
 }
 
-Model::Model(const LogicalDevice& device, const std::string& modelPath, f32 scale, const n32& handle) : m_handle(handle), m_logicalDevice(device)
+Model::Model(const LogicalDevice& device, ResourceManager& resourceManager, const std::string& modelPath, f32 scale, const n32& handle)
+    : m_handle(handle), m_logicalDevice(device), m_resourceManager(resourceManager)
 {
     HGINFO("Creating model...");
     LoadFromFile(modelPath, device, device.GetGraphicsQueue(), scale);
@@ -748,7 +749,7 @@ void Model::LoadTextures(tinygltf::Model& gltfModel, const LogicalDevice& device
             textureSampler.addressModeW = vk::SamplerAddressMode::eRepeat;
         }
         else { textureSampler = m_textureSamplers[tex.sampler]; }
-        m_textures.push_back(ResourceManager::RequestTexture(image, textureSampler));
+        m_textures.push_back(m_resourceManager.RequestTexture(image, textureSampler));
     }
 }
 
@@ -798,12 +799,12 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             if(samplerIndex != -1)
             {
                 mat.baseColorTextureIndex =
-                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[texIndex].source], m_textureSamplers[samplerIndex]);
+                    m_resourceManager.RequestTexture(gltfModel.images[gltfModel.textures[texIndex].source], m_textureSamplers[samplerIndex]);
             }
             else
             {
                 mat.baseColorTextureIndex =
-                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[texIndex].source], m_textureSamplers[0]);
+                    m_resourceManager.RequestTexture(gltfModel.images[gltfModel.textures[texIndex].source], m_textureSamplers[0]);
             }
         }
 
@@ -823,12 +824,12 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             if(samplerIndex != -1)
             {
                 mat.metallicRoughnessTextureIndex =
-                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[mrIndex].source], m_textureSamplers[samplerIndex]);
+                    m_resourceManager.RequestTexture(gltfModel.images[gltfModel.textures[mrIndex].source], m_textureSamplers[samplerIndex]);
             }
             else
             {
                 mat.metallicRoughnessTextureIndex =
-                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[mrIndex].source], m_textureSamplers[0]);
+                    m_resourceManager.RequestTexture(gltfModel.images[gltfModel.textures[mrIndex].source], m_textureSamplers[0]);
             }
         }
 
@@ -841,12 +842,12 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             if(samplerIndex != -1)
             {
                 mat.normalTextureIndex =
-                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[normalIndex].source], m_textureSamplers[samplerIndex]);
+                    m_resourceManager.RequestTexture(gltfModel.images[gltfModel.textures[normalIndex].source], m_textureSamplers[samplerIndex]);
             }
             else
             {
                 mat.normalTextureIndex =
-                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[normalIndex].source], m_textureSamplers[0]);
+                    m_resourceManager.RequestTexture(gltfModel.images[gltfModel.textures[normalIndex].source], m_textureSamplers[0]);
             }
         }
 
@@ -859,12 +860,12 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             if(samplerIndex != -1)
             {
                 mat.occlusionTextureIndex =
-                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[occIndex].source], m_textureSamplers[samplerIndex]);
+                    m_resourceManager.RequestTexture(gltfModel.images[gltfModel.textures[occIndex].source], m_textureSamplers[samplerIndex]);
             }
             else
             {
                 mat.occlusionTextureIndex =
-                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[occIndex].source], m_textureSamplers[0]);
+                    m_resourceManager.RequestTexture(gltfModel.images[gltfModel.textures[occIndex].source], m_textureSamplers[0]);
             }
         }
 
@@ -881,12 +882,12 @@ void Model::LoadMaterials(tinygltf::Model& gltfModel)
             if(samplerIndex != -1)
             {
                 mat.emissiveTextureIndex =
-                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[emIndex].source], m_textureSamplers[samplerIndex]);
+                    m_resourceManager.RequestTexture(gltfModel.images[gltfModel.textures[emIndex].source], m_textureSamplers[samplerIndex]);
             }
             else
             {
                 mat.emissiveTextureIndex =
-                    ResourceManager::RequestTexture(gltfModel.images[gltfModel.textures[emIndex].source], m_textureSamplers[0]);
+                    m_resourceManager.RequestTexture(gltfModel.images[gltfModel.textures[emIndex].source], m_textureSamplers[0]);
             }
         }
         if(gltfMat.extensions.find("KHR_materials_emissive_strength") != gltfMat.extensions.end())
@@ -971,7 +972,7 @@ void Model::LoadMaterialData()
                                                             material.extension.specularFactor.z(), 1.0f);
         }
 
-        material.index = ResourceManager::RequestMaterial(shaderMaterial);
+        material.index = m_resourceManager.RequestMaterial(shaderMaterial);
         shaderMaterials.push_back(shaderMaterial);
     }
 }
@@ -1171,7 +1172,7 @@ void Model::LoadAnimations(tinygltf::Model& gltfModel)
 // Cube spline interpolation function used for translate/scale/rotate with cubic spline animation samples
 // Details on how this works can be found in the specs
 // https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#appendix-c-spline-interpolation
-Eigen::Vector4f Model::Model::AnimationSampler::CubicSplineInterpolation(size_t index, f32 time, n32 stride) const
+Eigen::Vector4f Model::AnimationSampler::CubicSplineInterpolation(size_t index, f32 time, n32 stride) const
 {
     f32          delta = inputs[index + 1] - inputs[index];
     f32          t = (time - inputs[index]) / delta;

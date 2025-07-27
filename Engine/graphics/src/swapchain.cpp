@@ -6,7 +6,8 @@
 
 namespace Humongous
 {
-SwapChain::SwapChain(Window& window, PhysicalDevice& physicalDevice, LogicalDevice& logicalDevice, std::shared_ptr<SwapChain> oldSwap)
+SwapChain::SwapChain(const Window& window, const PhysicalDevice& physicalDevice, const LogicalDevice& logicalDevice,
+                     std::shared_ptr<SwapChain> oldSwap)
     : m_logicalDevice(logicalDevice)
 {
     auto old = oldSwap == nullptr ? nullptr : oldSwap->m_swapChain;
@@ -24,7 +25,7 @@ SwapChain::~SwapChain()
     HGINFO("Destroyed SwapChain");
 }
 
-void SwapChain::CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, vk::SwapchainKHR* oldSwap)
+void SwapChain::CreateSwapChain(const Window& window, const PhysicalDevice& physicalDevice, vk::SwapchainKHR* oldSwap)
 {
     HGINFO("Creating SwapChain...");
     PhysicalDevice::SwapChainSupportDetails details = physicalDevice.QuerySwapChainSupport(physicalDevice.GetVkPhysicalDevice());
@@ -175,7 +176,7 @@ vk::PresentModeKHR SwapChain::ChoosePresentMode(const std::vector<vk::PresentMod
     return vk::PresentModeKHR::eFifo;
 }
 
-vk::Extent2D SwapChain::ChooseExtent(const vk::SurfaceCapabilities2KHR& capabilities, Window& window)
+vk::Extent2D SwapChain::ChooseExtent(const vk::SurfaceCapabilities2KHR& capabilities, const Window& window)
 {
     if(capabilities.surfaceCapabilities.currentExtent.width != std::numeric_limits<n32>::max())
     {

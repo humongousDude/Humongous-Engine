@@ -8,9 +8,9 @@
 namespace Humongous
 {
 
-SkyboxRenderSystem::SkyboxRenderSystem(const LogicalDevice& logicalDevice, const std::string& skyboxImgPath,
+SkyboxRenderSystem::SkyboxRenderSystem(const LogicalDevice& logicalDevice, ResourceManager& resourceManager, const std::string& skyboxImgPath,
                                        const std::vector<vk::DescriptorSetLayout>& globalLayouts)
-    : m_logicalDevice{logicalDevice}
+    : m_logicalDevice{logicalDevice}, m_resourceManager{resourceManager}
 {
     HGINFO("Initializing skybox render system...");
     CreatePipelineLayout(globalLayouts);
@@ -30,7 +30,7 @@ void SkyboxRenderSystem::CreatePipelineLayout(const std::vector<vk::DescriptorSe
 
     std::vector<vk::DescriptorSetLayout> layouts;
     layouts.insert(layouts.begin(), globalLayouts.begin(), globalLayouts.end());
-    layouts.push_back(ResourceManager::GetSkyboxDescriptorLayout());
+    layouts.push_back(m_resourceManager.GetSkyboxDescriptorLayout());
 
     vk::PipelineLayoutCreateInfo layoutCI{};
     layoutCI.pSetLayouts = layouts.data();
@@ -70,7 +70,7 @@ void SkyboxRenderSystem::CreatePipeline()
     HGINFO("CREATED SKYBOX PIPELINE");
 }
 
-void SkyboxRenderSystem::InitSkybox(const std::string& skyBoxImgPath) { m_skybox = ResourceManager::LoadSkybox("papermill"); }
+void SkyboxRenderSystem::InitSkybox(const std::string& skyBoxImgPath) { m_skybox = m_resourceManager.LoadSkybox("papermill"); }
 
 void SkyboxRenderSystem::RenderSkybox(const n32& frameIndex, std::vector<vk::DescriptorSet>& globalSets, vk::CommandBuffer cmd)
 {

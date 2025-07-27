@@ -3,24 +3,21 @@
 #include "audio_source.hpp"
 #include "globals.hpp"
 #include "logger.hpp"
-#include "model.hpp"
-#include "model_instance.hpp"
 #include "skybox.hpp"
 #include <AL/al.h>
 
 namespace Humongous
 {
 
-void ResourceManager::Internal_Init(const LogicalDevice& device)
+ResourceManager::ResourceManager(const LogicalDevice& device) : m_logicalDevice(device)
 {
     HGINFO("Initializing Resource manager...");
-    m_logicalDevice = &device;
     InitDescriptors();
     InitializeInitials();
     HGINFO("Resource manager initialized");
 }
 
-void ResourceManager::Internal_Shutdown()
+ResourceManager::~ResourceManager()
 {
     HGINFO("Shutting down resource manager...");
 
@@ -68,25 +65,25 @@ void ResourceManager::InitDescriptors()
     std::vector<vk::DescriptorType> t4 = {vk::DescriptorType::eStorageImage};
 
     m_descriptorPools.imagePool =
-        std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t1);
+        std::make_unique<DescriptorPoolGrowable>(m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t1);
     m_descriptorPools.uniformPool =
-        std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t2);
+        std::make_unique<DescriptorPoolGrowable>(m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t2);
     m_descriptorPools.storageBufferPool =
-        std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t3);
+        std::make_unique<DescriptorPoolGrowable>(m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t3);
     m_descriptorPools.storageImagePool =
-        std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t4);
+        std::make_unique<DescriptorPoolGrowable>(m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t4);
     m_descriptorPools.debugPool =
-        std::make_unique<DescriptorPoolGrowable>(*m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t3);
+        std::make_unique<DescriptorPoolGrowable>(m_logicalDevice, 10, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, t3);
 
     m_bindlessTexturePool = std::make_unique<DescriptorPoolGrowable>(
-        *m_logicalDevice, 32, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet | vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind, t1);
+        m_logicalDevice, 64, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet | vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind, t1);
 
-    b8                      canUseMeshShaders = m_logicalDevice->GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders;
+    b8                      canUseMeshShaders = m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders;
     vk::ShaderStageFlagBits vertexStage = canUseMeshShaders ? vk::ShaderStageFlagBits::eMeshEXT : vk::ShaderStageFlagBits::eVertex;
 
-    DescriptorSetLayout::Builder bindlessBuilder{*m_logicalDevice};
+    DescriptorSetLayout::Builder bindlessBuilder{m_logicalDevice};
     bindlessBuilder
-        .AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 32) // textures
+        .AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 64) // textures
         .AddBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eFragment, 1)         // materials
         .AddBinding(2, vk::DescriptorType::eStorageBuffer, vertexStage, 1)                                // nodes
         .AddBinding(3, vk::DescriptorType::eStorageBuffer, vertexStage, 1)                                // vertices
@@ -105,7 +102,7 @@ void ResourceManager::InitDescriptors()
 
     m_bindlessSet = m_bindlessTexturePool->AllocateDescriptor(m_bindlessLayout->GetDescriptorSetLayout());
 
-    DescriptorSetLayout::Builder nodeBuilder{*m_logicalDevice};
+    DescriptorSetLayout::Builder nodeBuilder{m_logicalDevice};
     nodeBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, vertexStage);
     nodeBuilder.AddBinding(1, vk::DescriptorType::eStorageBuffer, vertexStage);
     m_modelDescriptors.vertices = nodeBuilder.Build();
@@ -113,18 +110,18 @@ void ResourceManager::InitDescriptors()
     m_descriptorPools.storageBufferPool->AllocateDescriptor(m_modelDescriptors.vertices->GetDescriptorSetLayout(),
                                                             m_modelDescriptors.vertexDescriptor);
 
-    DescriptorSetLayout::Builder debugBuilder{*m_logicalDevice};
+    DescriptorSetLayout::Builder debugBuilder{m_logicalDevice};
     debugBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, vertexStage);
     m_modelDescriptors.debugLayout = debugBuilder.Build();
 
-    DescriptorSetLayout::Builder builder{*m_logicalDevice};
+    DescriptorSetLayout::Builder builder{m_logicalDevice};
     builder.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment);
     builder.AddBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment);
     builder.AddBinding(2, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment);
     builder.AddBinding(3, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment);
     m_skyboxLayout = builder.Build();
 
-    DescriptorSetLayout::Builder builder2{*m_logicalDevice};
+    DescriptorSetLayout::Builder builder2{m_logicalDevice};
     builder2.AddBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
     builder2.AddBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
     builder2.AddBinding(2, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
@@ -135,7 +132,7 @@ void ResourceManager::InitDescriptors()
 void ResourceManager::InitializeInitials()
 {
     m_modelNodeMatriciesBuffer =
-        std::make_unique<Buffer>(*m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+        std::make_unique<Buffer>(m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                  vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible, VMA_MEMORY_USAGE_CPU_TO_GPU,
                                  1, "model node matricies buffer");
 
@@ -147,10 +144,10 @@ void ResourceManager::InitializeInitials()
     write.descriptorType = vk::DescriptorType::eStorageBuffer;
     auto info = m_modelNodeMatriciesBuffer->DescriptorInfo();
     write.pBufferInfo = &info;
-    m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+    m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 
     m_modelJointMatriciesBuffer =
-        std::make_unique<Buffer>(*m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+        std::make_unique<Buffer>(m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                  vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "global jointMatricies buffer");
 
     write.dstSet = m_bindlessSet;
@@ -160,10 +157,10 @@ void ResourceManager::InitializeInitials()
     write.descriptorType = vk::DescriptorType::eStorageBuffer;
     info = m_modelJointMatriciesBuffer->DescriptorInfo();
     write.pBufferInfo = &info;
-    m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+    m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 
     m_modelMorphTargetsBuffer =
-        std::make_unique<Buffer>(*m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+        std::make_unique<Buffer>(m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                  vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 1, "global morphTargets buffer");
 
     write.dstSet = m_bindlessSet;
@@ -173,10 +170,10 @@ void ResourceManager::InitializeInitials()
     write.descriptorType = vk::DescriptorType::eStorageBuffer;
     info = m_modelMorphTargetsBuffer->DescriptorInfo();
     write.pBufferInfo = &info;
-    m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+    m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 
-    auto newTex = std::make_unique<Texture>(*m_logicalDevice);
-    newTex->FillWithEmpty(*m_logicalDevice, 512, 512, false);
+    auto newTex = std::make_unique<Texture>(m_logicalDevice);
+    newTex->FillWithEmpty(m_logicalDevice, 512, 512, false);
 
     n32 bindlessIndex = m_nextBindlessIndex++;
 
@@ -196,7 +193,7 @@ void ResourceManager::InitializeInitials()
     write.descriptorType = vk::DescriptorType::eCombinedImageSampler;
     write.pImageInfo = &m_bindlessImageInfos[bindlessIndex];
 
-    m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+    m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 
     std::string key =
         "img_0_emptyifthissomehowcausesacachehitthenimgonnascreamnowaythishappensright?"
@@ -216,7 +213,7 @@ n32 ResourceManager::LoadModel(const std::string& name)
 
     n32 handleToReturn = m_nextModelID++;
 
-    auto m = std::make_shared<Model>(*m_logicalDevice, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, name), 1.0f,
+    auto m = std::make_shared<Model>(m_logicalDevice, *this, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, name), 1.0f,
                                      handleToReturn);
 
     HGINFO("Model %s loaded. Added to map with handle %i. Map size: %zu", name.c_str(), handleToReturn, m_modelMap.size());
@@ -229,10 +226,10 @@ n32 ResourceManager::LoadModel(const std::string& name)
     auto meshletVertices = m->GetMeshletVertices();
     auto meshletPrimitives = m->GetMeshletPrimitives();
 
-    Internal_AddVerticesToModel(vertices, meshes);
-    Internal_AddIndicesToModel(indices, primitives);
+    AddVerticesToModel(vertices, meshes);
+    AddIndicesToModel(indices, primitives);
 
-    if(!meshlets.empty()) { Internal_AddMeshletsToModel(meshlets, meshletVertices, meshletPrimitives, handleToReturn); }
+    if(!meshlets.empty()) { AddMeshletsToModel(meshlets, meshletVertices, meshletPrimitives, handleToReturn); }
 
     m_modelMap.emplace(handleToReturn, std::move(m));
     m_modelNameToHandle.emplace(name, handleToReturn);
@@ -240,10 +237,10 @@ n32 ResourceManager::LoadModel(const std::string& name)
     return handleToReturn;
 }
 
-void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& meshlets, const std::vector<n32>& meshletVertices,
-                                                  const std::vector<n8>& meshletPrimitives, const n32& handle)
+void ResourceManager::AddMeshletsToModel(const std::vector<Meshlet>& meshlets, const std::vector<n32>& meshletVertices,
+                                         const std::vector<n8>& meshletPrimitives, const n32& handle)
 {
-    if(!m_logicalDevice->GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders)
+    if(!m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders)
     {
         HGWARN("Tried to add meshlets to a model, but the device does not support them! Skipping...");
         return;
@@ -260,7 +257,7 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
         if(!m_meshletBuffer || m_meshletBuffer->GetBufferSize() < m_meshlets.size() * sizeof(Meshlet))
         {
             m_meshletBuffer.reset();
-            m_meshletBuffer = std::make_unique<Buffer>(*m_logicalDevice, m_meshlets.size() * sizeof(Meshlet), 1,
+            m_meshletBuffer = std::make_unique<Buffer>(m_logicalDevice, m_meshlets.size() * sizeof(Meshlet), 1,
                                                        vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                                        vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "meshlet buffer");
 
@@ -272,10 +269,10 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
             write.descriptorType = vk::DescriptorType::eStorageBuffer;
             auto info = m_meshletBuffer->DescriptorInfo();
             write.pBufferInfo = &info;
-            m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+            m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
         }
 
-        Buffer stagingBuffer{*m_logicalDevice,
+        Buffer stagingBuffer{m_logicalDevice,
                              m_meshlets.size() * sizeof(Meshlet),
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
@@ -288,7 +285,7 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
         stagingBuffer.WriteToBuffer(m_meshlets.data(), m_meshlets.size() * sizeof(Meshlet));
         stagingBuffer.UnMap();
 
-        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_meshletBuffer, m_meshlets.size() * sizeof(Meshlet));
+        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_meshletBuffer, m_meshlets.size() * sizeof(Meshlet));
     }
 
     // Meshlet vertices
@@ -297,7 +294,7 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
         {
             m_meshletVertexBuffer.reset();
             m_meshletVertexBuffer =
-                std::make_unique<Buffer>(*m_logicalDevice, m_meshletVertices.size() * sizeof(n32), 1,
+                std::make_unique<Buffer>(m_logicalDevice, m_meshletVertices.size() * sizeof(n32), 1,
                                          vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                          vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "meshlet vertex buffer");
 
@@ -309,10 +306,10 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
             write.descriptorType = vk::DescriptorType::eStorageBuffer;
             auto info = m_meshletVertexBuffer->DescriptorInfo();
             write.pBufferInfo = &info;
-            m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+            m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
         }
 
-        Buffer stagingBuffer{*m_logicalDevice,
+        Buffer stagingBuffer{m_logicalDevice,
                              m_meshletVertices.size() * sizeof(n32),
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
@@ -325,7 +322,7 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
         stagingBuffer.WriteToBuffer(m_meshletVertices.data(), m_meshletVertices.size() * sizeof(n32));
         stagingBuffer.UnMap();
 
-        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_meshletVertexBuffer, m_meshletVertices.size() * sizeof(n32));
+        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_meshletVertexBuffer, m_meshletVertices.size() * sizeof(n32));
     }
 
     // Meshlet primitives
@@ -334,7 +331,7 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
         {
             m_meshletPrimitiveBuffer.reset();
             m_meshletPrimitiveBuffer =
-                std::make_unique<Buffer>(*m_logicalDevice, m_meshletPrimitives.size() * sizeof(n8), 1,
+                std::make_unique<Buffer>(m_logicalDevice, m_meshletPrimitives.size() * sizeof(n8), 1,
                                          vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                          vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "meshlet primitive buffer");
 
@@ -346,10 +343,10 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
             write.descriptorType = vk::DescriptorType::eStorageBuffer;
             auto info = m_meshletPrimitiveBuffer->DescriptorInfo();
             write.pBufferInfo = &info;
-            m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+            m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
         }
 
-        Buffer stagingBuffer{*m_logicalDevice,
+        Buffer stagingBuffer{m_logicalDevice,
                              m_meshletPrimitives.size() * sizeof(n8),
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
@@ -362,15 +359,15 @@ void ResourceManager::Internal_AddMeshletsToModel(const std::vector<Meshlet>& me
         stagingBuffer.WriteToBuffer(m_meshletPrimitives.data(), m_meshletPrimitives.size() * sizeof(n8));
         stagingBuffer.UnMap();
 
-        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_meshletPrimitiveBuffer, m_meshletPrimitives.size() * sizeof(n8));
+        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_meshletPrimitiveBuffer, m_meshletPrimitives.size() * sizeof(n8));
     }
 }
 
-std::shared_ptr<ModelInstance> ResourceManager::Internal_RequestModel(const std::string& name)
+std::shared_ptr<ModelInstance> ResourceManager::RequestModel(const std::string& name)
 {
     auto id = LoadModel(name);
-    auto m = Internal_GetModel(id);
-    auto inst = std::make_shared<ModelInstance>(m, m_nextInstanceID);
+    auto m = GetModel(id);
+    auto inst = std::make_shared<ModelInstance>(m, *this, m_nextInstanceID);
 
     {
         size_t newModelMatrixStartIndex = m_modelNodeMatricesFlat.size();
@@ -382,7 +379,7 @@ std::shared_ptr<ModelInstance> ResourceManager::Internal_RequestModel(const std:
         if(!m_modelNodeMatriciesBuffer || m_modelNodeMatriciesBuffer->GetBufferSize() < m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f))
         {
             m_modelNodeMatriciesBuffer =
-                std::make_unique<Buffer>(*m_logicalDevice, m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f), 1,
+                std::make_unique<Buffer>(m_logicalDevice, m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f), 1,
                                          vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                          vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
                                          VMA_MEMORY_USAGE_CPU_TO_GPU, 1, "model node matricies buffer");
@@ -395,7 +392,7 @@ std::shared_ptr<ModelInstance> ResourceManager::Internal_RequestModel(const std:
             write.descriptorType = vk::DescriptorType::eStorageBuffer;
             auto info = m_modelNodeMatriciesBuffer->DescriptorInfo();
             write.pBufferInfo = &info;
-            m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+            m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
         }
 
         m_modelNodeMatriciesBuffer->Map();
@@ -403,8 +400,8 @@ std::shared_ptr<ModelInstance> ResourceManager::Internal_RequestModel(const std:
         m_modelNodeMatriciesBuffer->UnMap();
     }
 
-    if(inst->HasJoints()) { Internal_AddJointMatriciesToModel(inst->GetJointMatrices(), m_nextInstanceID); }
-    if(inst->HasMorphs()) { Internal_AddMorphTargetsToModel(inst->GetMorphWeights(), m_nextInstanceID); }
+    if(inst->HasJoints()) { AddJointMatriciesToModel(inst->GetJointMatrices(), m_nextInstanceID); }
+    if(inst->HasMorphs()) { AddMorphTargetsToModel(inst->GetMorphWeights(), m_nextInstanceID); }
 
     m_nextInstanceID++;
 
@@ -412,9 +409,9 @@ std::shared_ptr<ModelInstance> ResourceManager::Internal_RequestModel(const std:
     return it->second;
 }
 
-void Internal_AddMatriciesToModel(const std::vector<Eigen::Matrix4f>& matricies) {}
+void AddMatriciesToModel(const std::vector<Eigen::Matrix4f>& matricies) {}
 
-void ResourceManager::Internal_AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives)
+void ResourceManager::AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives)
 {
     HGINFO("Adding indices to model...");
     size_t globalOffsetForNewModel = m_modelIndicies.size();
@@ -431,25 +428,25 @@ void ResourceManager::Internal_AddIndicesToModel(const std::vector<n32>& modelIn
     if(!m_modelIndexBuffer || m_modelIndexBuffer->GetBufferSize() < requiredBufferSize)
     {
         m_modelIndexBuffer =
-            std::make_unique<Buffer>(*m_logicalDevice, requiredBufferSize,
+            std::make_unique<Buffer>(m_logicalDevice, requiredBufferSize,
                                      1, // Alignment
                                      vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                      vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 1, "global index buffer");
     }
 
-    Buffer stagingBuffer(*m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
+    Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
                          vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     stagingBuffer.Map();
     stagingBuffer.WriteToBuffer(m_modelIndicies.data(), requiredBufferSize);
     stagingBuffer.UnMap();
 
-    Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelIndexBuffer, requiredBufferSize);
+    Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_modelIndexBuffer, requiredBufferSize);
 
     HGINFO("Indices added to model");
 }
 
-void ResourceManager::Internal_AddVerticesToModel(const std::vector<Model::Vertex>& modelVertices, const std::vector<Mesh*>& modelMeshes)
+void ResourceManager::AddVerticesToModel(const std::vector<Model::Vertex>& modelVertices, const std::vector<Mesh*>& modelMeshes)
 {
     const size_t baseVertex = m_modelVertices.size();
 
@@ -471,7 +468,7 @@ void ResourceManager::Internal_AddVerticesToModel(const std::vector<Model::Verte
         m_modelVertexBuffer.reset();
 
         m_modelVertexBuffer =
-            std::make_unique<Buffer>(*m_logicalDevice, requiredBufferSize, 1,
+            std::make_unique<Buffer>(m_logicalDevice, requiredBufferSize, 1,
                                      vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
                                          vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
                                      vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "global vertex buffer");
@@ -484,27 +481,27 @@ void ResourceManager::Internal_AddVerticesToModel(const std::vector<Model::Verte
         write.descriptorType = vk::DescriptorType::eStorageBuffer;
         auto info = m_modelVertexBuffer->DescriptorInfo();
         write.pBufferInfo = &info;
-        m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+        m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
     }
 
-    Buffer stagingBuffer(*m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
+    Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
                          vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     stagingBuffer.Map();
     stagingBuffer.WriteToBuffer(m_modelVertices.data(), requiredBufferSize);
     stagingBuffer.UnMap();
 
-    Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelVertexBuffer, requiredBufferSize);
+    Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_modelVertexBuffer, requiredBufferSize);
 }
 
-void ResourceManager::Internal_UpdateNodeMatrices(const std::vector<Eigen::Matrix4f>& nodeMatrices, const n32& handle)
+void ResourceManager::UpdateNodeMatrices(const std::vector<Eigen::Matrix4f>& nodeMatrices, const n32& handle)
 {
     n32 startPos = m_modelHandleToMatrixStart.at(handle).first;
 
     std::copy(nodeMatrices.begin(), nodeMatrices.end(), m_modelNodeMatricesFlat.begin() + startPos);
 }
 
-void ResourceManager::Internal_AddJointMatriciesToModel(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle)
+void ResourceManager::AddJointMatriciesToModel(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle)
 {
     n32 startPos = m_modelJointMatricies.size();
 
@@ -513,14 +510,14 @@ void ResourceManager::Internal_AddJointMatriciesToModel(const std::vector<Eigen:
     m_modelHandleToJointStart.emplace(handle, std::pair<n32, n32>(startPos, jointMatricies.size()));
 }
 
-void ResourceManager::Internal_UpdateJointMatrices(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle)
+void ResourceManager::UpdateJointMatrices(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle)
 {
     n32 startPos = m_modelHandleToJointStart.at(handle).first;
 
     std::copy(jointMatricies.begin(), jointMatricies.end(), m_modelJointMatricies.begin() + startPos);
 }
 
-void ResourceManager::Internal_AddMorphTargetsToModel(const std::vector<f32>& morphTargets, const n32& handle)
+void ResourceManager::AddMorphTargetsToModel(const std::vector<f32>& morphTargets, const n32& handle)
 {
     n32 startPos = m_modelMorphTargets.size();
 
@@ -529,7 +526,7 @@ void ResourceManager::Internal_AddMorphTargetsToModel(const std::vector<f32>& mo
     m_modelHandleToMorphStart.emplace(handle, std::pair<n32, n32>(startPos, morphTargets.size()));
 }
 
-void ResourceManager::Internal_UpdateMorphTargets(const std::vector<f32>& morphTargets, const n32& handle)
+void ResourceManager::UpdateMorphTargets(const std::vector<f32>& morphTargets, const n32& handle)
 {
     const size_t baseMorphTargets = m_modelVertices.size();
 
@@ -538,7 +535,7 @@ void ResourceManager::Internal_UpdateMorphTargets(const std::vector<f32>& morphT
     std::copy(morphTargets.begin(), morphTargets.end(), m_modelMorphTargets.begin() + startPos);
 }
 
-void ResourceManager::Internal_FinalizeGPUData()
+void ResourceManager::FinalizeGPUData()
 {
     if(!m_modelJointMatricies.empty())
     {
@@ -549,7 +546,7 @@ void ResourceManager::Internal_FinalizeGPUData()
             m_modelJointMatriciesBuffer.reset();
 
             m_modelJointMatriciesBuffer = std::make_unique<Buffer>(
-                *m_logicalDevice, requiredBufferSize, 1,
+                m_logicalDevice, requiredBufferSize, 1,
                 vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
                 vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "global jointMatricies buffer");
 
@@ -561,17 +558,17 @@ void ResourceManager::Internal_FinalizeGPUData()
             write.descriptorType = vk::DescriptorType::eStorageBuffer;
             auto info = m_modelJointMatriciesBuffer->DescriptorInfo();
             write.pBufferInfo = &info;
-            m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+            m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
         }
 
-        Buffer stagingBuffer(*m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
+        Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer(m_modelJointMatricies.data(), requiredBufferSize);
         stagingBuffer.UnMap();
 
-        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelJointMatriciesBuffer, requiredBufferSize);
+        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_modelJointMatriciesBuffer, requiredBufferSize);
     }
 
     if(!m_modelMorphTargets.empty())
@@ -583,7 +580,7 @@ void ResourceManager::Internal_FinalizeGPUData()
             m_modelMorphTargetsBuffer.reset();
 
             m_modelMorphTargetsBuffer = std::make_unique<Buffer>(
-                *m_logicalDevice, requiredBufferSize, 1,
+                m_logicalDevice, requiredBufferSize, 1,
                 vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
                 vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 1, "global morphTargets buffer");
 
@@ -595,17 +592,17 @@ void ResourceManager::Internal_FinalizeGPUData()
             write.descriptorType = vk::DescriptorType::eStorageBuffer;
             auto info = m_modelMorphTargetsBuffer->DescriptorInfo();
             write.pBufferInfo = &info;
-            m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+            m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
         }
 
-        Buffer stagingBuffer(*m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
+        Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer(m_modelMorphTargets.data(), requiredBufferSize);
         stagingBuffer.UnMap();
 
-        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelMorphTargetsBuffer, requiredBufferSize);
+        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_modelMorphTargetsBuffer, requiredBufferSize);
     }
 
     if(!m_modelNodeMatricesFlat.empty())
@@ -617,7 +614,7 @@ void ResourceManager::Internal_FinalizeGPUData()
             m_modelNodeMatriciesBuffer.reset();
 
             m_modelNodeMatriciesBuffer = std::make_unique<Buffer>(
-                *m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                 vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "global nodeMatrices buffer");
 
             vk::WriteDescriptorSet write{};
@@ -628,31 +625,31 @@ void ResourceManager::Internal_FinalizeGPUData()
             write.descriptorType = vk::DescriptorType::eStorageBuffer;
             auto info = m_modelNodeMatriciesBuffer->DescriptorInfo();
             write.pBufferInfo = &info;
-            m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+            m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
         }
 
-        Buffer stagingBuffer(*m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
+        Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer(m_modelNodeMatricesFlat.data(), requiredBufferSize);
         stagingBuffer.UnMap();
 
-        Buffer::CopyBuffer(*m_logicalDevice, stagingBuffer, *m_modelNodeMatriciesBuffer, requiredBufferSize);
+        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_modelNodeMatriciesBuffer, requiredBufferSize);
     }
 }
 
-std::shared_ptr<Model> ResourceManager::Internal_GetModel(const n32& index)
+std::shared_ptr<Model> ResourceManager::GetModel(const n32& index)
 {
     auto i = m_modelMap.at(index);
     return i;
 }
 
-n32 ResourceManager::Internal_RequestModelNodeMatriciesIndex(const n32& modelHandle) { return m_modelHandleToMatrixStart[modelHandle].first; }
+n32 ResourceManager::RequestModelNodeMatriciesIndex(const n32& modelHandle) { return m_modelHandleToMatrixStart[modelHandle].first; }
 
-std::shared_ptr<Skybox> ResourceManager::Internal_LoadSkybox(const std::string& name)
+std::shared_ptr<Skybox> ResourceManager::LoadSkybox(const std::string& name)
 {
-    SkyboxCreateInfo info{.logicalDevice = *m_logicalDevice,
+    SkyboxCreateInfo info{.logicalDevice = m_logicalDevice,
                           .cubemapPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::TEXTURE, name),
                           .descriptorSetLayout = *m_skyboxLayout,
                           .compDescriptorSetLayout = *m_skyboxCompLayout,
@@ -663,7 +660,7 @@ std::shared_ptr<Skybox> ResourceManager::Internal_LoadSkybox(const std::string& 
     return s;
 }
 
-n32 ResourceManager::Internal_LoadAudioSource(const std::string& name)
+n32 ResourceManager::LoadAudioSource(const std::string& name)
 {
     HGINFO("Loading audio %s with handle %i", name.c_str(), m_nextaudioID);
 
@@ -678,7 +675,7 @@ n32 ResourceManager::Internal_LoadAudioSource(const std::string& name)
     return handleToReturn;
 }
 
-std::shared_ptr<AudioSourceComponent> ResourceManager::Internal_GetAudioSource(const n32& index) { return m_audioMap.at(index); }
+std::shared_ptr<AudioSourceComponent> ResourceManager::GetAudioSource(const n32& index) { return m_audioMap.at(index); }
 
 std::string GenerateImageKey(const tinygltf::Image& img)
 {
@@ -696,15 +693,15 @@ std::string GenerateMaterialKey(const Model::ShaderMaterial& mat)
     return "mat_" + std::to_string(dataHash);
 }
 
-n32 ResourceManager::Internal_RequestTexture(class tinygltf::Image img, struct Texture::TexSamplerInfo sampler)
+n32 ResourceManager::RequestTexture(class tinygltf::Image img, struct Texture::TexSamplerInfo sampler)
 {
     std::string key = GenerateImageKey(img);
 
     auto it = m_textureMap.find(key);
     if(it != m_textureMap.end()) { return it->second.bindlessIndex; }
 
-    auto newTex = std::make_unique<Texture>(*m_logicalDevice);
-    newTex->CreateFromGLTFImage(img, sampler, *m_logicalDevice, m_logicalDevice->GetGraphicsQueue());
+    auto newTex = std::make_unique<Texture>(m_logicalDevice);
+    newTex->CreateFromGLTFImage(img, sampler, m_logicalDevice, m_logicalDevice.GetGraphicsQueue());
 
     n32 bindlessIndex = m_nextBindlessIndex++;
 
@@ -725,14 +722,14 @@ n32 ResourceManager::Internal_RequestTexture(class tinygltf::Image img, struct T
     write.descriptorType = vk::DescriptorType::eCombinedImageSampler;
     write.pImageInfo = &m_bindlessImageInfos[bindlessIndex];
 
-    m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+    m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 
     m_textureMap[key] = TextureBinding{actualTexturePtr, bindlessIndex};
 
     return bindlessIndex;
 }
 
-n32 ResourceManager::Internal_RequestMaterial(const Model::ShaderMaterial& mat)
+n32 ResourceManager::RequestMaterial(const Model::ShaderMaterial& mat)
 {
     std::string key = GenerateMaterialKey(mat);
 
@@ -750,7 +747,7 @@ n32 ResourceManager::Internal_RequestMaterial(const Model::ShaderMaterial& mat)
 
     if(!m_materialDataBuffer || m_materialDataBuffer->GetBufferSize() < rawMaterials.size() * sizeof(Model::ShaderMaterial))
     {
-        m_materialDataBuffer = std::make_unique<Buffer>(*m_logicalDevice, rawMaterials.size() * sizeof(Model::ShaderMaterial), 1,
+        m_materialDataBuffer = std::make_unique<Buffer>(m_logicalDevice, rawMaterials.size() * sizeof(Model::ShaderMaterial), 1,
                                                         vk::BufferUsageFlagBits::eStorageBuffer,
                                                         vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
                                                         VMA_MEMORY_USAGE_CPU_TO_GPU, 1, "global material data buffer");
@@ -770,12 +767,12 @@ n32 ResourceManager::Internal_RequestMaterial(const Model::ShaderMaterial& mat)
     write.descriptorType = vk::DescriptorType::eStorageBuffer;
     write.pBufferInfo = &bufInfo;
 
-    m_logicalDevice->GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+    m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
 
     return bindlessIndex;
 }
 
-void ResourceManager::Internal_BindGlobalDescriptorSets(vk::CommandBuffer cmd, vk::PipelineLayout layout)
+void ResourceManager::BindGlobalDescriptorSets(vk::CommandBuffer cmd, vk::PipelineLayout layout)
 {
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, layout, static_cast<n32>(Globals::ModelDescriptorIndices::Model), 1, &m_bindlessSet, 0,
                            nullptr);

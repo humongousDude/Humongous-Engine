@@ -50,7 +50,7 @@ void VulkanApp::Init(const int argc, char* argv[])
 
     Allocator::Initialize(*m_logicalDevice);
 
-    ResourceManager::Init(*m_logicalDevice);
+    m_resourceManager = std::make_unique<ResourceManager>(*m_logicalDevice);
 
     UI::Init(*m_instance, *m_logicalDevice, *m_window);
 
@@ -58,7 +58,7 @@ void VulkanApp::Init(const int argc, char* argv[])
 
     SceneHandler::Init();
 
-    m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, m_logicalDevice->GetVmaAllocator(),
+    m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, *m_resourceManager, m_logicalDevice->GetVmaAllocator(),
                                             vk::Format::eR16G16B16A16Sfloat, vk::Format::eD32SfloatS8Uint);
 
     m_cam = std::make_unique<Camera>(*m_logicalDevice);
@@ -68,13 +68,13 @@ void VulkanApp::Init(const int argc, char* argv[])
     ShaderSet set = {Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert"),
                      Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "pbr.frag")};
 
-    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(*m_logicalDevice, "papermill", skyboxLayouts);
+    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(*m_logicalDevice, *m_resourceManager, "papermill", skyboxLayouts);
 
     std::vector<vk::DescriptorSetLayout> simpleLayouts = {
         m_cam->GetVertexDescriptorLayout(),
     };
 
-    m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, simpleLayouts, set);
+    m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, *m_resourceManager, simpleLayouts, set);
 
     m_mainDeletionQueue.PushDeletor([&]() {
         m_simpleRenderSystem.reset();
@@ -82,7 +82,7 @@ void VulkanApp::Init(const int argc, char* argv[])
         m_renderer.reset();
         m_cam.reset();
         UI::Shutdown();
-        ResourceManager::Shutdown();
+        m_resourceManager.reset();
         AudioEngine::Shutdown();
         Allocator::Shutdown();
         m_logicalDevice.reset();
@@ -101,7 +101,7 @@ void VulkanApp::LoadGameObjects()
     auto house = world->CreateEntity();
     world->AddComponent<ModelComponent>(house);
     auto comp = world->GetComponent<ModelComponent>(house);
-    comp->instance = ResourceManager::RequestModel("AnimatedMorphCube");
+    comp->instance = m_resourceManager->RequestModel("MorphStressTest");
     std::string name = comp->instance->GetModel()->GetName();
 
     auto transform = world->GetComponent<TransformComponent>(house);
@@ -114,7 +114,7 @@ void VulkanApp::LoadGameObjects()
     world->AddComponent<BoundingBox>(helmet);
     world->AddComponent<ModelComponent>(helmet);
     comp = world->GetComponent<ModelComponent>(helmet);
-    comp->instance = ResourceManager::RequestModel("buster_drone");
+    comp->instance = m_resourceManager->RequestModel("buster_drone");
     world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
     name = comp->instance->GetModel()->GetName();
     world->GetComponent<NameComponent>(helmet)->name = name + std::to_string(helmet);
@@ -127,7 +127,7 @@ void VulkanApp::LoadGameObjects()
     world->AddComponent<BoundingBox>(drone);
     world->AddComponent<ModelComponent>(drone);
     comp = world->GetComponent<ModelComponent>(drone);
-    comp->instance = ResourceManager::RequestModel("CommercialRefrigerator");
+    comp->instance = m_resourceManager->RequestModel("CommercialRefrigerator");
     world->AddComponent<AudioSourceComponent>(drone, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
     name = comp->instance->GetModel()->GetName();
     world->GetComponent<NameComponent>(drone)->name = name + std::to_string(helmet);
@@ -159,7 +159,7 @@ void VulkanApp::LoadGameObjects()
     //     auto model = world->CreateEntity();
     //     world->AddComponent<ModelComponent>(model);
     //     auto comp = world->GetComponent<ModelComponent>(model);
-    //     comp->instance = ResourceManager::RequestModel("buster_drone");
+    //     comp->instance = m_resourceManager->RequestModel("buster_drone");
     //
     //     auto transform = world->GetComponent<TransformComponent>(model);
     //     transform->SetTranslation(x, y, z);
@@ -394,9 +394,9 @@ void VulkanApp::Run()
             auto sortedObjs = frustumAndSortedEntities;
 
             auto world = SceneHandler::GetWorld();
-            world->ModelInstanceUpdateSystem();
+            world->ModelInstanceUpdateSystem(*m_resourceManager);
 
-            ResourceManager::FinalizeGPUData();
+            m_resourceManager->FinalizeGPUData();
 
             const auto cmd = m_renderer->BeginFrame(frustumAndSortedEntities);
 

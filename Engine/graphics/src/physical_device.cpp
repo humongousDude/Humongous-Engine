@@ -1,5 +1,4 @@
 #include "logger.hpp"
-#include "set"
 #include "string"
 #include "vector"
 #include <physical_device.hpp>
@@ -107,7 +106,7 @@ void PhysicalDevice::PickPhysicalDevice()
     }
 }
 
-PhysicalDevice::SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(vk::PhysicalDevice physicalDevice)
+PhysicalDevice::SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(vk::PhysicalDevice physicalDevice) const
 {
     vk::PhysicalDeviceSurfaceInfo2KHR surfaceInfo{};
     surfaceInfo.surface = m_surface;
@@ -276,7 +275,7 @@ bool PhysicalDevice::CheckDeviceExtensionSupport(vk::PhysicalDevice physicalDevi
     // return requiredExtensions.empty();
 }
 
-PhysicalDevice::QueueFamilyData PhysicalDevice::FindQueueFamilies(vk::PhysicalDevice physicalDevice)
+PhysicalDevice::QueueFamilyData PhysicalDevice::FindQueueFamilies(vk::PhysicalDevice physicalDevice) const
 {
     QueueFamilyData indices;
     n32             queueFamilyCount = 0;

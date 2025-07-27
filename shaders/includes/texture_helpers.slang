@@ -1,5 +1,5 @@
 static const float PI = 3.14159265359f;
-static const uint SAMPLE_COUNT = 1024u;
+static const uint SAMPLE_COUNT = 128u;
 
 float vanDerCorput(uint n, uint base) {
     float invBase = 1.0f / float(base);

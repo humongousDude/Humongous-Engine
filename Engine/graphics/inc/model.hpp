@@ -196,10 +196,9 @@ public:
         }
     };
 
-    // this passes
     static_assert(std::is_standard_layout<Vertex>::value, "Vertex must be standard‑layout for meshoptimizer to memcpy it correctly");
 
-    Model(const LogicalDevice& device, const std::string& modelPath, f32 scale, const n32& handle);
+    Model(const LogicalDevice& device, class ResourceManager& resourceManager, const std::string& modelPath, f32 scale, const n32& handle);
     ~Model();
 
     std::vector<n32>&    GetIndices() { return m_indices; }
@@ -264,7 +263,8 @@ private:
 
     std::unordered_map<n32, std::vector<Primitive*>> m_materialBatches;
 
-    const LogicalDevice& m_logicalDevice;
+    const LogicalDevice&   m_logicalDevice;
+    class ResourceManager& m_resourceManager;
 
     std::vector<Node*>      m_nodes;
     std::vector<Node*>      m_linearNodes;

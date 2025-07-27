@@ -15,7 +15,8 @@ class SwapChain : NonCopyable
 public:
     static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-    SwapChain(Window& window, PhysicalDevice& physicalDevice, LogicalDevice& logicalDevice, std::shared_ptr<SwapChain> oldSwap = nullptr);
+    SwapChain(const Window& window, const PhysicalDevice& physicalDevice, const LogicalDevice& logicalDevice,
+              std::shared_ptr<SwapChain> oldSwap = nullptr);
     ~SwapChain();
 
     vk::Extent2D       GetExtent() const { return m_extent; }
@@ -43,9 +44,9 @@ public:
     vk::Semaphore& GetRenderFinishedSemaphoreAtCurrentFrame() { return m_renderFinishedSemaphore[m_imageIndex]; }
 
 private:
-    LogicalDevice&   m_logicalDevice;
-    vk::SwapchainKHR m_swapChain;
-    n32              m_imageIndex{0};
+    const LogicalDevice& m_logicalDevice;
+    vk::SwapchainKHR     m_swapChain;
+    n32                  m_imageIndex{0};
 
     vk::Format         m_surfaceFormat;
     vk::PresentModeKHR m_presentMode;
@@ -56,11 +57,11 @@ private:
 
     std::vector<vk::Semaphore> m_renderFinishedSemaphore;
 
-    void CreateSwapChain(Window& window, PhysicalDevice& physicalDevice, vk::SwapchainKHR* oldSwap = nullptr);
+    void CreateSwapChain(const Window& window, const PhysicalDevice& physicalDevice, vk::SwapchainKHR* oldSwap = nullptr);
     void CreateImageViews();
 
     vk::SurfaceFormat2KHR ChooseSurfaceFormat(const std::vector<vk::SurfaceFormat2KHR>& formats);
     vk::PresentModeKHR    ChoosePresentMode(const std::vector<vk::PresentModeKHR>& presentModes);
-    vk::Extent2D          ChooseExtent(const vk::SurfaceCapabilities2KHR& capabilities, Window& window);
+    vk::Extent2D          ChooseExtent(const vk::SurfaceCapabilities2KHR& capabilities, const Window& window);
 };
 } // namespace Humongous

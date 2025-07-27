@@ -1,6 +1,5 @@
 #pragma once
 
-#include "abstractions/descriptor_layout.hpp"
 #include "logical_device.hpp"
 #include "render_pipeline.hpp"
 #include "skybox.hpp"
@@ -14,7 +13,7 @@ namespace Humongous
 class SkyboxRenderSystem
 {
 public:
-    SkyboxRenderSystem(const LogicalDevice& logicalDevice, const std::string& skyboxImgPath,
+    SkyboxRenderSystem(const LogicalDevice& logicalDevice, class ResourceManager& resourceManager, const std::string& skyboxImgPath,
                        const std::vector<vk::DescriptorSetLayout>& globalLayouts);
     ~SkyboxRenderSystem();
 
@@ -24,6 +23,7 @@ public:
 
 private:
     const LogicalDevice&            m_logicalDevice;
+    class ResourceManager&          m_resourceManager;
     std::unique_ptr<RenderPipeline> m_renderPipeline;
     vk::PipelineLayout              m_pipelineLayout;
 

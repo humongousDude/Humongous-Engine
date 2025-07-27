@@ -150,7 +150,7 @@ public:
         }
     }
 
-    void ModelInstanceUpdateSystem()
+    void ModelInstanceUpdateSystem(ResourceManager& resourceManager)
     {
         for(Humongous::EntityID entity: m_models.GetDense())
         {
@@ -158,10 +158,10 @@ public:
             modelInstance->Update();
 
             const n32& modelInstanceID = modelInstance->GetInstanceID();
-            ResourceManager::UpdateNodeMatrices(modelInstance->GetNodeMatrices(), modelInstanceID);
+            resourceManager.UpdateNodeMatrices(modelInstance->GetNodeMatrices(), modelInstanceID);
 
-            if(modelInstance->HasJoints()) { ResourceManager::UpdateJointMatrices(modelInstance->GetJointMatrices(), modelInstanceID); }
-            if(modelInstance->HasMorphs()) { ResourceManager::UpdateMorphTargets(modelInstance->GetMorphWeights(), modelInstanceID); }
+            if(modelInstance->HasJoints()) { resourceManager.UpdateJointMatrices(modelInstance->GetJointMatrices(), modelInstanceID); }
+            if(modelInstance->HasMorphs()) { resourceManager.UpdateMorphTargets(modelInstance->GetMorphWeights(), modelInstanceID); }
         }
     }
 

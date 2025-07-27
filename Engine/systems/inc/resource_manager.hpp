@@ -7,13 +7,14 @@
 #include "logical_device.hpp"
 #include "model.hpp"
 #include "model_instance.hpp"
-#include "singleton.hpp"
 #include "skybox.hpp"
+
+#include <Eigen/Dense>
 
 namespace Humongous
 {
 
-class ResourceManager : public Singleton<ResourceManager>
+class ResourceManager : NonCopyable
 {
 private:
     struct ModelDescriptors;
@@ -21,85 +22,60 @@ private:
     struct MaterialKey;
 
 public:
-    static void Init(const LogicalDevice& logicalDevice) { Get().Internal_Init(logicalDevice); }
-    static void Shutdown() { Get().Internal_Shutdown(); }
+    ResourceManager(const LogicalDevice& logicalDevice);
+    ~ResourceManager();
 
-    static std::shared_ptr<ModelInstance> RequestModel(const std::string& name) { return Get().Internal_RequestModel(name); };
-    static n32 RequestModelNodeMatriciesIndex(const n32& index) { return Get().Internal_RequestModelNodeMatriciesIndex(index); };
+    std::shared_ptr<ModelInstance> RequestModel(const std::string& name);
+    n32                            RequestModelNodeMatriciesIndex(const n32& index);
 
-    static void FinalizeGPUData() { Get().Internal_FinalizeGPUData(); }
+    void FinalizeGPUData();
 
-    static void AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives)
-    {
-        Get().Internal_AddIndicesToModel(modelIndices, modelPrimitives);
-    }
-    static void AddVerticesToModel(const std::vector<Model::Vertex>& modelVertices, const std::vector<Mesh*>& modelMeshes)
-    {
-        Get().Internal_AddVerticesToModel(modelVertices, modelMeshes);
-    }
+    void AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives);
+    void AddVerticesToModel(const std::vector<Model::Vertex>& modelVertices, const std::vector<Mesh*>& modelMeshes);
 
-    static void UpdateNodeMatrices(const std::vector<Eigen::Matrix4f>& nodeMatrices, const n32& handle)
-    {
-        Get().Internal_UpdateNodeMatrices(nodeMatrices, handle);
-    }
+    void UpdateNodeMatrices(const std::vector<Eigen::Matrix4f>& nodeMatrices, const n32& handle);
 
-    static void AddJointMatriciesToModel(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle)
-    {
-        Get().Internal_AddJointMatriciesToModel(jointMatricies, handle);
-    }
+    void AddJointMatriciesToModel(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle);
 
-    static void UpdateJointMatrices(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle)
-    {
-        Get().Internal_UpdateJointMatrices(jointMatricies, handle);
-    }
+    void UpdateJointMatrices(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle);
 
-    static void AddMorphTargetsToModel(const std::vector<f32>& morphTargets, const n32& handle)
-    {
-        Get().Internal_AddMorphTargetsToModel(morphTargets, handle);
-    }
-    static void UpdateMorphTargets(const std::vector<f32>& morphTargets, const n32& handle)
-    {
-        Get().Internal_UpdateMorphTargets(morphTargets, handle);
-    }
+    void AddMorphTargetsToModel(const std::vector<f32>& morphTargets, const n32& handle);
+    void UpdateMorphTargets(const std::vector<f32>& morphTargets, const n32& handle);
 
-    static std::shared_ptr<Model>         GetModel(const n32& index) { return Get().Internal_GetModel(index); }
-    static std::shared_ptr<ModelInstance> GetModelInstance(const n32& index)
+    std::shared_ptr<Model>         GetModel(const n32& index);
+    std::shared_ptr<ModelInstance> GetModelInstance(const n32& index)
     {
-        auto i = Get().m_modelInstanceMap.at(index);
+        auto i = m_modelInstanceMap.at(index);
         return i;
     }
 
-    static std::shared_ptr<Skybox> LoadSkybox(const std::string& name) { return Get().Internal_LoadSkybox(name); }
-    n32                            LoadAudioSource(const std::string& name) { return Get().Internal_LoadAudioSource(name); };
+    std::shared_ptr<Skybox> LoadSkybox(const std::string& name);
+    n32                     LoadAudioSource(const std::string& name);
 
-    static const ModelDescriptors& GetModelDescriptors() { return Get().m_modelDescriptors; }
-    static const DescriptorPools&  GetDescriptorPools() { return Get().m_descriptorPools; }
+    const ModelDescriptors& GetModelDescriptors() { return m_modelDescriptors; }
+    const DescriptorPools&  GetDescriptorPools() { return m_descriptorPools; }
 
-    static vk::DescriptorSetLayout GetSkyboxDescriptorLayout() { return Get().m_skyboxLayout->GetDescriptorSetLayout(); }
-    static vk::DescriptorSetLayout GetSkyboxCompDescriptorLayout() { return Get().m_skyboxCompLayout->GetDescriptorSetLayout(); }
+    vk::DescriptorSetLayout GetSkyboxDescriptorLayout() { return m_skyboxLayout->GetDescriptorSetLayout(); }
+    vk::DescriptorSetLayout GetSkyboxCompDescriptorLayout() { return m_skyboxCompLayout->GetDescriptorSetLayout(); }
 
-    static void BindGlobalDescriptorSets(vk::CommandBuffer cmd, vk::PipelineLayout layout) { Get().Internal_BindGlobalDescriptorSets(cmd, layout); }
+    void BindGlobalDescriptorSets(vk::CommandBuffer cmd, vk::PipelineLayout layout);
 
     // Bindless, node matricies, vertices, debug
-    static std::vector<vk::DescriptorSetLayout> GetLayoutVector()
+    std::vector<vk::DescriptorSetLayout> GetLayoutVector()
     {
-        return {Get().m_bindlessLayout->GetDescriptorSetLayout(), Get().m_modelDescriptors.vertices->GetDescriptorSetLayout(),
-                Get().m_modelDescriptors.debugLayout->GetDescriptorSetLayout()};
+        return {m_bindlessLayout->GetDescriptorSetLayout(), m_modelDescriptors.vertices->GetDescriptorSetLayout(),
+                m_modelDescriptors.debugLayout->GetDescriptorSetLayout()};
     }
 
-    static vk::DescriptorSet GetVertexDescriptor() { return Get().m_modelDescriptors.vertexDescriptor; }
+    vk::DescriptorSet GetVertexDescriptor() { return m_modelDescriptors.vertexDescriptor; }
 
-    static n32 RequestTexture(class tinygltf::Image img, struct Texture::TexSamplerInfo sampler)
-    {
-        return Get().Internal_RequestTexture(img, sampler);
-    };
+    n32 RequestTexture(class tinygltf::Image img, struct Texture::TexSamplerInfo sampler);
+    n32 RequestMaterial(const Model::ShaderMaterial& mat);
 
-    static n32 RequestMaterial(const Model::ShaderMaterial& mat) { return Get().Internal_RequestMaterial(mat); }
-
-    static Buffer& GetModelIndexBuffer() { return *Get().m_modelIndexBuffer; }
-    static n32&    GetModelHandleToIndexBufferStart(const n32& handle) { return Get().m_modelHandleToIndexStart.at(handle); }
-    static n32&    GetModelHandleToMatrixStart(const n32& handle) { return Get().m_modelHandleToMatrixStart.at(handle).first; }
-    static Buffer& GetModelVertexBuffer() { return *Get().m_modelVertexBuffer; }
+    Buffer& GetModelIndexBuffer() { return *m_modelIndexBuffer; }
+    n32&    GetModelHandleToIndexBufferStart(const n32& handle) { return m_modelHandleToIndexStart.at(handle); }
+    n32&    GetModelHandleToMatrixStart(const n32& handle) { return m_modelHandleToMatrixStart.at(handle).first; }
+    Buffer& GetModelVertexBuffer() { return *m_modelVertexBuffer; }
 
     std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToJointStart;
     std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToMorphStart;
@@ -112,11 +88,8 @@ public:
     std::vector<n32>                             m_meshletVertices;
     std::vector<n8>                              m_meshletPrimitives;
 
-    static void AddMeshletsToModel(const std::vector<Meshlet>& meshlets, const std::vector<n32>& meshletVertices,
-                                   const std::vector<n8>& meshletPrimitives, const n32& handle)
-    {
-        Get().Internal_AddMeshletsToModel(meshlets, meshletVertices, meshletPrimitives, handle);
-    };
+    void AddMeshletsToModel(const std::vector<Meshlet>& meshlets, const std::vector<n32>& meshletVertices, const std::vector<n8>& meshletPrimitives,
+                            const n32& handle);
 
 private:
     struct DescriptorPools
@@ -139,14 +112,10 @@ private:
     std::unique_ptr<DescriptorSetLayout> m_skyboxLayout;
     std::unique_ptr<DescriptorSetLayout> m_skyboxCompLayout;
 
-    const LogicalDevice* m_logicalDevice;
+    const LogicalDevice& m_logicalDevice;
 
-    void Internal_Init(const LogicalDevice& device);
     void InitDescriptors();
     void InitializeInitials();
-    void Internal_Shutdown();
-
-    void Internal_FinalizeGPUData();
 
     std::unordered_map<n32, std::shared_ptr<Model>> m_modelMap;
     std::unordered_map<std::string, n32>            m_modelNameToHandle;
@@ -174,28 +143,11 @@ private:
 
     n32 m_nextInstanceID{0};
 
-    n32                            LoadModel(const std::string& name);
-    std::shared_ptr<ModelInstance> Internal_RequestModel(const std::string& name);
-    n32                            Internal_RequestModelNodeMatriciesIndex(const n32& index);
-    std::shared_ptr<Model>         Internal_GetModel(const n32& index);
-
-    void Internal_AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives);
-    void Internal_AddVerticesToModel(const std::vector<Model::Vertex>& modelVertices, const std::vector<Mesh*>& modelMeshes);
-
-    void Internal_UpdateNodeMatrices(const std::vector<Eigen::Matrix4f>& nodeMatrices, const n32& handle);
-    void Internal_AddJointMatriciesToModel(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle);
-    void Internal_UpdateJointMatrices(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle);
-
-    void Internal_AddMeshletsToModel(const std::vector<Meshlet>& meshlets, const std::vector<n32>& meshletVertices,
-                                     const std::vector<n8>& meshletPrimitives, const n32& handle);
-
-    void Internal_AddMorphTargetsToModel(const std::vector<f32>& morphTargets, const n32& handle);
-    void Internal_UpdateMorphTargets(const std::vector<f32>& morphTargets, const n32& handle);
+    n32 LoadModel(const std::string& name);
 
     std::unordered_map<n32, std::shared_ptr<AudioSourceComponent>> m_audioMap;
     n32                                                            m_nextaudioID{0};
-    n32                                                            Internal_LoadAudioSource(const std::string& name);
-    std::shared_ptr<AudioSourceComponent>                          Internal_GetAudioSource(const n32& index);
+    std::shared_ptr<AudioSourceComponent>                          GetAudioSource(const n32& index);
 
     struct TextureBinding
     {
@@ -210,9 +162,6 @@ private:
     std::unique_ptr<DescriptorSetLayout>            m_bindlessLayout;
     std::unique_ptr<DescriptorPoolGrowable>         m_bindlessTexturePool;
     uint32_t                                        m_nextBindlessIndex = 0;
-    void                                            Internal_BindGlobalDescriptorSets(vk::CommandBuffer cmd, vk::PipelineLayout layout);
-
-    n32 Internal_RequestTexture(class tinygltf::Image img, struct Texture::TexSamplerInfo sampler);
 
     struct MaterialBinding
     {
@@ -223,9 +172,5 @@ private:
     std::vector<MaterialBinding>         m_materials;
     std::unordered_map<std::string, n32> m_materialMap;
     std::unique_ptr<Buffer>              m_materialDataBuffer;
-
-    n32 Internal_RequestMaterial(const Model::ShaderMaterial& mat);
-
-    std::shared_ptr<Skybox> Internal_LoadSkybox(const std::string& name);
 };
 } // namespace Humongous

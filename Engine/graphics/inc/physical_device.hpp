@@ -49,11 +49,11 @@ public:
 
     vk::PhysicalDevice GetVkPhysicalDevice() const { return m_physicalDevice; }
 
-    QueueFamilyData FindQueueFamilies(vk::PhysicalDevice physicalDevice);
+    QueueFamilyData FindQueueFamilies(vk::PhysicalDevice physicalDevice) const;
 
     std::vector<const char*> GetDeviceExtensions() { return REQUIRED_BASE_DEVICE_EXTENSIONS; }
 
-    SwapChainSupportDetails QuerySwapChainSupport(vk::PhysicalDevice physicalDevice);
+    SwapChainSupportDetails QuerySwapChainSupport(vk::PhysicalDevice physicalDevice) const;
 
     vk::SurfaceKHR GetSurface() const { return m_surface; }
 

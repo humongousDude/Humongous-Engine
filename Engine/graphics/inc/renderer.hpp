@@ -70,8 +70,8 @@ public:
         n32               boundingBoxCount;
     };
 
-    Renderer(Window& window, LogicalDevice& logicalDevice, PhysicalDevice& physicalDevice, VmaAllocator allocator, vk::Format drawFormat,
-             vk::Format depthFormat);
+    Renderer(Window& window, const LogicalDevice& logicalDevice, const PhysicalDevice& physicalDevice, ResourceManager& resourceManager,
+             VmaAllocator allocator, vk::Format drawFormat, vk::Format depthFormat);
     ~Renderer();
 
     // Get the swapchain image index we're currently using
@@ -128,8 +128,9 @@ public:
 private:
     std::unique_ptr<SwapChain> m_swapChain = nullptr;
     Window&                    m_window;
-    LogicalDevice&             m_logicalDevice;
-    PhysicalDevice&            m_physicalDevice;
+    const LogicalDevice&       m_logicalDevice;
+    ResourceManager&           m_resourceManager;
+    const PhysicalDevice&      m_physicalDevice;
 
     std::unique_ptr<ComputePipeline> m_occlusionPipeline;
     vk::PipelineLayout               m_occlusionPipelineLayout;
