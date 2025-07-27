@@ -77,16 +77,16 @@ public:
     n32&    GetModelHandleToMatrixStart(const n32& handle) { return m_modelHandleToMatrixStart.at(handle).first; }
     Buffer& GetModelVertexBuffer() { return *m_modelVertexBuffer; }
 
-    std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToJointStart;
-    std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToMorphStart;
-    std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToMeshletStart;
-    std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToMeshletIndexStart;
-    std::unique_ptr<Buffer>                      m_meshletBuffer;
-    std::unique_ptr<Buffer>                      m_meshletVertexBuffer;
-    std::unique_ptr<Buffer>                      m_meshletPrimitiveBuffer;
-    std::vector<Meshlet>                         m_meshlets;
-    std::vector<n32>                             m_meshletVertices;
-    std::vector<n8>                              m_meshletPrimitives;
+    n32 GetModelHandleToMeshletStart(const n32& handle) { return m_modelHandleToMeshletStart.at(handle).first; }
+    n32 GetModelHandleToMeshletIndexStart(const n32& handle) { return m_modelHandleToMeshletIndexStart.at(handle).first; }
+    n32 GetModelHandleToMeshletVertexStart(const n32& handle) { return m_modelHandleToMeshletIndexStart.at(handle).second; }
+    n32 GetModelHandleToMeshletPrimitiveStart(const n32& handle)
+    {
+        return m_modelHandleToMeshletIndexStart.at(handle).second + m_meshletPrimitives.size();
+    }
+
+    n32 GetModelHandleToJointStart(const n32& handle) { return m_modelHandleToJointStart.at(handle).first; }
+    n32 GetModelHandleToMorphStart(const n32& handle) { return m_modelHandleToMorphStart.at(handle).first; }
 
     void AddMeshletsToModel(const std::vector<Meshlet>& meshlets, const std::vector<n32>& meshletVertices, const std::vector<n8>& meshletPrimitives,
                             const n32& handle);
@@ -109,59 +109,11 @@ private:
         std::unique_ptr<DescriptorSetLayout> rendererBuffer;
     } m_modelDescriptors;
 
-    std::unique_ptr<DescriptorSetLayout> m_skyboxLayout;
-    std::unique_ptr<DescriptorSetLayout> m_skyboxCompLayout;
-
-    const LogicalDevice& m_logicalDevice;
-
-    void InitDescriptors();
-    void InitializeInitials();
-
-    std::unordered_map<n32, std::shared_ptr<Model>> m_modelMap;
-    std::unordered_map<std::string, n32>            m_modelNameToHandle;
-
-    std::unordered_map<n32, std::shared_ptr<ModelInstance>> m_modelInstanceMap;
-
-    std::unique_ptr<Buffer>      m_modelIndexBuffer;
-    std::unordered_map<n32, n32> m_modelHandleToIndexStart;
-    std::unique_ptr<Buffer>      m_modelVertexBuffer;
-    std::vector<n32>             m_modelIndicies;
-    std::vector<Model::Vertex>   m_modelVertices;
-
-    std::vector<Eigen::Matrix4f> m_modelJointMatricies;
-    std::unique_ptr<Buffer>      m_modelJointMatriciesBuffer;
-
-    std::vector<f32>        m_modelMorphTargets;
-    std::unique_ptr<Buffer> m_modelMorphTargetsBuffer;
-
-    std::unordered_map<n32, std::pair<n32, n32>> m_modelHandleToMatrixStart;
-    std::vector<Eigen::Matrix4f>                 m_modelNodeMatricesFlat;
-    std::unique_ptr<Buffer>                      m_modelNodeMatriciesBuffer;
-
-    n32 m_nextModelID{0};
-    n32 m_prevModelID{0};
-
-    n32 m_nextInstanceID{0};
-
-    n32 LoadModel(const std::string& name);
-
-    std::unordered_map<n32, std::shared_ptr<AudioSourceComponent>> m_audioMap;
-    n32                                                            m_nextaudioID{0};
-    std::shared_ptr<AudioSourceComponent>                          GetAudioSource(const n32& index);
-
     struct TextureBinding
     {
         Texture* texture;
         n32      bindlessIndex;
     };
-
-    std::vector<std::unique_ptr<Texture>>           m_textures;
-    std::unordered_map<std::string, TextureBinding> m_textureMap;
-    std::vector<vk::DescriptorImageInfo>            m_bindlessImageInfos;
-    vk::DescriptorSet                               m_bindlessSet;
-    std::unique_ptr<DescriptorSetLayout>            m_bindlessLayout;
-    std::unique_ptr<DescriptorPoolGrowable>         m_bindlessTexturePool;
-    uint32_t                                        m_nextBindlessIndex = 0;
 
     struct MaterialBinding
     {
@@ -169,8 +121,53 @@ private:
         n32                   bindlessIndex;
     };
 
-    std::vector<MaterialBinding>         m_materials;
-    std::unordered_map<std::string, n32> m_materialMap;
-    std::unique_ptr<Buffer>              m_materialDataBuffer;
+    const LogicalDevice&                                           m_logicalDevice;
+    std::unique_ptr<DescriptorSetLayout>                           m_skyboxLayout;
+    std::unique_ptr<DescriptorSetLayout>                           m_skyboxCompLayout;
+    std::unordered_map<n32, std::shared_ptr<Model>>                m_modelMap;
+    std::unordered_map<std::string, n32>                           m_modelNameToHandle;
+    std::unordered_map<n32, std::shared_ptr<ModelInstance>>        m_modelInstanceMap;
+    std::unique_ptr<Buffer>                                        m_modelIndexBuffer;
+    std::unordered_map<n32, n32>                                   m_modelHandleToIndexStart;
+    std::unique_ptr<Buffer>                                        m_modelVertexBuffer;
+    std::vector<n32>                                               m_modelIndicies;
+    std::vector<Model::Vertex>                                     m_modelVertices;
+    std::vector<Eigen::Matrix4f>                                   m_modelJointMatricies;
+    std::unique_ptr<Buffer>                                        m_modelJointMatriciesBuffer;
+    std::vector<f32>                                               m_modelMorphTargets;
+    std::unique_ptr<Buffer>                                        m_modelMorphTargetsBuffer;
+    std::unordered_map<n32, std::pair<n32, n32>>                   m_modelHandleToMatrixStart;
+    std::vector<Eigen::Matrix4f>                                   m_modelNodeMatricesFlat;
+    std::unique_ptr<Buffer>                                        m_modelNodeMatriciesBuffer;
+    n32                                                            m_nextModelID{0};
+    n32                                                            m_prevModelID{0};
+    n32                                                            m_nextInstanceID{0};
+    std::unordered_map<n32, std::shared_ptr<AudioSourceComponent>> m_audioMap;
+    n32                                                            m_nextaudioID{0};
+    std::vector<std::unique_ptr<Texture>>                          m_textures;
+    std::unordered_map<std::string, TextureBinding>                m_textureMap;
+    std::vector<vk::DescriptorImageInfo>                           m_bindlessImageInfos;
+    vk::DescriptorSet                                              m_bindlessSet;
+    std::unique_ptr<DescriptorSetLayout>                           m_bindlessLayout;
+    std::unique_ptr<DescriptorPoolGrowable>                        m_bindlessTexturePool;
+    n32                                                            m_nextBindlessIndex = 0;
+    std::vector<MaterialBinding>                                   m_materials;
+    std::unordered_map<std::string, n32>                           m_materialMap;
+    std::unique_ptr<Buffer>                                        m_materialDataBuffer;
+    std::unordered_map<n32, std::pair<n32, n32>>                   m_modelHandleToMeshletStart;
+    std::unordered_map<n32, std::pair<n32, n32>>                   m_modelHandleToMeshletIndexStart;
+    std::unique_ptr<Buffer>                                        m_meshletBuffer;
+    std::unique_ptr<Buffer>                                        m_meshletVertexBuffer;
+    std::unique_ptr<Buffer>                                        m_meshletPrimitiveBuffer;
+    std::vector<Meshlet>                                           m_meshlets;
+    std::vector<n32>                                               m_meshletVertices;
+    std::vector<n8>                                                m_meshletPrimitives;
+    std::unordered_map<n32, std::pair<n32, n32>>                   m_modelHandleToJointStart;
+    std::unordered_map<n32, std::pair<n32, n32>>                   m_modelHandleToMorphStart;
+
+    void                                  InitDescriptors();
+    void                                  InitializeInitials();
+    n32                                   LoadModel(const std::string& name);
+    std::shared_ptr<AudioSourceComponent> GetAudioSource(const n32& index);
 };
 } // namespace Humongous

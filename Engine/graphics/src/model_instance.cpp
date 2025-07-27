@@ -47,8 +47,8 @@ ModelInstance::ModelInstance(std::shared_ptr<Model> model, ResourceManager& reso
 ModelInstance::~ModelInstance() {}
 
 n32 ModelInstance::GetNodeMatrixOffset() const { return m_resourceManager.GetModelHandleToMatrixStart(m_instanceID); }
-n32 ModelInstance::GetJointMatrixOffset() const { return m_resourceManager.m_modelHandleToJointStart[m_instanceID].first; }
-n32 ModelInstance::GetMorphTargetOffset() const { return m_resourceManager.m_modelHandleToMorphStart[m_instanceID].first; }
+n32 ModelInstance::GetJointMatrixOffset() const { return m_resourceManager.GetModelHandleToJointStart(m_instanceID); }
+n32 ModelInstance::GetMorphTargetOffset() const { return m_resourceManager.GetModelHandleToMorphStart(m_instanceID); }
 
 // FIXME: This way of calculating the AABB is very loose, and should be improved.
 void ModelInstance::UpdateAnimatedAABB()

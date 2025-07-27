@@ -296,11 +296,11 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const bool& d
 
             if(staticModel->HasSkins())
             {
-                instance.jointMatrixStart = m_resourceManager.m_modelHandleToJointStart[currentModelInstance->GetInstanceID()].first;
+                instance.jointMatrixStart = m_resourceManager.GetModelHandleToJointStart(currentModelInstance->GetInstanceID());
             }
             if(staticModel->HasMorphs())
             {
-                instance.morphTargetStart = m_resourceManager.m_modelHandleToMorphStart[currentModelInstance->GetInstanceID()].first;
+                instance.morphTargetStart = m_resourceManager.GetModelHandleToMorphStart(currentModelInstance->GetInstanceID());
             }
 
             instanceDataVec.push_back(instance);
