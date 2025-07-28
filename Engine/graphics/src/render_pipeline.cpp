@@ -201,7 +201,7 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
     configInfo.colorBlendAttachment.alphaBlendOp = BlendOp::eAdd;
 
     configInfo.colorBlendAttachments.push_back(configInfo.colorBlendAttachment);
-    configInfo.colorAttachmentFormats.push_back(vk::Format::eR16G16B16A16Sfloat);
+    configInfo.colorAttachmentFormats.push_back(vk::Format::eR8G8B8A8Unorm);
 
     configInfo.colorBlendInfo.logicOpEnable = false;
     configInfo.colorBlendInfo.logicOp = LogicOp::eCopy; // Optional
@@ -226,7 +226,7 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
     configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();
     configInfo.dynamicStateInfo.dynamicStateCount = static_cast<u32>(configInfo.dynamicStateEnables.size());
 
-    configInfo.colorAttachmentFormat = Format::eR16G16B16A16Sfloat; // Or a more suitable default like swapchain format
+    configInfo.colorAttachmentFormat = Format::eR8G8B8A8Unorm; // Or a more suitable default like swapchain format
 
     // Initialize renderingInfo for a single color attachment (common default)
     configInfo.renderingInfo.viewMask = 0;

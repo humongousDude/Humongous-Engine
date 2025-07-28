@@ -3,8 +3,10 @@
 #include "render_pipeline.hpp"
 
 // lib
+#include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_vulkan.h"
+#include "imgui_internal.h"
 
 #include "ui/widget.hpp"
 #include <vulkan/vk_enum_string_helper.h>
@@ -22,7 +24,10 @@ void UI::Internal_Init(const class Instance& instance, const LogicalDevice& logi
     InitDescriptorThings();
 
     IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
+    ImGuiContext* io = ImGui::CreateContext();
+    io->IO.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io->IO.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
     ImGui_ImplSDL3_InitForVulkan(window.GetWindow());
 
     ImGui::StyleColorsDark();
@@ -44,6 +49,8 @@ void UI::Internal_Init(const class Instance& instance, const LogicalDevice& logi
     m_renderingInfo.depthAttachmentFormat = vk::Format::eUndefined;
     m_renderingInfo.stencilAttachmentFormat = vk::Format::eUndefined;
     m_renderingInfo.colorAttachmentCount = 1;
+    vk::Format colorFormat = vk::Format::eR8G8B8A8Unorm;
+    m_renderingInfo.pColorAttachmentFormats = &colorFormat;
 
     initInfo.Queue = m_logicalDevice->GetGraphicsQueue();
     initInfo.QueueFamily = m_logicalDevice->GetGraphicsQueueIndex();

@@ -70,7 +70,7 @@ void VulkanApp::Init(const int argc, char* argv[])
     SceneHandler::Init();
 
     m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, *m_resourceManager, m_logicalDevice->GetVmaAllocator(),
-                                            vk::Format::eR16G16B16A16Sfloat, vk::Format::eD32SfloatS8Uint);
+                                            vk::Format::eR8G8B8A8Unorm, vk::Format::eD32SfloatS8Uint);
 
     m_cam = std::make_unique<Camera>(*m_logicalDevice);
 
@@ -459,6 +459,9 @@ void VulkanApp::Run()
                 UI::EndUIFrame(cmd);
 
                 m_renderer->EndUIRendering(cmd);
+
+                ImGui::UpdatePlatformWindows();
+                ImGui::RenderPlatformWindowsDefault();
 
                 m_renderer->EndFrame();
             }

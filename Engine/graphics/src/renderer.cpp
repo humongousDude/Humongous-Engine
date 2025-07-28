@@ -129,7 +129,7 @@ void Renderer::CreateDrawImage()
     imgCI.mipLevels = 1;
     imgCI.usage = drawImageUsages;
     imgCI.layerCount = 1;
-    imgCI.format = vk::Format::eR16G16B16A16Sfloat;
+    imgCI.format = vk::Format::eR8G8B8A8Unorm;
     imgCI.imagePool = VK_NULL_HANDLE;
     imgCI.samples = vk::SampleCountFlagBits::e1;
 
@@ -186,7 +186,7 @@ void Renderer::CreateGBuffer()
     imgCI.height = m_screenImageExtent.height;
     imgCI.mipLevels = 1;
     imgCI.usage = colorUsages;
-    imgCI.format = vk::Format::eR16G16B16A16Sfloat;
+    imgCI.format = vk::Format::eR8G8B8A8Unorm;
     imgCI.imagePool = VK_NULL_HANDLE;
     imgCI.samples = vk::SampleCountFlagBits::e1;
     imgCI.createWithSampler = true;
