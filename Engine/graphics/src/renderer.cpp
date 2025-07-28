@@ -204,7 +204,7 @@ void Renderer::CreateGBuffer()
     else { m_lightingPool->ResetPool(); }
 
     auto cmd = m_logicalDevice.BeginSingleTimeCommands();
-    n32  mipLevels = floor(log2(std::max(imgCI.width, imgCI.height))) + 1;
+    u32  mipLevels = floor(log2(std::max(imgCI.width, imgCI.height))) + 1;
 
     for(int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -305,7 +305,7 @@ void Renderer::CreateGBuffer()
         }
 
         m_frames[i].hiZMips.resize(imgCI.mipLevels);
-        for(n32 level = 0; level < imgCI.mipLevels; ++level)
+        for(u32 level = 0; level < imgCI.mipLevels; ++level)
         {
             Utils::ImageTransitionInfo transition{.cmd = cmd, .logicalDevice = m_logicalDevice, .image = m_frames[i].hiZImage.image};
             transition.oldLayout = vk::ImageLayout::eUndefined;
@@ -378,7 +378,7 @@ void Renderer::CreateLightingPipeline()
     descriptorSetLayouts.push_back(m_lightingDescriptorLayout->GetDescriptorSetLayout());
 
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.setLayoutCount = static_cast<n32>(descriptorSetLayouts.size());
+    pipelineLayoutInfo.setLayoutCount = static_cast<u32>(descriptorSetLayouts.size());
     pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
     pipelineLayoutInfo.pushConstantRangeCount = 0;
     pipelineLayoutInfo.pPushConstantRanges = nullptr;
@@ -425,7 +425,7 @@ void Renderer::CreateCommandBuffers()
     vk::CommandBufferAllocateInfo allocInfo{};
     allocInfo.commandPool = m_commandPool;
     allocInfo.level = vk::CommandBufferLevel::ePrimary;
-    allocInfo.commandBufferCount = static_cast<n32>(m_frames.size());
+    allocInfo.commandBufferCount = static_cast<u32>(m_frames.size());
 
     for(Frame& frame: m_frames)
     {
@@ -520,7 +520,7 @@ void Renderer::CreateComputePipeline()
     {
         auto layout = m_occlusionDescriptorLayout->GetDescriptorSetLayout();
 
-        vk::PushConstantRange range{vk::ShaderStageFlagBits::eCompute, 0, sizeof(n32)};
+        vk::PushConstantRange range{vk::ShaderStageFlagBits::eCompute, 0, sizeof(u32)};
 
         vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.setLayoutCount = 1;
@@ -543,7 +543,7 @@ void Renderer::CreateComputePipeline()
     {
         auto layout = m_mipDescriptorLayout->GetDescriptorSetLayout();
 
-        vk::PushConstantRange range{vk::ShaderStageFlagBits::eCompute, 0, sizeof(n32)};
+        vk::PushConstantRange range{vk::ShaderStageFlagBits::eCompute, 0, sizeof(u32)};
 
         vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.setLayoutCount = 1;
@@ -570,7 +570,7 @@ void Renderer::ReadyPerFrameData(std::vector<Utils::VisibleEntityInfo>& visibleE
     auto world = SceneHandler::GetWorld();
 
     auto& visibilityResultsBuffer = GetCurrentFrame().visiblityResultBuffer;
-    n32   numObjectsCulledLastFrame = GetCurrentFrame().numObjectsDispatched;
+    u32   numObjectsCulledLastFrame = GetCurrentFrame().numObjectsDispatched;
 
     if(!visibilityResultsBuffer || numObjectsCulledLastFrame == 0) { return; }
 
@@ -588,7 +588,7 @@ void Renderer::ReadyPerFrameData(std::vector<Utils::VisibleEntityInfo>& visibleE
     std::unordered_map<EntityID, bool> prevFrameVisibilityByEntityId;
     prevFrameVisibilityByEntityId.reserve(numObjectsCulledLastFrame);
 
-    for(n32 i = 0; i < numObjectsCulledLastFrame; ++i)
+    for(u32 i = 0; i < numObjectsCulledLastFrame; ++i)
     {
         EntityID entityId = results[i].id;
         bool     isVisible = results[i].visible;
@@ -693,7 +693,7 @@ void Renderer::PostGeometryPassTransitions(vk::CommandBuffer cmd)
 
 vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& visibleEntities)
 {
-    vk::Result result = m_logicalDevice.GetVkDevice().waitForFences(1, &GetCurrentFrame().inFlightFence, vk::True, std::numeric_limits<n64>::max());
+    vk::Result result = m_logicalDevice.GetVkDevice().waitForFences(1, &GetCurrentFrame().inFlightFence, vk::True, std::numeric_limits<u64>::max());
     if(result != vk::Result::eSuccess) { HGINFO("Failed to wait for fences: %s", vk::to_string(result).c_str()); }
 
     result = m_logicalDevice.GetVkDevice().resetFences(1, &GetCurrentFrame().inFlightFence);
@@ -920,10 +920,10 @@ void Renderer::DoLightingPass(vk::CommandBuffer cmd, vk::DescriptorSet camSet, v
     std::vector<vk::DescriptorSet> sets = {camSet, sceneSet, skyboxSet, currentFrame.gbuffer.imageSet};
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_lightingPipelineLayout, 0, sets.size(), sets.data(), 0, nullptr);
 
-    n32 localSize = 8;
+    u32 localSize = 8;
 
-    n32 countX = std::ceil(m_screenImageExtent.width / localSize);
-    n32 countY = std::ceil(m_screenImageExtent.height / localSize);
+    u32 countX = std::ceil(m_screenImageExtent.width / localSize);
+    u32 countY = std::ceil(m_screenImageExtent.height / localSize);
 
     cmd.dispatch(countX, countY, 1);
 
@@ -1045,7 +1045,7 @@ struct alignas(16) RendererData
 struct OcclusionObjectData
 {
     BoundingBox boundingBox;
-    n32         id;
+    u32         id;
 };
 
 using namespace Utils;
@@ -1092,14 +1092,14 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
 
         writer_mip0.WriteImage(0, &gBufferSourceInfo).WriteImage(1, &hiZ_Mip0_DestInfo).Overwrite(currentFrame.hiZMips[0].set);
 
-        n32 level = 0;
+        u32 level = 0;
 
-        cmd.pushConstants(m_mipPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(n32), &level);
+        cmd.pushConstants(m_mipPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(u32), &level);
 
         cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_mipPipelineLayout, 0, 1, &currentFrame.hiZMips[0].set, 0, nullptr);
 
-        n32 initialMipWidth = currentFrame.hiZImage.width;
-        n32 initialMipHeight = currentFrame.hiZImage.height;
+        u32 initialMipWidth = currentFrame.hiZImage.width;
+        u32 initialMipHeight = currentFrame.hiZImage.height;
         cmd.dispatch((initialMipWidth + 7) / 8, (initialMipHeight + 7) / 8, 1);
 
         Utils::ImageTransitionInfo mip0DestTranstition2{.logicalDevice = m_logicalDevice};
@@ -1116,7 +1116,7 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
         currentFrame.hiZMips[0].layout = vk::ImageLayout::eShaderReadOnlyOptimal;
     }
 
-    for(n32 i = 0; i < currentFrame.hiZImage.mipLevels - 1; ++i)
+    for(u32 i = 0; i < currentFrame.hiZImage.mipLevels - 1; ++i)
     {
         Utils::ImageTransitionInfo srcTransition{.logicalDevice = m_logicalDevice};
         srcTransition.cmd = cmd;
@@ -1162,12 +1162,12 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
 
         writer.WriteImage(0, &sourceImageInfo).WriteImage(1, &destImageInfo).Overwrite(currentFrame.hiZMips[i + 1].set);
 
-        cmd.pushConstants(m_mipPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(n32), &i + 1);
+        cmd.pushConstants(m_mipPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(u32), &i + 1);
 
         cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_mipPipelineLayout, 0, 1, &currentFrame.hiZMips[i + 1].set, 0, nullptr);
 
-        n32 destMipWidth = std::max(1u, currentFrame.hiZImage.width >> (i + 1));
-        n32 destMipHeight = std::max(1u, currentFrame.hiZImage.height >> (i + 1));
+        u32 destMipWidth = std::max(1u, currentFrame.hiZImage.width >> (i + 1));
+        u32 destMipHeight = std::max(1u, currentFrame.hiZImage.height >> (i + 1));
 
         cmd.dispatch((destMipWidth + 7) / 8, (destMipHeight + 7) / 8, 1);
 
@@ -1264,10 +1264,10 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
 
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_occlusionPipelineLayout, 0, 1, &computeSet, 0, nullptr);
 
-    n32 size = objectDataForGPU.size();
-    cmd.pushConstants(m_occlusionPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(n32), &size);
+    u32 size = objectDataForGPU.size();
+    cmd.pushConstants(m_occlusionPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(u32), &size);
 
-    n32 groupCountX = (size + 63) / 64;
+    u32 groupCountX = (size + 63) / 64;
     if(groupCountX > 0) { cmd.dispatch(groupCountX, 1, 1); }
 
     WaitForCompute(cmd);

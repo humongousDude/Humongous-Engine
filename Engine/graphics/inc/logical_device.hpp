@@ -20,8 +20,8 @@ public:
     vk::Queue GetGraphicsQueue() const { return m_graphicsQueue; }
     vk::Queue GetPresentQueue() const { return m_presentQueue; }
 
-    n32 GetGraphicsQueueIndex() const { return m_graphicsQueueIndex; }
-    n32 GetPresentQueueIndex() const { return m_presentQueueIndex; }
+    u32 GetGraphicsQueueIndex() const { return m_graphicsQueueIndex; }
+    u32 GetPresentQueueIndex() const { return m_presentQueueIndex; }
 
     VmaAllocator GetVmaAllocator() const { return m_allocator; }
 
@@ -30,8 +30,8 @@ public:
 
     struct VMAData
     {
-        n32 allocationCount = 0;
-        n32 freeCount = 0;
+        u32 allocationCount = 0;
+        u32 freeCount = 0;
     };
 
 private:
@@ -42,8 +42,8 @@ private:
 
     vk::Queue m_graphicsQueue;
     vk::Queue m_presentQueue;
-    n32       m_graphicsQueueIndex;
-    n32       m_presentQueueIndex;
+    u32       m_graphicsQueueIndex;
+    u32       m_presentQueueIndex;
 
     VmaAllocator m_allocator;
 

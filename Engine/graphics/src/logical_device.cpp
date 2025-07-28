@@ -103,10 +103,10 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     auto extensions = physicalDevice.GetDeviceExtensions();
 
     vk::DeviceCreateInfo createInfo{};
-    createInfo.queueCreateInfoCount = static_cast<n32>(queueCreateInfos.size()); // queueCreateInfos.size();
+    createInfo.queueCreateInfoCount = static_cast<u32>(queueCreateInfos.size()); // queueCreateInfos.size();
     createInfo.pQueueCreateInfos = queueCreateInfos.data();
     createInfo.enabledLayerCount = 0;
-    createInfo.enabledExtensionCount = static_cast<n32>(extensions.size());
+    createInfo.enabledExtensionCount = static_cast<u32>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
     createInfo.enabledLayerCount = 0;
     createInfo.ppEnabledLayerNames = nullptr;

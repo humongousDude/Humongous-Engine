@@ -33,7 +33,7 @@ public:
             const bool& storage = false);
     Texture(const LogicalDevice& logicalDevice) : m_logicalDevice{logicalDevice} {};
 
-    void FillWithEmpty(const LogicalDevice& m_logicalDevice, n32 width, n32 height, const bool& storage = false);
+    void FillWithEmpty(const LogicalDevice& m_logicalDevice, u32 width, u32 height, const bool& storage = false);
 
     vk::DescriptorImageInfo GetDescriptorInfo() const { return {m_textureSampler, m_textureImage.imageView, m_textureImage.imageLayout}; };
 
@@ -44,11 +44,11 @@ public:
 
     AllocatedImage& GetAllocatedImage() { return m_textureImage; }
 
-    n32 GetWidth() const { return m_width; }
-    n32 GetHeight() const { return m_height; }
-    n32 GetMipLevels() const { return m_miplevels; }
-    n32 GetLayerCount() const { return m_layerCount; }
-    n32 GetBaseSize() const { return m_baseSize; }
+    u32 GetWidth() const { return m_width; }
+    u32 GetHeight() const { return m_height; }
+    u32 GetMipLevels() const { return m_miplevels; }
+    u32 GetLayerCount() const { return m_layerCount; }
+    u32 GetBaseSize() const { return m_baseSize; }
 
     void Destroy();
 
@@ -61,10 +61,10 @@ private:
     AllocatedImage       m_textureImage;
     vk::Sampler          m_textureSampler;
 
-    n32 m_width, m_height, m_miplevels, m_layerCount, m_baseSize;
+    u32 m_width, m_height, m_miplevels, m_layerCount, m_baseSize;
 
     void CreateTextureImage(const std::string& imagePath, const ImageType& imageType = ImageType::TEX2D, const bool& storage = false);
     void CreateTextureImageSampler(const TexSamplerInfo& samplerInfo, const ImageType& imageType = ImageType::TEX2D);
-    void GenerateMipmaps(vk::CommandBuffer commandBuffer, vk::Image image, n32 texWidth, n32 texHeight, n32 mipLevels, vk::ImageLayout finalLayout);
+    void GenerateMipmaps(vk::CommandBuffer commandBuffer, vk::Image image, u32 texWidth, u32 texHeight, u32 mipLevels, vk::ImageLayout finalLayout);
 };
 }; // namespace Humongous

@@ -157,7 +157,7 @@ public:
             ModelInstance* modelInstance = GetComponent<ModelComponent>(entity)->instance.get();
             modelInstance->Update();
 
-            const n32& modelInstanceID = modelInstance->GetInstanceID();
+            const u32& modelInstanceID = modelInstance->GetInstanceID();
             resourceManager.UpdateNodeMatrices(modelInstance->GetNodeMatrices(), modelInstanceID);
 
             if(modelInstance->HasJoints()) { resourceManager.UpdateJointMatrices(modelInstance->GetJointMatrices(), modelInstanceID); }

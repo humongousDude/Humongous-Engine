@@ -5,7 +5,7 @@ namespace Humongous
 {
 namespace Utils
 {
-void CreateAllocatedImage(const LogicalDevice& logicalDevice, n32 width, n32 height, vk::Format format, vk::ImageTiling tiling,
+void CreateAllocatedImage(const LogicalDevice& logicalDevice, u32 width, u32 height, vk::Format format, vk::ImageTiling tiling,
                           vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, AllocatedImage& allocatedImage,
                           vk::ImageAspectFlags aspectFlags)
 {
@@ -281,7 +281,7 @@ void CopyImageToImage(vk::CommandBuffer cmd, vk::Image src, vk::Image dst, vk::E
     cmd.blitImage2(blitInfo);
 }
 
-void CopyBufferToImage(const LogicalDevice& logicalDevice, vk::Buffer buffer, vk::Image image, n32 width, n32 height)
+void CopyBufferToImage(const LogicalDevice& logicalDevice, vk::Buffer buffer, vk::Image image, u32 width, u32 height)
 {
     vk::CommandBuffer   commandBuffer = logicalDevice.BeginSingleTimeCommands();
     vk::BufferImageCopy region{};

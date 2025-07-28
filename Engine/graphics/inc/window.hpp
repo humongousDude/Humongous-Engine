@@ -22,7 +22,7 @@ public:
     bool IsFocused() const { return SDL_GetWindowFlags(window) == SDL_WINDOW_INPUT_FOCUS; }
     bool IsMinimized() const { return SDL_GetWindowFlags(window) == SDL_WINDOW_MAXIMIZED; }
 
-    vk::Extent2D GetExtent() const { return {static_cast<n32>(width), static_cast<n32>(height)}; }
+    vk::Extent2D GetExtent() const { return {static_cast<u32>(width), static_cast<u32>(height)}; }
 
     bool WasWindowResized() const { return m_wasWindowResizedFlag; }
     void ResetWindowResizedFlag() { m_wasWindowResizedFlag = false; }

@@ -22,7 +22,7 @@ Mesh::~Mesh()
     for(Primitive* p: primitives) { delete p; }
 }
 
-Model::Model(const LogicalDevice& device, ResourceManager& resourceManager, const std::string& modelPath, f32 scale, const n32& handle)
+Model::Model(const LogicalDevice& device, ResourceManager& resourceManager, const std::string& modelPath, f32 scale, const u32& handle)
     : m_handle(handle), m_logicalDevice(device), m_resourceManager(resourceManager)
 {
     HGINFO("Creating model...");
@@ -138,15 +138,15 @@ void Model::Destroy(vk::Device device)
 // TODO: clean up this abomination
 
 void Model::OptimizePrimitive(Primitive* primitive, LoaderInfo& loaderInfo, std::vector<Vertex>& primitiveVertices,
-                              std::vector<n32>& primitiveIndices)
+                              std::vector<u32>& primitiveIndices)
 {
     if(!primitiveIndices.empty() && !primitiveVertices.empty())
     {
-        std::vector<n32> remap(primitiveVertices.size());
+        std::vector<u32> remap(primitiveVertices.size());
         size_t           uniqueVertexCount = meshopt_generateVertexRemap(remap.data(), primitiveIndices.data(), primitiveIndices.size(),
                                                                          primitiveVertices.data(), primitiveVertices.size(), sizeof(Vertex));
 
-        std::vector<n32>    remappedIndices(primitiveIndices.size());
+        std::vector<u32>    remappedIndices(primitiveIndices.size());
         std::vector<Vertex> remappedVertices(uniqueVertexCount);
 
         meshopt_remapIndexBuffer(remappedIndices.data(), primitiveIndices.data(), primitiveIndices.size(), remap.data());
@@ -183,10 +183,10 @@ void Model::OptimizePrimitive(Primitive* primitive, LoaderInfo& loaderInfo, std:
         meshopt_optimizeVertexFetch(remappedVertices.data(), remappedIndices.data(), remappedIndices.size(), remappedVertices.data(),
                                     uniqueVertexCount, sizeof(Vertex));
 
-        primitive->localVertexOffset = static_cast<n32>(loaderInfo.vertexBuffer.size());
-        primitive->vertexCount = static_cast<n32>(remappedVertices.size());
-        primitive->localFirstIndex = static_cast<n32>(loaderInfo.indexBuffer.size());
-        primitive->indexCount = static_cast<n32>(remappedIndices.size());
+        primitive->localVertexOffset = static_cast<u32>(loaderInfo.vertexBuffer.size());
+        primitive->vertexCount = static_cast<u32>(remappedVertices.size());
+        primitive->localFirstIndex = static_cast<u32>(loaderInfo.indexBuffer.size());
+        primitive->indexCount = static_cast<u32>(remappedIndices.size());
         primitive->morphTargetPositions = std::move(morphTargetPositionsOriginal);
         primitive->morphTargetNormals = std::move(morphTargetNormalsOriginal);
         primitive->morphTargetTangents = std::move(morphTargetTangentsOriginal);
@@ -196,17 +196,17 @@ void Model::OptimizePrimitive(Primitive* primitive, LoaderInfo& loaderInfo, std:
     }
     else
     {
-        primitive->localVertexOffset = static_cast<n32>(loaderInfo.vertexBuffer.size());
-        primitive->vertexCount = static_cast<n32>(primitiveVertices.size());
-        primitive->localFirstIndex = static_cast<n32>(loaderInfo.indexBuffer.size());
-        primitive->indexCount = static_cast<n32>(primitiveIndices.size());
+        primitive->localVertexOffset = static_cast<u32>(loaderInfo.vertexBuffer.size());
+        primitive->vertexCount = static_cast<u32>(primitiveVertices.size());
+        primitive->localFirstIndex = static_cast<u32>(loaderInfo.indexBuffer.size());
+        primitive->indexCount = static_cast<u32>(primitiveIndices.size());
 
         loaderInfo.vertexBuffer.insert(loaderInfo.vertexBuffer.end(), primitiveVertices.begin(), primitiveVertices.end());
         loaderInfo.indexBuffer.insert(loaderInfo.indexBuffer.end(), primitiveIndices.begin(), primitiveIndices.end());
     }
 }
 
-void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, f32 globalscale,
+void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, const tinygltf::Model& model, LoaderInfo& loaderInfo, f32 globalscale,
                      Eigen::Matrix4f parentTransform)
 {
     Node* newNode = new Node{};
@@ -255,10 +255,10 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
         {
             const tinygltf::Primitive& primitive = mesh.primitives[j];
 
-            n32 vertexStart = static_cast<n32>(loaderInfo.vertexPos);
-            n32 indexStart = static_cast<n32>(loaderInfo.indexPos);
-            n32 indexCount = 0;
-            n32 vertexCount = 0;
+            u32 vertexStart = static_cast<u32>(loaderInfo.vertexPos);
+            u32 indexStart = static_cast<u32>(loaderInfo.indexPos);
+            u32 indexCount = 0;
+            u32 vertexCount = 0;
 
             bool hasSkin = false;
             bool hasIndices = primitive.indices > -1;
@@ -272,7 +272,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             f32             currentMaxMorphDisplacement = 0.0f;
 
             std::vector<Vertex> currentPrimitiveVertices;
-            std::vector<n32>    currentPrimitiveIndices;
+            std::vector<u32>    currentPrimitiveIndices;
 
             for(const auto& target_map: primitive.targets)
             {
@@ -369,7 +369,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
             }
 
             hasSkin = (bufferJoints && bufferWeights);
-            vertexCount = static_cast<n32>(posAccessor.count);
+            vertexCount = static_cast<u32>(posAccessor.count);
 
             currentPrimitiveVertices.reserve(posAccessor.count);
 
@@ -411,12 +411,12 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
 
                     if(jointAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
                     {
-                        const n16* j = reinterpret_cast<const n16*>(rawJointBase + (v * currentJointByteStride));
+                        const u16* j = reinterpret_cast<const u16*>(rawJointBase + (v * currentJointByteStride));
                         vert.joint0 = Eigen::Vector4i(j[0], j[1], j[2], j[3]);
                     }
                     else if(jointAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
                     {
-                        const n8* j = reinterpret_cast<const n8*>(rawJointBase + (v * currentJointByteStride));
+                        const u8* j = reinterpret_cast<const u8*>(rawJointBase + (v * currentJointByteStride));
                         vert.joint0 = Eigen::Vector4i(j[0], j[1], j[2], j[3]);
                     }
                     else { HGERROR("Unexpected JOINTS_0 componentType = %d", jointAccessor.componentType); }
@@ -495,7 +495,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                 const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
                 const tinygltf::Buffer&     buffer = model.buffers[bufferView.buffer];
 
-                indexCount = static_cast<n32>(accessor.count);
+                indexCount = static_cast<u32>(accessor.count);
                 const void* dataPtr = &(buffer.data[accessor.byteOffset + bufferView.byteOffset]);
 
                 currentPrimitiveIndices.reserve(accessor.count);
@@ -503,19 +503,19 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
                 {
                     case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT:
                         {
-                            const n32* buf = static_cast<const n32*>(dataPtr);
+                            const u32* buf = static_cast<const u32*>(dataPtr);
                             for(size_t index = 0; index < accessor.count; index++) { currentPrimitiveIndices.push_back(buf[index]); }
                             break;
                         }
                     case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT:
                         {
-                            const n16* buf = static_cast<const n16*>(dataPtr);
+                            const u16* buf = static_cast<const u16*>(dataPtr);
                             for(size_t index = 0; index < accessor.count; index++) { currentPrimitiveIndices.push_back(buf[index]); }
                             break;
                         }
                     case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE:
                         {
-                            const n8* buf = static_cast<const n8*>(dataPtr);
+                            const u8* buf = static_cast<const u8*>(dataPtr);
                             for(size_t index = 0; index < accessor.count; index++) { currentPrimitiveIndices.push_back(buf[index]); }
                             break;
                         }
@@ -527,9 +527,9 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, n32 nodeIndex, co
 
             Primitive* newPrimitive = new Primitive();
             newPrimitive->localFirstIndex = indexStart;
-            newPrimitive->indexCount = static_cast<n32>(currentPrimitiveIndices.size());
+            newPrimitive->indexCount = static_cast<u32>(currentPrimitiveIndices.size());
             newPrimitive->localVertexOffset = vertexStart;
-            newPrimitive->vertexCount = static_cast<n32>(currentPrimitiveVertices.size());
+            newPrimitive->vertexCount = static_cast<u32>(currentPrimitiveVertices.size());
             newPrimitive->material = primitive.material > -1 ? &m_materials[primitive.material] : &m_materials.back();
             newPrimitive->owner = newNode;
             newPrimitive->maxMorphDisplacement = currentMaxMorphDisplacement;
@@ -579,7 +579,7 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
         }
 
         const Vertex* vertices = &loaderInfo.vertexBuffer[primitive->localVertexOffset];
-        const n32*    indices = &loaderInfo.indexBuffer[primitive->localFirstIndex];
+        const u32*    indices = &loaderInfo.indexBuffer[primitive->localFirstIndex];
 
         const size_t vertexCount = primitive->vertexCount;
         const size_t indexCount = primitive->indexCount;
@@ -587,7 +587,7 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
         size_t boundMeshlets = meshopt_buildMeshletsBound(indexCount, maxVertices, maxTriangles);
 
         std::vector<meshopt_Meshlet> tempMeshlets(boundMeshlets);
-        std::vector<n32>             tempMeshletVertices(boundMeshlets * maxVertices);
+        std::vector<u32>             tempMeshletVertices(boundMeshlets * maxVertices);
         std::vector<unsigned char>   tempMeshletPrimitives(boundMeshlets * maxTriangles * 3);
 
         size_t actualMeshletCount =
@@ -611,20 +611,20 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
         {
             const meshopt_Meshlet& moMeshlet = tempMeshlets[i];
 
-            const n32* meshletVertexIndices = tempMeshletVertices.data() + moMeshlet.vertex_offset;
+            const u32* meshletVertexIndices = tempMeshletVertices.data() + moMeshlet.vertex_offset;
 
             std::vector<Eigen::Vector3f> currentMeshletPositions;
             currentMeshletPositions.reserve(moMeshlet.vertex_count);
             for(size_t i = 0; i < moMeshlet.vertex_count; ++i)
             {
-                n32           vertexIndex = meshletVertexIndices[i];
+                u32           vertexIndex = meshletVertexIndices[i];
                 const Vertex& vtx = loaderInfo.vertexBuffer[vertexIndex];
                 currentMeshletPositions.push_back(vtx.position.head<3>());
             }
         }
 
-        primitive->meshletOffset = static_cast<n32>(m_meshlets.size());
-        primitive->meshletCount = static_cast<n32>(actualMeshletCount);
+        primitive->meshletOffset = static_cast<u32>(m_meshlets.size());
+        primitive->meshletCount = static_cast<u32>(actualMeshletCount);
 
         size_t currentBaseVertexOffset = m_meshletVertices.size();
         size_t currentPrimitiveBaseOffset = m_meshletPrimitives.size();
@@ -632,9 +632,9 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
         for(size_t i = 0; i < actualMeshletCount; ++i)
         {
             Meshlet m;
-            m.vertexOffset = static_cast<n32>(currentBaseVertexOffset + tempMeshlets[i].vertex_offset);
+            m.vertexOffset = static_cast<u32>(currentBaseVertexOffset + tempMeshlets[i].vertex_offset);
             m.vertexCount = tempMeshlets[i].vertex_count;
-            m.indexOffset = static_cast<n32>(currentPrimitiveBaseOffset + tempMeshlets[i].triangle_offset);
+            m.indexOffset = static_cast<u32>(currentPrimitiveBaseOffset + tempMeshlets[i].triangle_offset);
             m.primitiveCount = tempMeshlets[i].triangle_count;
             m.boundingSphere = temp_boundingSpheres[i];
             m.primitiveID = primitive->id;
@@ -651,7 +651,7 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
 
 // Node Helpers
 
-Node* Model::NodeFromIndex(n32 index)
+Node* Model::NodeFromIndex(u32 index)
 {
     Node* nodeFound = nullptr;
     for(auto& node: m_nodes)
@@ -662,7 +662,7 @@ Node* Model::NodeFromIndex(n32 index)
     return nodeFound;
 }
 
-Node* Model::FindNode(Node* parent, n32 index)
+Node* Model::FindNode(Node* parent, u32 index)
 {
     Node* nodeFound = nullptr;
     if(parent->index == index) { return parent; }
@@ -1172,7 +1172,7 @@ void Model::LoadAnimations(tinygltf::Model& gltfModel)
 // Cube spline interpolation function used for translate/scale/rotate with cubic spline animation samples
 // Details on how this works can be found in the specs
 // https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#appendix-c-spline-interpolation
-Eigen::Vector4f Model::AnimationSampler::CubicSplineInterpolation(size_t index, f32 time, n32 stride) const
+Eigen::Vector4f Model::AnimationSampler::CubicSplineInterpolation(size_t index, f32 time, u32 stride) const
 {
     f32          delta = inputs[index + 1] - inputs[index];
     f32          t = (time - inputs[index]) / delta;
@@ -1185,7 +1185,7 @@ Eigen::Vector4f Model::AnimationSampler::CubicSplineInterpolation(size_t index, 
     f32             t2 = powf(t, 2);
     f32             t3 = powf(t, 3);
     Eigen::Vector4f pt = Eigen::Vector4f::Zero();
-    for(n32 i = 0; i < stride; i++)
+    for(u32 i = 0; i < stride; i++)
     {
         f32 p0 = outputs[current + i + V];
         f32 m0 = delta * outputs[current + i + A];
@@ -1196,7 +1196,7 @@ Eigen::Vector4f Model::AnimationSampler::CubicSplineInterpolation(size_t index, 
     return pt;
 }
 
-void Model::AnimationSampler::ApplyTranslation(size_t index, f32 time, std::vector<Eigen::Vector3f>& translations, n32 targetNodeIndex) const
+void Model::AnimationSampler::ApplyTranslation(size_t index, f32 time, std::vector<Eigen::Vector3f>& translations, u32 targetNodeIndex) const
 {
     if(inputs.size() == 1)
     {
@@ -1231,7 +1231,7 @@ void Model::AnimationSampler::ApplyTranslation(size_t index, f32 time, std::vect
     }
 }
 
-void Model::AnimationSampler::ApplyScale(size_t index, f32 time, std::vector<Eigen::Vector3f>& scales, n32 targetNodeIndex) const
+void Model::AnimationSampler::ApplyScale(size_t index, f32 time, std::vector<Eigen::Vector3f>& scales, u32 targetNodeIndex) const
 {
     if(inputs.size() == 1)
     {
@@ -1266,7 +1266,7 @@ void Model::AnimationSampler::ApplyScale(size_t index, f32 time, std::vector<Eig
     }
 }
 
-void Model::AnimationSampler::ApplyRotation(size_t index, f32 time, std::vector<Eigen::Quaternionf>& rotations, n32 targetNodeIndex) const
+void Model::AnimationSampler::ApplyRotation(size_t index, f32 time, std::vector<Eigen::Quaternionf>& rotations, u32 targetNodeIndex) const
 {
     if(inputs.size() == 1)
     {

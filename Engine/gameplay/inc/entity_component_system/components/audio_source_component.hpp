@@ -6,6 +6,6 @@ namespace Humongous
 {
 struct AudioSourceComponent
 {
-    n32 audioHandle;
+    u32 audioHandle;
 };
 } // namespace Humongous

@@ -14,7 +14,7 @@ void Allocator::Internal_Initialize(const LogicalDevice& logicalDevice)
     VmaAllocationCreateInfo bufAlloc{};
     bufAlloc.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-    n32               memTypeIndex;
+    u32               memTypeIndex;
     VmaPoolCreateInfo vertInfo{};
     vertInfo.memoryTypeIndex = vmaFindMemoryTypeIndexForBufferInfo(m_logicalDevice->GetVmaAllocator(), &bufInfo, &bufAlloc, &memTypeIndex);
     vertInfo.minAllocationAlignment = 1;

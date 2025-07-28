@@ -85,9 +85,9 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
     if(!useMeshShaders)
     {
-        vertexInputInfo.vertexBindingDescriptionCount = static_cast<n32>(configInfo.inputBindings.size());
+        vertexInputInfo.vertexBindingDescriptionCount = static_cast<u32>(configInfo.inputBindings.size());
         vertexInputInfo.pVertexBindingDescriptions = configInfo.inputBindings.data();
-        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<n32>(configInfo.attribBindings.size());
+        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<u32>(configInfo.attribBindings.size());
         vertexInputInfo.pVertexAttributeDescriptions = configInfo.attribBindings.data();
         vertexInputInfo.pNext = nullptr;
     }
@@ -107,7 +107,7 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
     vk::Result                     result;
     vk::GraphicsPipelineCreateInfo pipelineInfoGraphics{};
     pipelineInfoGraphics.pNext = &configInfo.renderingInfo;
-    pipelineInfoGraphics.stageCount = static_cast<n32>(shaderStages.size());
+    pipelineInfoGraphics.stageCount = static_cast<u32>(shaderStages.size());
     pipelineInfoGraphics.pStages = shaderStages.data();
     pipelineInfoGraphics.pViewportState = &viewportState;
     pipelineInfoGraphics.pVertexInputState = nullptr;
@@ -150,7 +150,7 @@ void RenderPipeline::CreateShaderModule(const std::vector<char>& code, vk::Shade
 {
     vk::ShaderModuleCreateInfo createInfo{};
     createInfo.codeSize = code.size();
-    createInfo.pCode = reinterpret_cast<const n32*>(code.data());
+    createInfo.pCode = reinterpret_cast<const u32*>(code.data());
 
     if(m_logicalDevice.GetVkDevice().createShaderModule(&createInfo, nullptr, shaderModule) != vk::Result::eSuccess)
     {
@@ -224,7 +224,7 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
 
     configInfo.dynamicStateEnables = {DynamicState::eViewport, DynamicState::eScissor};
     configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();
-    configInfo.dynamicStateInfo.dynamicStateCount = static_cast<n32>(configInfo.dynamicStateEnables.size());
+    configInfo.dynamicStateInfo.dynamicStateCount = static_cast<u32>(configInfo.dynamicStateEnables.size());
 
     configInfo.colorAttachmentFormat = Format::eR16G16B16A16Sfloat; // Or a more suitable default like swapchain format
 

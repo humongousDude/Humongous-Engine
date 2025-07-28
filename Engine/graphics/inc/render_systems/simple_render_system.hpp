@@ -15,7 +15,7 @@ struct RenderData
     std::vector<vk::DescriptorSet>               uboSets;
     const std::vector<Utils::VisibleEntityInfo>* visibleEntities;
     Humongous::World&                            world;
-    n32                                          frameIndex;
+    u32                                          frameIndex;
     Camera&                                      cam;
 };
 
@@ -34,27 +34,27 @@ public:
 
     void RenderObjectsMesh(RenderData& renderData, const bool& depthOnly);
     void RenderObjects(RenderData& renderData, const bool& depthOnly);
-    n32  GetObjectsDrawn() { return m_verticesDrawn; }
+    u32  GetObjectsDrawn() { return m_verticesDrawn; }
 
     vk::PipelineLayout m_pipelineLayout{};
 
 private:
     struct alignas(16) DrawData
     {
-        n32 materialID{0};
-        n32 localNodeIndex{0};
-        n32 isSkinned{0};
-        n32 isMorphed{0};
-        n32 instanceOffset;
+        u32 materialID{0};
+        u32 localNodeIndex{0};
+        u32 isSkinned{0};
+        u32 isMorphed{0};
+        u32 instanceOffset;
     };
 
     struct alignas(16) InstanceData
     {
         Eigen::Matrix4f modelMatrix;
-        n32             modelID;
-        n32             globalNodeIndex;
-        n32             jointMatrixStart;
-        n32             morphTargetStart;
+        u32             modelID;
+        u32             globalNodeIndex;
+        u32             jointMatrixStart;
+        u32             morphTargetStart;
     };
 
     const LogicalDevice&            m_logicalDevice;
@@ -62,7 +62,7 @@ private:
     std::unique_ptr<RenderPipeline> m_opaqueGeometryPipeline;
     std::unique_ptr<RenderPipeline> m_transparentGeometryPipeline;
     std::unique_ptr<RenderPipeline> m_depthOnlyPipeline;
-    n32                             m_verticesDrawn{0};
+    u32                             m_verticesDrawn{0};
 
     std::unique_ptr<Buffer>              m_debugBuffer;
     std::unique_ptr<DescriptorSetLayout> m_layout;

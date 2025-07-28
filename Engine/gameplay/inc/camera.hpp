@@ -54,21 +54,21 @@ public:
     void SetOrthographicProjection(float left, float right, float top, float bottom, float near, float far);
     void SetPerspectiveProjection(float fovy, float spect, float near, float far);
 
-    vk::DescriptorSet GetVertexDescriptorSet(n32 index) const { return m_vertProjectionMatrixSet[index]; };
-    vk::DescriptorSet GetFragmentDescriptorSet(n32 index) const { return m_fragProjectionMatrixSet[index]; };
-    vk::DescriptorSet GetComputeDescriptorSet(n32 index) const { return m_compProjectionMatrixSet[index]; };
-    vk::DescriptorSet GetParamDescriptorSet(n32 index) const { return m_uboParamSet[index]; };
+    vk::DescriptorSet GetVertexDescriptorSet(u32 index) const { return m_vertProjectionMatrixSet[index]; };
+    vk::DescriptorSet GetFragmentDescriptorSet(u32 index) const { return m_fragProjectionMatrixSet[index]; };
+    vk::DescriptorSet GetComputeDescriptorSet(u32 index) const { return m_compProjectionMatrixSet[index]; };
+    vk::DescriptorSet GetParamDescriptorSet(u32 index) const { return m_uboParamSet[index]; };
 
     void DrawUI();
 
     vk::DescriptorSetLayout              GetParamDescriptorSetLayout() const { return m_paramDescriptorLayout->GetDescriptorSetLayout(); };
-    const std::vector<vk::DescriptorSet> GetCombinedSets(n32 index) const { return {m_vertProjectionMatrixSet[index], m_uboParamSet[index]}; };
+    const std::vector<vk::DescriptorSet> GetCombinedSets(u32 index) const { return {m_vertProjectionMatrixSet[index], m_uboParamSet[index]}; };
     vk::DescriptorSetLayout              GetVertexDescriptorLayout() const { return m_vertProjectionLayout->GetDescriptorSetLayout(); };
     vk::DescriptorSetLayout              GetFragmentDescriptorSetLayout() const { return m_fragProjectionLayout->GetDescriptorSetLayout(); };
     vk::DescriptorSetLayout              GetComputeDescriptorSetLayout() const { return m_compProjectionLayout->GetDescriptorSetLayout(); };
-    vk::Buffer                           GetProjectionBuffer(n32 index) const { return m_projectionBuffers[index]->GetBuffer(); };
-    Buffer&                              GetProjectionBufferHandle(n32 index) const { return *m_projectionBuffers[index]; }
-    Buffer&                              GetCombinedDataBufferHandle(n32 index) const { return *m_combinedCameraDataBuffers[index]; }
+    vk::Buffer                           GetProjectionBuffer(u32 index) const { return m_projectionBuffers[index]->GetBuffer(); };
+    Buffer&                              GetProjectionBufferHandle(u32 index) const { return *m_projectionBuffers[index]; }
+    Buffer&                              GetCombinedDataBufferHandle(u32 index) const { return *m_combinedCameraDataBuffers[index]; }
 
     const Eigen::Matrix4f& GetProjection() const { return m_projectionMatrix; };
     const Eigen::Matrix4f& GetView() const { return m_viewMatrix; };
@@ -93,7 +93,7 @@ public:
     Eigen::Vector3f GetUp() const { return m_up; }
 
 private:
-    n32 m_index{0};
+    u32 m_index{0};
 
     std::vector<std::unique_ptr<Buffer>> m_projectionBuffers;
     std::vector<std::unique_ptr<Buffer>> m_paramBuffers;
@@ -120,7 +120,7 @@ private:
 
     void InitDescriptorThings(const LogicalDevice& logicalDevice);
 
-    void UpdateUBO(n32 index);
-    void UpdateCombinedCameraData(n32 index);
+    void UpdateUBO(u32 index);
+    void UpdateCombinedCameraData(u32 index);
 };
 } // namespace Humongous

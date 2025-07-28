@@ -22,8 +22,8 @@ class Renderer
 private:
     struct VisiblityResultSet
     {
-        n32 id;
-        n32 visible;
+        u32 id;
+        u32 visible;
     };
     // static_assert(sizeof(VisiblityResultSet) == 8, "Must be 8 bytes to match GLSL std430");
 
@@ -52,7 +52,7 @@ public:
         std::unique_ptr<Buffer> debugBuffer;
 
         std::vector<VisiblityResultSet> visiblityResults;
-        n32                             numObjectsDispatched;
+        u32                             numObjectsDispatched;
 
         AllocatedImage drawImage;
 
@@ -67,7 +67,7 @@ public:
         std::vector<DepthMip> hiZMips;
 
         vk::DescriptorSet occlusionSet;
-        n32               boundingBoxCount;
+        u32               boundingBoxCount;
     };
 
     Renderer(Window& window, const LogicalDevice& logicalDevice, const PhysicalDevice& physicalDevice, ResourceManager& resourceManager,
@@ -75,10 +75,10 @@ public:
     ~Renderer();
 
     // Get the swapchain image index we're currently using
-    n32 GetImageIndex() const { return m_currentImageIndex; }
+    u32 GetImageIndex() const { return m_currentImageIndex; }
 
     // Get the frame index we're currently using
-    n32 GetFrameIndex() const { return m_currentFrameIndex; }
+    u32 GetFrameIndex() const { return m_currentFrameIndex; }
 
     // Get the command buffer we're currently using
     vk::CommandBuffer GetCommandBuffer() { return GetCurrentFrame().commandBuffer; }
@@ -151,8 +151,8 @@ private:
     vk::CommandPool    m_commandPool;
     std::vector<Frame> m_frames;
 
-    n32    m_currentImageIndex{0};
-    n32    m_currentFrameIndex{0};
+    u32    m_currentImageIndex{0};
+    u32    m_currentFrameIndex{0};
     Frame& GetCurrentFrame() { return m_frames[m_currentFrameIndex]; }
 
     vk::Extent2D m_screenImageExtent;

@@ -118,7 +118,7 @@ PhysicalDevice::SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(vk
         HGFATAL("Failed to get surface capabilities!");
     };
 
-    n32  formatCount;
+    u32  formatCount;
     auto result = physicalDevice.getSurfaceFormats2KHR(&surfaceInfo, &formatCount, nullptr);
     if(result != vk::Result::eSuccess) { HGFATAL("Failed to get surface format count! Error: %s", vk::to_string(result).c_str()); }
 
@@ -132,7 +132,7 @@ PhysicalDevice::SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(vk
         if(result != vk::Result::eSuccess) { HGFATAL("Failed to get surface formats! Error: %s", vk::to_string(result).c_str()); }
     }
 
-    n32 presentModeCount;
+    u32 presentModeCount;
     result = physicalDevice.getSurfacePresentModesKHR(m_surface, &presentModeCount, nullptr);
     if(result != vk::Result::eSuccess) { HGFATAL("Failed to acquire present mode count! Error: %s", vk::to_string(result).c_str()); }
 
@@ -255,7 +255,7 @@ PhysicalDevice::DeviceCapabilities PhysicalDevice::GetDeviceCapabilities(vk::Phy
 
 bool PhysicalDevice::CheckDeviceExtensionSupport(vk::PhysicalDevice physicalDevice)
 {
-    n32  extensionCount;
+    u32  extensionCount;
     auto result = physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr);
 
     if(result != vk::Result::eSuccess) { HGFATAL("Couldn't acquire device extension count! Error: %s", vk::to_string(result).c_str()); }
@@ -278,7 +278,7 @@ bool PhysicalDevice::CheckDeviceExtensionSupport(vk::PhysicalDevice physicalDevi
 PhysicalDevice::QueueFamilyData PhysicalDevice::FindQueueFamilies(vk::PhysicalDevice physicalDevice) const
 {
     QueueFamilyData indices;
-    n32             queueFamilyCount = 0;
+    u32             queueFamilyCount = 0;
     physicalDevice.getQueueFamilyProperties2(&queueFamilyCount, nullptr);
     std::vector<vk::QueueFamilyProperties2> queueFamilyProperties(queueFamilyCount);
     for(auto& queueFamilyProperty: queueFamilyProperties) { queueFamilyProperty.sType = vk::StructureType::eQueueFamilyProperties2; }

@@ -15,7 +15,7 @@ struct AllocatedImage
     vk::Format      imageFormat;
     vk::ImageLayout imageLayout;
     vk::Sampler*    sampler{nullptr};
-    n32             width = 1, height = 1, mipLevels = 1, layerCount = 1;
+    u32             width = 1, height = 1, mipLevels = 1, layerCount = 1;
 
     vk::DescriptorImageInfo GetDescriptorInfo() const
     {
@@ -48,7 +48,7 @@ struct SamplerCreateInfo
 struct AllocatedImageCreateInfo
 {
     const LogicalDevice&    logicalDevice;
-    n32                     width, height, mipLevels, layerCount;
+    u32                     width, height, mipLevels, layerCount;
     vk::Format              format;
     vk::ImageTiling         tiling;
     vk::ImageUsageFlags     usage;
@@ -73,13 +73,13 @@ struct ImageTransitionInfo
     const LogicalDevice& logicalDevice;
     vk::Image            image;
     vk::ImageAspectFlags imageAspect = vk::ImageAspectFlagBits::eColor;
-    n32                  baseMipLevel = 0;
-    n32                  levelCount = 1;
-    n32                  baseArrayLayer = 0;
-    n32                  layerCount = 1;
+    u32                  baseMipLevel = 0;
+    u32                  levelCount = 1;
+    u32                  baseArrayLayer = 0;
+    u32                  layerCount = 1;
 };
 
-void CreateAllocatedImage(const LogicalDevice& logicalDevice, n32 width, n32 height, vk::Format format, vk::ImageTiling tiling,
+void CreateAllocatedImage(const LogicalDevice& logicalDevice, u32 width, u32 height, vk::Format format, vk::ImageTiling tiling,
                           vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, AllocatedImage& allocatedImage,
                           vk::ImageAspectFlags aspectFlags = vk::ImageAspectFlagBits::eColor);
 
@@ -95,7 +95,7 @@ void TransitionImageLayout(ImageTransitionInfo& info);
 void CopyImageToImage(vk::CommandBuffer cmd, vk::Image src, vk::Image dst, vk::Extent2D srcSize, vk::Extent2D dstSize);
 void CopyImageToImage(vk::CommandBuffer cmd, AllocatedImage& src, AllocatedImage& dst, std::vector<vk::ImageBlit>& blits);
 
-void CopyBufferToImage(const LogicalDevice& logicalDevice, vk::Buffer buffer, vk::Image image, n32 width, n32 height);
+void CopyBufferToImage(const LogicalDevice& logicalDevice, vk::Buffer buffer, vk::Image image, u32 width, u32 height);
 void CopyBufferToImage(const LogicalDevice& logicalDevice, vk::Buffer buffer, vk::Image image,
                        const std::vector<vk::BufferImageCopy>& bufferCopyRegions);
 

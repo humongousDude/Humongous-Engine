@@ -33,7 +33,7 @@ vk::DeviceSize Buffer::GetAlignment(vk::DeviceSize m_instanceSize, vk::DeviceSiz
     return m_instanceSize;
 }
 
-Buffer::Buffer(const LogicalDevice& device, vk::DeviceSize instanceSize, n32 instanceCount, vk::BufferUsageFlags usageFlags,
+Buffer::Buffer(const LogicalDevice& device, vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsageFlags usageFlags,
                vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment, const std::string& name)
     : m_logicalDevice{device}, m_instanceSize{instanceSize}, m_instanceCount{instanceCount}, m_usageFlags{usageFlags},
       m_memoryPropertyFlags{memoryPropertyFlags}
@@ -41,7 +41,7 @@ Buffer::Buffer(const LogicalDevice& device, vk::DeviceSize instanceSize, n32 ins
     Init(instanceSize, instanceCount, usageFlags, memoryPropertyFlags, memoryUsage, minOffsetAlignment, name);
 }
 
-void Buffer::Init(vk::DeviceSize instanceSize, n32 instanceCount, vk::BufferUsageFlags usageFlags, vk::MemoryPropertyFlags memoryPropertyFlags,
+void Buffer::Init(vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsageFlags usageFlags, vk::MemoryPropertyFlags memoryPropertyFlags,
                   VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment, const std::string& name)
 {
     m_instanceSize = instanceSize;

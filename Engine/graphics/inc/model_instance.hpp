@@ -7,7 +7,7 @@ namespace Humongous
 class ModelInstance
 {
 public:
-    ModelInstance(std::shared_ptr<Model> model, class ResourceManager& resourceManager, const n32& instanceID);
+    ModelInstance(std::shared_ptr<Model> model, class ResourceManager& resourceManager, const u32& instanceID);
     ~ModelInstance();
 
     std::shared_ptr<Model> GetModel() const { return m_model; }
@@ -24,7 +24,7 @@ public:
         m_animationTime = 0;
     };
 
-    void SetAnimation(const n32& index)
+    void SetAnimation(const u32& index)
     {
         m_currentAnimationIndex = index;
         m_animationTime = 0;
@@ -46,7 +46,7 @@ public:
     void UnPauseAnimation() { m_playAnimation = true; };
     b32  PlayingAnimation() const { return m_playAnimation; };
 
-    n32                                  GetAnimationCount() const { return m_model->GetAnimationCount(); }
+    u32                                  GetAnimationCount() const { return m_model->GetAnimationCount(); }
     std::string                          GetCurrentAnimationName() const { return m_animIndexToName.at(m_currentAnimationIndex); }
     f32                                  GetAnimationTime() const { return m_animationTime; }
     const std::vector<Model::Animation>& GetAnimations() const { return m_model->GetAnimations(); }
@@ -57,14 +57,14 @@ public:
     const std::vector<Eigen::Matrix4f>& GetJointMatrices() const { return m_jointMatrices; }
     const std::vector<f32>&             GetMorphWeights() const { return m_morphWeights; }
 
-    f32 GetMorph(const n32& index) const { return m_morphWeights[index]; }
-    n32 GetMorphCount() const { return m_morphWeights.size(); }
+    f32 GetMorph(const u32& index) const { return m_morphWeights[index]; }
+    u32 GetMorphCount() const { return m_morphWeights.size(); }
 
-    n32 GetNodeMatrixOffset() const;
-    n32 GetJointMatrixOffset() const;
-    n32 GetMorphTargetOffset() const;
+    u32 GetNodeMatrixOffset() const;
+    u32 GetJointMatrixOffset() const;
+    u32 GetMorphTargetOffset() const;
 
-    n32 GetInstanceID() const { return m_instanceID; }
+    u32 GetInstanceID() const { return m_instanceID; }
 
     BoundingBox GetAnimatedBoundingBox() const { return m_animatedAABB; }
 
@@ -74,15 +74,15 @@ private:
     std::shared_ptr<Model> m_model;
     class ResourceManager& m_resourceManager;
 
-    std::unordered_map<std::string, n32> m_animNameToIndex;
-    std::unordered_map<n32, std::string> m_animIndexToName;
+    std::unordered_map<std::string, u32> m_animNameToIndex;
+    std::unordered_map<u32, std::string> m_animIndexToName;
     std::vector<Model::Animation>        m_animations;
-    n32                                  m_currentAnimationIndex{0};
+    u32                                  m_currentAnimationIndex{0};
     f32                                  m_animationTime{0};
     b32                                  m_updateAnimation{false};
     b32                                  m_playAnimation{false};
     b32                                  m_hasMorphTargets{false};
-    n32                                  m_instanceID{std::numeric_limits<n32>::max()};
+    u32                                  m_instanceID{std::numeric_limits<u32>::max()};
     b32                                  m_hasAnimations;
     BoundingBox                          m_animatedAABB{};
 

@@ -175,7 +175,7 @@ void ResourceManager::InitializeInitials()
     auto newTex = std::make_unique<Texture>(m_logicalDevice);
     newTex->FillWithEmpty(m_logicalDevice, 512, 512, false);
 
-    n32 bindlessIndex = m_nextBindlessIndex++;
+    u32 bindlessIndex = m_nextBindlessIndex++;
 
     m_textures.push_back(std::move(newTex));
 
@@ -205,13 +205,13 @@ void ResourceManager::InitializeInitials()
     m_textureMap[key] = TextureBinding{actualTexturePtr, bindlessIndex};
 }
 
-n32 ResourceManager::LoadModel(const std::string& name)
+u32 ResourceManager::LoadModel(const std::string& name)
 {
     auto it = m_modelNameToHandle.find(name);
     if(it != m_modelNameToHandle.end()) { return it->second; }
     m_prevModelID = m_nextModelID;
 
-    n32 handleToReturn = m_nextModelID++;
+    u32 handleToReturn = m_nextModelID++;
 
     auto m = std::make_shared<Model>(m_logicalDevice, *this, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, name), 1.0f,
                                      handleToReturn);
@@ -237,8 +237,8 @@ n32 ResourceManager::LoadModel(const std::string& name)
     return handleToReturn;
 }
 
-void ResourceManager::AddMeshletsToModel(const std::vector<Meshlet>& meshlets, const std::vector<n32>& meshletVertices,
-                                         const std::vector<n8>& meshletPrimitives, const n32& handle)
+void ResourceManager::AddMeshletsToModel(const std::vector<Meshlet>& meshlets, const std::vector<u32>& meshletVertices,
+                                         const std::vector<u8>& meshletPrimitives, const u32& handle)
 {
     if(!m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders)
     {
@@ -246,8 +246,8 @@ void ResourceManager::AddMeshletsToModel(const std::vector<Meshlet>& meshlets, c
         return;
     }
 
-    const n32 meshletStartIndex = m_meshlets.size();
-    m_modelHandleToMeshletStart.emplace(handle, std::pair<n32, n32>(meshletStartIndex, meshlets.size()));
+    const u32 meshletStartIndex = m_meshlets.size();
+    m_modelHandleToMeshletStart.emplace(handle, std::pair<u32, u32>(meshletStartIndex, meshlets.size()));
     m_meshlets.insert(m_meshlets.end(), meshlets.begin(), meshlets.end());
     m_meshletVertices.insert(m_meshletVertices.end(), meshletVertices.begin(), meshletVertices.end());
     m_meshletPrimitives.insert(m_meshletPrimitives.end(), meshletPrimitives.begin(), meshletPrimitives.end());
@@ -290,11 +290,11 @@ void ResourceManager::AddMeshletsToModel(const std::vector<Meshlet>& meshlets, c
 
     // Meshlet vertices
     {
-        if(!m_meshletVertexBuffer || m_meshletVertexBuffer->GetBufferSize() < m_meshletVertices.size() * sizeof(n32))
+        if(!m_meshletVertexBuffer || m_meshletVertexBuffer->GetBufferSize() < m_meshletVertices.size() * sizeof(u32))
         {
             m_meshletVertexBuffer.reset();
             m_meshletVertexBuffer =
-                std::make_unique<Buffer>(m_logicalDevice, m_meshletVertices.size() * sizeof(n32), 1,
+                std::make_unique<Buffer>(m_logicalDevice, m_meshletVertices.size() * sizeof(u32), 1,
                                          vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                          vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "meshlet vertex buffer");
 
@@ -310,7 +310,7 @@ void ResourceManager::AddMeshletsToModel(const std::vector<Meshlet>& meshlets, c
         }
 
         Buffer stagingBuffer{m_logicalDevice,
-                             m_meshletVertices.size() * sizeof(n32),
+                             m_meshletVertices.size() * sizeof(u32),
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
@@ -319,19 +319,19 @@ void ResourceManager::AddMeshletsToModel(const std::vector<Meshlet>& meshlets, c
                              "meshlet vertex staging buffer"};
 
         stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer(m_meshletVertices.data(), m_meshletVertices.size() * sizeof(n32));
+        stagingBuffer.WriteToBuffer(m_meshletVertices.data(), m_meshletVertices.size() * sizeof(u32));
         stagingBuffer.UnMap();
 
-        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_meshletVertexBuffer, m_meshletVertices.size() * sizeof(n32));
+        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_meshletVertexBuffer, m_meshletVertices.size() * sizeof(u32));
     }
 
     // Meshlet primitives
     {
-        if(!m_meshletPrimitiveBuffer || m_meshletPrimitiveBuffer->GetBufferSize() < m_meshletPrimitives.size() * sizeof(n8))
+        if(!m_meshletPrimitiveBuffer || m_meshletPrimitiveBuffer->GetBufferSize() < m_meshletPrimitives.size() * sizeof(u8))
         {
             m_meshletPrimitiveBuffer.reset();
             m_meshletPrimitiveBuffer =
-                std::make_unique<Buffer>(m_logicalDevice, m_meshletPrimitives.size() * sizeof(n8), 1,
+                std::make_unique<Buffer>(m_logicalDevice, m_meshletPrimitives.size() * sizeof(u8), 1,
                                          vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
                                          vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "meshlet primitive buffer");
 
@@ -347,7 +347,7 @@ void ResourceManager::AddMeshletsToModel(const std::vector<Meshlet>& meshlets, c
         }
 
         Buffer stagingBuffer{m_logicalDevice,
-                             m_meshletPrimitives.size() * sizeof(n8),
+                             m_meshletPrimitives.size() * sizeof(u8),
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
@@ -356,10 +356,10 @@ void ResourceManager::AddMeshletsToModel(const std::vector<Meshlet>& meshlets, c
                              "meshlet primitive staging buffer"};
 
         stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer(m_meshletPrimitives.data(), m_meshletPrimitives.size() * sizeof(n8));
+        stagingBuffer.WriteToBuffer(m_meshletPrimitives.data(), m_meshletPrimitives.size() * sizeof(u8));
         stagingBuffer.UnMap();
 
-        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_meshletPrimitiveBuffer, m_meshletPrimitives.size() * sizeof(n8));
+        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_meshletPrimitiveBuffer, m_meshletPrimitives.size() * sizeof(u8));
     }
 }
 
@@ -374,7 +374,7 @@ std::shared_ptr<ModelInstance> ResourceManager::RequestModel(const std::string& 
 
         m_modelNodeMatricesFlat.insert(m_modelNodeMatricesFlat.end(), inst->GetNodeMatrices().begin(), inst->GetNodeMatrices().end());
 
-        m_modelHandleToMatrixStart.emplace(m_nextInstanceID, std::pair<n32, n32>(newModelMatrixStartIndex, inst->GetNodeMatrices().size()));
+        m_modelHandleToMatrixStart.emplace(m_nextInstanceID, std::pair<u32, u32>(newModelMatrixStartIndex, inst->GetNodeMatrices().size()));
 
         if(!m_modelNodeMatriciesBuffer || m_modelNodeMatriciesBuffer->GetBufferSize() < m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f))
         {
@@ -411,7 +411,7 @@ std::shared_ptr<ModelInstance> ResourceManager::RequestModel(const std::string& 
 
 void AddMatriciesToModel(const std::vector<Eigen::Matrix4f>& matricies) {}
 
-void ResourceManager::AddIndicesToModel(const std::vector<n32>& modelIndices, std::vector<Primitive*>& modelPrimitives)
+void ResourceManager::AddIndicesToModel(const std::vector<u32>& modelIndices, std::vector<Primitive*>& modelPrimitives)
 {
     HGINFO("Adding indices to model...");
     size_t globalOffsetForNewModel = m_modelIndicies.size();
@@ -420,10 +420,10 @@ void ResourceManager::AddIndicesToModel(const std::vector<n32>& modelIndices, st
 
     for(Primitive* primitive: modelPrimitives)
     {
-        if(primitive->hasIndices) { primitive->globalFirstIndex = static_cast<n32>(globalOffsetForNewModel + primitive->localFirstIndex); }
+        if(primitive->hasIndices) { primitive->globalFirstIndex = static_cast<u32>(globalOffsetForNewModel + primitive->localFirstIndex); }
     }
 
-    vk::DeviceSize requiredBufferSize = m_modelIndicies.size() * sizeof(n32);
+    vk::DeviceSize requiredBufferSize = m_modelIndicies.size() * sizeof(u32);
 
     if(!m_modelIndexBuffer || m_modelIndexBuffer->GetBufferSize() < requiredBufferSize)
     {
@@ -454,9 +454,9 @@ void ResourceManager::AddVerticesToModel(const std::vector<Model::Vertex>& model
 
     for(Mesh* mesh: modelMeshes)
     {
-        mesh->baseVertex = static_cast<n32>(baseVertex);
+        mesh->baseVertex = static_cast<u32>(baseVertex);
 
-        for(Primitive* prim: mesh->primitives) { prim->globalVertexOffset = static_cast<n32>(baseVertex + prim->localVertexOffset); }
+        for(Primitive* prim: mesh->primitives) { prim->globalVertexOffset = static_cast<u32>(baseVertex + prim->localVertexOffset); }
     }
 
     HGINFO("We now have %i vertices", modelVertices.size());
@@ -494,43 +494,43 @@ void ResourceManager::AddVerticesToModel(const std::vector<Model::Vertex>& model
     Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_modelVertexBuffer, requiredBufferSize);
 }
 
-void ResourceManager::UpdateNodeMatrices(const std::vector<Eigen::Matrix4f>& nodeMatrices, const n32& handle)
+void ResourceManager::UpdateNodeMatrices(const std::vector<Eigen::Matrix4f>& nodeMatrices, const u32& handle)
 {
-    n32 startPos = m_modelHandleToMatrixStart.at(handle).first;
+    u32 startPos = m_modelHandleToMatrixStart.at(handle).first;
 
     std::copy(nodeMatrices.begin(), nodeMatrices.end(), m_modelNodeMatricesFlat.begin() + startPos);
 }
 
-void ResourceManager::AddJointMatriciesToModel(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle)
+void ResourceManager::AddJointMatriciesToModel(const std::vector<Eigen::Matrix4f>& jointMatricies, const u32& handle)
 {
-    n32 startPos = m_modelJointMatricies.size();
+    u32 startPos = m_modelJointMatricies.size();
 
     m_modelJointMatricies.insert(m_modelJointMatricies.end(), jointMatricies.begin(), jointMatricies.end());
 
-    m_modelHandleToJointStart.emplace(handle, std::pair<n32, n32>(startPos, jointMatricies.size()));
+    m_modelHandleToJointStart.emplace(handle, std::pair<u32, u32>(startPos, jointMatricies.size()));
 }
 
-void ResourceManager::UpdateJointMatrices(const std::vector<Eigen::Matrix4f>& jointMatricies, const n32& handle)
+void ResourceManager::UpdateJointMatrices(const std::vector<Eigen::Matrix4f>& jointMatricies, const u32& handle)
 {
-    n32 startPos = m_modelHandleToJointStart.at(handle).first;
+    u32 startPos = m_modelHandleToJointStart.at(handle).first;
 
     std::copy(jointMatricies.begin(), jointMatricies.end(), m_modelJointMatricies.begin() + startPos);
 }
 
-void ResourceManager::AddMorphTargetsToModel(const std::vector<f32>& morphTargets, const n32& handle)
+void ResourceManager::AddMorphTargetsToModel(const std::vector<f32>& morphTargets, const u32& handle)
 {
-    n32 startPos = m_modelMorphTargets.size();
+    u32 startPos = m_modelMorphTargets.size();
 
     m_modelMorphTargets.insert(m_modelMorphTargets.end(), morphTargets.begin(), morphTargets.end());
 
-    m_modelHandleToMorphStart.emplace(handle, std::pair<n32, n32>(startPos, morphTargets.size()));
+    m_modelHandleToMorphStart.emplace(handle, std::pair<u32, u32>(startPos, morphTargets.size()));
 }
 
-void ResourceManager::UpdateMorphTargets(const std::vector<f32>& morphTargets, const n32& handle)
+void ResourceManager::UpdateMorphTargets(const std::vector<f32>& morphTargets, const u32& handle)
 {
     const size_t baseMorphTargets = m_modelVertices.size();
 
-    n32 startPos = m_modelHandleToMorphStart.at(handle).first;
+    u32 startPos = m_modelHandleToMorphStart.at(handle).first;
 
     std::copy(morphTargets.begin(), morphTargets.end(), m_modelMorphTargets.begin() + startPos);
 }
@@ -639,13 +639,13 @@ void ResourceManager::FinalizeGPUData()
     }
 }
 
-std::shared_ptr<Model> ResourceManager::GetModel(const n32& index)
+std::shared_ptr<Model> ResourceManager::GetModel(const u32& index)
 {
     auto i = m_modelMap.at(index);
     return i;
 }
 
-n32 ResourceManager::RequestModelNodeMatriciesIndex(const n32& modelHandle) { return m_modelHandleToMatrixStart[modelHandle].first; }
+u32 ResourceManager::RequestModelNodeMatriciesIndex(const u32& modelHandle) { return m_modelHandleToMatrixStart[modelHandle].first; }
 
 std::shared_ptr<Skybox> ResourceManager::LoadSkybox(const std::string& name)
 {
@@ -660,14 +660,14 @@ std::shared_ptr<Skybox> ResourceManager::LoadSkybox(const std::string& name)
     return s;
 }
 
-n32 ResourceManager::LoadAudioSource(const std::string& name)
+u32 ResourceManager::LoadAudioSource(const std::string& name)
 {
     HGINFO("Loading audio %s with handle %i", name.c_str(), m_nextaudioID);
 
     std::shared_ptr<AudioSourceComponent> a =
         std::make_shared<AudioSourceComponent>(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, name));
 
-    n32 handleToReturn = m_nextaudioID;
+    u32 handleToReturn = m_nextaudioID;
     m_audioMap.emplace(handleToReturn, std::move(a));
 
     HGINFO("audio %s loaded. Added to map with handle %i. Map size: %zu", name.c_str(), handleToReturn, m_modelMap.size());
@@ -675,7 +675,7 @@ n32 ResourceManager::LoadAudioSource(const std::string& name)
     return handleToReturn;
 }
 
-std::shared_ptr<AudioSourceComponent> ResourceManager::GetAudioSource(const n32& index) { return m_audioMap.at(index); }
+std::shared_ptr<AudioSourceComponent> ResourceManager::GetAudioSource(const u32& index) { return m_audioMap.at(index); }
 
 std::string GenerateImageKey(const tinygltf::Image& img)
 {
@@ -693,7 +693,7 @@ std::string GenerateMaterialKey(const Model::ShaderMaterial& mat)
     return "mat_" + std::to_string(dataHash);
 }
 
-n32 ResourceManager::RequestTexture(class tinygltf::Image img, struct Texture::TexSamplerInfo sampler)
+u32 ResourceManager::RequestTexture(class tinygltf::Image img, struct Texture::TexSamplerInfo sampler)
 {
     std::string key = GenerateImageKey(img);
 
@@ -703,7 +703,7 @@ n32 ResourceManager::RequestTexture(class tinygltf::Image img, struct Texture::T
     auto newTex = std::make_unique<Texture>(m_logicalDevice);
     newTex->CreateFromGLTFImage(img, sampler, m_logicalDevice, m_logicalDevice.GetGraphicsQueue());
 
-    n32 bindlessIndex = m_nextBindlessIndex++;
+    u32 bindlessIndex = m_nextBindlessIndex++;
 
     m_textures.push_back(std::move(newTex));
 
@@ -729,14 +729,14 @@ n32 ResourceManager::RequestTexture(class tinygltf::Image img, struct Texture::T
     return bindlessIndex;
 }
 
-n32 ResourceManager::RequestMaterial(const Model::ShaderMaterial& mat)
+u32 ResourceManager::RequestMaterial(const Model::ShaderMaterial& mat)
 {
     std::string key = GenerateMaterialKey(mat);
 
     auto it = m_materialMap.find(key);
     if(it != m_materialMap.end()) { return it->second; }
 
-    n32 bindlessIndex = static_cast<n32>(m_materials.size());
+    u32 bindlessIndex = static_cast<u32>(m_materials.size());
     m_materials.push_back({mat, bindlessIndex});
     m_materialMap[key] = bindlessIndex;
 
@@ -774,7 +774,7 @@ n32 ResourceManager::RequestMaterial(const Model::ShaderMaterial& mat)
 
 void ResourceManager::BindGlobalDescriptorSets(vk::CommandBuffer cmd, vk::PipelineLayout layout)
 {
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, layout, static_cast<n32>(Globals::ModelDescriptorIndices::Model), 1, &m_bindlessSet, 0,
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, layout, static_cast<u32>(Globals::ModelDescriptorIndices::Model), 1, &m_bindlessSet, 0,
                            nullptr);
 }
 

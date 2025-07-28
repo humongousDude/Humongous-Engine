@@ -18,7 +18,7 @@ struct Node
 {
     ~Node();
     Node*              parent;
-    n32                index;
+    u32                index;
     std::vector<Node*> children;
     Eigen::Matrix4f    localMatrix = Eigen::Matrix4f::Zero();
     Eigen::Matrix4f    localToModelMatrix = Eigen::Matrix4f::Zero();

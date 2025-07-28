@@ -260,7 +260,7 @@ void VulkanApp::Run()
 
     UiWidget objectDataWidget{"Object Data", true, {0, 0}, {400, 500}, 0};
     objectDataWidget.Add([&]() {
-        for(n32 entityId = 0; entityId < world->GetComponentStorage<TransformComponent>().GetDense().size(); entityId++)
+        for(u32 entityId = 0; entityId < world->GetComponentStorage<TransformComponent>().GetDense().size(); entityId++)
         {
             TransformComponent* transform = world->GetComponent<TransformComponent>(entityId);
 
@@ -297,7 +297,7 @@ void VulkanApp::Run()
                         corners[5] = Eigen::Vector4f(bb->max.x(), bb->min.y(), bb->max.z(), 1.0f);
                         corners[6] = Eigen::Vector4f(bb->min.x(), bb->max.y(), bb->max.z(), 1.0f);
                         corners[7] = Eigen::Vector4f(bb->max.x(), bb->max.y(), bb->max.z(), 1.0f);
-                        for(n32 i = 0; i < corners.size(); ++i)
+                        for(u32 i = 0; i < corners.size(); ++i)
                         {
                             ImGui::Text("Corner %i: %f, %f, %f", i, corners[i].x(), corners[i].y(), corners[i].z());
                         }
@@ -310,8 +310,8 @@ void VulkanApp::Run()
 
                 if(instance->GetModel()->HasAnimations())
                 {
-                    n32                     size = world->GetComponentStorage<ModelComponent>().GetDense().size();
-                    static std::vector<n32> itemSelectedIndex;
+                    u32                     size = world->GetComponentStorage<ModelComponent>().GetDense().size();
+                    static std::vector<u32> itemSelectedIndex;
                     itemSelectedIndex.resize(size);
                     const char* preview = instance->GetAnimations()[itemSelectedIndex[entityId]].name.c_str();
                     if(ImGui::BeginCombo("Animations", preview))
@@ -327,7 +327,7 @@ void VulkanApp::Run()
                         ImGui::EndCombo();
                     }
 
-                    for(n32 i = 0; i < instance->GetMorphCount(); ++i) { ImGui::Text("Morph %i at %f", i, instance->GetMorph(i)); }
+                    for(u32 i = 0; i < instance->GetMorphCount(); ++i) { ImGui::Text("Morph %i at %f", i, instance->GetMorph(i)); }
 
                     if(ImGui::Button("Play Animation")) { instance->PlayAnimation(); }
                     if(ImGui::Button("Stop Animation")) { instance->StopAnimation(); }

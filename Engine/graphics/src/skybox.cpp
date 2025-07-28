@@ -57,7 +57,7 @@ void Skybox::LoadDescriptorSet(DescriptorSetLayout& descriptorLayout, Descriptor
 struct PrefilteredData
 {
     float roughness;
-    n32   mipLevel;
+    u32   mipLevel;
 };
 
 void Skybox::CreatePrefilteredMipViews()
@@ -191,9 +191,9 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
     DescriptorWriter(*irradLayout, &storageImagePool).WriteImage(0, &irradianceInfo).Build(irradSet);
     DescriptorWriter(*brdfLayout, &storageImagePool).WriteImage(0, &brdflutInfo).Build(brdfSet);
 
-    const n32 LOCAL_SIZE_X = 16;
-    const n32 LOCAL_SIZE_Y = 16;
-    const n32 LOCAL_SIZE_Z = 1;
+    const u32 LOCAL_SIZE_X = 16;
+    const u32 LOCAL_SIZE_Y = 16;
+    const u32 LOCAL_SIZE_Z = 1;
 
     // Irradiance map
     HGINFO("Generating irradiance map");
@@ -210,10 +210,10 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
         irradiancePipeline.BindPipeline(cmd);
         cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, irradePipelineLayout, 0, irradianceSets.size(), irradianceSets.data(), 0, nullptr);
 
-        n32 irradianceMapSize = 512;
-        n32 irradianceGroupCountX = (irradianceMapSize + LOCAL_SIZE_X - 1) / LOCAL_SIZE_X;
-        n32 irradianceGroupCountY = (irradianceMapSize + LOCAL_SIZE_Y - 1) / LOCAL_SIZE_Y;
-        n32 irradianceGroupCountZ = (6 + LOCAL_SIZE_Z - 1) / LOCAL_SIZE_Z; // Since LOCAL_SIZE_Z is 1, this is 6
+        u32 irradianceMapSize = 512;
+        u32 irradianceGroupCountX = (irradianceMapSize + LOCAL_SIZE_X - 1) / LOCAL_SIZE_X;
+        u32 irradianceGroupCountY = (irradianceMapSize + LOCAL_SIZE_Y - 1) / LOCAL_SIZE_Y;
+        u32 irradianceGroupCountZ = (6 + LOCAL_SIZE_Z - 1) / LOCAL_SIZE_Z; // Since LOCAL_SIZE_Z is 1, this is 6
 
         vkCmdDispatch(cmd, irradianceGroupCountX, irradianceGroupCountY, irradianceGroupCountZ);
 
@@ -234,14 +234,14 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
         auto cmd = m_logicalDevice.BeginSingleTimeCommands();
         prefilteredPipeline.BindPipeline(cmd);
 
-        for(n32 mipLevel = 0; mipLevel < m_prefilteredMap->GetMipLevels(); mipLevel++)
+        for(u32 mipLevel = 0; mipLevel < m_prefilteredMap->GetMipLevels(); mipLevel++)
         {
-            n32 mipSize = m_prefilteredMap->GetBaseSize() >> mipLevel;
+            u32 mipSize = m_prefilteredMap->GetBaseSize() >> mipLevel;
             mipSize = std::max(1u, mipSize);
 
-            n32 prefilteredGroupCountX = (mipSize + LOCAL_SIZE_X - 1) / LOCAL_SIZE_X;
-            n32 prefilteredGroupCountY = (mipSize + LOCAL_SIZE_Y - 1) / LOCAL_SIZE_Y;
-            n32 prefilteredGroupCountZ = (6 + LOCAL_SIZE_Z - 1) / LOCAL_SIZE_Z;
+            u32 prefilteredGroupCountX = (mipSize + LOCAL_SIZE_X - 1) / LOCAL_SIZE_X;
+            u32 prefilteredGroupCountY = (mipSize + LOCAL_SIZE_Y - 1) / LOCAL_SIZE_Y;
+            u32 prefilteredGroupCountZ = (6 + LOCAL_SIZE_Z - 1) / LOCAL_SIZE_Z;
 
             vk::DescriptorImageInfo info;
             info.imageLayout = vk::ImageLayout::eGeneral;
@@ -280,10 +280,10 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
         brdfPipeline.BindPipeline(cmd);
         cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, brdfPipelineLayout, 0, brdfSets.size(), brdfSets.data(), 0, nullptr);
 
-        n32 brdfMapSize = 512;
-        n32 brdfGroupCountX = (brdfMapSize + LOCAL_SIZE_X - 1) / LOCAL_SIZE_X;
-        n32 brdfGroupCountY = (brdfMapSize + LOCAL_SIZE_Y - 1) / LOCAL_SIZE_Y;
-        n32 brdfGroupCountZ = (6 + LOCAL_SIZE_Z - 1) / LOCAL_SIZE_Z;
+        u32 brdfMapSize = 512;
+        u32 brdfGroupCountX = (brdfMapSize + LOCAL_SIZE_X - 1) / LOCAL_SIZE_X;
+        u32 brdfGroupCountY = (brdfMapSize + LOCAL_SIZE_Y - 1) / LOCAL_SIZE_Y;
+        u32 brdfGroupCountZ = (6 + LOCAL_SIZE_Z - 1) / LOCAL_SIZE_Z;
 
         vkCmdDispatch(cmd, brdfGroupCountX, brdfGroupCountY, brdfGroupCountZ);
 

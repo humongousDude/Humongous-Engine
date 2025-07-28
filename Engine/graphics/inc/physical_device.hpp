@@ -18,8 +18,8 @@ class PhysicalDevice : NonCopyable
 public:
     struct QueueFamilyData
     {
-        std::optional<n32> graphicsFamily;
-        std::optional<n32> presentFamily;
+        std::optional<u32> graphicsFamily;
+        std::optional<u32> presentFamily;
 
         bool IsComplete() { return graphicsFamily.has_value() && presentFamily.has_value(); }
     };

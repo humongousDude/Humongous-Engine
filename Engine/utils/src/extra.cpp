@@ -83,7 +83,7 @@ vk::ShaderModule CreateShaderModule(const LogicalDevice& logicalDevice, const st
 
     vk::ShaderModuleCreateInfo createInfo{};
     createInfo.codeSize = shaderCode.size();
-    createInfo.pCode = reinterpret_cast<const n32*>(shaderCode.data());
+    createInfo.pCode = reinterpret_cast<const u32*>(shaderCode.data());
 
     vk::ShaderModule shaderModule;
     if(logicalDevice.GetVkDevice().createShaderModule(&createInfo, nullptr, &shaderModule) != vk::Result::eSuccess)

@@ -30,13 +30,13 @@ void Texture::CreateFromFile(const std::string& path, const LogicalDevice& devic
 {
     CreateTextureImage(path, imageType, storage);
 }
-void Texture::GenerateMipmaps(vk::CommandBuffer commandBuffer, vk::Image image, n32 texWidth, n32 texHeight, n32 mipLevels,
+void Texture::GenerateMipmaps(vk::CommandBuffer commandBuffer, vk::Image image, u32 texWidth, u32 texHeight, u32 mipLevels,
                               vk::ImageLayout finalLayout)
 {
     s32 mipWidth = texWidth;
     s32 mipHeight = texHeight;
 
-    for(n32 i = 1; i < mipLevels; i++)
+    for(u32 i = 1; i < mipLevels; i++)
     {
         Utils::ImageTransitionInfo srcTransition{.cmd = commandBuffer,
                                                  .oldLayout = vk::ImageLayout::eTransferDstOptimal,
@@ -157,7 +157,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
         return;
     }
 
-    m_miplevels = static_cast<n32>(std::floor(std::log2(std::max(m_width, m_height))) + 1.0f);
+    m_miplevels = static_cast<u32>(std::floor(std::log2(std::max(m_width, m_height))) + 1.0f);
 
     vk::FormatProperties fmtProps = m_logicalDevice.GetPhysicalDevice().GetVkPhysicalDevice().getFormatProperties(format);
     HGASSERT(fmtProps.optimalTilingFeatures & vk::FormatFeatureFlagBits::eBlitSrc);
@@ -211,7 +211,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     subresourceRange.levelCount = 1;
     subresourceRange.layerCount = 1;
 
-    for(n32 i = 1; i < m_miplevels; i++)
+    for(u32 i = 1; i < m_miplevels; i++)
     {
         vk::ImageBlit2 imageBlit{};
 
@@ -314,12 +314,12 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         stbi_uc* pixels = stbi_load(imagePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         HGASSERT(pixels && "Failed to load texture image!");
 
-        m_width = static_cast<n32>(texWidth);
-        m_height = static_cast<n32>(texHeight);
+        m_width = static_cast<u32>(texWidth);
+        m_height = static_cast<u32>(texHeight);
         m_baseSize = m_width;
         vk::DeviceSize imageSize = m_width * m_height * 4;
 
-        m_miplevels = static_cast<n32>(std::floor(std::log2(std::max(m_width, m_height)))) + 1;
+        m_miplevels = static_cast<u32>(std::floor(std::log2(std::max(m_width, m_height)))) + 1;
 
         Buffer stagingBuffer{m_logicalDevice,
                              imageSize,
@@ -435,9 +435,9 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         stagingBuffer.WriteToBuffer(ktxTexture_GetData(ktxTex), ktxTexture_GetDataSize(ktxTex));
 
         std::vector<vk::BufferImageCopy> regions;
-        for(n32 level = 0; level < m_miplevels; ++level)
+        for(u32 level = 0; level < m_miplevels; ++level)
         {
-            for(n32 face = 0; face < ktxTex->numFaces; ++face)
+            for(u32 face = 0; face < ktxTex->numFaces; ++face)
             {
                 ktx_size_t offset;
                 result = ktxTexture_GetImageOffset(ktxTex, level, 0, face, &offset);
@@ -521,7 +521,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
     }
 }
 
-void Texture::FillWithEmpty(const LogicalDevice& logicalDevice, n32 width, n32 height, const bool& storage)
+void Texture::FillWithEmpty(const LogicalDevice& logicalDevice, u32 width, u32 height, const bool& storage)
 {
     m_width = width;
     m_height = height;

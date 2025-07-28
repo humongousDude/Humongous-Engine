@@ -12,9 +12,9 @@
 
 namespace Humongous
 {
-using EntityID = n32;
-constexpr EntityID INVALID_ENTITY = std::numeric_limits<n32>().max();
-constexpr n32      MAX_ENTITIES = 100000;
+using EntityID = u32;
+constexpr EntityID INVALID_ENTITY = std::numeric_limits<u32>().max();
+constexpr u32      MAX_ENTITIES = 100000;
 
 // SparseSet template
 template <typename T> class SparseSet

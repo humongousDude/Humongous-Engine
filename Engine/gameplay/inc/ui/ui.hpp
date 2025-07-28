@@ -34,12 +34,12 @@ public:
     static void EndUIFrame(vk::CommandBuffer cmd) { Get().Internal_EndUIFrame(cmd); }
 
     static void Debug_DrawMetrics(const s16& draws, const Eigen::Vector3f& camPosition) { Get().Internal_Debug_DrawMetrics(draws, camPosition); }
-    static void Debug_DrawObjectData(std::unordered_map<n32, class Entity>& objects) { Get().Internal_Debug_DrawObjectData(objects); }
+    static void Debug_DrawObjectData(std::unordered_map<u32, class Entity>& objects) { Get().Internal_Debug_DrawObjectData(objects); }
 
     static void                   DrawWidgetList(const vk::CommandBuffer cmd) { Get().Internal_DrawWidgetList(); }
     static std::vector<UiWidget*> GetWidgetList() { return Get().Internal_GetWidgetList(); }
     static void                   AddWidgetToList(UiWidget* widg) { Get().Internal_AddWidgetToList(widg); }
-    static void                   PopWidgetAtIndex(const n32 index) { Get().Internal_PopWidgetAtIndex(index); }
+    static void                   PopWidgetAtIndex(const u32 index) { Get().Internal_PopWidgetAtIndex(index); }
 
 private:
     bool m_hasInitialized{false};
@@ -64,10 +64,10 @@ private:
     void Internal_DrawWidgetList();
 
     void                   Internal_AddWidgetToList(UiWidget* widget);
-    void                   Internal_PopWidgetAtIndex(n32 index);
+    void                   Internal_PopWidgetAtIndex(u32 index);
     std::vector<UiWidget*> Internal_GetWidgetList();
 
-    void Internal_Debug_DrawObjectData(std::unordered_map<n32, class Entity>& objects);
+    void Internal_Debug_DrawObjectData(std::unordered_map<u32, class Entity>& objects);
     void Internal_Debug_DrawMetrics(const s16& draws, const Eigen::Vector3f& camPosition);
 };
 }; // namespace Humongous

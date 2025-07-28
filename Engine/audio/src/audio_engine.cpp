@@ -102,7 +102,7 @@ void AudioEngine::Play(AudioSourceComponent& src, const bool& loop)
         return;
     }
 
-    n32 gain = 1;
+    u32 gain = 1;
 
     AL_CHECK(alSourcei(src.GetSourceID(), AL_BUFFER, src.GetALBuffer()));
     error = alGetError();

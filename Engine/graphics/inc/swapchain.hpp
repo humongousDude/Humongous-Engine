@@ -27,7 +27,7 @@ public:
      *  Input: imageAvailableSemaphore: the semaphore to signal when image is available
      *  output: imageIndex: returns the swapchain image index acquired by acquireNextImageKHR
      */
-    vk::Result AcquireNextImage(vk::Semaphore imageAvailableSemaphore, n32& imageIndex);
+    vk::Result AcquireNextImage(vk::Semaphore imageAvailableSemaphore, u32& imageIndex);
 
     vk::SwapchainKHR GetSwapChain() const { return m_swapChain; }
 
@@ -39,14 +39,14 @@ public:
     std::vector<vk::ImageView> GetImageViews() const { return m_imageViews; }
     std::vector<vk::Image>     GetImages() const { return m_images; }
 
-    vk::Semaphore& GetRenderFinishedSemaphoreAtIndex(const n32& index) { return m_renderFinishedSemaphore[index]; }
+    vk::Semaphore& GetRenderFinishedSemaphoreAtIndex(const u32& index) { return m_renderFinishedSemaphore[index]; }
 
     vk::Semaphore& GetRenderFinishedSemaphoreAtCurrentFrame() { return m_renderFinishedSemaphore[m_imageIndex]; }
 
 private:
     const LogicalDevice& m_logicalDevice;
     vk::SwapchainKHR     m_swapChain;
-    n32                  m_imageIndex{0};
+    u32                  m_imageIndex{0};
 
     vk::Format         m_surfaceFormat;
     vk::PresentModeKHR m_presentMode;

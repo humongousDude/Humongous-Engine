@@ -34,7 +34,7 @@ void SwapChain::CreateSwapChain(const Window& window, const PhysicalDevice& phys
     vk::PresentModeKHR    presentMode = ChoosePresentMode(details.presentModes);
     vk::Extent2D          extent = ChooseExtent(details.capabilities, window);
 
-    n32 imageCount = details.capabilities.surfaceCapabilities.minImageCount + 1;
+    u32 imageCount = details.capabilities.surfaceCapabilities.minImageCount + 1;
     if(details.capabilities.surfaceCapabilities.maxImageCount > 0 && imageCount > details.capabilities.surfaceCapabilities.maxImageCount)
     {
         imageCount = details.capabilities.surfaceCapabilities.maxImageCount;
@@ -51,7 +51,7 @@ void SwapChain::CreateSwapChain(const Window& window, const PhysicalDevice& phys
     createInfo.imageSharingMode = vk::SharingMode::eExclusive;
 
     PhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
-    n32                             queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+    u32                             queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
     if(indices.graphicsFamily != indices.presentFamily)
     {
@@ -178,7 +178,7 @@ vk::PresentModeKHR SwapChain::ChoosePresentMode(const std::vector<vk::PresentMod
 
 vk::Extent2D SwapChain::ChooseExtent(const vk::SurfaceCapabilities2KHR& capabilities, const Window& window)
 {
-    if(capabilities.surfaceCapabilities.currentExtent.width != std::numeric_limits<n32>::max())
+    if(capabilities.surfaceCapabilities.currentExtent.width != std::numeric_limits<u32>::max())
     {
         return capabilities.surfaceCapabilities.currentExtent;
     }
@@ -188,7 +188,7 @@ vk::Extent2D SwapChain::ChooseExtent(const vk::SurfaceCapabilities2KHR& capabili
         SDL_GetWindowSize(window.GetWindow(), &width, &height);
         HGINFO("Window Size: %i, %i", width, height);
 
-        vk::Extent2D actualExtent = {static_cast<n32>(width), static_cast<n32>(height)};
+        vk::Extent2D actualExtent = {static_cast<u32>(width), static_cast<u32>(height)};
 
         actualExtent.width = std::clamp(actualExtent.width, capabilities.surfaceCapabilities.minImageExtent.width,
                                         capabilities.surfaceCapabilities.maxImageExtent.width);
@@ -199,7 +199,7 @@ vk::Extent2D SwapChain::ChooseExtent(const vk::SurfaceCapabilities2KHR& capabili
     }
 }
 
-vk::Result SwapChain::AcquireNextImage(vk::Semaphore imageAvailableSemaphore, n32& imageIndex)
+vk::Result SwapChain::AcquireNextImage(vk::Semaphore imageAvailableSemaphore, u32& imageIndex)
 {
     auto result = m_logicalDevice.GetVkDevice().acquireNextImageKHR(m_swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
     return result;

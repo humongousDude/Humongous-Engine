@@ -1,10 +1,10 @@
 #pragma once
 
 // unsigned ints
-typedef unsigned char      n8;
-typedef unsigned short     n16;
-typedef unsigned int       n32;
-typedef unsigned long long n64;
+typedef unsigned char      u8;
+typedef unsigned short     u16;
+typedef unsigned int       u32;
+typedef unsigned long long u64;
 
 // signed ints
 typedef signed char      s8;
@@ -26,10 +26,10 @@ typedef char b8;
 #define STATIC_ASSERT static_assert
 #endif
 
-STATIC_ASSERT(sizeof(n8) == 1, "Expected u8 to be 1 byte.");
-STATIC_ASSERT(sizeof(n16) == 2, "Expected u16 to be 2 bytes.");
-STATIC_ASSERT(sizeof(n32) == 4, "Expected u32 to be 4 bytes.");
-STATIC_ASSERT(sizeof(n64) == 8, "Expected u64 to be 8 bytes.");
+STATIC_ASSERT(sizeof(u8) == 1, "Expected u8 to be 1 byte.");
+STATIC_ASSERT(sizeof(u16) == 2, "Expected u16 to be 2 bytes.");
+STATIC_ASSERT(sizeof(u32) == 4, "Expected u32 to be 4 bytes.");
+STATIC_ASSERT(sizeof(u64) == 8, "Expected u64 to be 8 bytes.");
 
 STATIC_ASSERT(sizeof(s8) == 1, "Expected i8 to be 1 byte.");
 STATIC_ASSERT(sizeof(s16) == 2, "Expected i16 to be 2 bytes.");

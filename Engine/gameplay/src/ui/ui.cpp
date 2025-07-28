@@ -134,7 +134,7 @@ void UI::Internal_Debug_DrawMetrics(const s16& draws, const Eigen::Vector3f& cam
 
 void UI::Internal_AddWidgetToList(UiWidget* widg) { m_widgets.push_back(widg); }
 
-void UI::Internal_PopWidgetAtIndex(const n32 index) { m_widgets.erase(m_widgets.begin() + index); }
+void UI::Internal_PopWidgetAtIndex(const u32 index) { m_widgets.erase(m_widgets.begin() + index); }
 
 std::vector<UiWidget*> UI::Internal_GetWidgetList() { return m_widgets; }
 

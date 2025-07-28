@@ -42,8 +42,8 @@ private:
     std::vector<vk::ImageView> m_prefilteredReadViews;
     std::vector<vk::ImageView> m_prefilteredWriteViews;
 
-    n32 m_vertexCount;
-    n32 m_indexCount;
+    u32 m_vertexCount;
+    u32 m_indexCount;
 
     vk::DrawIndexedIndirectCommand m_command;
     vk::DescriptorSet              m_cubeMapSet;

@@ -10,7 +10,7 @@ namespace Globals
 {
 
 // I am unsure where I should put this
-enum class ModelDescriptorIndices : n32
+enum class ModelDescriptorIndices : u32
 {
     Camera = 0, // Camera gets 1 descriptor set
     Model = 1,  // Model gets 2 descriptor sets
@@ -19,13 +19,13 @@ enum class ModelDescriptorIndices : n32
     Debug = 3, // Debug gets 1 descriptor set
 };
 
-enum class StencilMasks : n32
+enum class StencilMasks : u32
 {
     Nothing = 0,
     Model = 1,
 };
 
-enum class Limits : n32
+enum class Limits : u32
 {
     MaximumRenderDistance = 200,
 };

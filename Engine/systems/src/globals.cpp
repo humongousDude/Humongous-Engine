@@ -7,9 +7,9 @@ namespace Humongous::Globals
 {
 f32 Time::Internal_AverageDeltaTime()
 {
-    const n8                averageCount{10};
+    const u8                averageCount{10};
     static std::vector<f32> past10Frames(averageCount);
-    static n8               index{0};
+    static u8               index{0};
 
     f32 currentDT = DeltaTime();
 

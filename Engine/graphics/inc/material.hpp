@@ -93,11 +93,11 @@ struct Material
     float           roughnessFactor = 1.0f;
     Eigen::Vector4f baseColorFactor = Eigen::Vector4f::Ones();
     Eigen::Vector4f emissiveFactor = Eigen::Vector4f::Zero();
-    n32             baseColorTextureIndex = -1;
-    n32             metallicRoughnessTextureIndex = -1;
-    n32             normalTextureIndex = -1;
-    n32             occlusionTextureIndex = -1;
-    n32             emissiveTextureIndex = -1;
+    u32             baseColorTextureIndex = -1;
+    u32             metallicRoughnessTextureIndex = -1;
+    u32             normalTextureIndex = -1;
+    u32             occlusionTextureIndex = -1;
+    u32             emissiveTextureIndex = -1;
     bool            doubleSided = false;
     struct TexCoordSets
     {
@@ -110,8 +110,8 @@ struct Material
     } texCoordSets;
     struct Extension
     {
-        n32             specularGlossinessTextureIndex = -1;
-        n32             diffuseTextureIndex = -1;
+        u32             specularGlossinessTextureIndex = -1;
+        u32             diffuseTextureIndex = -1;
         Eigen::Vector4f diffuseFactor = Eigen::Vector4f::Ones();
         Eigen::Vector3f specularFactor = Eigen::Vector3f::Zero();
     } extension;

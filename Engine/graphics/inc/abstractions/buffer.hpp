@@ -13,7 +13,7 @@ namespace Humongous
 class Buffer : NonCopyable
 {
 public:
-    Buffer(const LogicalDevice& device, vk::DeviceSize instanceSize, n32 instanceCount, vk::BufferUsageFlags usageFlags,
+    Buffer(const LogicalDevice& device, vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsageFlags usageFlags,
            vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment = 1,
            const std::string& name = "");
     ~Buffer();
@@ -21,7 +21,7 @@ public:
     vk::Result Map(vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0);
     void       UnMap();
 
-    void Init(vk::DeviceSize instanceSize, n32 instanceCount, vk::BufferUsageFlags usageFlags, vk::MemoryPropertyFlags memoryPropertyFlags,
+    void Init(vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsageFlags usageFlags, vk::MemoryPropertyFlags memoryPropertyFlags,
               VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment = 1, const std::string& name = "");
 
     void                     WriteToBuffer(void* data, vk::DeviceSize size = vk::WholeSize, vk::DeviceSize offset = 0);
@@ -38,7 +38,7 @@ public:
 
     vk::Buffer              GetBuffer() const { return m_buffer; }
     void*                   GetMappedMemory() const { return m_allocationInfo.pMappedData; }
-    n32                     GetInstanceCount() const { return m_instanceCount; }
+    u32                     GetInstanceCount() const { return m_instanceCount; }
     vk::DeviceSize          GetInstanceSize() const { return m_instanceSize; }
     vk::DeviceSize          GetAlignmentSize() const { return m_instanceSize; }
     vk::BufferUsageFlags    GetUsageFlags() const { return m_usageFlags; }
@@ -79,7 +79,7 @@ private:
     vk::DeviceAddress    m_deviceAddress;
 
     vk::DeviceSize          m_bufferSize;
-    n32                     m_instanceCount;
+    u32                     m_instanceCount;
     vk::DeviceSize          m_instanceSize;
     vk::DeviceSize          m_alignmentSize;
     vk::BufferUsageFlags    m_usageFlags;

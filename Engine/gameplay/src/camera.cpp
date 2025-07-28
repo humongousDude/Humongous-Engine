@@ -12,7 +12,7 @@ Camera::Camera(const LogicalDevice& logicalDevice) { InitDescriptorThings(logica
 
 Camera::~Camera()
 {
-    for(n32 i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
+    for(u32 i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
     {
         m_projectionBuffers[i].reset();
         m_paramBuffers[i].reset();
@@ -94,7 +94,7 @@ void Camera::Update()
     m_index = (m_index + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
 }
 
-void Camera::UpdateUBO(n32 index)
+void Camera::UpdateUBO(u32 index)
 {
     ProjectionUBO ubo{};
     ubo.projection = m_projectionMatrix;
@@ -117,7 +117,7 @@ void Camera::UpdateUBO(n32 index)
     m_paramBuffers[index]->WriteToBuffer(&m_uboParams);
 }
 
-void Camera::UpdateCombinedCameraData(n32 index)
+void Camera::UpdateCombinedCameraData(u32 index)
 {
     Camera::CombinedCameraData data;
     data.camPos = m_position;

@@ -17,7 +17,7 @@ public:
                        const std::vector<vk::DescriptorSetLayout>& globalLayouts);
     ~SkyboxRenderSystem();
 
-    void RenderSkybox(const n32& frameIndex, std::vector<vk::DescriptorSet>& globalSets, vk::CommandBuffer commandBuffer);
+    void RenderSkybox(const u32& frameIndex, std::vector<vk::DescriptorSet>& globalSets, vk::CommandBuffer commandBuffer);
 
     std::shared_ptr<Skybox> GetSkybox() const { return m_skybox; }
 

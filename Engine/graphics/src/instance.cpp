@@ -85,7 +85,7 @@ void Instance::InitInstance()
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
     if(ENABLE_VALIDATION_LAYERS)
     {
-        createInfo.enabledLayerCount = static_cast<n32>(m_validationLayers.size());
+        createInfo.enabledLayerCount = static_cast<u32>(m_validationLayers.size());
         createInfo.ppEnabledLayerNames = m_validationLayers.data();
 
         PopulateDebugMessengerCreateInfo(debugCreateInfo);
@@ -98,10 +98,10 @@ void Instance::InitInstance()
     }
     auto extensions = GetRequiredExtensions();
 
-    createInfo.enabledExtensionCount = static_cast<n32>(extensions.size());
+    createInfo.enabledExtensionCount = static_cast<u32>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
 
-    n32 extensionCount = 0;
+    u32 extensionCount = 0;
 
     vk::Result res = vk::enumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
     if(res != vk::Result::eSuccess) {}
@@ -122,7 +122,7 @@ void Instance::InitInstance()
 
 bool Instance::CheckValidationLayerSupport()
 {
-    n32 layerCount;
+    u32 layerCount;
     vk::enumerateInstanceLayerProperties(&layerCount, nullptr);
     std::vector<vk::LayerProperties> availableLayers(layerCount);
     vk::enumerateInstanceLayerProperties(&layerCount, availableLayers.data());
@@ -148,7 +148,7 @@ bool Instance::CheckValidationLayerSupport()
 
 std::vector<const char*> Instance::GetRequiredExtensions()
 {
-    n32                sdlExtensionCount = 0;
+    u32                sdlExtensionCount = 0;
     const char* const* sdlExtensions;
     sdlExtensions = SDL_Vulkan_GetInstanceExtensions(&sdlExtensionCount);
 

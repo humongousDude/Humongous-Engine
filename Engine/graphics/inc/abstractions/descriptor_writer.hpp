@@ -19,8 +19,8 @@ public:
     DescriptorWriter(const DescriptorSetLayout& setLayout, DescriptorPool* pool);
     DescriptorWriter(const DescriptorSetLayout& setLayout, DescriptorPoolGrowable* pool);
 
-    DescriptorWriter& WriteBuffer(const n32 binding, vk::DescriptorBufferInfo* bufferInfo);
-    DescriptorWriter& WriteImage(const n32 binding, vk::DescriptorImageInfo* imageInfo);
+    DescriptorWriter& WriteBuffer(const u32 binding, vk::DescriptorBufferInfo* bufferInfo);
+    DescriptorWriter& WriteImage(const u32 binding, vk::DescriptorImageInfo* imageInfo);
     DescriptorWriter& Write(const vk::WriteDescriptorSet& write)
     {
         m_writes.push_back(write);
