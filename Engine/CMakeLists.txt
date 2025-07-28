@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.26)
-project(Engine)
+project(Engine LANGUAGES CXX)
 
 include(ExternalProject)
 
@@ -146,6 +146,11 @@ set(ENGINE_HEADERS
     ThirdParty/imgui/backends/imgui_impl_vulkan.h
 )
 
+set(ENGINE_TESTS
+    test_suite/all_tests.hpp
+    test_suite/resource_manager_tests.hpp
+)
+
 set(SHADER_SOURCES
     #frag    
     ../shaders/frag/pbr.frag.slang
@@ -195,9 +200,7 @@ endforeach()
 # Engine Library Target
 # ========================================================================================
 
-add_library(Engine ${ENGINE_SOURCES} ${ENGINE_HEADERS})
-
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${ENGINE_SOURCES} ${ENGINE_HEADERS})
+add_library(Engine ${ENGINE_SOURCES} ${ENGINE_HEADERS} ${ENGINE_TESTS})
 
 target_sources(Engine PRIVATE ${SHADER_SOURCES_FULL})
 
@@ -221,9 +224,10 @@ target_include_directories(Engine PUBLIC
     systems/inc
     utils/inc
     audio/inc
+    test_suite/
     
     # Third-party includes
-    ThirdParty/gli
+    ThirdParty/stb
     ThirdParty/VulkanMemoryAllocator/include
     ThirdParty/tinygltf
     ThirdParty/imgui
@@ -246,6 +250,7 @@ target_link_libraries(Engine PUBLIC
     meshoptimizer
     gtest
     gmock
+    ktx
 )
 
 if(WIN32)

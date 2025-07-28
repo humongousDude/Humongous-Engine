@@ -1,13 +1,9 @@
 #pragma once
 
-#include "asserts.hpp"
-#include "defines.hpp"
 #include "non_copyable.hpp"
 #include <vector>
 
 #include <vulkan/vulkan.hpp>
-
-#define _DEBUG
 
 namespace Humongous
 {

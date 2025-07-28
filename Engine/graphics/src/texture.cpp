@@ -1,19 +1,14 @@
+#define STB_IMAGE_IMPLEMENTATION
+#include "texture.hpp"
 #include "abstractions/buffer.hpp"
 #include "allocator.hpp"
 #include "asserts.hpp"
 #include "defines.hpp"
 #include "images.hpp"
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include "texture.hpp"
-#include <gli/texture.hpp>
-#include <gli/texture_cube.hpp>
-
-#define STB_IMAGE_IMPLEMENTATION
+#include <ktx.h>
+#include <ktxvulkan.h>
 #include <stb_image.h>
 #include <tiny_gltf.h>
-
-// TODO: switch to another image library instead of GLI
 
 namespace Humongous
 {
@@ -35,10 +30,68 @@ void Texture::CreateFromFile(const std::string& path, const LogicalDevice& devic
 {
     CreateTextureImage(path, imageType, storage);
 }
+void Texture::GenerateMipmaps(vk::CommandBuffer commandBuffer, vk::Image image, n32 texWidth, n32 texHeight, n32 mipLevels,
+                              vk::ImageLayout finalLayout)
+{
+    s32 mipWidth = texWidth;
+    s32 mipHeight = texHeight;
+
+    for(n32 i = 1; i < mipLevels; i++)
+    {
+        Utils::ImageTransitionInfo srcTransition{.cmd = commandBuffer,
+                                                 .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+                                                 .newLayout = vk::ImageLayout::eTransferSrcOptimal,
+                                                 .logicalDevice = m_logicalDevice,
+                                                 .image = image,
+                                                 .baseMipLevel = i - 1,
+                                                 .levelCount = 1,
+                                                 .layerCount = 1};
+        Utils::TransitionImageLayout(srcTransition);
+
+        vk::ImageBlit blit{};
+        blit.srcOffsets[0] = vk::Offset3D{0, 0, 0};
+        blit.srcOffsets[1] = vk::Offset3D{mipWidth, mipHeight, 1};
+        blit.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+        blit.srcSubresource.mipLevel = i - 1;
+        blit.srcSubresource.baseArrayLayer = 0;
+        blit.srcSubresource.layerCount = 1;
+        blit.dstOffsets[0] = vk::Offset3D{0, 0, 0};
+        blit.dstOffsets[1] = vk::Offset3D{mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1};
+        blit.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+        blit.dstSubresource.mipLevel = i;
+        blit.dstSubresource.baseArrayLayer = 0;
+        blit.dstSubresource.layerCount = 1;
+
+        commandBuffer.blitImage(image, vk::ImageLayout::eTransferSrcOptimal, image, vk::ImageLayout::eTransferDstOptimal, blit,
+                                vk::Filter::eLinear);
+
+        Utils::ImageTransitionInfo finalSrcTransition{.cmd = commandBuffer,
+                                                      .oldLayout = vk::ImageLayout::eTransferSrcOptimal,
+                                                      .newLayout = finalLayout,
+                                                      .logicalDevice = m_logicalDevice,
+                                                      .image = image,
+                                                      .baseMipLevel = i - 1,
+                                                      .levelCount = 1,
+                                                      .layerCount = 1};
+        Utils::TransitionImageLayout(finalSrcTransition);
+
+        if(mipWidth > 1) { mipWidth /= 2; }
+        if(mipHeight > 1) { mipHeight /= 2; }
+    }
+
+    Utils::ImageTransitionInfo finalDstTransition{.cmd = commandBuffer,
+                                                  .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+                                                  .newLayout = finalLayout,
+                                                  .logicalDevice = m_logicalDevice,
+                                                  .image = image,
+                                                  .baseMipLevel = mipLevels - 1,
+                                                  .levelCount = 1,
+                                                  .layerCount = 1};
+    Utils::TransitionImageLayout(finalDstTransition);
+}
 
 void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo textureSampler, const LogicalDevice& device, vk::Queue copyQueue)
 {
-
     unsigned char* buffer = nullptr;
     vk::DeviceSize bufferSize = 0;
     bool           deleteBuffer = false;
@@ -52,7 +105,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     {
         bufferSize = expectedBufferSize;
         buffer = new unsigned char[bufferSize];
-        for(int i = 0; i < m_width * m_height; ++i)
+        for(s32 i = 0; i < m_width * m_height; ++i)
         {
             auto rgba = buffer + i * 4;
             auto rgb = &gltfimage.image[i * 3];
@@ -72,7 +125,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     {
         bufferSize = expectedBufferSize;
         buffer = new unsigned char[bufferSize];
-        for(int i = 0; i < m_width * m_height; ++i)
+        for(s32 i = 0; i < m_width * m_height; ++i)
         {
             unsigned char grey = gltfimage.image[i];
             auto          rgba = buffer + i * 4;
@@ -87,7 +140,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     {
         bufferSize = expectedBufferSize;
         buffer = new unsigned char[bufferSize];
-        for(int i = 0; i < m_width * m_height; ++i)
+        for(s32 i = 0; i < m_width * m_height; ++i)
         {
             auto ga = &gltfimage.image[i * 2];
             auto rgba = buffer + i * 4;
@@ -104,15 +157,12 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
         return;
     }
 
-    // compute mip levels
     m_miplevels = static_cast<n32>(std::floor(std::log2(std::max(m_width, m_height))) + 1.0f);
 
-    // check blit support
     vk::FormatProperties fmtProps = m_logicalDevice.GetPhysicalDevice().GetVkPhysicalDevice().getFormatProperties(format);
     HGASSERT(fmtProps.optimalTilingFeatures & vk::FormatFeatureFlagBits::eBlitSrc);
     HGASSERT(fmtProps.optimalTilingFeatures & vk::FormatFeatureFlagBits::eBlitDst);
 
-    // staging buffer
     Buffer stagingBuffer{m_logicalDevice,
                          bufferSize,
                          1,
@@ -122,7 +172,6 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     stagingBuffer.Map();
     stagingBuffer.WriteToBuffer(buffer, bufferSize);
 
-    // allocate image
     Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = m_logicalDevice, .allocatedImage = &m_textureImage};
     createInfo.width = m_width;
     createInfo.height = m_height;
@@ -140,11 +189,9 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
 
     Utils::CreateAllocatedImage(createInfo);
 
-    // initial layout: undefined -> transfer dst
     Utils::TransitionImageLayout(m_logicalDevice, m_textureImage.image, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
     m_textureImage.imageLayout = vk::ImageLayout::eTransferDstOptimal;
 
-    // copy buffer -> image
     vk::BufferImageCopy region{};
     region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
     region.imageSubresource.mipLevel = 0;
@@ -154,11 +201,9 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
 
     Utils::CopyBufferToImage(m_logicalDevice, stagingBuffer.GetBuffer(), m_textureImage.image, std::vector<vk::BufferImageCopy>{region});
 
-    // now src-optimal for blitting
     Utils::TransitionImageLayout(m_logicalDevice, m_textureImage.image, m_textureImage.imageLayout, vk::ImageLayout::eTransferSrcOptimal);
     m_textureImage.imageLayout = vk::ImageLayout::eTransferSrcOptimal;
 
-    // generate mips
     vk::CommandBuffer blitCmd = m_logicalDevice.BeginSingleTimeCommands();
 
     vk::ImageSubresourceRange subresourceRange = {};
@@ -231,7 +276,6 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
         }
     }
 
-    // final layout: shader-read-only
     subresourceRange.levelCount = m_miplevels;
     {
         Utils::ImageTransitionInfo info{.logicalDevice = m_logicalDevice};
@@ -249,7 +293,6 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     m_textureImage.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     m_logicalDevice.EndSingleTimeCommands(blitCmd);
 
-    // sampler
     TexSamplerInfo samplerInfo{};
     samplerInfo.minFilter = textureSampler.minFilter;
     samplerInfo.magFilter = textureSampler.magFilter;
@@ -267,41 +310,27 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
 
     if(imageType == ImageType::TEX2D)
     {
-        gli::texture2d tex2D(gli::load(imagePath.c_str()));
-        HGASSERT(!tex2D.empty());
+        s32      texWidth, texHeight, texChannels;
+        stbi_uc* pixels = stbi_load(imagePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        HGASSERT(pixels && "Failed to load texture image!");
 
-        m_width = static_cast<n32>(tex2D.extent().x);
-        m_height = static_cast<n32>(tex2D.extent().y);
-        m_miplevels = static_cast<n32>(tex2D.levels());
+        m_width = static_cast<n32>(texWidth);
+        m_height = static_cast<n32>(texHeight);
         m_baseSize = m_width;
+        vk::DeviceSize imageSize = m_width * m_height * 4;
+
+        m_miplevels = static_cast<n32>(std::floor(std::log2(std::max(m_width, m_height)))) + 1;
 
         Buffer stagingBuffer{m_logicalDevice,
-                             tex2D.size(),
+                             imageSize,
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                              VMA_MEMORY_USAGE_CPU_TO_GPU};
         stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer(tex2D.data(), tex2D.size());
+        stagingBuffer.WriteToBuffer(pixels, static_cast<size_t>(imageSize));
 
-        std::vector<vk::BufferImageCopy> regions;
-        vk::DeviceSize                   offset = 0;
-        for(n32 i = 0; i < m_miplevels; i++)
-        {
-            vk::BufferImageCopy bufferCopyRegion = {};
-            bufferCopyRegion.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-            bufferCopyRegion.imageSubresource.mipLevel = i;
-            bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
-            bufferCopyRegion.imageSubresource.layerCount = 1;
-            bufferCopyRegion.imageExtent.width = static_cast<n32>(tex2D[i].extent().x);
-            bufferCopyRegion.imageExtent.height = static_cast<n32>(tex2D[i].extent().y);
-            bufferCopyRegion.imageExtent.depth = 1;
-            bufferCopyRegion.bufferOffset = offset;
-
-            regions.push_back(bufferCopyRegion);
-
-            offset += static_cast<n32>(tex2D[i].size());
-        }
+        stbi_image_free(pixels);
 
         Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = m_logicalDevice, .allocatedImage = &m_textureImage};
         createInfo.width = m_width;
@@ -341,11 +370,8 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         std::string name = filenameWithoutExtension;
         createInfo.name = name.c_str();
 
-        if(storage)
-        {
-            createInfo.usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage;
-        }
-        else { createInfo.usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled; }
+        vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        if(storage) { usage |= vk::ImageUsageFlagBits::eStorage; }
 
         createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
         createInfo.aspectFlags = vk::ImageAspectFlagBits::eColor;
@@ -354,43 +380,29 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
 
         auto cmd = m_logicalDevice.BeginSingleTimeCommands();
 
-        Utils::ImageTransitionInfo first{.logicalDevice = m_logicalDevice};
-        first.cmd = cmd;
-        first.image = m_textureImage.image;
-        first.oldLayout = vk::ImageLayout::eUndefined;
-        first.newLayout = vk::ImageLayout::eTransferDstOptimal;
-        first.baseMipLevel = 0;
-        first.levelCount = m_miplevels;
-        first.baseArrayLayer = 0;
-        first.layerCount = 1;
+        Utils::ImageTransitionInfo initialTransitionInfo{.cmd = cmd,
+                                                         .oldLayout = vk::ImageLayout::eUndefined,
+                                                         .newLayout = vk::ImageLayout::eTransferDstOptimal,
+                                                         .logicalDevice = m_logicalDevice,
+                                                         .image = m_textureImage.image,
+                                                         .baseMipLevel = 0,
+                                                         .levelCount = m_miplevels};
+        Utils::TransitionImageLayout(initialTransitionInfo);
 
-        Utils::TransitionImageLayout(first);
+        vk::BufferImageCopy region{};
+        region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = 0;
+        region.imageSubresource.layerCount = 1;
+        region.imageExtent = vk::Extent3D{m_width, m_height, 1};
+        Utils::CopyBufferToImage(m_logicalDevice, stagingBuffer.GetBuffer(), m_textureImage.image, {region});
+
+        GenerateMipmaps(cmd, m_textureImage.image, m_width, m_height, m_miplevels, vk::ImageLayout::eShaderReadOnlyOptimal);
 
         m_logicalDevice.EndSingleTimeCommands(cmd);
-        m_textureImage.imageLayout = vk::ImageLayout::eTransferDstOptimal;
 
-        Utils::CopyBufferToImage(m_logicalDevice, stagingBuffer.GetBuffer(), m_textureImage.image, regions);
-
-        auto cmd2 = m_logicalDevice.BeginSingleTimeCommands();
-
-        Utils::ImageTransitionInfo second{.logicalDevice = m_logicalDevice};
-        second.cmd = cmd2;
-        second.image = m_textureImage.image;
-        second.oldLayout = vk::ImageLayout::eTransferDstOptimal;
-
-        if(storage) { second.newLayout = vk::ImageLayout::eGeneral; }
-        else { second.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal; }
-
-        second.baseMipLevel = 0;
-        second.levelCount = m_miplevels;
-        second.baseArrayLayer = 0;
-        second.layerCount = 1;
-
-        Utils::TransitionImageLayout(second);
-
-        m_logicalDevice.EndSingleTimeCommands(cmd2);
+        m_textureImage.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
         if(storage) { m_textureImage.imageLayout = vk::ImageLayout::eGeneral; }
-        else { m_textureImage.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal; }
 
         samplerInfo.magFilter = vk::Filter::eLinear;
         samplerInfo.minFilter = vk::Filter::eLinear;
@@ -401,42 +413,46 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
     }
     else if(imageType == ImageType::CUBEMAP)
     {
-        gli::texture_cube texCube(gli::load(imagePath.c_str()));
-        HGASSERT(!texCube.empty());
-        m_width = static_cast<n32>(texCube.extent().x);
-        m_height = static_cast<n32>(texCube.extent().y);
-        m_miplevels = static_cast<n32>(texCube.levels());
+        ktxTexture*    ktxTex;
+        KTX_error_code result;
+
+        result = ktxTexture_CreateFromNamedFile(imagePath.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxTex);
+        HGASSERT(result == KTX_SUCCESS && "Failed to load KTX texture file.");
+
+        m_width = ktxTex->baseWidth;
+        m_height = ktxTex->baseHeight;
+        m_miplevels = ktxTex->numLevels;
         m_baseSize = m_width;
+        vk::Format format = vk::Format(ktxTexture_GetVkFormat(ktxTex));
 
         Buffer stagingBuffer{m_logicalDevice,
-                             texCube.size(),
+                             ktxTexture_GetDataSize(ktxTex),
                              1,
                              vk::BufferUsageFlagBits::eTransferSrc,
                              vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                              VMA_MEMORY_USAGE_CPU_TO_GPU};
         stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer(texCube.data(), texCube.size());
+        stagingBuffer.WriteToBuffer(ktxTexture_GetData(ktxTex), ktxTexture_GetDataSize(ktxTex));
 
         std::vector<vk::BufferImageCopy> regions;
-        vk::DeviceSize                   offset = 0;
-        for(n32 face = 0; face < 6; face++)
+        for(n32 level = 0; level < m_miplevels; ++level)
         {
-            for(n32 level = 0; level < m_miplevels; level++)
+            for(n32 face = 0; face < ktxTex->numFaces; ++face)
             {
-                vk::BufferImageCopy bufferCopyRegion = {};
-                bufferCopyRegion.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-                bufferCopyRegion.imageSubresource.mipLevel = level;
-                bufferCopyRegion.imageSubresource.baseArrayLayer = face;
-                bufferCopyRegion.imageSubresource.layerCount = 1;
-                bufferCopyRegion.imageExtent.width = static_cast<n32>(texCube[face][level].extent().x);
-                bufferCopyRegion.imageExtent.height = static_cast<n32>(texCube[face][level].extent().y);
-                bufferCopyRegion.imageExtent.depth = 1;
-                bufferCopyRegion.bufferOffset = offset;
+                ktx_size_t offset;
+                result = ktxTexture_GetImageOffset(ktxTex, level, 0, face, &offset);
+                HGASSERT(result == KTX_SUCCESS);
 
-                regions.push_back(bufferCopyRegion);
-
-                // Increase offset into staging buffer for next level / face
-                offset += texCube[face][level].size();
+                vk::BufferImageCopy region{};
+                region.bufferOffset = offset;
+                region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+                region.imageSubresource.mipLevel = level;
+                region.imageSubresource.baseArrayLayer = face;
+                region.imageSubresource.layerCount = 1;
+                region.imageExtent.width = std::max(1u, ktxTex->baseWidth >> level);
+                region.imageExtent.height = std::max(1u, ktxTex->baseHeight >> level);
+                region.imageExtent.depth = 1;
+                regions.push_back(region);
             }
         }
 
@@ -511,7 +527,6 @@ void Texture::FillWithEmpty(const LogicalDevice& logicalDevice, n32 width, n32 h
     m_height = height;
     m_miplevels = 1;
     m_layerCount = 1;
-    // m_logicalDevice = logicalDevice;
 
     Utils::AllocatedImageCreateInfo createInfo{.logicalDevice = logicalDevice, .allocatedImage = &m_textureImage};
     createInfo.width = width;

@@ -13,9 +13,6 @@
 [submodule "Engine/ThirdParty/tinygltf"]
 	path = Engine/ThirdParty/tinygltf
 	url = https://github.com/syoyo/tinygltf
-[submodule "Engine/ThirdParty/gli"]
-	path = Engine/ThirdParty/gli
-	url = https://github.com/g-truc/gli
 [submodule "Engine/ThirdParty/spdlog"]
 	path = Engine/ThirdParty/spdlog
 	url = https://github.com/gabime/spdlog
@@ -34,3 +31,9 @@
 [submodule "Engine/ThirdParty/googletest"]
 	path = Engine/ThirdParty/googletest
 	url = https://github.com/google/googletest
+[submodule "Engine/ThirdParty/stb"]
+	path = Engine/ThirdParty/stb
+	url = https://github.com/nothings/stb
+[submodule "Engine/ThirdParty/KTX-Software"]
+	path = Engine/ThirdParty/KTX-Software
+	url = https://github.com/KhronosGroup/KTX-Software

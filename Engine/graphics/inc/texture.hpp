@@ -2,7 +2,6 @@
 
 #include "images.hpp"
 #include "logical_device.hpp"
-#include <gli/gli.hpp>
 #include <string>
 
 namespace tinygltf
@@ -66,5 +65,6 @@ private:
 
     void CreateTextureImage(const std::string& imagePath, const ImageType& imageType = ImageType::TEX2D, const bool& storage = false);
     void CreateTextureImageSampler(const TexSamplerInfo& samplerInfo, const ImageType& imageType = ImageType::TEX2D);
+    void GenerateMipmaps(vk::CommandBuffer commandBuffer, vk::Image image, n32 texWidth, n32 texHeight, n32 mipLevels, vk::ImageLayout finalLayout);
 };
 }; // namespace Humongous

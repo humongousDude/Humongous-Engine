@@ -1,4 +1,5 @@
 #include "vulkan_app.hpp"
+#include "all_tests.hpp"
 #include "allocator.hpp"
 #include "asset_manager.hpp"
 #include "audio_engine.hpp"
@@ -12,11 +13,21 @@
 #include "resource_manager.hpp"
 #include "scene_handler.hpp"
 #include "ui/ui.hpp"
+#include "gtest/gtest.h"
 
 namespace Humongous
 {
-VulkanApp::VulkanApp(const int argc, char* argv[])
+VulkanApp::VulkanApp(int argc, char* argv[])
 {
+    ::testing::InitGoogleTest(&argc, argv);
+    auto ret = RUN_ALL_TESTS();
+
+    if(ret != 0)
+    {
+        HGFATAL("Tests failed");
+        return;
+    }
+
     Init(argc, argv);
     LoadGameObjects();
 }

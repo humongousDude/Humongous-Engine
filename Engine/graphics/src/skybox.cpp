@@ -1,6 +1,7 @@
 #include "skybox.hpp"
 #include "abstractions/descriptor_writer.hpp"
 #include "asset_manager.hpp"
+#include "cmath"
 #include "compute_pipeline.hpp"
 #include "logger.hpp"
 

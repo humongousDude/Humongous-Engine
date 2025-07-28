@@ -1,5 +1,6 @@
 #include "instance.hpp"
 #include "SDL3/SDL_vulkan.h"
+#include "defines.hpp"
 #include "logger.hpp"
 #include "vector"
 #include "vulkan/vk_enum_string_helper.h"

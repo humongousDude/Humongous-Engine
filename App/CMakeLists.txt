@@ -1,5 +1,6 @@
-# App/CMakeLists.txt
 cmake_minimum_required(VERSION 3.26)
+
+project(Application LANGUAGES CXX C)
 
 add_executable(App main.cpp)
 
