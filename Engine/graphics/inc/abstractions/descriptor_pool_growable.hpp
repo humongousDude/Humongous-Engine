@@ -11,7 +11,7 @@ namespace Humongous
 class DescriptorPoolGrowable : NonCopyable
 {
 public:
-    DescriptorPoolGrowable(const LogicalDevice& logicalDevice, u32 m_maxSets, vk::DescriptorPoolCreateFlags m_poolFlags,
+    DescriptorPoolGrowable(const ILogicalDevice& logicalDevice, u32 m_maxSets, vk::DescriptorPoolCreateFlags m_poolFlags,
                            std::vector<vk::DescriptorType>& poolTypes);
 
     ~DescriptorPoolGrowable();
@@ -25,9 +25,9 @@ public:
     void              ResetPools();
 
 private:
-    const LogicalDevice& m_logicalDevice;
-    vk::DescriptorPool   GetPool(const LogicalDevice& logicalDevice);
-    vk::DescriptorPool   CreatePool(const LogicalDevice& logicalDevice, u32 setCount, std::vector<vk::DescriptorType> poolTypes) const;
+    const ILogicalDevice& m_logicalDevice;
+    vk::DescriptorPool    GetPool(const ILogicalDevice& logicalDevice);
+    vk::DescriptorPool    CreatePool(const ILogicalDevice& logicalDevice, u32 setCount, std::vector<vk::DescriptorType> poolTypes) const;
 
     std::vector<vk::DescriptorType> m_poolTypes;
     std::vector<vk::DescriptorPool> m_fullPools, m_readyPools;

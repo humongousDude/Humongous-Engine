@@ -13,7 +13,7 @@
 namespace Humongous
 {
 
-Texture::Texture(const LogicalDevice& logicalDevice, const std::string& imagePath, const ImageType& imageType, const bool& storage)
+Texture::Texture(const ILogicalDevice& logicalDevice, const std::string& imagePath, const ImageType& imageType, const bool& storage)
     : m_logicalDevice{logicalDevice}
 {
     CreateFromFile(imagePath, logicalDevice, imageType, storage);
@@ -26,7 +26,7 @@ void Texture::Destroy()
     if(m_textureImage.image) { vmaDestroyImage(m_logicalDevice.GetVmaAllocator(), m_textureImage.image, m_textureImage.allocation); }
 }
 
-void Texture::CreateFromFile(const std::string& path, const LogicalDevice& device, const ImageType& imageType, const bool& storage)
+void Texture::CreateFromFile(const std::string& path, const ILogicalDevice& device, const ImageType& imageType, const bool& storage)
 {
     CreateTextureImage(path, imageType, storage);
 }
@@ -90,7 +90,7 @@ void Texture::GenerateMipmaps(vk::CommandBuffer commandBuffer, vk::Image image, 
     Utils::TransitionImageLayout(finalDstTransition);
 }
 
-void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo textureSampler, const LogicalDevice& device, vk::Queue copyQueue)
+void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo textureSampler, const ILogicalDevice& device, vk::Queue copyQueue)
 {
     unsigned char* buffer = nullptr;
     vk::DeviceSize bufferSize = 0;
@@ -521,7 +521,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
     }
 }
 
-void Texture::FillWithEmpty(const LogicalDevice& logicalDevice, u32 width, u32 height, const bool& storage)
+void Texture::FillWithEmpty(const ILogicalDevice& logicalDevice, u32 width, u32 height, const bool& storage)
 {
     m_width = width;
     m_height = height;

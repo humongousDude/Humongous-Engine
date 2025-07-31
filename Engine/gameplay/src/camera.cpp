@@ -8,7 +8,7 @@
 namespace Humongous
 {
 
-Camera::Camera(const LogicalDevice& logicalDevice) { InitDescriptorThings(logicalDevice); }
+Camera::Camera(const ILogicalDevice& logicalDevice) { InitDescriptorThings(logicalDevice); }
 
 Camera::~Camera()
 {
@@ -26,7 +26,7 @@ Camera::~Camera()
     m_paramDescriptorLayout.reset();
 }
 
-void Camera::InitDescriptorThings(const LogicalDevice& logicalDevice)
+void Camera::InitDescriptorThings(const ILogicalDevice& logicalDevice)
 {
     HGINFO("Initializing descriptor things...");
 

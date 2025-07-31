@@ -2,7 +2,7 @@
 
 namespace Humongous
 {
-void Allocator::Internal_Initialize(const LogicalDevice& logicalDevice)
+void Allocator::Internal_Initialize(const ILogicalDevice& logicalDevice)
 {
     if(m_initialized) { return; }
 

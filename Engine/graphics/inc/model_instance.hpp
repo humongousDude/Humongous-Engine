@@ -15,11 +15,7 @@ public:
     void SetAnimation(const std::string_view& animName)
     {
         auto it = m_animNameToIndex.find(animName.data());
-        if(it == m_animNameToIndex.end())
-        {
-            HGWARN("Invalid animName. Skipping update");
-            return;
-        }
+        if(it == m_animNameToIndex.end()) { return; }
         m_currentAnimationIndex = it->second;
         m_animationTime = 0;
     };

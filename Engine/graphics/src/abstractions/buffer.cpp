@@ -18,27 +18,19 @@
 namespace Humongous
 {
 
-/**
- * Returns the minimum instance size required to be compatible with devices minOffsetAlignment
- *
- * @param m_instanceSize The size of an instance
- * @param minOffsetAlignment The minimum required alignment, in bytes, for the offset member (eg
- * minUniformBufferOffsetAlignment)
- *
- * @return vk::Result of the buffer mapping call
- */
-vk::DeviceSize Buffer::GetAlignment(vk::DeviceSize m_instanceSize, vk::DeviceSize minOffsetAlignment)
-{
-    if(minOffsetAlignment > 0) { return (m_instanceSize + minOffsetAlignment - 1) & ~(minOffsetAlignment - 1); }
-    return m_instanceSize;
-}
-
-Buffer::Buffer(const LogicalDevice& device, vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsageFlags usageFlags,
+Buffer::Buffer(const ILogicalDevice& device, vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsageFlags usageFlags,
                vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment, const std::string& name)
     : m_logicalDevice{device}, m_instanceSize{instanceSize}, m_instanceCount{instanceCount}, m_usageFlags{usageFlags},
       m_memoryPropertyFlags{memoryPropertyFlags}
 {
     Init(instanceSize, instanceCount, usageFlags, memoryPropertyFlags, memoryUsage, minOffsetAlignment, name);
+}
+
+Buffer::Buffer(const BufferCreateInfo& createInfo)
+    : m_logicalDevice{createInfo.device}, m_instanceSize{createInfo.size}, m_instanceCount{createInfo.instanceCount},
+      m_usageFlags{createInfo.bufferUsage}, m_memoryPropertyFlags{createInfo.properties}
+{
+    Init(createInfo.size, 1, createInfo.bufferUsage, createInfo.properties, createInfo.memoryUsage, createInfo.minOffsetAlignment, createInfo.name);
 }
 
 void Buffer::Init(vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsageFlags usageFlags, vk::MemoryPropertyFlags memoryPropertyFlags,
@@ -71,6 +63,21 @@ Buffer::~Buffer()
 {
     if(m_allocationInfo.pMappedData) { UnMap(); }
     if(m_buffer != VK_NULL_HANDLE) { vmaDestroyBuffer(m_logicalDevice.GetVmaAllocator(), m_buffer, m_allocation); }
+}
+
+/**
+ * Returns the minimum instance size required to be compatible with devices minOffsetAlignment
+ *
+ * @param m_instanceSize The size of an instance
+ * @param minOffsetAlignment The minimum required alignment, in bytes, for the offset member (eg
+ * minUniformBufferOffsetAlignment)
+ *
+ * @return vk::Result of the buffer mapping call
+ */
+vk::DeviceSize Buffer::GetAlignment(vk::DeviceSize m_instanceSize, vk::DeviceSize minOffsetAlignment)
+{
+    if(minOffsetAlignment > 0) { return (m_instanceSize + minOffsetAlignment - 1) & ~(minOffsetAlignment - 1); }
+    return m_instanceSize;
 }
 
 void Buffer::CreateBuffer(CreateInfo& createInfo)
@@ -284,7 +291,7 @@ vk::DescriptorBufferInfo Buffer::DescriptorInfoForIndex(int index) { return Desc
  */
 vk::Result Buffer::InvalidateIndex(int index) { return Invalidate(m_alignmentSize, index * m_alignmentSize); }
 
-void Buffer::CopyBuffer(const LogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size)
+void Buffer::CopyBuffer(const ILogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size)
 {
     vk::CommandBuffer commandBuffer = device.BeginSingleTimeCommands();
 

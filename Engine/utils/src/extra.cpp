@@ -76,7 +76,7 @@ void DecomposeMatrix(const Eigen::Matrix4f& matrix, Eigen::Vector3f& translation
     rotation = Eigen::Quaternionf(rotationScaleMatrix);
 }
 
-vk::ShaderModule CreateShaderModule(const LogicalDevice& logicalDevice, const std::string& shaderFile)
+vk::ShaderModule CreateShaderModule(const ILogicalDevice& logicalDevice, const std::string& shaderFile)
 {
     std::vector<char> shaderCode = ReadFile(shaderFile);
     if(shaderCode.empty()) { return VK_NULL_HANDLE; }

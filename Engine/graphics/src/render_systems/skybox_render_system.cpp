@@ -1,5 +1,4 @@
 #include "render_systems/skybox_render_system.hpp"
-
 #include "asset_manager.hpp"
 #include "logger.hpp"
 #include "resource_manager.hpp"
@@ -8,7 +7,7 @@
 namespace Humongous
 {
 
-SkyboxRenderSystem::SkyboxRenderSystem(const LogicalDevice& logicalDevice, ResourceManager& resourceManager, const std::string& skyboxImgPath,
+SkyboxRenderSystem::SkyboxRenderSystem(const ILogicalDevice& logicalDevice, ResourceManager& resourceManager, const std::string& skyboxImgPath,
                                        const std::vector<vk::DescriptorSetLayout>& globalLayouts)
     : m_logicalDevice{logicalDevice}, m_resourceManager{resourceManager}
 {

@@ -29,11 +29,11 @@ public:
         vk::SamplerAddressMode addressModeW;
     };
 
-    Texture(const LogicalDevice& logicalDevice, const std::string& imagePath, const ImageType& imageType = ImageType::TEX2D,
+    Texture(const ILogicalDevice& logicalDevice, const std::string& imagePath, const ImageType& imageType = ImageType::TEX2D,
             const bool& storage = false);
-    Texture(const LogicalDevice& logicalDevice) : m_logicalDevice{logicalDevice} {};
+    Texture(const ILogicalDevice& logicalDevice) : m_logicalDevice{logicalDevice} {};
 
-    void FillWithEmpty(const LogicalDevice& m_logicalDevice, u32 width, u32 height, const bool& storage = false);
+    void FillWithEmpty(const ILogicalDevice& m_logicalDevice, u32 width, u32 height, const bool& storage = false);
 
     vk::DescriptorImageInfo GetDescriptorInfo() const { return {m_textureSampler, m_textureImage.imageView, m_textureImage.imageLayout}; };
 
@@ -52,14 +52,14 @@ public:
 
     void Destroy();
 
-    void CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo textureSampler, const LogicalDevice& device, vk::Queue copyQueue);
-    void CreateFromFile(const std::string& path, const LogicalDevice& device, const ImageType& imageType = ImageType::TEX2D,
+    void CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo textureSampler, const ILogicalDevice& device, vk::Queue copyQueue);
+    void CreateFromFile(const std::string& path, const ILogicalDevice& device, const ImageType& imageType = ImageType::TEX2D,
                         const bool& storage = false);
 
 private:
-    const LogicalDevice& m_logicalDevice;
-    AllocatedImage       m_textureImage;
-    vk::Sampler          m_textureSampler;
+    const ILogicalDevice& m_logicalDevice;
+    AllocatedImage        m_textureImage;
+    vk::Sampler           m_textureSampler;
 
     u32 m_width, m_height, m_miplevels, m_layerCount, m_baseSize;
 

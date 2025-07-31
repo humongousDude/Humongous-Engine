@@ -22,7 +22,7 @@ private:
     struct MaterialKey;
 
 public:
-    ResourceManager(const LogicalDevice& logicalDevice);
+    ResourceManager(const ILogicalDevice& logicalDevice);
     ~ResourceManager();
 
     std::shared_ptr<ModelInstance> RequestModel(const std::string& name);
@@ -121,7 +121,7 @@ private:
         u32                   bindlessIndex;
     };
 
-    const LogicalDevice&                                           m_logicalDevice;
+    const ILogicalDevice&                                          m_logicalDevice;
     std::unique_ptr<DescriptorSetLayout>                           m_skyboxLayout;
     std::unique_ptr<DescriptorSetLayout>                           m_skyboxCompLayout;
     std::unordered_map<u32, std::shared_ptr<Model>>                m_modelMap;

@@ -5,7 +5,7 @@ namespace Humongous
 {
 namespace Utils
 {
-void CreateAllocatedImage(const LogicalDevice& logicalDevice, u32 width, u32 height, vk::Format format, vk::ImageTiling tiling,
+void CreateAllocatedImage(const ILogicalDevice& logicalDevice, u32 width, u32 height, vk::Format format, vk::ImageTiling tiling,
                           vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, AllocatedImage& allocatedImage,
                           vk::ImageAspectFlags aspectFlags)
 {
@@ -239,7 +239,7 @@ void TransitionImageLayout(ImageTransitionInfo& info)
     info.cmd.pipelineBarrier2(depInfo);
 }
 
-void TransitionImageLayout(const LogicalDevice& logicalDevice, vk::Image image, vk::ImageLayout currentLayout, vk::ImageLayout newLayout)
+void TransitionImageLayout(const ILogicalDevice& logicalDevice, vk::Image image, vk::ImageLayout currentLayout, vk::ImageLayout newLayout)
 {
     vk::CommandBuffer   cmd = logicalDevice.BeginSingleTimeCommands();
     ImageTransitionInfo info{.logicalDevice = logicalDevice};
@@ -281,7 +281,7 @@ void CopyImageToImage(vk::CommandBuffer cmd, vk::Image src, vk::Image dst, vk::E
     cmd.blitImage2(blitInfo);
 }
 
-void CopyBufferToImage(const LogicalDevice& logicalDevice, vk::Buffer buffer, vk::Image image, u32 width, u32 height)
+void CopyBufferToImage(const ILogicalDevice& logicalDevice, vk::Buffer buffer, vk::Image image, u32 width, u32 height)
 {
     vk::CommandBuffer   commandBuffer = logicalDevice.BeginSingleTimeCommands();
     vk::BufferImageCopy region{};
@@ -299,7 +299,7 @@ void CopyBufferToImage(const LogicalDevice& logicalDevice, vk::Buffer buffer, vk
     logicalDevice.EndSingleTimeCommands(commandBuffer);
 }
 
-void CopyBufferToImage(const LogicalDevice& logicalDevice, vk::Buffer buffer, vk::Image image, const std::vector<vk::BufferImageCopy>& regions)
+void CopyBufferToImage(const ILogicalDevice& logicalDevice, vk::Buffer buffer, vk::Image image, const std::vector<vk::BufferImageCopy>& regions)
 {
     vk::CommandBuffer commandBuffer = logicalDevice.BeginSingleTimeCommands();
     commandBuffer.copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, static_cast<uint32_t>(regions.size()), regions.data());

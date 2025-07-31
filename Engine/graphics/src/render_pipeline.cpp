@@ -8,7 +8,7 @@ using namespace Humongous::Utils;
 
 namespace Humongous
 {
-RenderPipeline::RenderPipeline(const LogicalDevice& logicalDevice, const RenderPipeline::PipelineConfigInfo& configinfo)
+RenderPipeline::RenderPipeline(const ILogicalDevice& logicalDevice, const RenderPipeline::PipelineConfigInfo& configinfo)
     : m_logicalDevice{logicalDevice}
 {
     CreateRenderPipeline(configinfo);

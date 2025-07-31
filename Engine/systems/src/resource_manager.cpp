@@ -9,7 +9,7 @@
 namespace Humongous
 {
 
-ResourceManager::ResourceManager(const LogicalDevice& device) : m_logicalDevice(device)
+ResourceManager::ResourceManager(const ILogicalDevice& device) : m_logicalDevice(device)
 {
     HGINFO("Initializing Resource manager...");
     InitDescriptors();

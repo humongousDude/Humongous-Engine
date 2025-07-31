@@ -6,7 +6,7 @@
 
 namespace Humongous
 {
-SwapChain::SwapChain(const Window& window, const PhysicalDevice& physicalDevice, const LogicalDevice& logicalDevice,
+SwapChain::SwapChain(const Window& window, const PhysicalDevice& physicalDevice, const ILogicalDevice& logicalDevice,
                      std::shared_ptr<SwapChain> oldSwap)
     : m_logicalDevice(logicalDevice)
 {

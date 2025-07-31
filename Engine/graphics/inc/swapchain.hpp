@@ -15,7 +15,7 @@ class SwapChain : NonCopyable
 public:
     static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-    SwapChain(const Window& window, const PhysicalDevice& physicalDevice, const LogicalDevice& logicalDevice,
+    SwapChain(const Window& window, const PhysicalDevice& physicalDevice, const ILogicalDevice& logicalDevice,
               std::shared_ptr<SwapChain> oldSwap = nullptr);
     ~SwapChain();
 
@@ -44,9 +44,9 @@ public:
     vk::Semaphore& GetRenderFinishedSemaphoreAtCurrentFrame() { return m_renderFinishedSemaphore[m_imageIndex]; }
 
 private:
-    const LogicalDevice& m_logicalDevice;
-    vk::SwapchainKHR     m_swapChain;
-    u32                  m_imageIndex{0};
+    const ILogicalDevice& m_logicalDevice;
+    vk::SwapchainKHR      m_swapChain;
+    u32                   m_imageIndex{0};
 
     vk::Format         m_surfaceFormat;
     vk::PresentModeKHR m_presentMode;

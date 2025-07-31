@@ -13,9 +13,22 @@ namespace Humongous
 class Buffer : NonCopyable
 {
 public:
-    Buffer(const LogicalDevice& device, vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsageFlags usageFlags,
+    struct BufferCreateInfo
+    {
+        const ILogicalDevice&   device;
+        vk::DeviceSize          size = 1;
+        u32                     instanceCount = 1;
+        vk::BufferUsageFlags    bufferUsage;
+        VmaMemoryUsage          memoryUsage = VMA_MEMORY_USAGE_AUTO;
+        vk::MemoryPropertyFlags properties;
+        vk::DeviceSize          minOffsetAlignment = 1;
+        std::string             name = "";
+    };
+
+    Buffer(const ILogicalDevice& device, vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsageFlags usageFlags,
            vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment = 1,
            const std::string& name = "");
+    Buffer(const BufferCreateInfo& createInfo);
     ~Buffer();
 
     vk::Result Map(vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0);
@@ -50,14 +63,14 @@ public:
         return m_deviceAddress;
     }
 
-    static void CopyBuffer(const LogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size);
+    static void CopyBuffer(const ILogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size);
 
     bool IsMapped() const { return m_mapCallCount > 0 ? true : false; }
 
 private:
     struct CreateInfo
     {
-        const LogicalDevice&    device;
+        const ILogicalDevice&   device;
         vk::DeviceSize          size;
         vk::BufferUsageFlags    bufferUsage;
         VmaMemoryUsage          memoryUsage;
@@ -72,11 +85,11 @@ private:
     static vk::DeviceSize GetAlignment(vk::DeviceSize instanceSize, vk::DeviceSize minOffsetAlignment);
     void                  CreateBuffer(CreateInfo& createInfo);
 
-    const LogicalDevice& m_logicalDevice;
-    vk::Buffer           m_buffer = VK_NULL_HANDLE;
-    VmaAllocation        m_allocation;
-    VmaAllocationInfo    m_allocationInfo;
-    vk::DeviceAddress    m_deviceAddress;
+    const ILogicalDevice& m_logicalDevice;
+    vk::Buffer            m_buffer = VK_NULL_HANDLE;
+    VmaAllocation         m_allocation;
+    VmaAllocationInfo     m_allocationInfo;
+    vk::DeviceAddress     m_deviceAddress;
 
     vk::DeviceSize          m_bufferSize;
     u32                     m_instanceCount;

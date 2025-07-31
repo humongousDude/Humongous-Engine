@@ -41,7 +41,7 @@ public:
         std::vector<vk::PipelineColorBlendAttachmentState> colorBlendAttachments;
     };
 
-    RenderPipeline(const LogicalDevice& logicalDevice, const PipelineConfigInfo& configInfo);
+    RenderPipeline(const ILogicalDevice& logicalDevice, const PipelineConfigInfo& configInfo);
     ~RenderPipeline();
 
     static PipelineConfigInfo DefaultPipelineConfigInfo();
@@ -51,8 +51,8 @@ public:
     void Bind(vk::CommandBuffer cmd) { vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline); };
 
 private:
-    const LogicalDevice& m_logicalDevice;
-    vk::Pipeline         m_pipeline;
+    const ILogicalDevice& m_logicalDevice;
+    vk::Pipeline          m_pipeline;
 
     void CreateRenderPipeline(const PipelineConfigInfo& configInfo);
     void CreateShaderModule(const std::vector<char>& code, vk::ShaderModule* shaderModule);

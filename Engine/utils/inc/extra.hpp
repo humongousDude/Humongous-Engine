@@ -39,7 +39,7 @@ void DecomposeMatrix(const Eigen::Matrix4f& matrix, Eigen::Vector3f& translation
 
 inline f32 DegreesToRadians(f32 degrees) { return degrees * (M_PI / 180.0f); }
 
-vk::ShaderModule CreateShaderModule(const LogicalDevice& logicalDevice, const std::string& shaderFile);
+vk::ShaderModule CreateShaderModule(const ILogicalDevice& logicalDevice, const std::string& shaderFile);
 
 } // namespace Utils
 } // namespace Humongous

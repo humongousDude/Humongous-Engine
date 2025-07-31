@@ -11,7 +11,7 @@
 
 namespace Humongous
 {
-SimpleRenderSystem::SimpleRenderSystem(const LogicalDevice& logicalDevice, ResourceManager& resourceManager,
+SimpleRenderSystem::SimpleRenderSystem(const ILogicalDevice& logicalDevice, ResourceManager& resourceManager,
                                        const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts, const ShaderSet& shaderSet)
     : m_logicalDevice{logicalDevice}, m_resourceManager{resourceManager}, m_pipelineLayout{VK_NULL_HANDLE}
 {

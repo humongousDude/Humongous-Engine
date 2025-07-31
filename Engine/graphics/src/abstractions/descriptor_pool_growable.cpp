@@ -5,7 +5,7 @@
 // TODO: Change this to use vulkan.hpp
 namespace Humongous
 {
-DescriptorPoolGrowable::DescriptorPoolGrowable(const LogicalDevice& logicalDevice, u32 maxSets, vk::DescriptorPoolCreateFlags m_poolFlags,
+DescriptorPoolGrowable::DescriptorPoolGrowable(const ILogicalDevice& logicalDevice, u32 maxSets, vk::DescriptorPoolCreateFlags m_poolFlags,
                                                std::vector<vk::DescriptorType>& poolTypes)
     : m_logicalDevice{logicalDevice}
 {
@@ -78,7 +78,7 @@ void DescriptorPoolGrowable::ResetPools()
     m_readyPools.clear();
 }
 
-vk::DescriptorPool DescriptorPoolGrowable::GetPool(const LogicalDevice& logicalDevice)
+vk::DescriptorPool DescriptorPoolGrowable::GetPool(const ILogicalDevice& logicalDevice)
 {
     vk::DescriptorPool newPool;
     if(m_readyPools.size() != 0)
@@ -98,7 +98,7 @@ vk::DescriptorPool DescriptorPoolGrowable::GetPool(const LogicalDevice& logicalD
     return newPool;
 }
 
-vk::DescriptorPool DescriptorPoolGrowable::CreatePool(const LogicalDevice& logicalDevice, u32 setCount,
+vk::DescriptorPool DescriptorPoolGrowable::CreatePool(const ILogicalDevice& logicalDevice, u32 setCount,
                                                       std::vector<vk::DescriptorType> poolTypes) const
 {
     std::vector<vk::DescriptorPoolSize> poolSizes;

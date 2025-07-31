@@ -11,7 +11,7 @@ namespace Humongous
 
 struct SkyboxCreateInfo
 {
-    const LogicalDevice&    logicalDevice;
+    const ILogicalDevice&   logicalDevice;
     const std::string&      cubemapPath;
     DescriptorSetLayout&    descriptorSetLayout;
     DescriptorSetLayout&    compDescriptorSetLayout;
@@ -32,7 +32,7 @@ public:
     void Draw(vk::CommandBuffer cmd) { cmd.draw(6, 1, 0, 0); }
 
 private:
-    const LogicalDevice& m_logicalDevice;
+    const ILogicalDevice& m_logicalDevice;
 
     std::unique_ptr<Texture>   m_skybox;
     std::unique_ptr<Texture>   m_irradiance;

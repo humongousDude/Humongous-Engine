@@ -14,7 +14,7 @@
 namespace Humongous
 {
 
-Renderer::Renderer(Window& window, const LogicalDevice& logicalDevice, const PhysicalDevice& physicalDevice, ResourceManager& resourceManager,
+Renderer::Renderer(Window& window, const ILogicalDevice& logicalDevice, const PhysicalDevice& physicalDevice, ResourceManager& resourceManager,
                    VmaAllocator allocator, vk::Format drawFormat, vk::Format depthFormat)
     : m_window{window}, m_logicalDevice{logicalDevice}, m_resourceManager{resourceManager}, m_physicalDevice{physicalDevice}, m_allocator{allocator}
 {
@@ -57,7 +57,6 @@ Renderer::~Renderer()
     }
 
     if(m_depthImageSampler != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroySampler(m_depthImageSampler); }
-    if(m_debugImageSampler != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroySampler(m_debugImageSampler); }
 
     m_occlusionPipeline.reset();
     m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_occlusionPipelineLayout, nullptr);
@@ -977,7 +976,7 @@ void Renderer::BeginSkyboxPass(vk::CommandBuffer cmd)
 
 void Renderer::EndSkyboxPass(vk::CommandBuffer cmd) { cmd.endRendering(); }
 
-void Renderer::BeginUIRendering(vk::CommandBuffer cmd)
+void Renderer::BeginUIPass(vk::CommandBuffer cmd)
 {
     std::array<vk::ClearValue, 2> clearValues{};
     clearValues[0].color = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -1005,7 +1004,7 @@ void Renderer::BeginUIRendering(vk::CommandBuffer cmd)
     cmd.beginRendering(&renderingInfo);
 }
 
-void Renderer::EndUIRendering(vk::CommandBuffer cmd) { cmd.endRendering(); }
+void Renderer::EndUIPass(vk::CommandBuffer cmd) { cmd.endRendering(); }
 
 void Renderer::BeginDepthPrePass(vk::CommandBuffer cmd)
 {

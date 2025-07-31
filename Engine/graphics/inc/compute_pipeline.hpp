@@ -11,9 +11,9 @@ class ComputePipeline : NonCopyable
 public:
     struct ComputePipelineCreateInfo
     {
-        const LogicalDevice& logicalDevice;
-        std::string          shaderFile = "";
-        vk::PipelineLayout   pipelineLayout;
+        const ILogicalDevice& logicalDevice;
+        std::string           shaderFile = "";
+        vk::PipelineLayout    pipelineLayout;
     };
 
     ComputePipeline(const ComputePipelineCreateInfo& createInfo);
@@ -24,8 +24,8 @@ public:
     void BindPipeline(vk::CommandBuffer cmd) { cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_pipeline); }
 
 private:
-    const LogicalDevice& m_logicalDevice;
-    vk::Pipeline         m_pipeline = VK_NULL_HANDLE;
+    const ILogicalDevice& m_logicalDevice;
+    vk::Pipeline          m_pipeline = VK_NULL_HANDLE;
 
     void CreatePipeline(const ComputePipelineCreateInfo& createInfo);
 };

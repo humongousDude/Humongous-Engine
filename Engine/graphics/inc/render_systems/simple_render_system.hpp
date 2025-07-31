@@ -28,7 +28,7 @@ struct ShaderSet
 class SimpleRenderSystem
 {
 public:
-    SimpleRenderSystem(const LogicalDevice& logicalDevice, ResourceManager& resourceManager,
+    SimpleRenderSystem(const ILogicalDevice& logicalDevice, ResourceManager& resourceManager,
                        const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts, const ShaderSet& shaderSet);
     ~SimpleRenderSystem();
 
@@ -57,7 +57,7 @@ private:
         u32             morphTargetStart;
     };
 
-    const LogicalDevice&            m_logicalDevice;
+    const ILogicalDevice&           m_logicalDevice;
     ResourceManager&                m_resourceManager;
     std::unique_ptr<RenderPipeline> m_opaqueGeometryPipeline;
     std::unique_ptr<RenderPipeline> m_transparentGeometryPipeline;

@@ -28,7 +28,7 @@ std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::Builder::Build() const
 
 // *************** Descriptor Set Layout *********************
 
-DescriptorSetLayout::DescriptorSetLayout(const LogicalDevice& m_device, std::unordered_map<u32, vk::DescriptorSetLayoutBinding> m_bindings)
+DescriptorSetLayout::DescriptorSetLayout(const ILogicalDevice& m_device, std::unordered_map<u32, vk::DescriptorSetLayoutBinding> m_bindings)
     : m_device{m_device}, m_bindings{m_bindings}
 {
     std::vector<vk::DescriptorSetLayoutBinding> setLayoutBindings{};

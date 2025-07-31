@@ -1,5 +1,6 @@
 #include "model_instance.hpp"
 #include "globals.hpp"
+#include "logger.hpp"
 #include "resource_manager.hpp"
 
 namespace Humongous

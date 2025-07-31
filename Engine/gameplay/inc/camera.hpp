@@ -48,7 +48,7 @@ public:
         Eigen::Vector3f camPos;
     };
 
-    Camera(const LogicalDevice& logicalDevice);
+    Camera(const ILogicalDevice& logicalDevice);
     ~Camera();
 
     void SetOrthographicProjection(float left, float right, float top, float bottom, float near, float far);
@@ -118,7 +118,7 @@ private:
     Eigen::Vector3f m_forward{};
     Eigen::Vector3f m_up{};
 
-    void InitDescriptorThings(const LogicalDevice& logicalDevice);
+    void InitDescriptorThings(const ILogicalDevice& logicalDevice);
 
     void UpdateUBO(u32 index);
     void UpdateCombinedCameraData(u32 index);

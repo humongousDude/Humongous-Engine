@@ -341,9 +341,9 @@ void VulkanApp::Run()
     });
 
     HGINFO("Running...");
-    bool      quit = false;
-    bool      focused = false;
-    bool      minimized = false;
+    b8        quit = false;
+    b8        focused = false;
+    b8        minimized = false;
     SDL_Event e;
     while(!quit)
     {
@@ -447,7 +447,7 @@ void VulkanApp::Run()
 
                 m_renderer->EndSkyboxPass(cmd);
 
-                m_renderer->BeginUIRendering(cmd);
+                m_renderer->BeginUIPass(cmd);
 
                 UI::BeginUIFrame(cmd);
 
@@ -458,7 +458,7 @@ void VulkanApp::Run()
 
                 UI::EndUIFrame(cmd);
 
-                m_renderer->EndUIRendering(cmd);
+                m_renderer->EndUIPass(cmd);
 
                 ImGui::UpdatePlatformWindows();
                 ImGui::RenderPlatformWindowsDefault();

@@ -14,7 +14,7 @@
 namespace Humongous
 {
 
-void UI::Internal_Init(const class Instance& instance, const LogicalDevice& logicalDevice, const Window& window)
+void UI::Internal_Init(const class Instance& instance, const ILogicalDevice& logicalDevice, const Window& window)
 {
     if(m_hasInitialized) { return; }
     HGINFO("Initializing UI...");

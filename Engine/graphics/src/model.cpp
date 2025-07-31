@@ -15,14 +15,14 @@
 namespace Humongous
 {
 // Mesh
-Mesh::Mesh(const LogicalDevice& device, Eigen::Matrix4f matrix) : logicalDevice(device) {};
+Mesh::Mesh(const ILogicalDevice& device, Eigen::Matrix4f matrix) : logicalDevice(device) {};
 
 Mesh::~Mesh()
 {
     for(Primitive* p: primitives) { delete p; }
 }
 
-Model::Model(const LogicalDevice& device, ResourceManager& resourceManager, const std::string& modelPath, f32 scale, const u32& handle)
+Model::Model(const ILogicalDevice& device, ResourceManager& resourceManager, const std::string& modelPath, f32 scale, const u32& handle)
     : m_handle(handle), m_logicalDevice(device), m_resourceManager(resourceManager)
 {
     HGINFO("Creating model...");
@@ -32,7 +32,7 @@ Model::Model(const LogicalDevice& device, ResourceManager& resourceManager, cons
 
 Model::~Model() { Destroy(m_logicalDevice.GetVkDevice()); }
 
-void Model::LoadFromFile(std::string filePath, const LogicalDevice& logicalDevice, vk::Queue transferQueue, f32 scale)
+void Model::LoadFromFile(std::string filePath, const ILogicalDevice& logicalDevice, vk::Queue transferQueue, f32 scale)
 {
     if(m_initialized) { return; }
 
@@ -734,7 +734,7 @@ vk::Filter Model::GetVkFilterMode(s32 filterMode)
     return vk::Filter::eNearest;
 }
 
-void Model::LoadTextures(tinygltf::Model& gltfModel, const LogicalDevice& device, vk::Queue transferQueue)
+void Model::LoadTextures(tinygltf::Model& gltfModel, const ILogicalDevice& device, vk::Queue transferQueue)
 {
     for(tinygltf::Texture& tex: gltfModel.textures)
     {
