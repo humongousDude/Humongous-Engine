@@ -1,16 +1,13 @@
 #pragma once
 
-#include "singleton.hpp"
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 namespace Humongous
 {
-namespace Systems
-{
 
-class AssetManager : public Singleton<AssetManager>
+class IAssetManager
 {
 public:
     enum class AssetType
@@ -21,8 +18,16 @@ public:
         AUDIO
     };
 
+    virtual ~IAssetManager() = default;
+
+    virtual std::string GetAsset(const AssetType type, const std::string_view asset) const = 0;
+};
+
+class AssetManager : public IAssetManager
+{
+public:
     // paths must not contain any directorys or files with unicode characters.
-    static void Init(const std::vector<std::string>* paths = nullptr) { Get().Internal_Init(paths); }
+    AssetManager(const std::vector<std::string>* paths = nullptr);
 
     /***
      * returns a std::string path to the requested asset.
@@ -31,11 +36,10 @@ public:
      * if it doesn't find a shader, it returns ""
      * if it doesn't find an audio source, it returns a default one
      * */
-    static std::string GetAsset(const AssetType type, const std::string_view asset) { return Get().Internal_GetAsset(type, asset); }
+    std::string GetAsset(const AssetType type, const std::string_view asset) const override;
 
 private:
-    std::string Internal_GetAsset(const AssetType type, const std::string_view asset);
-    void        Internal_Init(const std::vector<std::string>* paths = nullptr);
+    void Init(const std::vector<std::string>* paths = nullptr);
 
     std::unordered_map<std::string, std::string> m_shaderMap;
     std::unordered_map<std::string, std::string> m_modelMap;
@@ -43,5 +47,4 @@ private:
     std::unordered_map<std::string, std::string> m_audioMap;
 };
 
-} // namespace Systems
 } // namespace Humongous

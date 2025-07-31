@@ -1,10 +1,11 @@
+#include "logger.hpp"
 #define STB_IMAGE_IMPLEMENTATION
-#include "texture.hpp"
 #include "abstractions/buffer.hpp"
 #include "allocator.hpp"
 #include "asserts.hpp"
 #include "defines.hpp"
 #include "images.hpp"
+#include "texture.hpp"
 #include <ktx.h>
 #include <ktxvulkan.h>
 #include <stb_image.h>
@@ -16,13 +17,19 @@ namespace Humongous
 Texture::Texture(const ILogicalDevice& logicalDevice, const std::string& imagePath, const ImageType& imageType, const bool& storage)
     : m_logicalDevice{logicalDevice}
 {
+    if(imagePath.empty())
+    {
+        HGWARN("Attempted to create a texture with an empty path");
+        return;
+    }
+
     CreateFromFile(imagePath, logicalDevice, imageType, storage);
 }
 
 void Texture::Destroy()
 {
-    if(m_textureSampler) { m_logicalDevice.GetVkDevice().destroySampler(m_textureSampler); }
-    if(m_textureImage.imageView) { m_logicalDevice.GetVkDevice().destroyImageView(m_textureImage.imageView); }
+    if(m_textureSampler) { m_logicalDevice.DestroySampler(m_textureSampler); }
+    if(m_textureImage.imageView) { m_logicalDevice.DestroyImageView(m_textureImage.imageView); }
     if(m_textureImage.image) { vmaDestroyImage(m_logicalDevice.GetVmaAllocator(), m_textureImage.image, m_textureImage.allocation); }
 }
 
@@ -158,6 +165,12 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     }
 
     m_miplevels = static_cast<u32>(std::floor(std::log2(std::max(m_width, m_height))) + 1.0f);
+
+    if(m_logicalDevice.GetPhysicalDevice().GetVkPhysicalDevice() == VK_NULL_HANDLE)
+    {
+        HGERROR("Unable to create texture image, physical device is null");
+        return;
+    }
 
     vk::FormatProperties fmtProps = m_logicalDevice.GetPhysicalDevice().GetVkPhysicalDevice().getFormatProperties(format);
     HGASSERT(fmtProps.optimalTilingFeatures & vk::FormatFeatureFlagBits::eBlitSrc);
@@ -379,6 +392,11 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         Utils::CreateAllocatedImage(createInfo);
 
         auto cmd = m_logicalDevice.BeginSingleTimeCommands();
+        if(cmd == VK_NULL_HANDLE)
+        {
+            HGERROR("Unable to create texture image, logical device failed to provide one-time submit command buffer");
+            return;
+        }
 
         Utils::ImageTransitionInfo initialTransitionInfo{.cmd = cmd,
                                                          .oldLayout = vk::ImageLayout::eUndefined,
@@ -474,6 +492,11 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         Utils::CreateAllocatedImage(createInfo);
 
         auto cmd = m_logicalDevice.BeginSingleTimeCommands();
+        if(cmd == VK_NULL_HANDLE)
+        {
+            HGERROR("Unable to create texture image, logical device failed to provide one-time submit command buffer");
+            return;
+        }
 
         Utils::ImageTransitionInfo first{.logicalDevice = m_logicalDevice};
         first.cmd = cmd;
@@ -493,6 +516,11 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         Utils::CopyBufferToImage(m_logicalDevice, stagingBuffer.GetBuffer(), m_textureImage.image, regions);
 
         vk::CommandBuffer cmd2 = m_logicalDevice.BeginSingleTimeCommands();
+        if(cmd2 == VK_NULL_HANDLE)
+        {
+            HGERROR("Unable to create texture image, logical device failed to provide one-time submit command buffer");
+            return;
+        }
 
         Utils::ImageTransitionInfo second{.logicalDevice = m_logicalDevice};
         second.cmd = cmd;
@@ -593,7 +621,7 @@ void Texture::CreateTextureImageSampler(const TexSamplerInfo& info, const ImageT
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = static_cast<float>(m_miplevels);
 
-    m_textureSampler = m_logicalDevice.GetVkDevice().createSampler(samplerInfo);
+    m_textureSampler = m_logicalDevice.CreateSampler(samplerInfo);
 }
 
 } // namespace Humongous

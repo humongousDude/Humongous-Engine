@@ -67,8 +67,8 @@ bool DescriptorWriter::Build(vk::DescriptorSet& set)
 void DescriptorWriter::Overwrite(vk::DescriptorSet& set)
 {
     for(auto& write: m_writes) { write.dstSet = set; }
-    if(m_pool) { m_pool->m_logicalDevice.GetVkDevice().updateDescriptorSets(m_writes.size(), m_writes.data(), 0, nullptr); }
-    else { m_poolGrowable->m_logicalDevice.GetVkDevice().updateDescriptorSets(m_writes.size(), m_writes.data(), 0, nullptr); }
+    if(m_pool) { m_pool->m_logicalDevice.UpdateDescriptorSets(m_writes); }
+    else { m_poolGrowable->m_logicalDevice.UpdateDescriptorSets(m_writes); }
 }
 
 } // namespace Humongous

@@ -29,14 +29,24 @@ void ComputePipeline::CreatePipeline(const ComputePipeline::ComputePipelineCreat
     pipelineInfo.layout = createInfo.pipelineLayout;
     pipelineInfo.stage = stageInfo;
 
-    if(m_logicalDevice.GetVkDevice().createComputePipelines(nullptr, 1, &pipelineInfo, nullptr, &m_pipeline) != vk::Result::eSuccess)
+    if(m_logicalDevice.CreateComputePipeline(pipelineInfo, &m_pipeline) != vk::Result::eSuccess)
     {
         HGFATAL("Failed to create renderer compute pipeline!");
     }
 
-    m_logicalDevice.GetVkDevice().destroyShaderModule(shaderMod, nullptr);
+    m_logicalDevice.DestroyShaderModule(shaderMod);
 
     HGINFO("Created compute pipeline");
+}
+
+void ComputePipeline::BindPipeline(vk::CommandBuffer cmd)
+{
+    if(m_pipeline == VK_NULL_HANDLE)
+    {
+        HGERROR("Unable to bind compute pipeline, pipeline is null");
+        return;
+    }
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_pipeline);
 }
 
 } // namespace Humongous

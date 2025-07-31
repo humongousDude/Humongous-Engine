@@ -39,12 +39,9 @@ DescriptorSetLayout::DescriptorSetLayout(const ILogicalDevice& m_device, std::un
     descriptorSetLayoutInfo.bindingCount = static_cast<u32>(setLayoutBindings.size());
     descriptorSetLayoutInfo.pBindings = setLayoutBindings.data();
 
-    if(m_device.GetVkDevice().createDescriptorSetLayout(&descriptorSetLayoutInfo, nullptr, &m_descriptorSetLayout) != vk::Result::eSuccess)
-    {
-        HGERROR("Failed to create descriptor set layout!");
-    }
+    m_device.CreateDescriptorSetLayout(descriptorSetLayoutInfo, &m_descriptorSetLayout);
 }
 
-DescriptorSetLayout::~DescriptorSetLayout() { m_device.GetVkDevice().destroyDescriptorSetLayout(m_descriptorSetLayout, nullptr); }
+DescriptorSetLayout::~DescriptorSetLayout() { m_device.DestroyDescriptorSetLayout(m_descriptorSetLayout); }
 
 } // namespace Humongous

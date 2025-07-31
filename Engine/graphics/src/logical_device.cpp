@@ -13,7 +13,7 @@ namespace Humongous
 void VKAPI_PTR VmaAllocateDeviceMemoryFunction(VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size,
                                                void* pUserData)
 {
-    LogicalDevice::VMAData* myUserData = static_cast<LogicalDevice::VMAData*>(pUserData);
+    VulkanLogicalDevice::VMAData* myUserData = static_cast<VulkanLogicalDevice::VMAData*>(pUserData);
     if(myUserData) { myUserData->allocationCount++; }
 
     HGTRACE("VMA_ALLOC_CB: Allocated memoryType=%u, memory=0x%p, size=%llu bytes. Total allocations: %d", memoryType, (void*)memory,
@@ -22,14 +22,14 @@ void VKAPI_PTR VmaAllocateDeviceMemoryFunction(VmaAllocator allocator, uint32_t 
 
 void VKAPI_PTR VmaFreeDeviceMemoryFunction(VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size, void* pUserData)
 {
-    LogicalDevice::VMAData* myUserData = static_cast<LogicalDevice::VMAData*>(pUserData);
+    VulkanLogicalDevice::VMAData* myUserData = static_cast<VulkanLogicalDevice::VMAData*>(pUserData);
     if(myUserData) { myUserData->freeCount++; }
 
     HGTRACE("VMA_FREE_CB: Freeing memoryType=%u, memory=0x%p, size=%llu bytes. Total frees: %d", memoryType, (void*)memory,
             (unsigned long long)size, myUserData ? myUserData->freeCount : -1);
 }
 
-LogicalDevice::LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice)
+VulkanLogicalDevice::VulkanLogicalDevice(Instance& instance, IPhysicalDevice& physicalDevice)
     : m_logicalDevice{VK_NULL_HANDLE}, m_instance{instance}, m_physicalDevice{&physicalDevice}
 {
     HGINFO("Creating logical device...");
@@ -39,7 +39,7 @@ LogicalDevice::LogicalDevice(Instance& instance, PhysicalDevice& physicalDevice)
     HGINFO("Created logical device");
 }
 
-LogicalDevice::~LogicalDevice()
+VulkanLogicalDevice::~VulkanLogicalDevice()
 {
     HGINFO("Destroying logical device...");
     vkDestroyCommandPool(m_logicalDevice, m_commandPool, nullptr);
@@ -54,12 +54,12 @@ LogicalDevice::~LogicalDevice()
     HGINFO("Destroyed logical device");
 }
 
-void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& physicalDevice)
+void VulkanLogicalDevice::CreateLogicalDevice(Instance& instance, IPhysicalDevice& physicalDevice)
 {
     HGASSERT(m_logicalDevice == VK_NULL_HANDLE && "Logical device has already been made!");
     HGASSERT(physicalDevice.GetVkPhysicalDevice() != VK_NULL_HANDLE && "Can't create a logical device with a null physical device!");
 
-    PhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
+    IPhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 
     HGASSERT(indices.IsComplete() && "Incomplete queue family indices!");
     m_graphicsQueueIndex = indices.graphicsFamily.value();
@@ -153,7 +153,7 @@ void LogicalDevice::CreateLogicalDevice(Instance& instance, PhysicalDevice& phys
     HGINFO("logical device queues acquired");
 }
 
-void LogicalDevice::CreateVmaAllocator(Instance& instance, PhysicalDevice& physicalDevice)
+void VulkanLogicalDevice::CreateVmaAllocator(Instance& instance, IPhysicalDevice& physicalDevice)
 {
     VmaDeviceMemoryCallbacks memoryCallbacks = {};
     memoryCallbacks.pfnAllocate = VmaAllocateDeviceMemoryFunction;
@@ -170,11 +170,11 @@ void LogicalDevice::CreateVmaAllocator(Instance& instance, PhysicalDevice& physi
     vmaCreateAllocator(&allocatorInfo, &m_allocator);
 }
 
-std::vector<vk::DeviceQueueCreateInfo> LogicalDevice::CreateQueues(PhysicalDevice& physicalDevice)
+std::vector<vk::DeviceQueueCreateInfo> VulkanLogicalDevice::CreateQueues(IPhysicalDevice& physicalDevice)
 {
     HGINFO("acquiring queue handles...");
 
-    PhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
+    IPhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 
     // Use std::set to get unique queue family indices
     std::set<uint32_t> uniqueQueueFamilyIndices; // Use uint32_t for Vulkan indices
@@ -202,7 +202,7 @@ std::vector<vk::DeviceQueueCreateInfo> LogicalDevice::CreateQueues(PhysicalDevic
     return queueCreateInfos;
 }
 
-void LogicalDevice::CreateCommandPool(PhysicalDevice& physicalDevice)
+void VulkanLogicalDevice::CreateCommandPool(IPhysicalDevice& physicalDevice)
 {
     vk::CommandPoolCreateInfo poolInfo{};
     poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
@@ -211,7 +211,7 @@ void LogicalDevice::CreateCommandPool(PhysicalDevice& physicalDevice)
     if(m_logicalDevice.createCommandPool(&poolInfo, nullptr, &m_commandPool) != vk::Result::eSuccess) { HGFATAL("Failed to create command pool!"); }
 }
 
-vk::CommandBuffer LogicalDevice::BeginSingleTimeCommands() const
+vk::CommandBuffer VulkanLogicalDevice::BeginSingleTimeCommands() const
 {
     vk::CommandBufferAllocateInfo allocInfo{};
     allocInfo.level = vk::CommandBufferLevel::ePrimary;
@@ -230,7 +230,7 @@ vk::CommandBuffer LogicalDevice::BeginSingleTimeCommands() const
     return commandBuffer;
 }
 
-void LogicalDevice::EndSingleTimeCommands(vk::CommandBuffer commandBuffer) const
+void VulkanLogicalDevice::EndSingleTimeCommands(vk::CommandBuffer commandBuffer) const
 {
     vkEndCommandBuffer(commandBuffer);
 
@@ -251,5 +251,112 @@ void LogicalDevice::EndSingleTimeCommands(vk::CommandBuffer commandBuffer) const
     m_graphicsQueue.waitIdle();
     m_logicalDevice.freeCommandBuffers(m_commandPool, 1, &commandBuffer);
 }
+
+vk::DescriptorPool VulkanLogicalDevice::CreateDescriptorPool(const vk::DescriptorPoolCreateInfo& info) const
+{
+    vk::DescriptorPool pool;
+    auto               result = m_logicalDevice.createDescriptorPool(&info, nullptr, &pool);
+    if(result != vk::Result::eSuccess) { HGERROR("Failed to create descriptor pool! Error: %s", vk::to_string(result).c_str()); }
+    return pool;
+}
+
+void VulkanLogicalDevice::DestroyDescriptorPool(vk::DescriptorPool pool) const { m_logicalDevice.destroyDescriptorPool(pool); }
+
+void VulkanLogicalDevice::FreeDescriptorSets(vk::DescriptorPool pool, std::vector<vk::DescriptorSet>& descriptors) const
+{
+    m_logicalDevice.freeDescriptorSets(pool, static_cast<u32>(descriptors.size()), descriptors.data());
+}
+
+void VulkanLogicalDevice::ResetDescriptorPool(vk::DescriptorPool pool) const { m_logicalDevice.resetDescriptorPool(pool); }
+
+void VulkanLogicalDevice::UpdateDescriptorSets(const std::vector<vk::WriteDescriptorSet>& writes) const
+{
+    m_logicalDevice.updateDescriptorSets(static_cast<u32>(writes.size()), writes.data(), 0, nullptr);
+}
+
+vk::Result VulkanLogicalDevice::AllocateDescriptorSets(const vk::DescriptorSetAllocateInfo* pAllocateInfo, vk::DescriptorSet* pDescriptorSets) const
+{
+    auto res = m_logicalDevice.allocateDescriptorSets(pAllocateInfo, pDescriptorSets);
+    if(res != vk::Result::eSuccess) { HGERROR("Failed to allocate descriptor sets! Error: %s", vk::to_string(res).c_str()); }
+    return res;
+}
+
+void VulkanLogicalDevice::CreateDescriptorSetLayout(const vk::DescriptorSetLayoutCreateInfo& info, vk::DescriptorSetLayout* layout) const
+{
+    auto ret = m_logicalDevice.createDescriptorSetLayout(&info, nullptr, layout);
+    if(ret != vk::Result::eSuccess) { HGERROR("Failed to create descriptor set layout! Error: %s", vk::to_string(ret).c_str()); }
+}
+
+void VulkanLogicalDevice::DestroyDescriptorSetLayout(vk::DescriptorSetLayout layout) const
+{
+    m_logicalDevice.destroyDescriptorSetLayout(layout, nullptr);
+}
+
+vk::Sampler VulkanLogicalDevice::CreateSampler(const vk::SamplerCreateInfo& info) const
+{
+    vk::Sampler sampler;
+    auto        ret = m_logicalDevice.createSampler(&info, nullptr, &sampler);
+
+    if(ret != vk::Result::eSuccess) { HGERROR("Failed to create sampler! Error: %s", vk::to_string(ret).c_str()); }
+
+    return sampler;
+}
+
+void VulkanLogicalDevice::DestroySampler(vk::Sampler sampler) const { m_logicalDevice.destroySampler(sampler); }
+
+vk::DeviceAddress VulkanLogicalDevice::GetDeviceAddress(const vk::BufferDeviceAddressInfo& bufferDeviceAddressInfo) const
+{
+    return m_logicalDevice.getBufferAddress(&bufferDeviceAddressInfo);
+}
+
+vk::Result VulkanLogicalDevice::CreateImageView(const vk::ImageViewCreateInfo& info, vk::ImageView* view) const
+{
+    auto ret = m_logicalDevice.createImageView(&info, nullptr, view);
+    if(ret != vk::Result::eSuccess) { HGERROR("Failed to create image view! Error: %s", vk::to_string(ret).c_str()); }
+
+    return ret;
+}
+
+void VulkanLogicalDevice::DestroyImageView(vk::ImageView view) const { m_logicalDevice.destroyImageView(view); }
+
+vk::Result VulkanLogicalDevice::CreatePipelineLayout(const vk::PipelineLayoutCreateInfo& info, vk::PipelineLayout* layout) const
+{
+    auto ret = m_logicalDevice.createPipelineLayout(&info, nullptr, layout);
+    if(ret != vk::Result::eSuccess) { HGERROR("Failed to create pipeline layout! Error: %s", vk::to_string(ret).c_str()); }
+
+    return ret;
+}
+
+void VulkanLogicalDevice::DestroyPipelineLayout(vk::PipelineLayout layout) const { m_logicalDevice.destroyPipelineLayout(layout); }
+
+vk::Result VulkanLogicalDevice::CreateComputePipeline(const vk::ComputePipelineCreateInfo& info, vk::Pipeline* pipeline) const
+{
+    auto ret = m_logicalDevice.createComputePipelines(nullptr, 1, &info, nullptr, pipeline);
+    if(ret != vk::Result::eSuccess) { HGERROR("Failed to create compute pipeline! Error: %s", vk::to_string(ret).c_str()); }
+
+    return ret;
+}
+
+void VulkanLogicalDevice::DestroyComputePipeline(vk::Pipeline pipeline) const { m_logicalDevice.destroyPipeline(pipeline, nullptr); }
+
+vk::Result VulkanLogicalDevice::CreateShaderModule(const vk::ShaderModuleCreateInfo& info, vk::ShaderModule* shaderModule) const
+{
+    auto ret = m_logicalDevice.createShaderModule(&info, nullptr, shaderModule);
+    if(ret != vk::Result::eSuccess) { HGERROR("Failed to create shader module! Error: %s", vk::to_string(ret).c_str()); }
+
+    return ret;
+}
+
+void VulkanLogicalDevice::DestroyShaderModule(vk::ShaderModule shaderModule) const { m_logicalDevice.destroyShaderModule(shaderModule, nullptr); }
+
+vk::Result VulkanLogicalDevice::CreateGraphicsPipeline(const vk::GraphicsPipelineCreateInfo& info, vk::Pipeline* pipeline) const
+{
+    auto ret = m_logicalDevice.createGraphicsPipelines(VK_NULL_HANDLE, 1, &info, nullptr, pipeline);
+    if(ret != vk::Result::eSuccess) { HGERROR("Failed to create graphics pipeline! Error: %s", vk::to_string(ret).c_str()); }
+
+    return ret;
+}
+
+void VulkanLogicalDevice::DestroyPipeline(vk::Pipeline pipeline) const { m_logicalDevice.destroyPipeline(pipeline, nullptr); }
 
 } // namespace Humongous

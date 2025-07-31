@@ -22,8 +22,8 @@ DescriptorPoolGrowable::DescriptorPoolGrowable(const ILogicalDevice& logicalDevi
 
 DescriptorPoolGrowable::~DescriptorPoolGrowable()
 {
-    for(auto pool: m_readyPools) { m_logicalDevice.GetVkDevice().destroyDescriptorPool(pool, nullptr); }
-    for(auto pool: m_fullPools) { m_logicalDevice.GetVkDevice().destroyDescriptorPool(pool, nullptr); }
+    for(auto pool: m_readyPools) { m_logicalDevice.DestroyDescriptorPool(pool); }
+    for(auto pool: m_fullPools) { m_logicalDevice.DestroyDescriptorPool(pool); }
     m_readyPools.clear();
     m_fullPools.clear();
 }
@@ -39,7 +39,7 @@ bool DescriptorPoolGrowable::AllocateDescriptor(const vk::DescriptorSetLayout de
     allocInfo.pSetLayouts = &descriptorSetLayout;
     allocInfo.descriptorSetCount = 1;
 
-    vk::Result result = m_logicalDevice.GetVkDevice().allocateDescriptorSets(&allocInfo, &descriptor);
+    vk::Result result = m_logicalDevice.AllocateDescriptorSets(&allocInfo, &descriptor);
 
     if(result == vk::Result::eErrorOutOfPoolMemory)
     {
@@ -48,7 +48,7 @@ bool DescriptorPoolGrowable::AllocateDescriptor(const vk::DescriptorSetLayout de
         poolToUse = GetPool(m_logicalDevice);
         allocInfo.descriptorPool = poolToUse;
 
-        vk::Result result = m_logicalDevice.GetVkDevice().allocateDescriptorSets(&allocInfo, &descriptor);
+        result = m_logicalDevice.AllocateDescriptorSets(&allocInfo, &descriptor);
 
         if(result != vk::Result::eSuccess)
         {
@@ -72,9 +72,9 @@ vk::DescriptorSet DescriptorPoolGrowable::AllocateDescriptor(const vk::Descripto
 
 void DescriptorPoolGrowable::ResetPools()
 {
-    for(int i = 0; i < m_fullPools.size(); i++) { m_logicalDevice.GetVkDevice().resetDescriptorPool(m_fullPools[i]); }
+    for(int i = 0; i < m_fullPools.size(); i++) { m_logicalDevice.DestroyDescriptorPool(m_fullPools[i]); }
     m_fullPools.clear();
-    for(int i = 0; i < m_readyPools.size(); i++) { m_logicalDevice.GetVkDevice().resetDescriptorPool(m_readyPools[i]); }
+    for(int i = 0; i < m_readyPools.size(); i++) { m_logicalDevice.ResetDescriptorPool(m_readyPools[i]); }
     m_readyPools.clear();
 }
 
@@ -110,11 +110,7 @@ vk::DescriptorPool DescriptorPoolGrowable::CreatePool(const ILogicalDevice& logi
     info.poolSizeCount = static_cast<u32>(poolSizes.size());
     info.pPoolSizes = poolSizes.data();
 
-    vk::DescriptorPool newPool;
-    if(logicalDevice.GetVkDevice().createDescriptorPool(&info, nullptr, &newPool) != vk::Result::eSuccess)
-    {
-        HGERROR("Failed to create descriptor pool");
-    }
+    vk::DescriptorPool newPool = logicalDevice.CreateDescriptorPool(info);
 
     return newPool;
 }

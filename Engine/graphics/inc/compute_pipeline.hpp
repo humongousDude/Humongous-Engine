@@ -21,7 +21,7 @@ public:
 
     vk::Pipeline GetPipeline() const { return m_pipeline; }
 
-    void BindPipeline(vk::CommandBuffer cmd) { cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_pipeline); }
+    void BindPipeline(vk::CommandBuffer cmd);
 
 private:
     const ILogicalDevice& m_logicalDevice;

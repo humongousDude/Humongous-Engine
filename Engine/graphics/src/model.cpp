@@ -15,24 +15,24 @@
 namespace Humongous
 {
 // Mesh
-Mesh::Mesh(const ILogicalDevice& device, Eigen::Matrix4f matrix) : logicalDevice(device) {};
+Mesh::Mesh(Eigen::Matrix4f matrix) {};
 
 Mesh::~Mesh()
 {
     for(Primitive* p: primitives) { delete p; }
 }
 
-Model::Model(const ILogicalDevice& device, ResourceManager& resourceManager, const std::string& modelPath, f32 scale, const u32& handle)
-    : m_handle(handle), m_logicalDevice(device), m_resourceManager(resourceManager)
+Model::Model(ResourceManager& resourceManager, const std::string& modelPath, f32 scale, const u32& handle)
+    : m_handle(handle), m_resourceManager(resourceManager)
 {
     HGINFO("Creating model...");
-    LoadFromFile(modelPath, device, device.GetGraphicsQueue(), scale);
+    LoadFromFile(modelPath, scale);
     HGINFO("Created model");
 }
 
-Model::~Model() { Destroy(m_logicalDevice.GetVkDevice()); }
+Model::~Model() { Destroy(); }
 
-void Model::LoadFromFile(std::string filePath, const ILogicalDevice& logicalDevice, vk::Queue transferQueue, f32 scale)
+void Model::LoadFromFile(std::string filePath, f32 scale)
 {
     if(m_initialized) { return; }
 
@@ -80,7 +80,7 @@ void Model::LoadFromFile(std::string filePath, const ILogicalDevice& logicalDevi
     if(fileLoaded)
     {
         LoadTextureSamplers(gltfModel);
-        LoadTextures(gltfModel, logicalDevice, transferQueue);
+        LoadTextures(gltfModel);
         LoadMaterials(gltfModel);
 
         const tinygltf::Scene& scene = gltfModel.scenes[gltfModel.defaultScene > -1 ? gltfModel.defaultScene : 0];
@@ -128,7 +128,7 @@ void Model::LoadFromFile(std::string filePath, const ILogicalDevice& logicalDevi
     m_initialized = true;
 }
 
-void Model::Destroy(vk::Device device)
+void Model::Destroy()
 {
     for(auto node: m_nodes) { delete node; }
     m_nodes.resize(0);
@@ -244,7 +244,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
     if(node.mesh > -1)
     {
         const tinygltf::Mesh mesh = model.meshes[node.mesh];
-        Mesh*                newMesh = new Mesh(m_logicalDevice, newNode->localMatrix);
+        Mesh*                newMesh = new Mesh(newNode->localMatrix);
 
         if(!mesh.weights.empty()) { m_hasMorphTargets = true; }
 
@@ -734,7 +734,7 @@ vk::Filter Model::GetVkFilterMode(s32 filterMode)
     return vk::Filter::eNearest;
 }
 
-void Model::LoadTextures(tinygltf::Model& gltfModel, const ILogicalDevice& device, vk::Queue transferQueue)
+void Model::LoadTextures(tinygltf::Model& gltfModel)
 {
     for(tinygltf::Texture& tex: gltfModel.textures)
     {

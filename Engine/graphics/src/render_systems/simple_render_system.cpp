@@ -11,9 +11,9 @@
 
 namespace Humongous
 {
-SimpleRenderSystem::SimpleRenderSystem(const ILogicalDevice& logicalDevice, ResourceManager& resourceManager,
+SimpleRenderSystem::SimpleRenderSystem(const ILogicalDevice& logicalDevice, ResourceManager& resourceManager, const IAssetManager& assetManager,
                                        const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts, const ShaderSet& shaderSet)
-    : m_logicalDevice{logicalDevice}, m_resourceManager{resourceManager}, m_pipelineLayout{VK_NULL_HANDLE}
+    : m_logicalDevice{logicalDevice}, m_resourceManager{resourceManager}, m_assetManager{assetManager}, m_pipelineLayout{VK_NULL_HANDLE}
 {
     HGINFO("Creating simple render system...");
     AllocateDescriptorSet();
@@ -159,8 +159,8 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.depthStencilInfo.stencilTestEnable = true;
 
     configInfo.useMeshShaders = false;
-    configInfo.meshShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.mesh");
-    configInfo.taskShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.task");
+    configInfo.meshShaderPath = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "simple.mesh");
+    configInfo.taskShaderPath = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "simple.task");
 
     vk::StencilOpState stencilState{};
     stencilState.compareOp = vk::CompareOp::eAlways;
@@ -182,7 +182,7 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 
     HGINFO("Created geometry pipeline, now creating depth pipeline...");
 
-    ShaderSet depthSet{Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert"), ""};
+    ShaderSet depthSet{m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "simple.vert"), ""};
 
     configInfo.vertShaderPath = depthSet.vertShaderPath;
     configInfo.fragShaderPath = depthSet.fragShaderPath;

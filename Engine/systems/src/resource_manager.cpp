@@ -9,7 +9,8 @@
 namespace Humongous
 {
 
-ResourceManager::ResourceManager(const ILogicalDevice& device) : m_logicalDevice(device)
+ResourceManager::ResourceManager(const ILogicalDevice& logicalDevice, const IAssetManager& assetManager)
+    : m_logicalDevice(logicalDevice), m_assetManager(assetManager)
 {
     HGINFO("Initializing Resource manager...");
     InitDescriptors();
@@ -144,7 +145,7 @@ void ResourceManager::InitializeInitials()
     write.descriptorType = vk::DescriptorType::eStorageBuffer;
     auto info = m_modelNodeMatriciesBuffer->DescriptorInfo();
     write.pBufferInfo = &info;
-    m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+    m_logicalDevice.UpdateDescriptorSets({write});
 
     m_modelJointMatriciesBuffer =
         std::make_unique<Buffer>(m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
@@ -157,7 +158,7 @@ void ResourceManager::InitializeInitials()
     write.descriptorType = vk::DescriptorType::eStorageBuffer;
     info = m_modelJointMatriciesBuffer->DescriptorInfo();
     write.pBufferInfo = &info;
-    m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+    m_logicalDevice.UpdateDescriptorSets({write});
 
     m_modelMorphTargetsBuffer =
         std::make_unique<Buffer>(m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
@@ -170,7 +171,7 @@ void ResourceManager::InitializeInitials()
     write.descriptorType = vk::DescriptorType::eStorageBuffer;
     info = m_modelMorphTargetsBuffer->DescriptorInfo();
     write.pBufferInfo = &info;
-    m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+    m_logicalDevice.UpdateDescriptorSets({write});
 
     auto newTex = std::make_unique<Texture>(m_logicalDevice);
     newTex->FillWithEmpty(m_logicalDevice, 512, 512, false);
@@ -193,7 +194,7 @@ void ResourceManager::InitializeInitials()
     write.descriptorType = vk::DescriptorType::eCombinedImageSampler;
     write.pImageInfo = &m_bindlessImageInfos[bindlessIndex];
 
-    m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+    m_logicalDevice.UpdateDescriptorSets({write});
 
     std::string key =
         "img_0_emptyifthissomehowcausesacachehitthenimgonnascreamnowaythishappensright?"
@@ -213,8 +214,9 @@ u32 ResourceManager::LoadModel(const std::string& name)
 
     u32 handleToReturn = m_nextModelID++;
 
-    auto m = std::make_shared<Model>(m_logicalDevice, *this, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::MODEL, name), 1.0f,
-                                     handleToReturn);
+    auto path = m_assetManager.GetAsset(AssetManager::AssetType::MODEL, name);
+    HGINFO("Loading model %s with handle %i", name.c_str(), handleToReturn);
+    auto m = std::make_shared<Model>(*this, path, 1.0f, handleToReturn);
 
     HGINFO("Model %s loaded. Added to map with handle %i. Map size: %zu", name.c_str(), handleToReturn, m_modelMap.size());
 
@@ -269,7 +271,7 @@ void ResourceManager::AddMeshletsToModel(const std::vector<Meshlet>& meshlets, c
             write.descriptorType = vk::DescriptorType::eStorageBuffer;
             auto info = m_meshletBuffer->DescriptorInfo();
             write.pBufferInfo = &info;
-            m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+            m_logicalDevice.UpdateDescriptorSets({write});
         }
 
         Buffer stagingBuffer{m_logicalDevice,
@@ -306,7 +308,7 @@ void ResourceManager::AddMeshletsToModel(const std::vector<Meshlet>& meshlets, c
             write.descriptorType = vk::DescriptorType::eStorageBuffer;
             auto info = m_meshletVertexBuffer->DescriptorInfo();
             write.pBufferInfo = &info;
-            m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+            m_logicalDevice.UpdateDescriptorSets({write});
         }
 
         Buffer stagingBuffer{m_logicalDevice,
@@ -343,7 +345,7 @@ void ResourceManager::AddMeshletsToModel(const std::vector<Meshlet>& meshlets, c
             write.descriptorType = vk::DescriptorType::eStorageBuffer;
             auto info = m_meshletPrimitiveBuffer->DescriptorInfo();
             write.pBufferInfo = &info;
-            m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+            m_logicalDevice.UpdateDescriptorSets({write});
         }
 
         Buffer stagingBuffer{m_logicalDevice,
@@ -369,36 +371,33 @@ std::shared_ptr<ModelInstance> ResourceManager::RequestModel(const std::string& 
     auto m = GetModel(id);
     auto inst = std::make_shared<ModelInstance>(m, *this, m_nextInstanceID);
 
+    size_t newModelMatrixStartIndex = m_modelNodeMatricesFlat.size();
+
+    m_modelNodeMatricesFlat.insert(m_modelNodeMatricesFlat.end(), inst->GetNodeMatrices().begin(), inst->GetNodeMatrices().end());
+
+    m_modelHandleToMatrixStart.emplace(m_nextInstanceID, std::pair<u32, u32>(newModelMatrixStartIndex, inst->GetNodeMatrices().size()));
+
+    if(!m_modelNodeMatriciesBuffer || m_modelNodeMatriciesBuffer->GetBufferSize() < m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f))
     {
-        size_t newModelMatrixStartIndex = m_modelNodeMatricesFlat.size();
+        m_modelNodeMatriciesBuffer = std::make_unique<Buffer>(m_logicalDevice, m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f), 1,
+                                                              vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                                                              vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
+                                                              VMA_MEMORY_USAGE_CPU_TO_GPU, 1, "model node matricies buffer");
 
-        m_modelNodeMatricesFlat.insert(m_modelNodeMatricesFlat.end(), inst->GetNodeMatrices().begin(), inst->GetNodeMatrices().end());
-
-        m_modelHandleToMatrixStart.emplace(m_nextInstanceID, std::pair<u32, u32>(newModelMatrixStartIndex, inst->GetNodeMatrices().size()));
-
-        if(!m_modelNodeMatriciesBuffer || m_modelNodeMatriciesBuffer->GetBufferSize() < m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f))
-        {
-            m_modelNodeMatriciesBuffer =
-                std::make_unique<Buffer>(m_logicalDevice, m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f), 1,
-                                         vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                         vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
-                                         VMA_MEMORY_USAGE_CPU_TO_GPU, 1, "model node matricies buffer");
-
-            vk::WriteDescriptorSet write{};
-            write.dstSet = m_bindlessSet;
-            write.dstBinding = 2;
-            write.dstArrayElement = 0;
-            write.descriptorCount = 1;
-            write.descriptorType = vk::DescriptorType::eStorageBuffer;
-            auto info = m_modelNodeMatriciesBuffer->DescriptorInfo();
-            write.pBufferInfo = &info;
-            m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
-        }
-
-        m_modelNodeMatriciesBuffer->Map();
-        m_modelNodeMatriciesBuffer->WriteToBuffer(m_modelNodeMatricesFlat.data(), m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f));
-        m_modelNodeMatriciesBuffer->UnMap();
+        vk::WriteDescriptorSet write{};
+        write.dstSet = m_bindlessSet;
+        write.dstBinding = 2;
+        write.dstArrayElement = 0;
+        write.descriptorCount = 1;
+        write.descriptorType = vk::DescriptorType::eStorageBuffer;
+        auto info = m_modelNodeMatriciesBuffer->DescriptorInfo();
+        write.pBufferInfo = &info;
+        m_logicalDevice.UpdateDescriptorSets({write});
     }
+
+    m_modelNodeMatriciesBuffer->Map();
+    m_modelNodeMatriciesBuffer->WriteToBuffer(m_modelNodeMatricesFlat.data(), m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f));
+    m_modelNodeMatriciesBuffer->UnMap();
 
     if(inst->HasJoints()) { AddJointMatriciesToModel(inst->GetJointMatrices(), m_nextInstanceID); }
     if(inst->HasMorphs()) { AddMorphTargetsToModel(inst->GetMorphWeights(), m_nextInstanceID); }
@@ -481,7 +480,7 @@ void ResourceManager::AddVerticesToModel(const std::vector<Model::Vertex>& model
         write.descriptorType = vk::DescriptorType::eStorageBuffer;
         auto info = m_modelVertexBuffer->DescriptorInfo();
         write.pBufferInfo = &info;
-        m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+        m_logicalDevice.UpdateDescriptorSets({write});
     }
 
     Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
@@ -558,7 +557,7 @@ void ResourceManager::FinalizeGPUData()
             write.descriptorType = vk::DescriptorType::eStorageBuffer;
             auto info = m_modelJointMatriciesBuffer->DescriptorInfo();
             write.pBufferInfo = &info;
-            m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+            m_logicalDevice.UpdateDescriptorSets({write});
         }
 
         Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
@@ -592,7 +591,7 @@ void ResourceManager::FinalizeGPUData()
             write.descriptorType = vk::DescriptorType::eStorageBuffer;
             auto info = m_modelMorphTargetsBuffer->DescriptorInfo();
             write.pBufferInfo = &info;
-            m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+            m_logicalDevice.UpdateDescriptorSets({write});
         }
 
         Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
@@ -625,7 +624,7 @@ void ResourceManager::FinalizeGPUData()
             write.descriptorType = vk::DescriptorType::eStorageBuffer;
             auto info = m_modelNodeMatriciesBuffer->DescriptorInfo();
             write.pBufferInfo = &info;
-            m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+            m_logicalDevice.UpdateDescriptorSets({write});
         }
 
         Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
@@ -645,18 +644,23 @@ std::shared_ptr<Model> ResourceManager::GetModel(const u32& index)
     return i;
 }
 
-u32 ResourceManager::RequestModelNodeMatriciesIndex(const u32& modelHandle) { return m_modelHandleToMatrixStart[modelHandle].first; }
+u32 ResourceManager::RequestModelNodeMatriciesIndex(const u32& modelHandle)
+{
+    auto it = m_modelHandleToMatrixStart.find(modelHandle);
+    if(it == m_modelHandleToMatrixStart.end()) { return -1; }
+    return it->second.first;
+}
 
 std::shared_ptr<Skybox> ResourceManager::LoadSkybox(const std::string& name)
 {
     SkyboxCreateInfo info{.logicalDevice = m_logicalDevice,
-                          .cubemapPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::TEXTURE, name),
+                          .cubemapPath = m_assetManager.GetAsset(AssetManager::AssetType::TEXTURE, name),
                           .descriptorSetLayout = *m_skyboxLayout,
                           .compDescriptorSetLayout = *m_skyboxCompLayout,
                           .imagePool = *m_descriptorPools.imagePool,
                           .uniformPool = *m_descriptorPools.uniformPool,
                           .storageImagePool = *m_descriptorPools.storageImagePool};
-    auto             s = std::make_shared<Skybox>(info);
+    auto             s = std::make_shared<Skybox>(info, m_assetManager);
     return s;
 }
 
@@ -664,8 +668,7 @@ u32 ResourceManager::LoadAudioSource(const std::string& name)
 {
     HGINFO("Loading audio %s with handle %i", name.c_str(), m_nextaudioID);
 
-    std::shared_ptr<AudioSourceComponent> a =
-        std::make_shared<AudioSourceComponent>(Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, name));
+    std::shared_ptr<AudioSourceComponent> a = std::make_shared<AudioSourceComponent>(m_assetManager.GetAsset(AssetManager::AssetType::AUDIO, name));
 
     u32 handleToReturn = m_nextaudioID;
     m_audioMap.emplace(handleToReturn, std::move(a));
@@ -722,7 +725,7 @@ u32 ResourceManager::RequestTexture(class tinygltf::Image img, struct Texture::T
     write.descriptorType = vk::DescriptorType::eCombinedImageSampler;
     write.pImageInfo = &m_bindlessImageInfos[bindlessIndex];
 
-    m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+    m_logicalDevice.UpdateDescriptorSets({write});
 
     m_textureMap[key] = TextureBinding{actualTexturePtr, bindlessIndex};
 
@@ -767,7 +770,7 @@ u32 ResourceManager::RequestMaterial(const Model::ShaderMaterial& mat)
     write.descriptorType = vk::DescriptorType::eStorageBuffer;
     write.pBufferInfo = &bufInfo;
 
-    m_logicalDevice.GetVkDevice().updateDescriptorSets(1, &write, 0, nullptr);
+    m_logicalDevice.UpdateDescriptorSets({write});
 
     return bindlessIndex;
 }

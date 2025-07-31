@@ -70,7 +70,7 @@ public:
     };
 
     Renderer(Window& window, const ILogicalDevice& logicalDevice, const PhysicalDevice& physicalDevice, ResourceManager& resourceManager,
-             VmaAllocator allocator, vk::Format drawFormat, vk::Format depthFormat);
+             const IAssetManager& assetManager);
     ~Renderer();
 
     // Get the swapchain image index we're currently using
@@ -122,6 +122,7 @@ private:
     std::unique_ptr<SwapChain> m_swapChain = nullptr;
     Window&                    m_window;
     const ILogicalDevice&      m_logicalDevice;
+    const IAssetManager&       m_assetManager;
     ResourceManager&           m_resourceManager;
     const PhysicalDevice&      m_physicalDevice;
 
@@ -138,8 +139,6 @@ private:
     vk::PipelineLayout                   m_lightingPipelineLayout;
     std::unique_ptr<DescriptorSetLayout> m_lightingDescriptorLayout;
     std::unique_ptr<DescriptorPool>      m_lightingPool;
-
-    VmaAllocator m_allocator;
 
     vk::CommandPool    m_commandPool;
     std::vector<Frame> m_frames;

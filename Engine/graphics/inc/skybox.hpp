@@ -2,6 +2,7 @@
 
 #include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool_growable.hpp"
+#include "asset_manager.hpp"
 #include "logical_device.hpp"
 #include "texture.hpp"
 #include <string>
@@ -23,7 +24,7 @@ struct SkyboxCreateInfo
 class Skybox
 {
 public:
-    Skybox(const SkyboxCreateInfo& createInfo);
+    Skybox(const SkyboxCreateInfo& createInfo, const IAssetManager& assetManager);
     ~Skybox();
 
     vk::DescriptorSet GetDescriptorSet() const { return m_cubeMapSet; }
@@ -33,6 +34,7 @@ public:
 
 private:
     const ILogicalDevice& m_logicalDevice;
+    const IAssetManager&  m_assetManager;
 
     std::unique_ptr<Texture>   m_skybox;
     std::unique_ptr<Texture>   m_irradiance;

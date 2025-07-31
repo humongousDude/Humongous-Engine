@@ -1,5 +1,6 @@
 #pragma once
 
+#include "asset_manager.hpp"
 #include "deque"
 #include "functional"
 #include "instance.hpp"
@@ -35,17 +36,18 @@ public:
     void Run();
 
 private:
-    DeletionQueue                       m_mainDeletionQueue;
-    std::unique_ptr<Instance>           m_instance;
-    std::unique_ptr<Window>             m_window;
-    std::unique_ptr<PhysicalDevice>     m_physicalDevice;
-    std::unique_ptr<LogicalDevice>      m_logicalDevice;
-    std::unique_ptr<Renderer>           m_renderer;
-    std::unique_ptr<Renderer>           m_uiRenderer;
-    std::unique_ptr<SimpleRenderSystem> m_simpleRenderSystem;
-    std::unique_ptr<SkyboxRenderSystem> m_skyboxRenderSystem;
-    std::unique_ptr<Camera>             m_cam;
-    std::unique_ptr<ResourceManager>    m_resourceManager;
+    DeletionQueue                        m_mainDeletionQueue;
+    std::unique_ptr<Instance>            m_instance;
+    std::unique_ptr<Window>              m_window;
+    std::unique_ptr<PhysicalDevice>      m_physicalDevice;
+    std::unique_ptr<VulkanLogicalDevice> m_logicalDevice;
+    std::unique_ptr<Renderer>            m_renderer;
+    std::unique_ptr<Renderer>            m_uiRenderer;
+    std::unique_ptr<SimpleRenderSystem>  m_simpleRenderSystem;
+    std::unique_ptr<SkyboxRenderSystem>  m_skyboxRenderSystem;
+    std::unique_ptr<Camera>              m_cam;
+    std::unique_ptr<ResourceManager>     m_resourceManager;
+    std::unique_ptr<AssetManager>        m_assetManager;
 
     void Init(int argc, char* argv[]);
     void LoadGameObjects();

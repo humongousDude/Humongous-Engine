@@ -41,13 +41,10 @@ DescriptorPool::DescriptorPool(const ILogicalDevice& logicalDevice, u32 m_maxSet
     descriptorPoolInfo.maxSets = m_maxSets;
     descriptorPoolInfo.flags = m_poolFlags;
 
-    if(m_logicalDevice.GetVkDevice().createDescriptorPool(&descriptorPoolInfo, nullptr, &m_descriptorPool) != vk::Result::eSuccess)
-    {
-        HGERROR("Failed to create descriptor pool!");
-    }
+    m_descriptorPool = m_logicalDevice.CreateDescriptorPool(descriptorPoolInfo);
 }
 
-DescriptorPool::~DescriptorPool() { m_logicalDevice.GetVkDevice().destroyDescriptorPool(m_descriptorPool, nullptr); }
+DescriptorPool::~DescriptorPool() { m_logicalDevice.DestroyDescriptorPool(m_descriptorPool); }
 
 bool DescriptorPool::AllocateDescriptor(const vk::DescriptorSetLayout descriptorSetLayout, vk::DescriptorSet& descriptor) const
 {
@@ -57,19 +54,19 @@ bool DescriptorPool::AllocateDescriptor(const vk::DescriptorSetLayout descriptor
     allocInfo.pSetLayouts = &descriptorSetLayout;
     allocInfo.descriptorSetCount = 1;
 
-    // might want to create a "DescriptorPoolManager" class that handles this case, and builds
-    // a new pool whenever an old pool fills up. will do later
-
-    /* if(vkAllocateDescriptorSets(m_logicalDevice.Getvk::Device(), &allocInfo, &descriptor) != VK_SUCCESS) { return false; }
-    return true; */
-    vk::Result result = m_logicalDevice.GetVkDevice().allocateDescriptorSets(&allocInfo, &descriptor);
-    return result == vk::Result::eSuccess;
+    auto res = m_logicalDevice.AllocateDescriptorSets(&allocInfo, &descriptor);
+    if(res != vk::Result::eSuccess)
+    {
+        HGERROR("Failed to allocate descriptor sets! Error: %s", vk::to_string(res).c_str());
+        return false;
+    }
+    return true;
 }
 
 void DescriptorPool::FreeDescriptors(std::vector<vk::DescriptorSet>& descriptors) const
 {
-    m_logicalDevice.GetVkDevice().freeDescriptorSets(m_descriptorPool, static_cast<u32>(descriptors.size()), descriptors.data());
+    m_logicalDevice.FreeDescriptorSets(m_descriptorPool, descriptors);
 }
 
-void DescriptorPool::ResetPool() { m_logicalDevice.GetVkDevice().resetDescriptorPool(m_descriptorPool); }
+void DescriptorPool::ResetPool() { m_logicalDevice.ResetDescriptorPool(m_descriptorPool); }
 } // namespace Humongous

@@ -15,8 +15,9 @@ namespace Humongous
 {
 
 Renderer::Renderer(Window& window, const ILogicalDevice& logicalDevice, const PhysicalDevice& physicalDevice, ResourceManager& resourceManager,
-                   VmaAllocator allocator, vk::Format drawFormat, vk::Format depthFormat)
-    : m_window{window}, m_logicalDevice{logicalDevice}, m_resourceManager{resourceManager}, m_physicalDevice{physicalDevice}, m_allocator{allocator}
+                   const IAssetManager& assetManager)
+    : m_window{window}, m_logicalDevice{logicalDevice}, m_resourceManager{resourceManager}, m_physicalDevice{physicalDevice},
+      m_assetManager{assetManager}
 {
     CreateCommandPool();
     CreateCommandBuffers();
@@ -136,7 +137,10 @@ void Renderer::CreateDrawImage()
     for(auto& frame: m_frames)
     {
         if(frame.drawImage.imageView != VK_NULL_HANDLE) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), frame.drawImage.imageView, nullptr); }
-        if(frame.drawImage.image != VK_NULL_HANDLE) { vmaDestroyImage(m_allocator, frame.drawImage.image, frame.drawImage.allocation); }
+        if(frame.drawImage.image != VK_NULL_HANDLE)
+        {
+            vmaDestroyImage(m_logicalDevice.GetVmaAllocator(), frame.drawImage.image, frame.drawImage.allocation);
+        }
 
         imgCI.allocatedImage = &frame.drawImage;
         Utils::CreateAllocatedImage(imgCI);
@@ -393,7 +397,7 @@ void Renderer::CreateLightingPipeline()
 
     ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice};
     configInfo.pipelineLayout = m_lightingPipelineLayout;
-    configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "lighting.comp");
+    configInfo.shaderFile = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "lighting.comp");
 
     m_lightingPipeline = std::make_unique<ComputePipeline>(configInfo);
 
@@ -534,7 +538,7 @@ void Renderer::CreateComputePipeline()
 
         ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice};
         configInfo.pipelineLayout = m_occlusionPipelineLayout;
-        configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "occlusion.comp");
+        configInfo.shaderFile = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "occlusion.comp");
 
         m_occlusionPipeline = std::make_unique<ComputePipeline>(configInfo);
     }
@@ -557,7 +561,7 @@ void Renderer::CreateComputePipeline()
 
         ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice};
         configInfo.pipelineLayout = m_mipPipelineLayout;
-        configInfo.shaderFile = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "mip.comp");
+        configInfo.shaderFile = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "mip.comp");
 
         m_mipPipeline = std::make_unique<ComputePipeline>(configInfo);
     }

@@ -3,6 +3,7 @@
 #include "abstractions/buffer.hpp"
 #include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool_growable.hpp"
+#include "asset_manager.hpp"
 #include "audio_source.hpp"
 #include "logical_device.hpp"
 #include "model.hpp"
@@ -22,7 +23,7 @@ private:
     struct MaterialKey;
 
 public:
-    ResourceManager(const ILogicalDevice& logicalDevice);
+    ResourceManager(const ILogicalDevice& logicalDevice, const IAssetManager& assetManager);
     ~ResourceManager();
 
     std::shared_ptr<ModelInstance> RequestModel(const std::string& name);
@@ -122,6 +123,7 @@ private:
     };
 
     const ILogicalDevice&                                          m_logicalDevice;
+    const IAssetManager&                                           m_assetManager;
     std::unique_ptr<DescriptorSetLayout>                           m_skyboxLayout;
     std::unique_ptr<DescriptorSetLayout>                           m_skyboxCompLayout;
     std::unordered_map<u32, std::shared_ptr<Model>>                m_modelMap;

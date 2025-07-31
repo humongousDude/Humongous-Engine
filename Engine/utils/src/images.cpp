@@ -9,6 +9,12 @@ void CreateAllocatedImage(const ILogicalDevice& logicalDevice, u32 width, u32 he
                           vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, AllocatedImage& allocatedImage,
                           vk::ImageAspectFlags aspectFlags)
 {
+    if(!logicalDevice.GetVmaAllocator())
+    {
+        HGERROR("Unable to create image, VMA allocator is null");
+        return;
+    }
+
     vk::ImageCreateInfo imageInfo{};
     imageInfo.imageType = vk::ImageType::e2D;
     imageInfo.extent.width = width;
@@ -56,6 +62,12 @@ void CreateAllocatedImage(const ILogicalDevice& logicalDevice, u32 width, u32 he
 
 void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
 {
+    if(!createInfo.logicalDevice.GetVmaAllocator())
+    {
+        HGERROR("Unable to create image, VMA allocator is null");
+        return;
+    }
+
     vk::ImageCreateInfo imageInfo{};
     imageInfo.imageType = vk::ImageType::e2D;
     imageInfo.extent.width = createInfo.width;
@@ -128,12 +140,29 @@ void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
     samplerInfo.maxLod = static_cast<float>(createInfo.mipLevels);
     samplerInfo.pNext = createInfo.samplerInfo->pNext;
 
+    // CHECKME: is this a correct way to create a sampler?
     createInfo.allocatedImage->sampler = new vk::Sampler;
-    *createInfo.allocatedImage->sampler = createInfo.logicalDevice.GetVkDevice().createSampler(samplerInfo);
+    *createInfo.allocatedImage->sampler = createInfo.logicalDevice.CreateSampler(samplerInfo);
 }
 
 void TransitionImageLayout(ImageTransitionInfo& info)
 {
+    if(info.cmd == VK_NULL_HANDLE)
+    {
+        HGERROR("Unable to transition image layout, command buffer is null");
+        return;
+    }
+    if(info.image == VK_NULL_HANDLE)
+    {
+        HGERROR("Unable to transition image layout, image is null");
+        return;
+    }
+    if(info.newLayout == info.oldLayout)
+    {
+        HGWARN("Identical layouts, skipping transition");
+        return;
+    }
+
     vk::ImageMemoryBarrier2 imageBarrier{};
     imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -301,6 +330,12 @@ void CopyBufferToImage(const ILogicalDevice& logicalDevice, vk::Buffer buffer, v
 
 void CopyBufferToImage(const ILogicalDevice& logicalDevice, vk::Buffer buffer, vk::Image image, const std::vector<vk::BufferImageCopy>& regions)
 {
+    if(buffer == VK_NULL_HANDLE || image == VK_NULL_HANDLE)
+    {
+        HGERROR("Unable to copy buffer to image, buffer or image is null");
+        return;
+    }
+
     vk::CommandBuffer commandBuffer = logicalDevice.BeginSingleTimeCommands();
     commandBuffer.copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, static_cast<uint32_t>(regions.size()), regions.data());
     logicalDevice.EndSingleTimeCommands(commandBuffer);

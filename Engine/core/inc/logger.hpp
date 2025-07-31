@@ -25,6 +25,8 @@ b8   InitializeLogging(LogLevel minLevel = LOG_LEVEL_TRACE, const char* logFileP
 void ShutDownLogging();
 
 void LogOutput(LogLevel level, const char* message, ...);
+void PauseLogging();
+void ResumeLogging();
 
 #define HGFATAL(message, ...) LogOutput(LOG_LEVEL_FATAL, message, ##__VA_ARGS__)
 

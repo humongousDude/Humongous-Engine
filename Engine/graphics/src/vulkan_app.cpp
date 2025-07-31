@@ -1,7 +1,6 @@
 #include "vulkan_app.hpp"
 #include "all_tests.hpp"
 #include "allocator.hpp"
-#include "asset_manager.hpp"
 #include "audio_engine.hpp"
 #include "camera.hpp"
 #include "chrono"
@@ -10,17 +9,17 @@
 #include "imgui_impl_sdl3.h"
 #include "keyboard_handler.hpp"
 #include "logger.hpp"
-#include "resource_manager.hpp"
 #include "scene_handler.hpp"
 #include "ui/ui.hpp"
-#include "gtest/gtest.h"
 
 namespace Humongous
 {
 VulkanApp::VulkanApp(int argc, char* argv[])
 {
+    // PauseLogging();
     ::testing::InitGoogleTest(&argc, argv);
     auto ret = RUN_ALL_TESTS();
+    ResumeLogging();
 
     if(ret != 0)
     {
@@ -45,23 +44,23 @@ void VulkanApp::Init(const int argc, char* argv[])
     m_window = std::make_unique<Window>();
     m_instance = std::make_unique<Instance>();
     m_physicalDevice = std::make_unique<PhysicalDevice>(*m_instance, *m_window);
-    m_logicalDevice = std::make_unique<LogicalDevice>(*m_instance, *m_physicalDevice);
+    m_logicalDevice = std::make_unique<VulkanLogicalDevice>(*m_instance, *m_physicalDevice);
 
     if(argc > 1)
     {
         std::vector<std::string> paths;
         for(int i = 1; i < argc; ++i) { paths.emplace_back(argv[i]); }
-        Systems::AssetManager::Init(&paths);
+        m_assetManager = std::make_unique<AssetManager>(&paths);
     }
     else
     {
         HGINFO("Launch the engine with absolute paths to extra directories for the asset manager to look for models in");
-        Systems::AssetManager::Init();
+        m_assetManager = std::make_unique<AssetManager>();
     }
 
     Allocator::Initialize(*m_logicalDevice);
 
-    m_resourceManager = std::make_unique<ResourceManager>(*m_logicalDevice);
+    m_resourceManager = std::make_unique<ResourceManager>(*m_logicalDevice, *m_assetManager);
 
     UI::Init(*m_instance, *m_logicalDevice, *m_window);
 
@@ -69,23 +68,22 @@ void VulkanApp::Init(const int argc, char* argv[])
 
     SceneHandler::Init();
 
-    m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, *m_resourceManager, m_logicalDevice->GetVmaAllocator(),
-                                            vk::Format::eR8G8B8A8Unorm, vk::Format::eD32SfloatS8Uint);
+    m_renderer = std::make_unique<Renderer>(*m_window, *m_logicalDevice, *m_physicalDevice, *m_resourceManager, *m_assetManager);
 
     m_cam = std::make_unique<Camera>(*m_logicalDevice);
 
     std::vector<vk::DescriptorSetLayout> skyboxLayouts = {m_cam->GetVertexDescriptorLayout()};
 
-    ShaderSet set = {Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "simple.vert"),
-                     Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "pbr.frag")};
+    ShaderSet set = {m_assetManager->GetAsset(AssetManager::AssetType::SHADER, "simple.vert"),
+                     m_assetManager->GetAsset(AssetManager::AssetType::SHADER, "pbr.frag")};
 
-    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(*m_logicalDevice, *m_resourceManager, "papermill", skyboxLayouts);
+    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, "papermill", skyboxLayouts);
 
     std::vector<vk::DescriptorSetLayout> simpleLayouts = {
         m_cam->GetVertexDescriptorLayout(),
     };
 
-    m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, *m_resourceManager, simpleLayouts, set);
+    m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, simpleLayouts, set);
 
     m_mainDeletionQueue.PushDeletor([&]() {
         m_simpleRenderSystem.reset();
@@ -126,7 +124,7 @@ void VulkanApp::LoadGameObjects()
     world->AddComponent<ModelComponent>(helmet);
     comp = world->GetComponent<ModelComponent>(helmet);
     comp->instance = m_resourceManager->RequestModel("buster_drone");
-    world->AddComponent<AudioSourceComponent>(helmet, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    world->AddComponent<AudioSourceComponent>(helmet, m_assetManager->GetAsset(AssetManager::AssetType::AUDIO, "default"));
     name = comp->instance->GetModel()->GetName();
     world->GetComponent<NameComponent>(helmet)->name = name + std::to_string(helmet);
 
@@ -139,7 +137,7 @@ void VulkanApp::LoadGameObjects()
     world->AddComponent<ModelComponent>(drone);
     comp = world->GetComponent<ModelComponent>(drone);
     comp->instance = m_resourceManager->RequestModel("CommercialRefrigerator");
-    world->AddComponent<AudioSourceComponent>(drone, Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::AUDIO, "default"));
+    world->AddComponent<AudioSourceComponent>(drone, m_assetManager->GetAsset(AssetManager::AssetType::AUDIO, "default"));
     name = comp->instance->GetModel()->GetName();
     world->GetComponent<NameComponent>(drone)->name = name + std::to_string(helmet);
 

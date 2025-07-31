@@ -1,5 +1,4 @@
 #include "render_pipeline.hpp"
-#include "asset_manager.hpp"
 #include "defines.hpp"
 #include "extra.hpp"
 #include "logger.hpp"
@@ -17,7 +16,7 @@ RenderPipeline::RenderPipeline(const ILogicalDevice& logicalDevice, const Render
 RenderPipeline::~RenderPipeline()
 {
     HGINFO("Destroying Render pipeline...");
-    vkDestroyPipeline(m_logicalDevice.GetVkDevice(), m_pipeline, nullptr);
+    m_logicalDevice.DestroyPipeline(m_pipeline);
     HGINFO("Destroyed Render Pipeline");
 }
 
@@ -131,16 +130,16 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
 
     HGINFO("Created graphics pipeline with %i render attachments", configInfo.colorBlendInfo.attachmentCount);
 
-    result = m_logicalDevice.GetVkDevice().createGraphicsPipelines(VK_NULL_HANDLE, 1, &pipelineInfoGraphics, nullptr, &m_pipeline);
+    result = m_logicalDevice.CreateGraphicsPipeline(pipelineInfoGraphics, &m_pipeline);
 
     if(result != vk::Result::eSuccess) { HGERROR("Failed to create pipeline! Error: %s", vk::to_string(result).c_str()); }
 
     HGINFO("Successfully created pipeline");
 
-    if(vertShaderModule != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyShaderModule(vertShaderModule, nullptr); }
-    if(fragShaderModule != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyShaderModule(fragShaderModule, nullptr); }
-    if(meshShaderModule != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyShaderModule(meshShaderModule, nullptr); }
-    if(taskShaderModule != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyShaderModule(taskShaderModule, nullptr); }
+    if(vertShaderModule != VK_NULL_HANDLE) { m_logicalDevice.DestroyShaderModule(vertShaderModule); }
+    if(fragShaderModule != VK_NULL_HANDLE) { m_logicalDevice.DestroyShaderModule(fragShaderModule); }
+    if(meshShaderModule != VK_NULL_HANDLE) { m_logicalDevice.DestroyShaderModule(meshShaderModule); }
+    if(taskShaderModule != VK_NULL_HANDLE) { m_logicalDevice.DestroyShaderModule(taskShaderModule); }
 
     HGINFO("Successfully destroyed shader modules");
     HGINFO("Created render pipeline");
@@ -152,21 +151,15 @@ void RenderPipeline::CreateShaderModule(const std::vector<char>& code, vk::Shade
     createInfo.codeSize = code.size();
     createInfo.pCode = reinterpret_cast<const u32*>(code.data());
 
-    if(m_logicalDevice.GetVkDevice().createShaderModule(&createInfo, nullptr, shaderModule) != vk::Result::eSuccess)
-    {
-        HGERROR("Failed to create shader module!");
-    }
+    if(m_logicalDevice.CreateShaderModule(createInfo, shaderModule) != vk::Result::eSuccess) { HGERROR("Failed to create shader module!"); }
 }
 
 // NOTE: You should still assign the vertex shader path in case the used physical device does not support mesh shaders
 RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
 {
-    using namespace Systems;
     using namespace vk;
 
     PipelineConfigInfo configInfo{};
-    configInfo.vertShaderPath = AssetManager::GetAsset(AssetManager::AssetType::SHADER, "simple.vert"),
-    configInfo.fragShaderPath = AssetManager::GetAsset(AssetManager::AssetType::SHADER, "pbr.frag");
     configInfo.bindless = true;
 
     configInfo.inputAssemblyInfo.topology = PrimitiveTopology::eTriangleList;

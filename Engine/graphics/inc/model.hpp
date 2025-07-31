@@ -4,7 +4,6 @@
 
 // based on Sascha Willems' tinyGltf vulkan example
 
-#include "logical_device.hpp"
 #include "material.hpp"
 #include "texture.hpp"
 #include <Eigen/Dense>
@@ -57,12 +56,11 @@ struct Primitive
 
 struct Mesh
 {
-    Mesh(const ILogicalDevice& device, Eigen::Matrix4f matrix);
+    Mesh(Eigen::Matrix4f matrix);
     ~Mesh();
 
     u32                     baseVertex = 0;
     u32                     baseIndex = 0;
-    const ILogicalDevice&   logicalDevice;
     std::vector<Primitive*> primitives;
     std::vector<f32>        weights;
 };
@@ -198,7 +196,7 @@ public:
 
     static_assert(std::is_standard_layout<Vertex>::value, "Vertex must be standard‑layout for meshoptimizer to memcpy it correctly");
 
-    Model(const ILogicalDevice& device, class ResourceManager& resourceManager, const std::string& modelPath, f32 scale, const u32& handle);
+    Model(class ResourceManager& resourceManager, const std::string& modelPath, f32 scale, const u32& handle);
     ~Model();
 
     std::vector<u32>&    GetIndices() { return m_indices; }
@@ -263,7 +261,6 @@ private:
 
     std::unordered_map<u32, std::vector<Primitive*>> m_materialBatches;
 
-    const ILogicalDevice&  m_logicalDevice;
     class ResourceManager& m_resourceManager;
 
     std::vector<Node*>      m_nodes;
@@ -303,8 +300,8 @@ private:
     };
 
     bool m_initialized{false};
-    void LoadFromFile(std::string filepath, const ILogicalDevice& device, vk::Queue transferQueue, f32 scale = 1.0f);
-    void Destroy(vk::Device m_device);
+    void LoadFromFile(std::string filepath, f32 scale = 1.0f);
+    void Destroy();
 
     void OptimizeMeshes();
     void CreateMeshlets(const LoaderInfo& loaderInfo);
@@ -319,7 +316,7 @@ private:
                            std::vector<u32>& primitiveIndices);
 
     void GetNodeProps(const tinygltf::Node& node, const tinygltf::Model& model, size_t& vertexCount, size_t& indexCount);
-    void LoadTextures(tinygltf::Model& gltfModel, const ILogicalDevice& m_device, vk::Queue transferQueue);
+    void LoadTextures(tinygltf::Model& gltfModel);
 
     void LoadSkins(tinygltf::Model& gltfModel);
     void LoadAnimations(tinygltf::Model& gltfModel);

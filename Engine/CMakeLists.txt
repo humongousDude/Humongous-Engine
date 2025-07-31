@@ -41,6 +41,7 @@ set(ENGINE_SOURCES
     graphics/src/render_pipeline.cpp
     graphics/src/compute_pipeline.cpp
     graphics/src/renderer.cpp
+    graphics/src/render_graph.cpp
     graphics/src/scene.cpp
     graphics/src/skybox.cpp
     graphics/src/swapchain.cpp
@@ -85,6 +86,7 @@ set(ENGINE_HEADERS
     core/inc/asserts.hpp
     core/inc/engine.hpp
     core/inc/logger.hpp
+    core/inc/defines.hpp
     
     # --- Systems ---
     systems/inc/asset_manager.hpp
@@ -112,6 +114,7 @@ set(ENGINE_HEADERS
     graphics/inc/render_pipeline.hpp
     graphics/inc/compute_pipeline.hpp
     graphics/inc/renderer.hpp
+    graphics/inc/render_graph.hpp
     graphics/inc/scene.hpp
     graphics/inc/skybox.hpp
     graphics/inc/swapchain.hpp
@@ -144,11 +147,6 @@ set(ENGINE_HEADERS
     ThirdParty/imgui/misc/cpp/imgui_stdlib.h
     ThirdParty/imgui/backends/imgui_impl_sdl3.h
     ThirdParty/imgui/backends/imgui_impl_vulkan.h
-)
-
-set(ENGINE_TESTS
-    test_suite/all_tests.hpp
-    test_suite/resource_manager_tests.hpp
 )
 
 set(SHADER_SOURCES
@@ -224,7 +222,8 @@ target_include_directories(Engine PUBLIC
     systems/inc
     utils/inc
     audio/inc
-    test_suite/
+
+    test_suite
     
     # Third-party includes
     ThirdParty/stb
@@ -257,6 +256,11 @@ if(WIN32)
     target_link_libraries(Engine PUBLIC
         gdi32 shell32 ole32 imm32 winmm version user32 setupapi dinput8 dxguid oleaut32 advapi32
     )
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_compile_options(Engine PRIVATE
+            $<$<AND:$<BOOL:WIN32>,$<STREQUAL:$<CXX_COMPILER_ID>,GNU>>:-Wa,-mbig-obj>
+        )
+    endif ()
 endif()
 
 # ========================================================================================

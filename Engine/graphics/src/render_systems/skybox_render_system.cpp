@@ -7,9 +7,10 @@
 namespace Humongous
 {
 
-SkyboxRenderSystem::SkyboxRenderSystem(const ILogicalDevice& logicalDevice, ResourceManager& resourceManager, const std::string& skyboxImgPath,
+SkyboxRenderSystem::SkyboxRenderSystem(const ILogicalDevice& logicalDevice, class ResourceManager& resourceManager,
+                                       const IAssetManager& assetManager, const std::string& skyboxImgPath,
                                        const std::vector<vk::DescriptorSetLayout>& globalLayouts)
-    : m_logicalDevice{logicalDevice}, m_resourceManager{resourceManager}
+    : m_logicalDevice{logicalDevice}, m_resourceManager{resourceManager}, m_assetManager{assetManager}
 {
     HGINFO("Initializing skybox render system...");
     CreatePipelineLayout(globalLayouts);
@@ -49,8 +50,8 @@ void SkyboxRenderSystem::CreatePipeline()
     RenderPipeline::PipelineConfigInfo ppCI = RenderPipeline::DefaultPipelineConfigInfo();
     ppCI.pipelineLayout = m_pipelineLayout;
 
-    ppCI.vertShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.vert");
-    ppCI.fragShaderPath = Systems::AssetManager::GetAsset(Systems::AssetManager::AssetType::SHADER, "skybox.frag");
+    ppCI.vertShaderPath = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "skybox.vert");
+    ppCI.fragShaderPath = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "skybox.frag");
     ppCI.depthStencilInfo.depthTestEnable = false;
     ppCI.depthStencilInfo.depthWriteEnable = false;
     ppCI.depthStencilInfo.depthCompareOp = vk::CompareOp::eGreaterOrEqual;

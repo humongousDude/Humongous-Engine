@@ -3,10 +3,12 @@
 #include "filesystem"
 #include "logger.hpp"
 
-namespace Humongous::Systems
+namespace Humongous
 {
 
-void AssetManager::Internal_Init(const std::vector<std::string>* paths)
+AssetManager::AssetManager(const std::vector<std::string>* paths) { Init(paths); }
+
+void AssetManager::Init(const std::vector<std::string>* paths)
 {
     namespace fs = std::filesystem;
     const fs::path assetDir = HGASSETDIRPATH;
@@ -134,7 +136,7 @@ void AssetManager::Internal_Init(const std::vector<std::string>* paths)
     }
 }
 
-std::string AssetManager::Internal_GetAsset(const AssetType type, const std::string_view asset)
+std::string AssetManager::GetAsset(const AssetType type, const std::string_view asset) const
 {
     switch(type)
     {
@@ -179,4 +181,4 @@ std::string AssetManager::Internal_GetAsset(const AssetType type, const std::str
     }
 }
 
-} // namespace Humongous::Systems
+} // namespace Humongous

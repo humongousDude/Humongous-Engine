@@ -11,9 +11,7 @@
 #include <abstractions/buffer.hpp>
 
 // std
-#include <cassert>
 #include <cstring>
-#include <vulkan/vk_enum_string_helper.h>
 
 namespace Humongous
 {
@@ -62,7 +60,16 @@ void Buffer::Init(vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsag
 Buffer::~Buffer()
 {
     if(m_allocationInfo.pMappedData) { UnMap(); }
-    if(m_buffer != VK_NULL_HANDLE) { vmaDestroyBuffer(m_logicalDevice.GetVmaAllocator(), m_buffer, m_allocation); }
+    if(m_buffer != VK_NULL_HANDLE)
+    {
+        auto allocater = m_logicalDevice.GetVmaAllocator();
+        if(!allocater)
+        {
+            HGERROR("Unable to destroy buffer, VMA allocator is null");
+            return;
+        }
+        vmaDestroyBuffer(m_logicalDevice.GetVmaAllocator(), m_buffer, m_allocation);
+    }
 }
 
 /**
@@ -130,7 +137,12 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
  */
 vk::Result Buffer::Map(vk::DeviceSize size, vk::DeviceSize offset)
 {
-    HGASSERT(m_buffer && m_allocationInfo.deviceMemory && "Called map on buffer before create");
+    if(!m_buffer || !m_allocationInfo.deviceMemory)
+    {
+        HGERROR("Called map on buffer before create");
+        // what's the correct error here?
+        return vk::Result::eErrorUnknown;
+    }
 
     if(!m_allocationInfo.pMappedData)
     {
@@ -150,7 +162,13 @@ void Buffer::UnMap()
     {
         if(!(m_memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) { Invalidate(); }
 
-        if(m_allocationInfo.pMappedData) { vmaUnmapMemory(m_logicalDevice.GetVmaAllocator(), m_allocation); }
+        auto allocater = m_logicalDevice.GetVmaAllocator();
+        if(!allocater)
+        {
+            HGERROR("Unable to unmap buffer, VMA allocator is null");
+            return;
+        }
+        if(m_allocationInfo.pMappedData) { vmaUnmapMemory(allocater, m_allocation); }
 
         m_allocationInfo.pMappedData = nullptr;
     }
@@ -175,6 +193,11 @@ void Buffer::WriteToBuffer(void* data, vk::DeviceSize size, vk::DeviceSize offse
     if(!data)
     {
         HGERROR("Cannot write invalid data to buffer");
+        return;
+    }
+    if(m_buffer == VK_NULL_HANDLE)
+    {
+        HGERROR("Cannot write to a null buffer. It's likely that an internal function failed.");
         return;
     }
 
@@ -225,7 +248,13 @@ vk::Result Buffer::Invalidate(vk::DeviceSize size, vk::DeviceSize offset)
     mappedRange.offset = offset;
     mappedRange.size = size;
 
-    return static_cast<vk::Result>(vmaInvalidateAllocation(m_logicalDevice.GetVmaAllocator(), m_allocation, offset, size));
+    auto allocater = m_logicalDevice.GetVmaAllocator();
+    if(!allocater)
+    {
+        HGERROR("Unable to invalidate buffer, VMA allocator is null");
+        return vk::Result::eErrorUnknown;
+    }
+    return static_cast<vk::Result>(vmaInvalidateAllocation(allocater, m_allocation, offset, size));
 }
 
 void Buffer::UpdateAddress(vk::BufferUsageFlags usage)
@@ -234,7 +263,7 @@ void Buffer::UpdateAddress(vk::BufferUsageFlags usage)
     vk::BufferDeviceAddressInfo bufferDeviceAddressInfo{};
     bufferDeviceAddressInfo.buffer = m_buffer;
 
-    m_deviceAddress = m_logicalDevice.GetVkDevice().getBufferAddress(&bufferDeviceAddressInfo);
+    m_deviceAddress = m_logicalDevice.GetDeviceAddress(bufferDeviceAddressInfo);
 }
 
 /**
@@ -247,6 +276,11 @@ void Buffer::UpdateAddress(vk::BufferUsageFlags usage)
  */
 vk::DescriptorBufferInfo Buffer::DescriptorInfo(vk::DeviceSize size, vk::DeviceSize offset) const
 {
+    if(m_buffer == VK_NULL_HANDLE)
+    {
+        HGERROR("Cannot create descriptor info for a null buffer. It's likely that a previous function failed.");
+        return vk::DescriptorBufferInfo{};
+    }
     return vk::DescriptorBufferInfo{
         m_buffer,
         offset,
@@ -294,6 +328,16 @@ vk::Result Buffer::InvalidateIndex(int index) { return Invalidate(m_alignmentSiz
 void Buffer::CopyBuffer(const ILogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size)
 {
     vk::CommandBuffer commandBuffer = device.BeginSingleTimeCommands();
+    if(commandBuffer == VK_NULL_HANDLE)
+    {
+        HGERROR("Device failed to provide one-time submite command buffer");
+        return;
+    }
+    if(size > dstBuffer.GetBufferSize())
+    {
+        HGERROR("Copy size is larger than destination buffer, need %i more bytes", size - dstBuffer.GetBufferSize());
+        return;
+    }
 
     vk::BufferCopy2 copyRegion{};
     copyRegion.sType = vk::StructureType::eBufferCopy2;

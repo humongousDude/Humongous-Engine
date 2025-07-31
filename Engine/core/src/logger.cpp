@@ -22,46 +22,46 @@ b8 InitializeLogging(LogLevel minLevel, const char* logFilePath)
 {
     try
     {
-        auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-        console_sink->set_level(spdlog::level::trace);
+        auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        consoleSink->set_level(spdlog::level::trace);
 
-        auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFilePath, true);
-        file_sink->set_level(spdlog::level::trace);
+        auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFilePath, true);
+        fileSink->set_level(spdlog::level::trace);
 
         std::vector<spdlog::sink_ptr> sinks;
-        sinks.push_back(console_sink);
-        sinks.push_back(file_sink);
+        sinks.push_back(consoleSink);
+        sinks.push_back(fileSink);
 
-        auto combined_logger = std::make_shared<spdlog::logger>("engine_logger", begin(sinks), end(sinks));
+        auto combinedLogger = std::make_shared<spdlog::logger>("engine_logger", begin(sinks), end(sinks));
 
         switch(minLevel)
         {
             case LOG_LEVEL_FATAL:
-                combined_logger->set_level(spdlog::level::critical);
+                combinedLogger->set_level(spdlog::level::critical);
                 break;
             case LOG_LEVEL_ERROR:
-                combined_logger->set_level(spdlog::level::err);
+                combinedLogger->set_level(spdlog::level::err);
                 break;
             case LOG_LEVEL_WARN:
-                combined_logger->set_level(spdlog::level::warn);
+                combinedLogger->set_level(spdlog::level::warn);
                 break;
             case LOG_LEVEL_INFO:
-                combined_logger->set_level(spdlog::level::info);
+                combinedLogger->set_level(spdlog::level::info);
                 break;
             case LOG_LEVEL_DEBUG:
-                combined_logger->set_level(spdlog::level::debug);
+                combinedLogger->set_level(spdlog::level::debug);
                 break;
             case LOG_LEVEL_TRACE:
-                combined_logger->set_level(spdlog::level::trace);
+                combinedLogger->set_level(spdlog::level::trace);
                 break;
             default:
-                combined_logger->set_level(spdlog::level::info);
+                combinedLogger->set_level(spdlog::level::info);
                 break;
         }
 
-        combined_logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%n] [%^%l%$] %v");
+        combinedLogger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%n] [%^%l%$] %v");
 
-        spdlog::set_default_logger(combined_logger);
+        spdlog::set_default_logger(combinedLogger);
         HGINFO("Logging initialized. Log file at: %s", logFilePath);
     }
     catch(const spdlog::spdlog_ex& ex)
@@ -72,6 +72,9 @@ b8 InitializeLogging(LogLevel minLevel, const char* logFilePath)
     }
     return true;
 }
+
+void PauseLogging() { spdlog::set_level(spdlog::level::off); }
+void ResumeLogging() { spdlog::set_level(spdlog::level::trace); }
 
 void ShutDownLogging()
 {

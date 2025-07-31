@@ -13,8 +13,8 @@ namespace Humongous
 class SkyboxRenderSystem
 {
 public:
-    SkyboxRenderSystem(const ILogicalDevice& logicalDevice, class ResourceManager& resourceManager, const std::string& skyboxImgPath,
-                       const std::vector<vk::DescriptorSetLayout>& globalLayouts);
+    SkyboxRenderSystem(const ILogicalDevice& logicalDevice, class ResourceManager& resourceManager, const IAssetManager& assetManager,
+                       const std::string& skyboxImgPath, const std::vector<vk::DescriptorSetLayout>& globalLayouts);
     ~SkyboxRenderSystem();
 
     void RenderSkybox(const u32& frameIndex, std::vector<vk::DescriptorSet>& globalSets, vk::CommandBuffer commandBuffer);
@@ -24,6 +24,7 @@ public:
 private:
     const ILogicalDevice&           m_logicalDevice;
     class ResourceManager&          m_resourceManager;
+    const IAssetManager&            m_assetManager;
     std::unique_ptr<RenderPipeline> m_renderPipeline;
     vk::PipelineLayout              m_pipelineLayout;
 

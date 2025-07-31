@@ -12,9 +12,8 @@
 
 namespace Humongous
 {
-class PhysicalDevice : NonCopyable
+class IPhysicalDevice
 {
-
 public:
     struct QueueFamilyData
     {
@@ -44,20 +43,43 @@ public:
         b8 supportsBindlessDescriptors = false;
     };
 
+    virtual ~IPhysicalDevice() = default;
+    virtual vk::PhysicalDevice GetVkPhysicalDevice() const = 0;
+
+    virtual QueueFamilyData FindQueueFamilies(vk::PhysicalDevice physicalDevice) const = 0;
+
+    virtual std::vector<const char*> GetDeviceExtensions() const = 0;
+
+    virtual SwapChainSupportDetails QuerySwapChainSupport(vk::PhysicalDevice physicalDevice) const = 0;
+
+    virtual vk::SurfaceKHR GetSurface() const = 0;
+
+    virtual vk::PhysicalDeviceProperties2 GetProperties() const = 0;
+
+    virtual VkPhysicalDeviceFeatures2 GetFeatures() const = 0;
+
+    virtual DeviceSupportLevel        GetCurrentSupportLevel() const = 0;
+    virtual const DeviceCapabilities& GetCurrentCapabilities() const = 0;
+};
+
+class PhysicalDevice : public IPhysicalDevice, NonCopyable
+{
+
+public:
     PhysicalDevice(Instance& instance, Window& window);
     ~PhysicalDevice();
 
-    vk::PhysicalDevice GetVkPhysicalDevice() const { return m_physicalDevice; }
+    vk::PhysicalDevice GetVkPhysicalDevice() const override { return m_physicalDevice; }
 
-    QueueFamilyData FindQueueFamilies(vk::PhysicalDevice physicalDevice) const;
+    QueueFamilyData FindQueueFamilies(vk::PhysicalDevice physicalDevice) const override;
 
-    std::vector<const char*> GetDeviceExtensions() { return REQUIRED_BASE_DEVICE_EXTENSIONS; }
+    std::vector<const char*> GetDeviceExtensions() const override { return REQUIRED_BASE_DEVICE_EXTENSIONS; }
 
-    SwapChainSupportDetails QuerySwapChainSupport(vk::PhysicalDevice physicalDevice) const;
+    SwapChainSupportDetails QuerySwapChainSupport(vk::PhysicalDevice physicalDevice) const override;
 
-    vk::SurfaceKHR GetSurface() const { return m_surface; }
+    vk::SurfaceKHR GetSurface() const override { return m_surface; }
 
-    vk::PhysicalDeviceProperties2 GetProperties() const
+    vk::PhysicalDeviceProperties2 GetProperties() const override
     {
         vk::PhysicalDeviceProperties2 properties;
         properties.sType = vk::StructureType::ePhysicalDeviceProperties2;
@@ -66,15 +88,15 @@ public:
         return properties;
     }
 
-    VkPhysicalDeviceFeatures2 GetFeatures() const
+    VkPhysicalDeviceFeatures2 GetFeatures() const override
     {
         VkPhysicalDeviceFeatures2 features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
         vkGetPhysicalDeviceFeatures2(m_physicalDevice, &features);
         return features;
     }
 
-    DeviceSupportLevel        GetCurrentSupportLevel() const { return m_currentSupportLevel; }
-    const DeviceCapabilities& GetCurrentCapabilities() const { return m_currentCapabilities; }
+    DeviceSupportLevel        GetCurrentSupportLevel() const override { return m_currentSupportLevel; }
+    const DeviceCapabilities& GetCurrentCapabilities() const override { return m_currentCapabilities; }
 
 private:
     Instance&          m_instance;
