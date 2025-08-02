@@ -2,17 +2,17 @@
 setlocal
 
 set "BUILD_DIR=.\Binaries"
-set "EXE_DIR=.\Binaries\App"
+set "APP_EXE_DIR=.\Binaries\App"
 
 :recheck
     echo Checking build status...
     set "script_args=%*"
 
-
     if exist ".\Binaries-Release\" (
         echo Release build directory ".\Binaries-Release" found.
         set "BUILD_DIR=.\Binaries-Release"
-        set "EXE_DIR=.\Binaries-Release\App"
+        set "APP_EXE_DIR=.\Binaries-Release\App"
+        set "APP_EXE_DIR=.\Binaries-Release\AppTests"
         call :build %script_args%
         goto :EOF
     )
@@ -47,9 +47,20 @@ set "EXE_DIR=.\Binaries\App"
     if %ERRORLEVEL% equ 0 (
         echo Ninja build successful.
         popd
-        echo Running application: "%EXE_DIR%\App.exe" %app_args%
-        cd "%EXE_DIR%"
-        "App.exe" %app_args%
+
+        echo Running AppTests: "%APP_EXE_DIR%.exe"
+        cd "%APP_EXE_DIR%"
+        "AppTests.exe"
+
+        if not errorlevel 1 (
+            echo AppTests successful.
+            cd "%APP_EXE_DIR%"
+            echo Running application: "%APP_EXE_DIR%\App.exe" %app_args%
+            "App.exe" %app_args%
+        ) else (
+            echo AppTests failed! Aborting.
+            exit /b 1
+        )
     ) else (
         echo Ninja build failed!
         popd

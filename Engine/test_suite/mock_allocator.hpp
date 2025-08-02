@@ -13,43 +13,47 @@ public:
     {
         // Allocate a buffer of the requested size and store it.
         ON_CALL(*this, AllocateBuffer(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
-            .WillByDefault([this](const vk::DeviceSize size, const VmaMemoryUsage, const vk::BufferUsageFlags, const vk::MemoryPropertyFlags,
-                                  VmaAllocation& allocation, vk::Buffer& buffer) {
-                // Create a unique handle for this allocation
+            .WillByDefault([this](const vk::DeviceSize          size, const VmaMemoryUsage, const vk::BufferUsageFlags,
+                                  const vk::MemoryPropertyFlags properties, VmaAllocation& allocation, vk::Buffer& buffer) {
                 VmaAllocation newAllocation = reinterpret_cast<VmaAllocation>(m_nextAllocationHandle++);
 
-                // Allocate a buffer of the correct size
-                m_allocations[newAllocation] = std::vector<char>(size);
+                m_allocations[newAllocation].buffer = std::vector<char>(size);
+                m_allocations[newAllocation].properties = properties;
 
-                // Return the mock handles
                 allocation = newAllocation;
-                buffer = vk::Buffer(reinterpret_cast<VkBuffer>(0xAABBCCDD)); // Dummy handle
+                buffer = vk::Buffer(reinterpret_cast<VkBuffer>(0xAABBCCDD));
                 return vk::Result::eSuccess;
             });
 
-        // Free the buffer by removing it from our map.
         ON_CALL(*this, FreeBuffer(::testing::_, ::testing::_)).WillByDefault([this](VmaAllocation allocation, vk::Buffer) {
             if(m_allocations.count(allocation)) { m_allocations.erase(allocation); }
         });
 
-        // Return a pointer to the correct allocation's data.
         ON_CALL(*this, Map(::testing::_, ::testing::_)).WillByDefault([this](VmaAllocation allocation, void** data) {
-            if(m_allocations.count(allocation))
+            auto it = m_allocations.find(allocation);
+            if(it == m_allocations.end())
             {
-                *data = m_allocations.at(allocation).data();
+                *data = nullptr;
+                return vk::Result::eErrorMemoryMapFailed;
+            }
+
+            const auto& props = it->second.properties;
+            if(props & vk::MemoryPropertyFlagBits::eHostVisible)
+            {
+                *data = it->second.buffer.data();
                 return vk::Result::eSuccess;
             }
+
             *data = nullptr;
-            return vk::Result::eErrorMemoryMapFailed; // Or another appropriate error
+            return vk::Result::eErrorMemoryMapFailed;
         });
 
-        // Also update GetAllocationInfo to return the correct pointer.
         ON_CALL(*this, GetAllocationInfo(::testing::_)).WillByDefault([this](VmaAllocation allocation) -> VmaAllocationInfo {
             VmaAllocationInfo info{};
             if(m_allocations.count(allocation))
             {
-                info.pMappedData = m_allocations.at(allocation).data();
-                info.size = m_allocations.at(allocation).size();
+                info.pMappedData = m_allocations.at(allocation).buffer.data();
+                info.size = m_allocations.at(allocation).buffer.size();
             }
             return info;
         });
@@ -84,8 +88,15 @@ public:
     MOCK_METHOD(vk::Result, Invalidate, (VmaAllocation allocation, vk::DeviceSize offset, vk::DeviceSize size), (override));
 
 private:
-    uintptr_t                                            m_nextAllocationHandle = 1;
-    std::unordered_map<VmaAllocation, std::vector<char>> m_allocations;
+    uintptr_t m_nextAllocationHandle = 1;
+
+    struct MockAllocation
+    {
+        std::vector<char>       buffer;
+        vk::MemoryPropertyFlags properties;
+    };
+
+    std::unordered_map<VmaAllocation, MockAllocation> m_allocations;
 };
 
 } // namespace Humongous

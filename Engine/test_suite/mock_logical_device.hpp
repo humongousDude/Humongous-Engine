@@ -132,6 +132,7 @@ public:
                  const std::vector<vk::BufferImageCopy>& regions),
                 (const, override));
     MOCK_METHOD(void, RecordBlitImage, (vk::CommandBuffer cmd, vk::BlitImageInfo2 blit), (const, override));
+    MOCK_METHOD(vk::Result, FlushMappedMemoryRanges, (const std::vector<vk::MappedMemoryRange>& ranges), (const, override));
 };
 
 } // namespace Humongous

@@ -50,14 +50,15 @@ public:
     virtual void              RecordCopyBuffer(vk::CommandBuffer cmd, const vk::CopyBufferInfo2& copyInfo) const = 0;
     virtual void              RecordPipelineBarrier(vk::CommandBuffer cmd, vk::DependencyInfo& dependencyInfo) const = 0;
     virtual void              RecordComputeDispatch(vk::CommandBuffer cmd, u32 groupCountX, u32 groupCountY, u32 groupCountZ) const = 0;
-    virtual void RecordBindDescriptorSets(vk::CommandBuffer cmd, vk::PipelineLayout pipelineLayout, vk::PipelineBindPoint pipelineBindPoint,
-                                          const u32& firstSet, const std::vector<vk::DescriptorSet>& descriptorSets) const = 0;
-    virtual void RecordPushConstants(vk::CommandBuffer cmd, vk::PipelineLayout layout, vk::ShaderStageFlagBits shaderFlags, const void* data,
-                                     size_t size) const = 0;
-    virtual void RecordBindPipeline(vk::CommandBuffer cmd, vk::PipelineBindPoint pipelineBindPoint, vk::Pipeline pipeline) const = 0;
-    virtual void RecordCopyBufferToImage(vk::CommandBuffer cmd, vk::Buffer buffer, vk::Image image, vk::ImageLayout imageLayout,
-                                         const std::vector<vk::BufferImageCopy>& regions) const = 0;
-    virtual void RecordBlitImage(vk::CommandBuffer cmd, vk::BlitImageInfo2 blit) const = 0;
+    virtual void       RecordBindDescriptorSets(vk::CommandBuffer cmd, vk::PipelineLayout pipelineLayout, vk::PipelineBindPoint pipelineBindPoint,
+                                                const u32& firstSet, const std::vector<vk::DescriptorSet>& descriptorSets) const = 0;
+    virtual void       RecordPushConstants(vk::CommandBuffer cmd, vk::PipelineLayout layout, vk::ShaderStageFlagBits shaderFlags, const void* data,
+                                           size_t size) const = 0;
+    virtual void       RecordBindPipeline(vk::CommandBuffer cmd, vk::PipelineBindPoint pipelineBindPoint, vk::Pipeline pipeline) const = 0;
+    virtual void       RecordCopyBufferToImage(vk::CommandBuffer cmd, vk::Buffer buffer, vk::Image image, vk::ImageLayout imageLayout,
+                                               const std::vector<vk::BufferImageCopy>& regions) const = 0;
+    virtual void       RecordBlitImage(vk::CommandBuffer cmd, vk::BlitImageInfo2 blit) const = 0;
+    virtual vk::Result FlushMappedMemoryRanges(const std::vector<vk::MappedMemoryRange>& ranges) const = 0;
 };
 
 class VulkanLogicalDevice : public ILogicalDevice, NonCopyable
@@ -112,6 +113,7 @@ public:
     void              RecordCopyBufferToImage(vk::CommandBuffer cmd, vk::Buffer buffer, vk::Image image, vk::ImageLayout imageLayout,
                                               const std::vector<vk::BufferImageCopy>& regions) const override;
     void              RecordBlitImage(vk::CommandBuffer cmd, vk::BlitImageInfo2 blit) const override;
+    vk::Result        FlushMappedMemoryRanges(const std::vector<vk::MappedMemoryRange>& ranges) const override;
 
 private:
     IInstance& m_instance;

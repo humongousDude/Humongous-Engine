@@ -65,7 +65,7 @@ public:
 
     static void CopyBuffer(const ILogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size);
 
-    b8 IsMapped() const { return m_mapCallCount > 0 ? true : false; }
+    b8 IsMapped() const { return m_isMapped; }
 
     b8 IsValid() const { return m_isValid; }
 
@@ -101,8 +101,6 @@ private:
     vk::MemoryPropertyFlags m_memoryPropertyFlags;
     std::string             m_name = "";
     b8                      m_isValid = false;
-
-    // safe gaurd, in case Buffer::Map() gets called more than once
-    int m_mapCallCount{0};
+    b8                      m_isMapped{false};
 };
 } // namespace Humongous

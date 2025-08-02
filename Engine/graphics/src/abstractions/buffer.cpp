@@ -31,6 +31,23 @@ Buffer::Buffer(const BufferCreateInfo& createInfo)
     Init(createInfo.size, 1, createInfo.bufferUsage, createInfo.properties, createInfo.memoryUsage, createInfo.minOffsetAlignment, createInfo.name);
 }
 
+b8 IsValidMemoryPropertyCombination(vk::MemoryPropertyFlags memoryPropertyFlags)
+{
+    if((memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostVisible) && (memoryPropertyFlags & vk::MemoryPropertyFlagBits::eLazilyAllocated))
+    {
+        return false;
+    }
+    else if(((memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostVisible) ||
+             (memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent) ||
+             (memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCached)) &&
+            (memoryPropertyFlags & vk::MemoryPropertyFlagBits::eProtected))
+    {
+        return false;
+    }
+
+    return true;
+}
+
 void Buffer::Init(vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsageFlags usageFlags, vk::MemoryPropertyFlags memoryPropertyFlags,
                   VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment, const std::string& name)
 {
@@ -85,6 +102,11 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
         HGERROR("Cannot create buffer with <= 0 memory");
         return;
     }
+    if(!IsValidMemoryPropertyCombination(createInfo.properties))
+    {
+        HGERROR("Cannot create buffer with invalid memory property combination");
+        return;
+    }
 
     vk::BufferCreateInfo bufferInfo{};
     bufferInfo.size = createInfo.size;
@@ -122,7 +144,7 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
 /**
  * Map a memory range of this buffer. If successful, m_mapped points to the specified m_buffer range.
  *
- * @param size (Optional) Size of the memory range to map. Pass VK_WHOLE_SIZE to map the complete
+ * @param size (Optional) Size of the memory range to map. Pass vk::WholeSize to map the complete
  * buffer range.
  * @param offset (Optional) Byte offset from beginning
  *
@@ -136,6 +158,13 @@ vk::Result Buffer::Map(vk::DeviceSize size, vk::DeviceSize offset)
         // what's the correct error here?
         return vk::Result::eErrorUnknown;
     }
+    if(!(m_memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostVisible))
+    {
+        HGERROR("Cannot map a buffer that is not host visible");
+        return vk::Result::eErrorOutOfDeviceMemory;
+    }
+
+    m_isMapped = true;
 
     if(!m_allocationInfo.pMappedData) { return m_logicalDevice.GetAllocator().Map(m_allocation, &m_allocationInfo.pMappedData); }
     else { return vk::Result::eSuccess; }
@@ -153,6 +182,11 @@ void Buffer::UnMap()
         HGERROR("Trying to unmap a buffer that has not been created");
         return;
     }
+    if(!m_isMapped)
+    {
+        HGWARN("Trying to unmap a buffer that is not mapped");
+        return;
+    }
 
     if(m_allocationInfo.pMappedData)
     {
@@ -162,20 +196,27 @@ void Buffer::UnMap()
 
         m_allocationInfo.pMappedData = nullptr;
     }
+
+    m_isMapped = false;
 }
 
 /**
  * Copies the specified data to the mapped buffer. Default value writes whole m_buffer range
  *
  * @param data Pointer to the data to copy
- * @param size (Optional) Size of the data to copy. Pass VK_WHOLE_SIZE to flush the complete m_buffer
+ * @param size (Optional) Size of the data to copy. Pass vk::WholeSize to flush the complete m_buffer
  * range.
  * @param offset (Optional) Byte offset from beginning of m_mapped region
  *
  */
 void Buffer::WriteToBuffer(void* data, vk::DeviceSize size, vk::DeviceSize offset)
 {
-    if(!m_allocationInfo.pMappedData)
+    if(!m_isValid)
+    {
+        HGERROR("Cannot write to a null buffer. It's likely that an internal function failed.");
+        return;
+    }
+    if(!m_isMapped)
     {
         HGERROR("Cannot copy to unmapped buffer");
         return;
@@ -185,18 +226,14 @@ void Buffer::WriteToBuffer(void* data, vk::DeviceSize size, vk::DeviceSize offse
         HGERROR("Cannot write invalid data to buffer");
         return;
     }
-    if(!m_isValid)
-    {
-        HGERROR("Cannot write to a null buffer. It's likely that an internal function failed.");
-        return;
-    }
-    if(offset + size > m_bufferSize && size != VK_WHOLE_SIZE)
-    {
-        HGERROR("Write exceeds \"%s\"'s bounds. Buffer is %i bytes, write is %i bytes", m_name.c_str(), m_bufferSize, size);
-        return;
-    }
 
-    if(size == VK_WHOLE_SIZE) { size = m_bufferSize; }
+    if(size == vk::WholeSize) { size = m_bufferSize; }
+
+    if(offset > m_bufferSize || offset + size > m_bufferSize)
+    {
+        HGERROR("Write exceeds \"%s\"'s bounds (Buffer: %i bytes, Offset: %i bytes, Size: %i bytes)", m_name.c_str(), m_bufferSize, offset, size);
+        return;
+    }
 
     char* memOffset = static_cast<char*>(m_allocationInfo.pMappedData) + offset;
     memcpy(memOffset, data, size);
@@ -207,7 +244,7 @@ void Buffer::WriteToBuffer(void* data, vk::DeviceSize size, vk::DeviceSize offse
  *
  * @note Only required for non-coherent m_memory
  *
- * @param size (Optional) Size of the m_memory range to flush. Pass VK_WHOLE_SIZE to flush the
+ * @param size (Optional) Size of the m_memory range to flush. Pass vk::WholeSize to flush the
  * complete m_buffer range.
  * @param offset (Optional) Byte offset from beginning
  *
@@ -215,12 +252,36 @@ void Buffer::WriteToBuffer(void* data, vk::DeviceSize size, vk::DeviceSize offse
  */
 vk::Result Buffer::Flush(vk::DeviceSize size, vk::DeviceSize offset)
 {
+    if(!m_isValid)
+    {
+        HGERROR("Cannot flush a null buffer. It's likely that an internal function failed.");
+        return vk::Result::eErrorOutOfDeviceMemory;
+    }
+    if(!m_isMapped)
+    {
+        HGERROR("Cannot flush an unmapped buffer");
+        return vk::Result::eErrorOutOfDeviceMemory;
+    }
+    if(!(m_memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostVisible))
+    {
+        HGERROR("Cannot flush a buffer that is not host visible");
+        return vk::Result::eErrorOutOfDeviceMemory;
+    }
+
+    if(size == vk::WholeSize) { size = m_bufferSize; }
+
+    if(offset > m_bufferSize || offset + size > m_bufferSize)
+    {
+        HGERROR("Write exceeds \"%s\"'s bounds (Buffer: %i bytes, Offset: %i bytes, Size: %i bytes)", m_name.c_str(), m_bufferSize, offset, size);
+        return vk::Result::eErrorOutOfDeviceMemory;
+    }
+
     vk::MappedMemoryRange mappedRange = {};
     mappedRange.sType = vk::StructureType::eMappedMemoryRange;
     mappedRange.memory = m_allocationInfo.deviceMemory;
     mappedRange.offset = offset;
     mappedRange.size = size;
-    return m_logicalDevice.GetVkDevice().flushMappedMemoryRanges(1, &mappedRange);
+    return m_logicalDevice.FlushMappedMemoryRanges({mappedRange});
 }
 
 /**
@@ -228,7 +289,7 @@ vk::Result Buffer::Flush(vk::DeviceSize size, vk::DeviceSize offset)
  *
  * @note Only required for non-coherent memory
  *
- * @param size (Optional) Size of the memory range to invalidate. Pass VK_WHOLE_SIZE to invalidate
+ * @param size (Optional) Size of the memory range to invalidate. Pass vk::WholeSize to invalidate
  * the complete m_buffer range.
  * @param offset (Optional) Byte offset from beginning
  *
@@ -236,6 +297,29 @@ vk::Result Buffer::Flush(vk::DeviceSize size, vk::DeviceSize offset)
  */
 vk::Result Buffer::Invalidate(vk::DeviceSize size, vk::DeviceSize offset)
 {
+    if(!m_isValid)
+    {
+        HGERROR("Cannot invalidate a null buffer. It's likely that an internal function failed.");
+        return vk::Result::eErrorOutOfDeviceMemory;
+    }
+    if(!m_isMapped)
+    {
+        HGERROR("Cannot invalidate an unmapped buffer");
+        return vk::Result::eErrorOutOfDeviceMemory;
+    }
+    if(!(m_memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostVisible))
+    {
+        HGERROR("Cannot invalidate a buffer that is not host visible");
+        return vk::Result::eErrorOutOfDeviceMemory;
+    }
+    if(size == vk::WholeSize) { size = m_bufferSize; }
+    if(offset > m_bufferSize || offset + size > m_bufferSize)
+    {
+        HGERROR("Invalidate exceeds \"%s\"'s bounds (Buffer: %i bytes, Offset: %i bytes, Size: %i bytes)", m_name.c_str(), m_bufferSize, offset,
+                size);
+        return vk::Result::eErrorOutOfDeviceMemory;
+    }
+
     vk::MappedMemoryRange mappedRange = {};
     mappedRange.sType = vk::StructureType::eMappedMemoryRange;
     mappedRange.memory = m_allocationInfo.deviceMemory;

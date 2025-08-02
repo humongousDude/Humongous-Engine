@@ -1,5 +1,4 @@
 #include "vulkan_app.hpp"
-#include "all_tests.hpp"
 #include "audio_engine.hpp"
 #include "camera.hpp"
 #include "chrono"
@@ -15,17 +14,6 @@ namespace Humongous
 {
 VulkanApp::VulkanApp(int argc, char* argv[])
 {
-    PauseLogging();
-    ::testing::InitGoogleTest(&argc, argv);
-    auto ret = RUN_ALL_TESTS();
-    ResumeLogging();
-
-    if(ret != 0)
-    {
-        HGFATAL("Tests failed");
-        return;
-    }
-
     Init(argc, argv);
     LoadGameObjects();
 }

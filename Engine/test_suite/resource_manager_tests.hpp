@@ -1,4 +1,3 @@
-#include "logger.hpp"
 #include "mock_asset_manager.hpp"
 #include "mock_logical_device.hpp"
 #include "resource_manager.hpp"

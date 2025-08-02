@@ -9,4 +9,6 @@ int main(int argc, char* argv[])
 {
     Humongous::VulkanApp app(argc, argv);
     app.Run();
+
+    return 0;
 }

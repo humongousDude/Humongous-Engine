@@ -2,17 +2,31 @@ cmake_minimum_required(VERSION 3.26)
 
 project(Application LANGUAGES CXX C)
 
+function(configure_executable target)
+    target_link_libraries(${target} PRIVATE
+        Engine
+    )
+
+    if(MSVC)
+        target_compile_options(${target} PUBLIC /utf-8)
+        set(RUNTIME_LIB_FLAG "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>")
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL" CACHE STRING "MSVC runtime library type")
+    endif()
+
+    if(WIN32)
+        if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            target_compile_options(${target} PRIVATE
+                $<$<AND:$<BOOL:WIN32>,$<STREQUAL:$<CXX_COMPILER_ID>,GNU>>:-Wa,-mbig-obj>
+            )
+        endif()
+    endif()
+endfunction()
+
 add_executable(App main.cpp)
+configure_executable(App)
 
-if(MSVC)
-    target_compile_options(App PUBLIC /utf-8)
-    set(RUNTIME_LIB_FLAG "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>")
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL" CACHE STRING "MSVC runtime library type")
-endif()
-
-target_link_libraries(App PRIVATE
-	Engine
-)
+add_executable(AppTests test_main.cpp)
+configure_executable(AppTests)
 
 if(WIN32)
     function(copy_dll_from_target target_name)
@@ -27,4 +41,3 @@ if(WIN32)
     copy_dll_from_target(SDL3::SDL3)
     copy_dll_from_target(OpenAL)
 endif()
-

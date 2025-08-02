@@ -357,4 +357,9 @@ void VulkanLogicalDevice::RecordCopyBufferToImage(vk::CommandBuffer cmd, vk::Buf
 
 void VulkanLogicalDevice::RecordBlitImage(vk::CommandBuffer cmd, vk::BlitImageInfo2 blit) const { cmd.blitImage2(blit); }
 
+vk::Result VulkanLogicalDevice::FlushMappedMemoryRanges(const std::vector<vk::MappedMemoryRange>& ranges) const
+{
+    return m_logicalDevice.flushMappedMemoryRanges(static_cast<u32>(ranges.size()), ranges.data());
+}
+
 } // namespace Humongous

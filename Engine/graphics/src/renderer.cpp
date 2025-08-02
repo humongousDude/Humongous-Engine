@@ -52,21 +52,21 @@ Renderer::~Renderer()
         frame.hiZImage.Destroy(m_logicalDevice);
         for(auto& mip: frame.hiZMips)
         {
-            m_logicalDevice.GetVkDevice().destroyImageView(mip.sampledView);
-            m_logicalDevice.GetVkDevice().destroyImageView(mip.storageView);
+            m_logicalDevice.DestroyImageView(mip.sampledView);
+            m_logicalDevice.DestroyImageView(mip.storageView);
         }
     }
 
-    if(m_depthImageSampler != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroySampler(m_depthImageSampler); }
+    if(m_depthImageSampler != VK_NULL_HANDLE) { m_logicalDevice.DestroySampler(m_depthImageSampler); }
 
     m_occlusionPipeline.reset();
-    m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_occlusionPipelineLayout, nullptr);
+    m_logicalDevice.DestroyPipelineLayout(m_occlusionPipelineLayout);
 
     m_mipPipeline.reset();
-    m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_mipPipelineLayout, nullptr);
+    m_logicalDevice.DestroyPipelineLayout(m_mipPipelineLayout);
 
     m_lightingPipeline.reset();
-    m_logicalDevice.GetVkDevice().destroyPipelineLayout(m_lightingPipelineLayout, nullptr);
+    m_logicalDevice.DestroyPipelineLayout(m_lightingPipelineLayout);
 
     m_lightingDescriptorLayout.reset();
     m_lightingPool.reset();
@@ -136,7 +136,7 @@ void Renderer::CreateDrawImage()
     auto cmd = m_logicalDevice.BeginSingleTimeCommands();
     for(auto& frame: m_frames)
     {
-        if(frame.drawImage.imageView != VK_NULL_HANDLE) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), frame.drawImage.imageView, nullptr); }
+        if(frame.drawImage.imageView != VK_NULL_HANDLE) { m_logicalDevice.DestroyImageView(frame.drawImage.imageView); }
         if(frame.drawImage.image != VK_NULL_HANDLE) { m_logicalDevice.GetAllocator().FreeImage(frame.drawImage.allocation, frame.drawImage.image); }
 
         imgCI.allocatedImage = &frame.drawImage;
@@ -300,8 +300,8 @@ void Renderer::CreateGBuffer()
 
         for(auto& mip: m_frames[i].hiZMips)
         {
-            m_logicalDevice.GetVkDevice().destroyImageView(mip.sampledView);
-            m_logicalDevice.GetVkDevice().destroyImageView(mip.storageView);
+            m_logicalDevice.DestroyImageView(mip.sampledView);
+            m_logicalDevice.DestroyImageView(mip.storageView);
         }
 
         m_frames[i].hiZMips.resize(imgCI.mipLevels);
@@ -327,11 +327,12 @@ void Renderer::CreateGBuffer()
             viewInfo.subresourceRange.levelCount = 1;
             viewInfo.subresourceRange.baseMipLevel = level;
 
-            if(m_logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &m_frames[i].hiZMips[level].sampledView) != vk::Result::eSuccess)
+            if(m_logicalDevice.CreateImageView(viewInfo, &m_frames[i].hiZMips[level].sampledView) != vk::Result::eSuccess)
             {
                 HGFATAL("Failed to create sampled depthMip");
             }
-            if(m_logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &m_frames[i].hiZMips[level].storageView) != vk::Result::eSuccess)
+
+            if(m_logicalDevice.CreateImageView(viewInfo, &m_frames[i].hiZMips[level].storageView) != vk::Result::eSuccess)
             {
                 HGFATAL("Failed to create storage depthMip");
             }
@@ -383,7 +384,7 @@ void Renderer::CreateLightingPipeline()
     pipelineLayoutInfo.pushConstantRangeCount = 0;
     pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
-    if(m_logicalDevice.GetVkDevice().createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_lightingPipelineLayout) != vk::Result::eSuccess)
+    if(m_logicalDevice.CreatePipelineLayout(pipelineLayoutInfo, &m_lightingPipelineLayout) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create lighting layout");
     }
