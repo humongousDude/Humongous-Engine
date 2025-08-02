@@ -2,8 +2,8 @@
 
 #include "defines.hpp"
 #include "logical_device.hpp"
+#include "mock_allocator.hpp"
 #include "mock_physical_device.hpp"
-#include "physical_device.hpp"
 #include "gmock/gmock.h"
 
 //
@@ -14,7 +14,7 @@ class MockLogicalDevice : public ILogicalDevice
 {
 public:
     mutable testing::NiceMock<MockPhysicalDevice> m_physicalDevice;
-    mutable VmaAllocator                          m_allocator;
+    mutable testing::NiceMock<MockAllocator>      m_allocator;
     mutable vk::Queue                             m_graphicsQueue;
     mutable vk::Queue                             m_presentQueue;
     mutable u32                                   m_graphicsQueueIndex;
@@ -54,7 +54,7 @@ public:
         ON_CALL(*this, GetGraphicsQueueIndex()).WillByDefault(::testing::Return(m_graphicsQueueIndex));
         ON_CALL(*this, GetPresentQueueIndex()).WillByDefault(::testing::Return(m_presentQueueIndex));
 
-        ON_CALL(*this, GetVmaAllocator()).WillByDefault(::testing::Return(m_allocator));
+        ON_CALL(*this, GetAllocator()).WillByDefault(::testing::ReturnRef(m_allocator));
 
         ON_CALL(*this, BeginSingleTimeCommands())
             .WillByDefault(::testing::Return(vk::CommandBuffer(reinterpret_cast<VkCommandBuffer>(0xAABBCCDD))));
@@ -88,7 +88,7 @@ public:
     MOCK_METHOD(vk::Queue, GetPresentQueue, (), (const, override));
     MOCK_METHOD(u32, GetGraphicsQueueIndex, (), (const, override));
     MOCK_METHOD(u32, GetPresentQueueIndex, (), (const, override));
-    MOCK_METHOD(VmaAllocator, GetVmaAllocator, (), (const, override));
+    MOCK_METHOD(IAllocator&, GetAllocator, (), (const, override));
     MOCK_METHOD(vk::CommandBuffer, BeginSingleTimeCommands, (), (const, override));
     MOCK_METHOD(void, EndSingleTimeCommands, (vk::CommandBuffer cmd), (const, override));
     MOCK_METHOD(vk::DescriptorPool, CreateDescriptorPool, (const vk::DescriptorPoolCreateInfo& info), (const, override));
@@ -114,6 +114,24 @@ public:
     MOCK_METHOD(void, DestroyShaderModule, (vk::ShaderModule shaderModule), (const, override));
     MOCK_METHOD(vk::Result, CreateGraphicsPipeline, (const vk::GraphicsPipelineCreateInfo& info, vk::Pipeline* pipeline), (const, override));
     MOCK_METHOD(void, DestroyPipeline, (vk::Pipeline pipeline), (const, override));
+    MOCK_METHOD(void, RecordCopyBuffer, (vk::CommandBuffer commandBuffer, const vk::CopyBufferInfo2& copyInfo), (const, override));
+    MOCK_METHOD(void, RecordPipelineBarrier, (vk::CommandBuffer commandBuffer, vk::DependencyInfo& dependencyInfo), (const, override));
+    MOCK_METHOD(void, RecordComputeDispatch, (vk::CommandBuffer commandBuffer, u32 groupCountX, u32 groupCountY, u32 groupCountZ),
+                (const, override));
+    MOCK_METHOD(void, RecordBindDescriptorSets,
+                (vk::CommandBuffer cmd, vk::PipelineLayout pipelineLayout, vk::PipelineBindPoint pipelineBindPoint, const u32& firstSet,
+                 const std::vector<vk::DescriptorSet>& descriptorSets),
+                (const, override));
+    MOCK_METHOD(void, RecordPushConstants,
+                (vk::CommandBuffer cmd, vk::PipelineLayout layout, vk::ShaderStageFlagBits shaderFlags, const void* data, size_t size),
+                (const, override));
+    MOCK_METHOD(void, RecordBindPipeline, (vk::CommandBuffer cmd, vk::PipelineBindPoint pipelineBindPoint, vk::Pipeline pipeline),
+                (const, override));
+    MOCK_METHOD(void, RecordCopyBufferToImage,
+                (vk::CommandBuffer cmd, vk::Buffer buffer, vk::Image image, vk::ImageLayout imageLayout,
+                 const std::vector<vk::BufferImageCopy>& regions),
+                (const, override));
+    MOCK_METHOD(void, RecordBlitImage, (vk::CommandBuffer cmd, vk::BlitImageInfo2 blit), (const, override));
 };
 
 } // namespace Humongous

@@ -60,16 +60,7 @@ void Buffer::Init(vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsag
 Buffer::~Buffer()
 {
     if(m_allocationInfo.pMappedData) { UnMap(); }
-    if(m_buffer != VK_NULL_HANDLE)
-    {
-        auto allocater = m_logicalDevice.GetVmaAllocator();
-        if(!allocater)
-        {
-            HGERROR("Unable to destroy buffer, VMA allocator is null");
-            return;
-        }
-        vmaDestroyBuffer(m_logicalDevice.GetVmaAllocator(), m_buffer, m_allocation);
-    }
+    if(m_isValid) { m_logicalDevice.GetAllocator().FreeBuffer(m_allocation, m_buffer); }
 }
 
 /**
@@ -89,11 +80,6 @@ vk::DeviceSize Buffer::GetAlignment(vk::DeviceSize m_instanceSize, vk::DeviceSiz
 
 void Buffer::CreateBuffer(CreateInfo& createInfo)
 {
-    if(!createInfo.device.GetVmaAllocator())
-    {
-        HGERROR("Unable to acquire valid VMA Allocator from Logical Device");
-        return;
-    }
     if(createInfo.size <= 0)
     {
         HGERROR("Cannot create buffer with <= 0 memory");
@@ -109,21 +95,28 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
     allocCreateInfo.usage = createInfo.memoryUsage;
     allocCreateInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(createInfo.properties);
 
-    vk::Result result =
-        static_cast<vk::Result>(vmaCreateBuffer(createInfo.device.GetVmaAllocator(), reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo),
-                                                &allocCreateInfo, reinterpret_cast<VkBuffer*>(createInfo.buffer), &createInfo.allocation, nullptr));
+    vk::Result result = m_logicalDevice.GetAllocator().AllocateBuffer(createInfo.size, createInfo.memoryUsage, createInfo.bufferUsage,
+                                                                      createInfo.properties, createInfo.allocation, *createInfo.buffer);
 
-    if(result != vk::Result::eSuccess) { HGERROR("Failed to create buffer: %s", vk::to_string(result).c_str()); }
+    if(result != vk::Result::eSuccess)
+    {
+        HGERROR("Failed to create buffer: %s", vk::to_string(result).c_str());
+        return;
+    }
 
-    vmaSetAllocationName(createInfo.device.GetVmaAllocator(), createInfo.allocation, createInfo.name.c_str());
+    m_logicalDevice.GetAllocator().NameAllocation(createInfo.allocation, createInfo.name.c_str());
 
-    // Retrieve allocation info
     VmaAllocationInfo allocInfo = {};
-    vmaGetAllocationInfo(createInfo.device.GetVmaAllocator(), createInfo.allocation, &allocInfo);
+    allocInfo = m_logicalDevice.GetAllocator().GetAllocationInfo(createInfo.allocation);
 
-    if(!createInfo.allocation) { HGERROR("Failed to get allocation info"); }
+    if(!createInfo.allocation)
+    {
+        HGERROR("Failed to get allocation info");
+        return;
+    }
 
     m_allocationInfo = allocInfo;
+    m_isValid = true;
 }
 
 /**
@@ -137,17 +130,14 @@ void Buffer::CreateBuffer(CreateInfo& createInfo)
  */
 vk::Result Buffer::Map(vk::DeviceSize size, vk::DeviceSize offset)
 {
-    if(!m_buffer || !m_allocationInfo.deviceMemory)
+    if(!m_isValid)
     {
         HGERROR("Called map on buffer before create");
         // what's the correct error here?
         return vk::Result::eErrorUnknown;
     }
 
-    if(!m_allocationInfo.pMappedData)
-    {
-        return static_cast<vk::Result>(vmaMapMemory(m_logicalDevice.GetVmaAllocator(), m_allocation, &m_allocationInfo.pMappedData));
-    }
+    if(!m_allocationInfo.pMappedData) { return m_logicalDevice.GetAllocator().Map(m_allocation, &m_allocationInfo.pMappedData); }
     else { return vk::Result::eSuccess; }
 }
 
@@ -158,17 +148,17 @@ vk::Result Buffer::Map(vk::DeviceSize size, vk::DeviceSize offset)
  */
 void Buffer::UnMap()
 {
+    if(!m_isValid)
+    {
+        HGERROR("Trying to unmap a buffer that has not been created");
+        return;
+    }
+
     if(m_allocationInfo.pMappedData)
     {
         if(!(m_memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) { Invalidate(); }
 
-        auto allocater = m_logicalDevice.GetVmaAllocator();
-        if(!allocater)
-        {
-            HGERROR("Unable to unmap buffer, VMA allocator is null");
-            return;
-        }
-        if(m_allocationInfo.pMappedData) { vmaUnmapMemory(allocater, m_allocation); }
+        if(m_allocationInfo.pMappedData) { m_logicalDevice.GetAllocator().Unmap(m_allocation); }
 
         m_allocationInfo.pMappedData = nullptr;
     }
@@ -195,14 +185,18 @@ void Buffer::WriteToBuffer(void* data, vk::DeviceSize size, vk::DeviceSize offse
         HGERROR("Cannot write invalid data to buffer");
         return;
     }
-    if(m_buffer == VK_NULL_HANDLE)
+    if(!m_isValid)
     {
         HGERROR("Cannot write to a null buffer. It's likely that an internal function failed.");
         return;
     }
+    if(offset + size > m_bufferSize && size != VK_WHOLE_SIZE)
+    {
+        HGERROR("Write exceeds \"%s\"'s bounds. Buffer is %i bytes, write is %i bytes", m_name.c_str(), m_bufferSize, size);
+        return;
+    }
 
     if(size == VK_WHOLE_SIZE) { size = m_bufferSize; }
-    if(offset + size > m_bufferSize) { HGERROR("Write exceeds buffer bounds"); }
 
     char* memOffset = static_cast<char*>(m_allocationInfo.pMappedData) + offset;
     memcpy(memOffset, data, size);
@@ -248,13 +242,7 @@ vk::Result Buffer::Invalidate(vk::DeviceSize size, vk::DeviceSize offset)
     mappedRange.offset = offset;
     mappedRange.size = size;
 
-    auto allocater = m_logicalDevice.GetVmaAllocator();
-    if(!allocater)
-    {
-        HGERROR("Unable to invalidate buffer, VMA allocator is null");
-        return vk::Result::eErrorUnknown;
-    }
-    return static_cast<vk::Result>(vmaInvalidateAllocation(allocater, m_allocation, offset, size));
+    return m_logicalDevice.GetAllocator().Invalidate(m_allocation, offset, size);
 }
 
 void Buffer::UpdateAddress(vk::BufferUsageFlags usage)
@@ -276,7 +264,7 @@ void Buffer::UpdateAddress(vk::BufferUsageFlags usage)
  */
 vk::DescriptorBufferInfo Buffer::DescriptorInfo(vk::DeviceSize size, vk::DeviceSize offset) const
 {
-    if(m_buffer == VK_NULL_HANDLE)
+    if(!m_isValid)
     {
         HGERROR("Cannot create descriptor info for a null buffer. It's likely that a previous function failed.");
         return vk::DescriptorBufferInfo{};
@@ -327,6 +315,12 @@ vk::Result Buffer::InvalidateIndex(int index) { return Invalidate(m_alignmentSiz
 
 void Buffer::CopyBuffer(const ILogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size)
 {
+    if(!srcBuffer.IsValid() || !dstBuffer.IsValid())
+    {
+        HGERROR("Trying to copy a buffer that has not been created");
+        return;
+    }
+
     vk::CommandBuffer commandBuffer = device.BeginSingleTimeCommands();
     if(commandBuffer == VK_NULL_HANDLE)
     {
@@ -354,7 +348,7 @@ void Buffer::CopyBuffer(const ILogicalDevice& device, Buffer& srcBuffer, Buffer&
     copyBufferInfo.pRegions = &copyRegion;
     copyBufferInfo.pNext = nullptr;
 
-    commandBuffer.copyBuffer2(&copyBufferInfo);
+    device.RecordCopyBuffer(commandBuffer, copyBufferInfo);
 
     device.EndSingleTimeCommands(commandBuffer);
 

@@ -5,9 +5,6 @@
 
 #include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool.hpp"
-#include "instance.hpp"
-#include "logical_device.hpp"
-#include "renderer.hpp"
 #include "singleton.hpp"
 #include "ui/widget.hpp"
 
@@ -18,14 +15,13 @@ class UI : public Singleton<UI>
 public:
     struct UICreationInfo
     {
-        // Apparently we can't just have "instance", we need "class Instance" for some reason.
-        const class Instance& instance;
-        const ILogicalDevice& logicalDevice;
-        const Window&         window;
-        const Renderer&       renderer;
+        // Apparently we can't just have "instance", we need "class IInstance" for some reason.
+        const class IInstance&      instance;
+        const class ILogicalDevice& logicalDevice;
+        const Window&               window;
     };
 
-    static void Init(class Instance& instance, const ILogicalDevice& logicalDevice, const Window& window)
+    static void Init(class IInstance& instance, const class ILogicalDevice& logicalDevice, const Window& window)
     {
         Get().Internal_Init(instance, logicalDevice, window);
     }
@@ -56,7 +52,7 @@ private:
 
     void InitDescriptorThings();
 
-    void Internal_Init(const class Instance& instance, const ILogicalDevice& logicalDevice, const Window& window);
+    void Internal_Init(const class IInstance& instance, const ILogicalDevice& logicalDevice, const Window& window);
     void Internal_Shutdown();
     void Internal_BeginUIFrame(vk::CommandBuffer cmd);
     void Internal_EndUIFrame(vk::CommandBuffer cmd);

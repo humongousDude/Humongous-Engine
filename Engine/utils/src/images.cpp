@@ -9,11 +9,6 @@ void CreateAllocatedImage(const ILogicalDevice& logicalDevice, u32 width, u32 he
                           vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, AllocatedImage& allocatedImage,
                           vk::ImageAspectFlags aspectFlags)
 {
-    if(!logicalDevice.GetVmaAllocator())
-    {
-        HGERROR("Unable to create image, VMA allocator is null");
-        return;
-    }
 
     vk::ImageCreateInfo imageInfo{};
     imageInfo.imageType = vk::ImageType::e2D;
@@ -33,8 +28,7 @@ void CreateAllocatedImage(const ILogicalDevice& logicalDevice, u32 width, u32 he
     allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(properties);
 
-    if(vmaCreateImage(logicalDevice.GetVmaAllocator(), reinterpret_cast<const VkImageCreateInfo*>(&imageInfo), &allocInfo,
-                      reinterpret_cast<VkImage*>(&allocatedImage.image), &allocatedImage.allocation, nullptr) != VK_SUCCESS)
+    if(logicalDevice.GetAllocator().AllocateImage(imageInfo, allocatedImage.allocation, allocatedImage.image) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create image");
     }
@@ -49,10 +43,7 @@ void CreateAllocatedImage(const ILogicalDevice& logicalDevice, u32 width, u32 he
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
 
-    if(logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &allocatedImage.imageView) != vk::Result::eSuccess)
-    {
-        HGERROR("Failed to create image view");
-    }
+    if(logicalDevice.CreateImageView(viewInfo, &allocatedImage.imageView) != vk::Result::eSuccess) { HGERROR("Failed to create image view"); }
 
     allocatedImage.width = width;
     allocatedImage.height = height;
@@ -62,12 +53,6 @@ void CreateAllocatedImage(const ILogicalDevice& logicalDevice, u32 width, u32 he
 
 void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
 {
-    if(!createInfo.logicalDevice.GetVmaAllocator())
-    {
-        HGERROR("Unable to create image, VMA allocator is null");
-        return;
-    }
-
     vk::ImageCreateInfo imageInfo{};
     imageInfo.imageType = vk::ImageType::e2D;
     imageInfo.extent.width = createInfo.width;
@@ -88,14 +73,13 @@ void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
     allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(createInfo.properties);
     allocInfo.pool = (createInfo.imagePool == VK_NULL_HANDLE) ? nullptr : createInfo.imagePool;
 
-    if(vmaCreateImage(createInfo.logicalDevice.GetVmaAllocator(), reinterpret_cast<const VkImageCreateInfo*>(&imageInfo), &allocInfo,
-                      reinterpret_cast<VkImage*>(&createInfo.allocatedImage->image), &createInfo.allocatedImage->allocation, nullptr) != VK_SUCCESS)
+    if(createInfo.logicalDevice.GetAllocator().AllocateImage(imageInfo, createInfo.allocatedImage->allocation, createInfo.allocatedImage->image) !=
+       vk::Result::eSuccess)
     {
         HGERROR("Failed to create image");
-        return;
     }
 
-    vmaSetAllocationName(createInfo.logicalDevice.GetVmaAllocator(), createInfo.allocatedImage->allocation, createInfo.name.c_str());
+    createInfo.logicalDevice.GetAllocator().NameAllocation(createInfo.allocatedImage->allocation, createInfo.name.c_str());
 
     vk::ImageViewCreateInfo viewInfo{};
     viewInfo.image = createInfo.allocatedImage->image;
@@ -108,10 +92,9 @@ void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
         viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
     }
 
-    if(createInfo.logicalDevice.GetVkDevice().createImageView(&viewInfo, nullptr, &createInfo.allocatedImage->imageView) != vk::Result::eSuccess)
+    if(createInfo.logicalDevice.CreateImageView(viewInfo, &createInfo.allocatedImage->imageView) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create image view");
-        return;
     }
 
     createInfo.allocatedImage->width = createInfo.width;
@@ -160,6 +143,11 @@ void TransitionImageLayout(ImageTransitionInfo& info)
     if(info.newLayout == info.oldLayout)
     {
         HGWARN("Identical layouts, skipping transition");
+        return;
+    }
+    if(info.layerCount < 1)
+    {
+        HGWARN("Layer count is less than 1, skipping transition");
         return;
     }
 
@@ -265,7 +253,7 @@ void TransitionImageLayout(ImageTransitionInfo& info)
     depInfo.imageMemoryBarrierCount = 1;
     depInfo.pImageMemoryBarriers = &imageBarrier;
 
-    info.cmd.pipelineBarrier2(depInfo);
+    info.logicalDevice.RecordPipelineBarrier(info.cmd, depInfo);
 }
 
 void TransitionImageLayout(const ILogicalDevice& logicalDevice, vk::Image image, vk::ImageLayout currentLayout, vk::ImageLayout newLayout)
@@ -282,7 +270,8 @@ void TransitionImageLayout(const ILogicalDevice& logicalDevice, vk::Image image,
     logicalDevice.EndSingleTimeCommands(cmd);
 }
 
-void CopyImageToImage(vk::CommandBuffer cmd, vk::Image src, vk::Image dst, vk::Extent2D srcSize, vk::Extent2D dstSize)
+void CopyImageToImage(const ILogicalDevice& logicalDevice, vk::CommandBuffer cmd, vk::Image src, vk::Image dst, vk::Extent2D srcSize,
+                      vk::Extent2D dstSize)
 {
     vk::ImageBlit2 blitRegion{};
     blitRegion.srcOffsets[1] = vk::Offset3D(srcSize.width, srcSize.height, 1);
@@ -307,7 +296,7 @@ void CopyImageToImage(vk::CommandBuffer cmd, vk::Image src, vk::Image dst, vk::E
     blitInfo.regionCount = 1;
     blitInfo.pRegions = &blitRegion;
 
-    cmd.blitImage2(blitInfo);
+    logicalDevice.RecordBlitImage(cmd, blitInfo);
 }
 
 void CopyBufferToImage(const ILogicalDevice& logicalDevice, vk::Buffer buffer, vk::Image image, u32 width, u32 height)
@@ -324,7 +313,7 @@ void CopyBufferToImage(const ILogicalDevice& logicalDevice, vk::Buffer buffer, v
     region.imageOffset = vk::Offset3D(0, 0, 0);
     region.imageExtent = vk::Extent3D(width, height, 1);
 
-    commandBuffer.copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, 1, &region);
+    logicalDevice.RecordCopyBufferToImage(commandBuffer, buffer, image, vk::ImageLayout::eTransferDstOptimal, {region});
     logicalDevice.EndSingleTimeCommands(commandBuffer);
 }
 
@@ -337,7 +326,7 @@ void CopyBufferToImage(const ILogicalDevice& logicalDevice, vk::Buffer buffer, v
     }
 
     vk::CommandBuffer commandBuffer = logicalDevice.BeginSingleTimeCommands();
-    commandBuffer.copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, static_cast<uint32_t>(regions.size()), regions.data());
+    logicalDevice.RecordCopyBufferToImage(commandBuffer, buffer, image, vk::ImageLayout::eTransferDstOptimal, regions);
     logicalDevice.EndSingleTimeCommands(commandBuffer);
 }
 

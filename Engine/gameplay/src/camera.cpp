@@ -63,7 +63,8 @@ void Camera::InitDescriptorThings(const ILogicalDevice& logicalDevice)
     {
         m_projectionBuffers[i] =
             std::make_unique<Buffer>(logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(ProjectionUBO), vk::BufferUsageFlagBits::eUniformBuffer,
-                                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO);
+                                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO, 1,
+                                     "global projection buffer");
         m_projectionBuffers[i]->Map();
 
         auto bufInfo = m_projectionBuffers[i]->DescriptorInfo();
@@ -73,7 +74,8 @@ void Camera::InitDescriptorThings(const ILogicalDevice& logicalDevice)
 
         m_paramBuffers[i] =
             std::make_unique<Buffer>(logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(UboParams), vk::BufferUsageFlagBits::eUniformBuffer,
-                                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO);
+                                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO, 1,
+                                     "global ubo params buffer");
         m_paramBuffers[i]->Map();
 
         auto paramInfo = m_paramBuffers[i]->DescriptorInfo();
@@ -81,7 +83,8 @@ void Camera::InitDescriptorThings(const ILogicalDevice& logicalDevice)
 
         m_combinedCameraDataBuffers[i] = std::make_unique<Buffer>(
             logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(CombinedCameraData), vk::BufferUsageFlagBits::eUniformBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO);
+            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO, 1,
+            "global combined camera data buffer");
     }
 }
 

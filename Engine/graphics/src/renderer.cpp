@@ -137,10 +137,7 @@ void Renderer::CreateDrawImage()
     for(auto& frame: m_frames)
     {
         if(frame.drawImage.imageView != VK_NULL_HANDLE) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), frame.drawImage.imageView, nullptr); }
-        if(frame.drawImage.image != VK_NULL_HANDLE)
-        {
-            vmaDestroyImage(m_logicalDevice.GetVmaAllocator(), frame.drawImage.image, frame.drawImage.allocation);
-        }
+        if(frame.drawImage.image != VK_NULL_HANDLE) { m_logicalDevice.GetAllocator().FreeImage(frame.drawImage.allocation, frame.drawImage.image); }
 
         imgCI.allocatedImage = &frame.drawImage;
         Utils::CreateAllocatedImage(imgCI);
@@ -786,8 +783,8 @@ void Renderer::EndFrame()
 
     Utils::TransitionImageLayout(swapInfo);
 
-    Utils::CopyImageToImage(cmd, GetCurrentFrame().drawImage.image, m_swapChain->GetImages()[m_currentImageIndex], m_screenImageExtent,
-                            m_swapChain->GetExtent());
+    Utils::CopyImageToImage(m_logicalDevice, cmd, GetCurrentFrame().drawImage.image, m_swapChain->GetImages()[m_currentImageIndex],
+                            m_screenImageExtent, m_swapChain->GetExtent());
 
     Utils::ImageTransitionInfo presentTransitionInfo{.logicalDevice = m_logicalDevice};
     presentTransitionInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
@@ -921,14 +918,14 @@ void Renderer::DoLightingPass(vk::CommandBuffer cmd, vk::DescriptorSet camSet, v
     m_lightingPipeline->BindPipeline(cmd);
 
     std::vector<vk::DescriptorSet> sets = {camSet, sceneSet, skyboxSet, currentFrame.gbuffer.imageSet};
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_lightingPipelineLayout, 0, sets.size(), sets.data(), 0, nullptr);
+    m_logicalDevice.RecordBindDescriptorSets(cmd, m_lightingPipelineLayout, vk::PipelineBindPoint::eCompute, 0, sets);
 
     u32 localSize = 8;
 
     u32 countX = std::ceil(m_screenImageExtent.width / localSize);
     u32 countY = std::ceil(m_screenImageExtent.height / localSize);
 
-    cmd.dispatch(countX, countY, 1);
+    m_logicalDevice.RecordComputeDispatch(cmd, countX, countY, 1);
 
     WaitForCompute(cmd);
 
@@ -1097,13 +1094,13 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
 
         u32 level = 0;
 
-        cmd.pushConstants(m_mipPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(u32), &level);
+        m_logicalDevice.RecordPushConstants(cmd, m_mipPipelineLayout, vk::ShaderStageFlagBits::eCompute, &level, sizeof(u32));
 
-        cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_mipPipelineLayout, 0, 1, &currentFrame.hiZMips[0].set, 0, nullptr);
+        m_logicalDevice.RecordBindDescriptorSets(cmd, m_mipPipelineLayout, vk::PipelineBindPoint::eCompute, 0, {currentFrame.hiZMips[0].set});
 
         u32 initialMipWidth = currentFrame.hiZImage.width;
         u32 initialMipHeight = currentFrame.hiZImage.height;
-        cmd.dispatch((initialMipWidth + 7) / 8, (initialMipHeight + 7) / 8, 1);
+        m_logicalDevice.RecordComputeDispatch(cmd, (initialMipWidth + 7) / 8, (initialMipHeight + 7) / 8, 1);
 
         Utils::ImageTransitionInfo mip0DestTranstition2{.logicalDevice = m_logicalDevice};
         mip0DestTranstition2.cmd = cmd;
@@ -1165,14 +1162,14 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
 
         writer.WriteImage(0, &sourceImageInfo).WriteImage(1, &destImageInfo).Overwrite(currentFrame.hiZMips[i + 1].set);
 
-        cmd.pushConstants(m_mipPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(u32), &i + 1);
+        m_logicalDevice.RecordPushConstants(cmd, m_mipPipelineLayout, vk::ShaderStageFlagBits::eCompute, &i + 1, sizeof(u32));
 
-        cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_mipPipelineLayout, 0, 1, &currentFrame.hiZMips[i + 1].set, 0, nullptr);
+        m_logicalDevice.RecordBindDescriptorSets(cmd, m_mipPipelineLayout, vk::PipelineBindPoint::eCompute, 0, {currentFrame.hiZMips[i + 1].set});
 
         u32 destMipWidth = std::max(1u, currentFrame.hiZImage.width >> (i + 1));
         u32 destMipHeight = std::max(1u, currentFrame.hiZImage.height >> (i + 1));
 
-        cmd.dispatch((destMipWidth + 7) / 8, (destMipHeight + 7) / 8, 1);
+        m_logicalDevice.RecordComputeDispatch(cmd, (destMipWidth + 7) / 8, (destMipHeight + 7) / 8, 1);
 
         Utils::ImageTransitionInfo sourceNextIterTransition{.logicalDevice = m_logicalDevice};
         sourceNextIterTransition.cmd = cmd;
@@ -1265,13 +1262,13 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
         .WriteBuffer(4, &rendererDataGpuInfo)
         .Overwrite(computeSet);
 
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_occlusionPipelineLayout, 0, 1, &computeSet, 0, nullptr);
+    m_logicalDevice.RecordBindDescriptorSets(cmd, m_occlusionPipelineLayout, vk::PipelineBindPoint::eCompute, 0, {computeSet});
 
     u32 size = objectDataForGPU.size();
-    cmd.pushConstants(m_occlusionPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(u32), &size);
+    m_logicalDevice.RecordPushConstants(cmd, m_occlusionPipelineLayout, vk::ShaderStageFlagBits::eCompute, &size, sizeof(u32));
 
     u32 groupCountX = (size + 63) / 64;
-    if(groupCountX > 0) { cmd.dispatch(groupCountX, 1, 1); }
+    if(groupCountX > 0) { m_logicalDevice.RecordComputeDispatch(cmd, groupCountX, 1, 1); }
 
     WaitForCompute(cmd);
 

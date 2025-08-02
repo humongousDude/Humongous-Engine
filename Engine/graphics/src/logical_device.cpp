@@ -9,33 +9,13 @@
 
 namespace Humongous
 {
-
-void VKAPI_PTR VmaAllocateDeviceMemoryFunction(VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size,
-                                               void* pUserData)
-{
-    VulkanLogicalDevice::VMAData* myUserData = static_cast<VulkanLogicalDevice::VMAData*>(pUserData);
-    if(myUserData) { myUserData->allocationCount++; }
-
-    HGTRACE("VMA_ALLOC_CB: Allocated memoryType=%u, memory=0x%p, size=%llu bytes. Total allocations: %d", memoryType, (void*)memory,
-            (unsigned long long)size, myUserData ? myUserData->allocationCount : -1);
-}
-
-void VKAPI_PTR VmaFreeDeviceMemoryFunction(VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size, void* pUserData)
-{
-    VulkanLogicalDevice::VMAData* myUserData = static_cast<VulkanLogicalDevice::VMAData*>(pUserData);
-    if(myUserData) { myUserData->freeCount++; }
-
-    HGTRACE("VMA_FREE_CB: Freeing memoryType=%u, memory=0x%p, size=%llu bytes. Total frees: %d", memoryType, (void*)memory,
-            (unsigned long long)size, myUserData ? myUserData->freeCount : -1);
-}
-
-VulkanLogicalDevice::VulkanLogicalDevice(Instance& instance, IPhysicalDevice& physicalDevice)
+VulkanLogicalDevice::VulkanLogicalDevice(IInstance& instance, IPhysicalDevice& physicalDevice)
     : m_logicalDevice{VK_NULL_HANDLE}, m_instance{instance}, m_physicalDevice{&physicalDevice}
 {
     HGINFO("Creating logical device...");
     CreateLogicalDevice(instance, physicalDevice);
-    CreateVmaAllocator(instance, physicalDevice);
     CreateCommandPool(physicalDevice);
+    m_allocator = std::make_unique<Allocator>(*this, instance);
     HGINFO("Created logical device");
 }
 
@@ -43,18 +23,12 @@ VulkanLogicalDevice::~VulkanLogicalDevice()
 {
     HGINFO("Destroying logical device...");
     vkDestroyCommandPool(m_logicalDevice, m_commandPool, nullptr);
-
-    vmaDestroyAllocator(m_allocator);
-
-    if(m_vmaData.freeCount < m_vmaData.allocationCount)
-    {
-        HGERROR("We didn't free every allocation! Allocations: %i, Frees: %i", m_vmaData.allocationCount, m_vmaData.freeCount);
-    }
+    m_allocator.reset();
     vkDestroyDevice(m_logicalDevice, nullptr);
     HGINFO("Destroyed logical device");
 }
 
-void VulkanLogicalDevice::CreateLogicalDevice(Instance& instance, IPhysicalDevice& physicalDevice)
+void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevice& physicalDevice)
 {
     HGASSERT(m_logicalDevice == VK_NULL_HANDLE && "Logical device has already been made!");
     HGASSERT(physicalDevice.GetVkPhysicalDevice() != VK_NULL_HANDLE && "Can't create a logical device with a null physical device!");
@@ -153,23 +127,6 @@ void VulkanLogicalDevice::CreateLogicalDevice(Instance& instance, IPhysicalDevic
     HGINFO("logical device queues acquired");
 }
 
-void VulkanLogicalDevice::CreateVmaAllocator(Instance& instance, IPhysicalDevice& physicalDevice)
-{
-    VmaDeviceMemoryCallbacks memoryCallbacks = {};
-    memoryCallbacks.pfnAllocate = VmaAllocateDeviceMemoryFunction;
-    memoryCallbacks.pfnFree = VmaFreeDeviceMemoryFunction;
-    memoryCallbacks.pUserData = &m_vmaData;
-
-    VmaAllocatorCreateInfo allocatorInfo{};
-    allocatorInfo.physicalDevice = physicalDevice.GetVkPhysicalDevice();
-    allocatorInfo.device = m_logicalDevice;
-    allocatorInfo.instance = instance.GetVkInstance();
-    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
-    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-    allocatorInfo.pDeviceMemoryCallbacks = &memoryCallbacks;
-    vmaCreateAllocator(&allocatorInfo, &m_allocator);
-}
-
 std::vector<vk::DeviceQueueCreateInfo> VulkanLogicalDevice::CreateQueues(IPhysicalDevice& physicalDevice)
 {
     HGINFO("acquiring queue handles...");
@@ -177,7 +134,7 @@ std::vector<vk::DeviceQueueCreateInfo> VulkanLogicalDevice::CreateQueues(IPhysic
     IPhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 
     // Use std::set to get unique queue family indices
-    std::set<uint32_t> uniqueQueueFamilyIndices; // Use uint32_t for Vulkan indices
+    std::set<u32> uniqueQueueFamilyIndices; // Use u32 for Vulkan indices
     if(indices.graphicsFamily.has_value()) { uniqueQueueFamilyIndices.insert(indices.graphicsFamily.value()); }
     if(indices.presentFamily.has_value()) { uniqueQueueFamilyIndices.insert(indices.presentFamily.value()); }
 
@@ -186,7 +143,7 @@ std::vector<vk::DeviceQueueCreateInfo> VulkanLogicalDevice::CreateQueues(IPhysic
     std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
     float                                  queuePriority = 1.0f; // All queues will have this priority
 
-    for(uint32_t queueFamilyIndex: uniqueQueueFamilyIndices)
+    for(u32 queueFamilyIndex: uniqueQueueFamilyIndices)
     {
         vk::DeviceQueueCreateInfo queueCreateInfo{};
         queueCreateInfo.sType = vk::StructureType::eDeviceQueueCreateInfo;
@@ -358,5 +315,46 @@ vk::Result VulkanLogicalDevice::CreateGraphicsPipeline(const vk::GraphicsPipelin
 }
 
 void VulkanLogicalDevice::DestroyPipeline(vk::Pipeline pipeline) const { m_logicalDevice.destroyPipeline(pipeline, nullptr); }
+
+void VulkanLogicalDevice::RecordCopyBuffer(vk::CommandBuffer commandBuffer, const vk::CopyBufferInfo2& copyInfo) const
+{
+    commandBuffer.copyBuffer2(&copyInfo);
+}
+
+void VulkanLogicalDevice::RecordPipelineBarrier(vk::CommandBuffer commandBuffer, vk::DependencyInfo& dependencyInfo) const
+{
+    commandBuffer.pipelineBarrier2(dependencyInfo);
+}
+
+void VulkanLogicalDevice::RecordComputeDispatch(vk::CommandBuffer commandBuffer, u32 groupCountX, u32 groupCountY, u32 groupCountZ) const
+{
+    commandBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
+}
+
+void VulkanLogicalDevice::RecordBindDescriptorSets(vk::CommandBuffer cmd, vk::PipelineLayout pipelineLayout,
+                                                   vk::PipelineBindPoint pipelineBindPoint, const u32& firstSet,
+                                                   const std::vector<vk::DescriptorSet>& descriptorSets) const
+{
+    cmd.bindDescriptorSets(pipelineBindPoint, pipelineLayout, firstSet, static_cast<u32>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
+}
+
+void VulkanLogicalDevice::RecordPushConstants(vk::CommandBuffer cmd, vk::PipelineLayout layout, vk::ShaderStageFlagBits shaderFlags,
+                                              const void* data, size_t size) const
+{
+    cmd.pushConstants(layout, shaderFlags, 0, size, data);
+}
+
+void VulkanLogicalDevice::RecordBindPipeline(vk::CommandBuffer cmd, vk::PipelineBindPoint pipelineBindPoint, vk::Pipeline pipeline) const
+{
+    cmd.bindPipeline(pipelineBindPoint, pipeline);
+}
+
+void VulkanLogicalDevice::RecordCopyBufferToImage(vk::CommandBuffer cmd, vk::Buffer buffer, vk::Image image, vk::ImageLayout imageLayout,
+                                                  const std::vector<vk::BufferImageCopy>& regions) const
+{
+    cmd.copyBufferToImage(buffer, image, imageLayout, static_cast<u32>(regions.size()), regions.data());
+}
+
+void VulkanLogicalDevice::RecordBlitImage(vk::CommandBuffer cmd, vk::BlitImageInfo2 blit) const { cmd.blitImage2(blit); }
 
 } // namespace Humongous

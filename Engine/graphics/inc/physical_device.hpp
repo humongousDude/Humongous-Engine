@@ -66,7 +66,7 @@ class PhysicalDevice : public IPhysicalDevice, NonCopyable
 {
 
 public:
-    PhysicalDevice(Instance& instance, Window& window);
+    PhysicalDevice(IInstance& instance, Window& window);
     ~PhysicalDevice();
 
     vk::PhysicalDevice GetVkPhysicalDevice() const override { return m_physicalDevice; }
@@ -99,7 +99,7 @@ public:
     const DeviceCapabilities& GetCurrentCapabilities() const override { return m_currentCapabilities; }
 
 private:
-    Instance&          m_instance;
+    IInstance&         m_instance;
     vk::PhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
     vk::SurfaceKHR     m_surface = VK_NULL_HANDLE;
     DeviceSupportLevel m_currentSupportLevel = DeviceSupportLevel::BaseGraphics;

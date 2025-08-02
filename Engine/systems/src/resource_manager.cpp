@@ -13,7 +13,9 @@ ResourceManager::ResourceManager(const ILogicalDevice& logicalDevice, const IAss
     : m_logicalDevice(logicalDevice), m_assetManager(assetManager)
 {
     HGINFO("Initializing Resource manager...");
+    HGINFO("Initializing descriptors...");
     InitDescriptors();
+    HGINFO("Initializing initials...");
     InitializeInitials();
     HGINFO("Resource manager initialized");
 }
@@ -216,6 +218,7 @@ u32 ResourceManager::LoadModel(const std::string& name)
 
     auto path = m_assetManager.GetAsset(AssetManager::AssetType::MODEL, name);
     HGINFO("Loading model %s with handle %i", name.c_str(), handleToReturn);
+
     auto m = std::make_shared<Model>(*this, path, 1.0f, handleToReturn);
 
     HGINFO("Model %s loaded. Added to map with handle %i. Map size: %zu", name.c_str(), handleToReturn, m_modelMap.size());
@@ -434,7 +437,8 @@ void ResourceManager::AddIndicesToModel(const std::vector<u32>& modelIndices, st
     }
 
     Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
+                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU, 1,
+                         "global index staging buffer");
 
     stagingBuffer.Map();
     stagingBuffer.WriteToBuffer(m_modelIndicies.data(), requiredBufferSize);
@@ -484,7 +488,8 @@ void ResourceManager::AddVerticesToModel(const std::vector<Model::Vertex>& model
     }
 
     Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
+                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU, 1,
+                         "global vertex staging buffer");
 
     stagingBuffer.Map();
     stagingBuffer.WriteToBuffer(m_modelVertices.data(), requiredBufferSize);
@@ -561,7 +566,8 @@ void ResourceManager::FinalizeGPUData()
         }
 
         Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU, 1,
+                             "global jointMatricies staging buffer");
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer(m_modelJointMatricies.data(), requiredBufferSize);
@@ -595,7 +601,8 @@ void ResourceManager::FinalizeGPUData()
         }
 
         Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU, 1,
+                             "global morphTargets staging buffer");
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer(m_modelMorphTargets.data(), requiredBufferSize);
@@ -628,7 +635,8 @@ void ResourceManager::FinalizeGPUData()
         }
 
         Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU);
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU, 1,
+                             "global nodeMatrices staging buffer");
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer(m_modelNodeMatricesFlat.data(), requiredBufferSize);

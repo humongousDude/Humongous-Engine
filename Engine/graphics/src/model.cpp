@@ -114,16 +114,16 @@ void Model::LoadFromFile(std::string filePath, f32 scale)
 
     for(auto& node: m_nodes) { UpdateMaterialBatches(node); }
 
+    CreateMeshlets(loaderInfo);
+    CalculateRestAABB();
+    LoadMaterialData();
+
     HGINFO("Model %s loaded", m_name.c_str());
     HGINFO("Nodes: %i", m_nodes.size());
     HGINFO("Meshes: %i", m_meshes.size());
     HGINFO("Animations: %i", m_animations.size());
     HGINFO("Vertices: %i", m_vertices.size());
     HGINFO("Indices: %i", m_indices.size());
-
-    CreateMeshlets(loaderInfo);
-    CalculateRestAABB();
-    LoadMaterialData();
 
     m_initialized = true;
 }

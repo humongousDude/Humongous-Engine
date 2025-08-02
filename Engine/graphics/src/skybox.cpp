@@ -210,17 +210,17 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
             return;
         }
 
-        std::array<vk::DescriptorSet, 2> irradianceSets = {envSet, irradSet};
+        std::vector<vk::DescriptorSet> irradianceSets = {envSet, irradSet};
 
         irradiancePipeline.BindPipeline(cmd);
-        cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, irradePipelineLayout, 0, irradianceSets.size(), irradianceSets.data(), 0, nullptr);
+        m_logicalDevice.RecordBindDescriptorSets(cmd, irradePipelineLayout, vk::PipelineBindPoint::eCompute, 0, irradianceSets);
 
         u32 irradianceMapSize = 512;
         u32 irradianceGroupCountX = (irradianceMapSize + LOCAL_SIZE_X - 1) / LOCAL_SIZE_X;
         u32 irradianceGroupCountY = (irradianceMapSize + LOCAL_SIZE_Y - 1) / LOCAL_SIZE_Y;
         u32 irradianceGroupCountZ = (6 + LOCAL_SIZE_Z - 1) / LOCAL_SIZE_Z; // Since LOCAL_SIZE_Z is 1, this is 6
 
-        cmd.dispatch(irradianceGroupCountX, irradianceGroupCountY, irradianceGroupCountZ);
+        m_logicalDevice.RecordComputeDispatch(cmd, irradianceGroupCountX, irradianceGroupCountY, irradianceGroupCountZ);
 
         m_logicalDevice.EndSingleTimeCommands(cmd);
     }
@@ -234,7 +234,8 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
         configInfo.shaderFile = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "prefiltredmap.comp");
         ComputePipeline prefilteredPipeline{configInfo};
 
-        std::array<vk::DescriptorSet, 2> prefilteredSets = {envSet};
+        std::vector<vk::DescriptorSet> prefilteredSets(2);
+        prefilteredSets[0] = envSet;
 
         auto cmd = m_logicalDevice.BeginSingleTimeCommands();
         if(cmd == VK_NULL_HANDLE)
@@ -261,15 +262,16 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
             DescriptorWriter(*prefilteredLayout, &storageImagePool).WriteImage(0, &info).Build(s);
 
             prefilteredSets[1] = s;
-            cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, prefiltPipelineLayout, 0, 2, prefilteredSets.data(), 0, nullptr);
+            m_logicalDevice.RecordBindDescriptorSets(cmd, prefiltPipelineLayout, vk::PipelineBindPoint::eCompute, 0, prefilteredSets);
 
             PrefilteredData prefilterData;
             prefilterData.roughness = pow((float)mipLevel / (float)(m_prefilteredMap->GetMipLevels() - 1), 0.6);
             prefilterData.mipLevel = mipLevel;
 
-            cmd.pushConstants(prefiltPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(PrefilteredData), &prefilterData);
+            m_logicalDevice.RecordPushConstants(cmd, prefiltPipelineLayout, vk::ShaderStageFlagBits::eCompute, &prefilterData,
+                                                sizeof(PrefilteredData));
 
-            cmd.dispatch(prefilteredGroupCountX, prefilteredGroupCountY, prefilteredGroupCountZ);
+            m_logicalDevice.RecordComputeDispatch(cmd, prefilteredGroupCountX, prefilteredGroupCountY, prefilteredGroupCountZ);
         }
 
         m_logicalDevice.EndSingleTimeCommands(cmd);
@@ -290,17 +292,17 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
             return;
         }
 
-        std::array<vk::DescriptorSet, 1> brdfSets = {brdfSet};
+        std::vector<vk::DescriptorSet> brdfSets = {brdfSet};
 
         brdfPipeline.BindPipeline(cmd);
-        cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, brdfPipelineLayout, 0, brdfSets.size(), brdfSets.data(), 0, nullptr);
+        m_logicalDevice.RecordBindDescriptorSets(cmd, brdfPipelineLayout, vk::PipelineBindPoint::eCompute, 0, brdfSets);
 
         u32 brdfMapSize = 512;
         u32 brdfGroupCountX = (brdfMapSize + LOCAL_SIZE_X - 1) / LOCAL_SIZE_X;
         u32 brdfGroupCountY = (brdfMapSize + LOCAL_SIZE_Y - 1) / LOCAL_SIZE_Y;
         u32 brdfGroupCountZ = (6 + LOCAL_SIZE_Z - 1) / LOCAL_SIZE_Z;
 
-        cmd.dispatch(brdfGroupCountX, brdfGroupCountY, brdfGroupCountZ);
+        m_logicalDevice.RecordComputeDispatch(cmd, brdfGroupCountX, brdfGroupCountY, brdfGroupCountZ);
 
         m_logicalDevice.EndSingleTimeCommands(cmd);
     }

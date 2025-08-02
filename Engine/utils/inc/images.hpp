@@ -25,9 +25,9 @@ struct AllocatedImage
 
     void Destroy(const ILogicalDevice& logicalDevice)
     {
-        logicalDevice.GetVkDevice().destroyImageView(imageView);
-        vmaDestroyImage(logicalDevice.GetVmaAllocator(), image, allocation);
-        if(sampler) { logicalDevice.GetVkDevice().destroySampler(*sampler); }
+        logicalDevice.DestroyImageView(imageView);
+        logicalDevice.GetAllocator().FreeImage(allocation, image);
+        if(sampler) { logicalDevice.DestroySampler(*sampler); }
     }
 };
 
@@ -92,8 +92,8 @@ void TransitionImageLayout(const ILogicalDevice& logicalDevice, vk::Image image,
 
 void TransitionImageLayout(ImageTransitionInfo& info);
 
-void CopyImageToImage(vk::CommandBuffer cmd, vk::Image src, vk::Image dst, vk::Extent2D srcSize, vk::Extent2D dstSize);
-void CopyImageToImage(vk::CommandBuffer cmd, AllocatedImage& src, AllocatedImage& dst, std::vector<vk::ImageBlit>& blits);
+void CopyImageToImage(const ILogicalDevice& logicalDevice, vk::CommandBuffer cmd, vk::Image src, vk::Image dst, vk::Extent2D srcSize,
+                      vk::Extent2D dstSize);
 
 void CopyBufferToImage(const ILogicalDevice& logicalDevice, vk::Buffer buffer, vk::Image image, u32 width, u32 height);
 void CopyBufferToImage(const ILogicalDevice& logicalDevice, vk::Buffer buffer, vk::Image image,

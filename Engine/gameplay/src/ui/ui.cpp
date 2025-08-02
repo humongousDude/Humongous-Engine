@@ -1,5 +1,7 @@
 #include "ui/ui.hpp"
+#include "instance.hpp"
 #include "logger.hpp"
+#include "logical_device.hpp"
 #include "render_pipeline.hpp"
 
 // lib
@@ -14,7 +16,7 @@
 namespace Humongous
 {
 
-void UI::Internal_Init(const class Instance& instance, const ILogicalDevice& logicalDevice, const Window& window)
+void UI::Internal_Init(const class IInstance& instance, const ILogicalDevice& logicalDevice, const Window& window)
 {
     if(m_hasInitialized) { return; }
     HGINFO("Initializing UI...");

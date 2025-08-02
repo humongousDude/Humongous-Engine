@@ -48,7 +48,7 @@ public:
 
     vk::Pipeline& GetPipeline() { return m_pipeline; }
 
-    void Bind(vk::CommandBuffer cmd) { vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline); };
+    void Bind(vk::CommandBuffer cmd) { m_logicalDevice.RecordBindPipeline(cmd, vk::PipelineBindPoint::eGraphics, m_pipeline); };
 
 private:
     const ILogicalDevice& m_logicalDevice;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "defines.hpp"
 #include "non_copyable.hpp"
 #include <vector>
 
@@ -8,16 +9,26 @@
 namespace Humongous
 {
 
-class Instance : NonCopyable
+class IInstance
+{
+public:
+    virtual ~IInstance() = default;
+    virtual vk::Instance GetVkInstance() const = 0;
+
+    virtual b8                       IsValidationLayerEnabled() const = 0;
+    virtual std::vector<const char*> GetValidationLayers() const = 0;
+};
+
+class Instance : public IInstance, NonCopyable
 {
 public:
     Instance();
     ~Instance();
 
-    vk::Instance GetVkInstance() const { return m_instance; };
+    vk::Instance GetVkInstance() const override { return m_instance; };
 
-    bool                     IsValidationLayerEnabled() const { return ENABLE_VALIDATION_LAYERS; };
-    std::vector<const char*> GetValidationLayers() const { return m_validationLayers; };
+    b8                       IsValidationLayerEnabled() const override { return ENABLE_VALIDATION_LAYERS; };
+    std::vector<const char*> GetValidationLayers() const override { return m_validationLayers; };
 
 private:
     vk::Instance m_instance;

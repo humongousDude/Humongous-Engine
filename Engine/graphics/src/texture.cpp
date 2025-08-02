@@ -1,11 +1,11 @@
-#include "logger.hpp"
 #define STB_IMAGE_IMPLEMENTATION
+#include "texture.hpp"
 #include "abstractions/buffer.hpp"
 #include "allocator.hpp"
 #include "asserts.hpp"
 #include "defines.hpp"
 #include "images.hpp"
-#include "texture.hpp"
+#include "logger.hpp"
 #include <ktx.h>
 #include <ktxvulkan.h>
 #include <stb_image.h>
@@ -30,7 +30,7 @@ void Texture::Destroy()
 {
     if(m_textureSampler) { m_logicalDevice.DestroySampler(m_textureSampler); }
     if(m_textureImage.imageView) { m_logicalDevice.DestroyImageView(m_textureImage.imageView); }
-    if(m_textureImage.image) { vmaDestroyImage(m_logicalDevice.GetVmaAllocator(), m_textureImage.image, m_textureImage.allocation); }
+    if(m_textureImage.image) { m_logicalDevice.GetAllocator().FreeImage(m_textureImage.allocation, m_textureImage.image); }
 }
 
 void Texture::CreateFromFile(const std::string& path, const ILogicalDevice& device, const ImageType& imageType, const bool& storage)
@@ -197,7 +197,6 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     createInfo.aspectFlags = vk::ImageAspectFlagBits::eColor;
     createInfo.flags = {};
     createInfo.imageViewType = vk::ImageViewType::e2D;
-    createInfo.imagePool = Allocator::GetglTFImagePool();
     createInfo.name = gltfimage.name;
 
     Utils::CreateAllocatedImage(createInfo);
@@ -325,7 +324,11 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
     {
         s32      texWidth, texHeight, texChannels;
         stbi_uc* pixels = stbi_load(imagePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-        HGASSERT(pixels && "Failed to load texture image!");
+        if(!pixels)
+        {
+            HGERROR("Failed to load texture image!");
+            return;
+        }
 
         m_width = static_cast<u32>(texWidth);
         m_height = static_cast<u32>(texHeight);
@@ -435,7 +438,11 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         KTX_error_code result;
 
         result = ktxTexture_CreateFromNamedFile(imagePath.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxTex);
-        HGASSERT(result == KTX_SUCCESS && "Failed to load KTX texture file.");
+        if(result != KTX_SUCCESS)
+        {
+            HGERROR("Failed to load KTX texture file.");
+            return;
+        }
 
         m_width = ktxTex->baseWidth;
         m_height = ktxTex->baseHeight;

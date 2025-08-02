@@ -12,7 +12,7 @@ ComputePipeline::ComputePipeline(const ComputePipeline::ComputePipelineCreateInf
 
 ComputePipeline::~ComputePipeline()
 {
-    if(m_pipeline != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyPipeline(m_pipeline, nullptr); }
+    if(m_pipeline != VK_NULL_HANDLE) { m_logicalDevice.DestroyPipeline(m_pipeline); }
 }
 
 void ComputePipeline::CreatePipeline(const ComputePipeline::ComputePipelineCreateInfo& createInfo)
@@ -46,7 +46,7 @@ void ComputePipeline::BindPipeline(vk::CommandBuffer cmd)
         HGERROR("Unable to bind compute pipeline, pipeline is null");
         return;
     }
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, m_pipeline);
+    m_logicalDevice.RecordBindPipeline(cmd, vk::PipelineBindPoint::eCompute, m_pipeline);
 }
 
 } // namespace Humongous

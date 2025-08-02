@@ -1,7 +1,7 @@
+#include "physical_device.hpp"
 #include "logger.hpp"
 #include "string"
 #include "vector"
-#include <physical_device.hpp>
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_to_string.hpp>
 
@@ -9,7 +9,7 @@
 
 namespace Humongous
 {
-PhysicalDevice::PhysicalDevice(Instance& instance, Window& window) : m_instance{instance}
+PhysicalDevice::PhysicalDevice(IInstance& instance, Window& window) : m_instance{instance}
 {
     m_surface = window.CreateWindowSurface(m_instance.GetVkInstance());
     PickPhysicalDevice();

@@ -1,6 +1,5 @@
 #include "vulkan_app.hpp"
 #include "all_tests.hpp"
-#include "allocator.hpp"
 #include "audio_engine.hpp"
 #include "camera.hpp"
 #include "chrono"
@@ -16,7 +15,7 @@ namespace Humongous
 {
 VulkanApp::VulkanApp(int argc, char* argv[])
 {
-    // PauseLogging();
+    PauseLogging();
     ::testing::InitGoogleTest(&argc, argv);
     auto ret = RUN_ALL_TESTS();
     ResumeLogging();
@@ -58,7 +57,7 @@ void VulkanApp::Init(const int argc, char* argv[])
         m_assetManager = std::make_unique<AssetManager>();
     }
 
-    Allocator::Initialize(*m_logicalDevice);
+    // Allocator::Initialize(*m_logicalDevice);
 
     m_resourceManager = std::make_unique<ResourceManager>(*m_logicalDevice, *m_assetManager);
 
@@ -93,7 +92,7 @@ void VulkanApp::Init(const int argc, char* argv[])
         UI::Shutdown();
         m_resourceManager.reset();
         AudioEngine::Shutdown();
-        Allocator::Shutdown();
+        // Allocator::Shutdown();
         m_logicalDevice.reset();
         m_physicalDevice.reset();
         m_window.reset();

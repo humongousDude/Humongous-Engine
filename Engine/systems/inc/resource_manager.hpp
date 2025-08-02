@@ -46,8 +46,9 @@ public:
     std::shared_ptr<Model>         GetModel(const u32& index);
     std::shared_ptr<ModelInstance> GetModelInstance(const u32& index)
     {
-        auto i = m_modelInstanceMap.at(index);
-        return i;
+        auto it = m_modelInstanceMap.find(index);
+        if(it != m_modelInstanceMap.end()) { return it->second; }
+        return nullptr;
     }
 
     std::shared_ptr<Skybox> LoadSkybox(const std::string& name);
