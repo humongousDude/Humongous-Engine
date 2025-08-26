@@ -376,6 +376,4 @@ TEST(BufferSuite, FlushCallToMappedBuffer)
     EXPECT_EQ(buffer.Flush(), vk::Result::eSuccess);
 }
 
-TEST(BufferSuite, FailingTest) { EXPECT_EQ(1, 0); }
-
 } // namespace Humongous

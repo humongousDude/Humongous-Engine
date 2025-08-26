@@ -845,6 +845,8 @@ void Renderer::EndFrame()
 
 void Renderer::BeginGeometryPass(vk::CommandBuffer cmd)
 {
+    PreGeometryPassTransitions(cmd);
+
     std::array<vk::ClearValue, 2> clearValues{};
     clearValues[0].color = {0.5f, 0.5f, 0.5f, 0.5f};
     clearValues[1].depthStencil = vk::ClearDepthStencilValue(0.0f, 0);
@@ -1010,7 +1012,6 @@ void Renderer::EndUIPass(vk::CommandBuffer cmd) { cmd.endRendering(); }
 
 void Renderer::BeginDepthPrePass(vk::CommandBuffer cmd)
 {
-    PreGeometryPassTransitions(cmd);
 
     vk::ClearValue clearValue{};
     clearValue.depthStencil = vk::ClearDepthStencilValue{0.0f, 0};
@@ -1035,7 +1036,7 @@ void Renderer::BeginDepthPrePass(vk::CommandBuffer cmd)
     cmd.beginRendering(&renderingInfo);
 }
 
-void Renderer::EndDepthPrePass(vk::CommandBuffer cmd) { vkCmdEndRendering(cmd); }
+void Renderer::EndDepthPrePass(vk::CommandBuffer cmd) { cmd.endRendering(); }
 
 struct alignas(16) RendererData
 {

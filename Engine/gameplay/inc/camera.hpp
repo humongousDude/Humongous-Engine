@@ -19,12 +19,12 @@ struct alignas(16) ProjectionUBO
     Eigen::Matrix4f view;
     Eigen::Matrix4f invView;
     Eigen::Matrix4f projectionView;
-    Eigen::Vector3f cameraPos;
+    Eigen::Vector4f cameraPos;
 };
 
 struct alignas(16) UboParams
 {
-    Eigen::Vector3f camPos{};
+    Eigen::Vector4f camPos{};
     f32             _padding0;
     Eigen::Vector4f lightDir = Eigen::Vector4f::Random();
     f32             exposure = 1.0f, gamma = 1.0f, radiance = 0.5f, prefilteredCubeMipLevels = 9.f, scaleIBLAmbient = 0.05f;
@@ -45,7 +45,7 @@ public:
         Eigen::Matrix4f projection;
         Eigen::Matrix4f view;
         Eigen::Matrix4f projectionView;
-        Eigen::Vector3f camPos;
+        Eigen::Vector4f camPos;
     };
 
     Camera(const ILogicalDevice& logicalDevice);
@@ -83,10 +83,10 @@ public:
 
     void Update();
 
-    void SetPosition(Eigen::Vector3f position) { m_position = position; }
+    void SetPosition(Eigen::Vector3f position) { m_position = Eigen::Vector4f(position.x(), position.y(), position.z(), 1.0f); }
     void SetRotation(Eigen::Vector3f rotation) { m_rotation = rotation; }
 
-    Eigen::Vector3f GetPosition() const { return m_position; }
+    Eigen::Vector3f GetPosition() const { return m_position.head<3>(); }
     Eigen::Vector3f GetRotation() const { return m_rotation; }
 
     Eigen::Vector3f GetForward() const { return m_forward; }
@@ -113,7 +113,7 @@ private:
 
     Eigen::Matrix4f m_projectionMatrix{};
     Eigen::Matrix4f m_viewMatrix{};
-    Eigen::Vector3f m_position{};
+    Eigen::Vector4f m_position{};
     Eigen::Vector3f m_rotation{};
     Eigen::Vector3f m_forward{};
     Eigen::Vector3f m_up{};

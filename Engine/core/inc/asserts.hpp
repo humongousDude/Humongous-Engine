@@ -1,11 +1,16 @@
-#pragma once
-
 #include "defines.hpp"
 
 #ifdef HGASSERTIONS_ENABLED
 
+#if defined(_MSC_VER)
 #include <intrin.h>
 #define BreakDebug() __debugbreak()
+#elif defined(__GNUC__) || defined(__clang__)
+// For GCC and Clang on Linux
+#define BreakDebug() __builtin_trap()
+#else
+#error "Platform not supported for debugging."
+#endif
 
 void ReportAssertionFaliure(const char* expression, const char* message, const char* file, s32 line);
 

@@ -227,14 +227,14 @@ public:
     b32 HasAnimations() const { return !m_animations.empty(); }
     b32 HasSkins() const { return !m_skins.empty(); }
 
-    std::vector<Skin*>      GetSkins() const { return m_skins; }
-    std::vector<Mesh*>      GetMeshes() const { return m_meshes; }
-    std::vector<Primitive*> GetPrimitives() const { return m_primitives; }
-    std::vector<Meshlet>    GetMeshlets() const { return m_meshlets; }
-    std::vector<u32>        GetMeshletVertices() const { return m_meshletVertices; }
-    std::vector<u8>         GetMeshletPrimitives() const { return m_meshletPrimitives; }
-    std::vector<Node*>      GetNodes() const { return m_nodes; }
-    std::vector<Node*>      GetLinearNodes() const { return m_linearNodes; }
+    std::vector<Skin*>&      GetSkins() { return m_skins; }
+    std::vector<Mesh*>&      GetMeshes() { return m_meshes; }
+    std::vector<Primitive*>& GetPrimitives() { return m_primitives; }
+    std::vector<Meshlet>&    GetMeshlets() { return m_meshlets; }
+    std::vector<u32>&        GetMeshletVertices() { return m_meshletVertices; }
+    std::vector<u8>&         GetMeshletPrimitives() { return m_meshletPrimitives; }
+    std::vector<Node*>&      GetNodes() { return m_nodes; }
+    std::vector<Node*>&      GetLinearNodes() { return m_linearNodes; }
 
     u32                           GetAnimationCount() const { return m_animations.size(); }
     const std::vector<Animation>& GetAnimations() const { return m_animations; }

@@ -179,7 +179,7 @@ void Camera::UpdateViewMatrix()
     m_viewMatrix.block<1, 3>(0, 0) = X.transpose();
     m_viewMatrix.block<1, 3>(1, 0) = Y.transpose();
     m_viewMatrix.block<1, 3>(2, 0) = Z.transpose();
-    m_viewMatrix.block<3, 1>(0, 3) << -X.dot(m_position), -Y.dot(m_position), -Z.dot(m_position);
+    m_viewMatrix.block<3, 1>(0, 3) << -X.dot(m_position.head<3>()), -Y.dot(m_position.head<3>()), -Z.dot(m_position.head<3>());
 }
 
 void Camera::ExtractFrustumPlanes(const Eigen::Matrix4f& projectionViewMatrix, std::array<Plane, 6>& frustumPlanes)

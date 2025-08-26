@@ -126,16 +126,17 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     HGINFO("Creating geometry pipeline...");
     RenderPipeline::PipelineConfigInfo configInfo = RenderPipeline::DefaultPipelineConfigInfo();
     configInfo.pipelineLayout = m_pipelineLayout;
+    configInfo.rasterizationInfo.cullMode = vk::CullModeFlagBits::eNone;
+    configInfo.inputAssemblyInfo.primitiveRestartEnable = false;
 
     configInfo.multisampleInfo.rasterizationSamples = vk::SampleCountFlagBits::e1;
-    configInfo.multisampleInfo.sampleShadingEnable = VK_FALSE;
+    configInfo.multisampleInfo.sampleShadingEnable = true;
     configInfo.multisampleInfo.minSampleShading = 1.0;
 
     configInfo.vertShaderPath = shaderSet.vertShaderPath;
     configInfo.fragShaderPath = shaderSet.fragShaderPath;
 
     configInfo.colorBlendAttachment.blendEnable = false;
-
     configInfo.colorAttachmentFormat = vk::Format::eR8G8B8A8Unorm;
 
     configInfo.colorBlendAttachments.clear();
@@ -158,7 +159,7 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.depthStencilInfo.depthWriteEnable = false;
     configInfo.depthStencilInfo.stencilTestEnable = true;
 
-    configInfo.useMeshShaders = false;
+    configInfo.useMeshShaders = true;
     configInfo.meshShaderPath = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "simple.mesh");
     configInfo.taskShaderPath = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "simple.task");
 
@@ -174,22 +175,11 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
 
     m_opaqueGeometryPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
 
-    configInfo.colorBlendInfo.logicOpEnable = true;
     for(auto& colorBlendAttachment: configInfo.colorBlendAttachments) { colorBlendAttachment.blendEnable = true; }
 
-    configInfo.rasterizationInfo.cullMode = vk::CullModeFlagBits::eNone;
     m_transparentGeometryPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
 
     HGINFO("Created geometry pipeline, now creating depth pipeline...");
-
-    ShaderSet depthSet{m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "simple.vert"), ""};
-
-    configInfo.vertShaderPath = depthSet.vertShaderPath;
-    configInfo.fragShaderPath = depthSet.fragShaderPath;
-    configInfo.rasterizationInfo.depthBiasEnable = false;
-    configInfo.rasterizationInfo.depthBiasClamp = 0.0f;
-    configInfo.rasterizationInfo.depthBiasConstantFactor = 0.01f;
-    configInfo.rasterizationInfo.depthBiasSlopeFactor = 0.0f;
 
     configInfo.colorAttachmentFormat = vk::Format::eUndefined;
     configInfo.colorAttachmentFormats.clear();
@@ -200,6 +190,7 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.colorBlendInfo.pAttachments = configInfo.colorBlendAttachments.data();
 
     configInfo.depthStencilInfo.depthCompareOp = vk::CompareOp::eGreaterOrEqual;
+    configInfo.depthStencilInfo.depthTestEnable = true;
     configInfo.depthStencilInfo.depthWriteEnable = true;
     configInfo.depthStencilInfo.stencilTestEnable = false;
 
@@ -208,7 +199,7 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
     configInfo.depthStencilInfo.front = vk::StencilOpState{};
     configInfo.depthStencilInfo.front = vk::StencilOpState{};
 
-    configInfo.useRasterization = false;
+    configInfo.useFragmentShader = false;
 
     m_depthOnlyPipeline = std::make_unique<RenderPipeline>(m_logicalDevice, configInfo);
     HGINFO("Created depth pipeline");
@@ -218,11 +209,10 @@ void SimpleRenderSystem::CreatePipeline(const ShaderSet& shaderSet)
                                              VMA_MEMORY_USAGE_AUTO, 1, "Render system debug buffer");
     m_debugBuffer->Map();
     m_debugBuffer->WriteToBuffer(&m_verticesDrawn);
-    m_debugBuffer->Flush();
     m_debugBuffer->UnMap();
 }
 
-void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const bool& depthOnly)
+void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const b8& depthOnly)
 {
     if(!m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders)
     {
@@ -313,8 +303,6 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const bool& d
 
     if(meshletDrawCalls.empty())
     {
-        return;
-
         DescriptorPool* poolToUse = depthOnly ? m_depthPool[renderData.frameIndex].get() : m_pool[renderData.frameIndex].get();
 
         auto& drawDataBufferToUse = depthOnly ? m_depthDrawDataBuffers[renderData.frameIndex] : m_drawDataBuffers[renderData.frameIndex];
@@ -346,7 +334,6 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const bool& d
 
             stagingBuffer.Map();
             stagingBuffer.WriteToBuffer((void*)drawDataVec.data(), drawDataSize);
-            stagingBuffer.Flush();
             stagingBuffer.UnMap();
 
             Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *drawDataBufferToUse, drawDataSize);
@@ -369,7 +356,6 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const bool& d
 
             stagingBuffer.Map();
             stagingBuffer.WriteToBuffer((void*)instanceDataVec.data(), instanceDataSize);
-            stagingBuffer.Flush();
             stagingBuffer.UnMap();
 
             Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *instanceBufferToUse, instanceDataSize);
@@ -464,6 +450,7 @@ void SimpleRenderSystem::RenderObjectsToData(RenderData& renderData, std::vector
                 cmd.firstInstance = 0;
 
                 DrawData draw{};
+                draw.vertexOffset = primitive->globalVertexOffset;
                 draw.materialID = primitive->material->index;
                 draw.localNodeIndex = primitive->owner->index;
                 draw.isSkinned = staticModel->HasSkins();
@@ -513,7 +500,7 @@ void SimpleRenderSystem::RenderObjectsToData(RenderData& renderData, std::vector
     }
 }
 
-void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depthOnly)
+void SimpleRenderSystem::RenderObjects(RenderData& renderData, const b8& depthOnly)
 {
     std::vector<DrawData>                       opaqueDrawData;
     std::vector<vk::DrawIndexedIndirectCommand> opaqueCommands;
@@ -556,11 +543,10 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
 
         indirectBufferToUse = std::make_unique<Buffer>(
             m_logicalDevice, indirectCommandsSize, 1, vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eTransferDst,
-            vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw indiret commmand buffer");
+            vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw indirect commmand buffer");
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer((void*)opaqueCommands.data(), opaqueCommands.size() * sizeof(vk::DrawIndexedIndirectCommand));
-        stagingBuffer.Flush();
         stagingBuffer.UnMap();
 
         Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *indirectBufferToUse, indirectCommandsSize);
@@ -583,7 +569,6 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer((void*)opaqueDrawData.data(), opaqueDrawData.size() * sizeof(DrawData));
-        stagingBuffer.Flush();
         stagingBuffer.UnMap();
 
         Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *drawDataBufferToUse, opaqueDrawData.size() * sizeof(DrawData));
@@ -606,7 +591,6 @@ void SimpleRenderSystem::RenderObjects(RenderData& renderData, const bool& depth
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer((void*)instanceData.data(), instanceData.size() * sizeof(InstanceData));
-        stagingBuffer.Flush();
         stagingBuffer.UnMap();
 
         Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *instanceBufferToUse, instanceDataSize);

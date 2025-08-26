@@ -97,7 +97,7 @@ void VulkanApp::LoadGameObjects()
     auto house = world->CreateEntity();
     world->AddComponent<ModelComponent>(house);
     auto comp = world->GetComponent<ModelComponent>(house);
-    comp->instance = m_resourceManager->RequestModel("MorphStressTest");
+    comp->instance = m_resourceManager->RequestModel("buster_drone");
     std::string name = comp->instance->GetModel()->GetName();
 
     auto transform = world->GetComponent<TransformComponent>(house);
@@ -131,37 +131,37 @@ void VulkanApp::LoadGameObjects()
     transform = world->GetComponent<TransformComponent>(drone);
     transform->SetTranslation(10, 10, -20);
     transform->SetScale(1, 1, 1);
-    //
-    // f32 start = 0;
-    // f32 end = 100;
-    // f32 step = 2.5;
-    // f32 border = 15;
-    // f32 x = start, y = start, z = start;
-    // for(n32 i = 0; i < end; i++)
-    // {
-    //     x += step;
-    //
-    //     if(x > border)
-    //     {
-    //         x = start;
-    //         z += step;
-    //     }
-    //     if(z > border)
-    //     {
-    //         z = start;
-    //         y += step;
-    //     }
-    //
-    //     auto model = world->CreateEntity();
-    //     world->AddComponent<ModelComponent>(model);
-    //     auto comp = world->GetComponent<ModelComponent>(model);
-    //     comp->instance = m_resourceManager->RequestModel("buster_drone");
-    //
-    //     auto transform = world->GetComponent<TransformComponent>(model);
-    //     transform->SetTranslation(x, y, z);
-    //     std::string name = comp->instance->GetModel()->GetName();
-    //     world->GetComponent<NameComponent>(model)->name = name + std::to_string(model);
-    // }
+
+    f32 start = 0;
+    f32 end = 100;
+    f32 step = 2.5;
+    f32 border = 15;
+    f32 x = start, y = start, z = start;
+    for(u32 i = 0; i < end; i++)
+    {
+        x += step;
+
+        if(x > border)
+        {
+            x = start;
+            z += step;
+        }
+        if(z > border)
+        {
+            z = start;
+            y += step;
+        }
+
+        auto model = world->CreateEntity();
+        world->AddComponent<ModelComponent>(model);
+        auto comp = world->GetComponent<ModelComponent>(model);
+        comp->instance = m_resourceManager->RequestModel("buster_drone");
+
+        auto transform = world->GetComponent<TransformComponent>(model);
+        transform->SetTranslation(x, y, z);
+        std::string name = comp->instance->GetModel()->GetName();
+        world->GetComponent<NameComponent>(model)->name = name + std::to_string(model);
+    }
 
     HGINFO("Loaded game objects");
 }

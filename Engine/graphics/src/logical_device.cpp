@@ -39,12 +39,8 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
     m_graphicsQueueIndex = indices.graphicsFamily.value();
     m_presentQueueIndex = indices.presentFamily.value();
 
-    vk::PhysicalDeviceComputeShaderDerivativesFeaturesKHR compDerivFeat;
-    compDerivFeat.computeDerivativeGroupQuads = true;
-
     vk::PhysicalDeviceVulkan11Features vulkan11Features{};
     vulkan11Features.shaderDrawParameters = VK_TRUE;
-    vulkan11Features.pNext = &compDerivFeat;
 
     // vulkan 1.2 features
     vk::PhysicalDeviceVulkan12Features vulkan12Features{};
@@ -72,7 +68,11 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
     deviceFeatures.samplerAnisotropy = VK_TRUE;
     deviceFeatures.multiDrawIndirect = VK_TRUE;
 
+    const f32 prio = 1.0f;
+
     auto queueCreateInfos = CreateQueues(physicalDevice);
+    queueCreateInfos[0].pQueuePriorities = &prio;
+    queueCreateInfos[1].pQueuePriorities = &prio;
 
     auto extensions = physicalDevice.GetDeviceExtensions();
 
@@ -87,9 +87,11 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
     createInfo.pNext = &deviceFeatures2;
     createInfo.pEnabledFeatures = nullptr;
 
-    if(physicalDevice.GetVkPhysicalDevice().createDevice(&createInfo, nullptr, &m_logicalDevice) != vk::Result::eSuccess)
+    auto result = physicalDevice.GetVkPhysicalDevice().createDevice(&createInfo, nullptr, &m_logicalDevice);
+    if(result != vk::Result::eSuccess)
     {
-        HGFATAL("Failed to create logical device!");
+        HGFATAL("Failed to create logical device! Error: %s", vk::to_string(result).c_str());
+        return;
     }
 
     HGINFO("logical device created");
@@ -141,17 +143,15 @@ std::vector<vk::DeviceQueueCreateInfo> VulkanLogicalDevice::CreateQueues(IPhysic
     if(uniqueQueueFamilyIndices.empty()) { HGFATAL("Failed to find any suitable queue families!"); }
 
     std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
-    float                                  queuePriority = 1.0f; // All queues will have this priority
+    float                                  queuePriority = 1.0f;
 
     for(u32 queueFamilyIndex: uniqueQueueFamilyIndices)
     {
         vk::DeviceQueueCreateInfo queueCreateInfo{};
         queueCreateInfo.sType = vk::StructureType::eDeviceQueueCreateInfo;
         queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
-        // For each unique queue family, request one queue (or more, if needed)
-        // Here we request 1 queue per family. If you need more, adjust queueCount.
         queueCreateInfo.queueCount = 1;
-        queueCreateInfo.pQueuePriorities = &queuePriority; // Pointer to an array of priorities
+        queueCreateInfo.pQueuePriorities = &queuePriority;
 
         queueCreateInfos.push_back(queueCreateInfo);
     }

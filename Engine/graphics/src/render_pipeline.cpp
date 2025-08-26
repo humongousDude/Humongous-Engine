@@ -42,16 +42,14 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
 
     if(useMeshShaders)
     {
-        auto taskCode = ReadFile(configInfo.taskShaderPath);
-        CreateShaderModule(taskCode, &taskShaderModule);
+        taskShaderModule = Utils::CreateShaderModule(m_logicalDevice, configInfo.taskShaderPath);
         vk::PipelineShaderStageCreateInfo taskShaderStageInfo{};
         taskShaderStageInfo.stage = vk::ShaderStageFlagBits::eTaskEXT;
         taskShaderStageInfo.module = taskShaderModule;
         taskShaderStageInfo.pName = "main";
         shaderStages.push_back(taskShaderStageInfo);
 
-        auto meshCode = ReadFile(configInfo.meshShaderPath);
-        CreateShaderModule(meshCode, &meshShaderModule);
+        meshShaderModule = Utils::CreateShaderModule(m_logicalDevice, configInfo.meshShaderPath);
         vk::PipelineShaderStageCreateInfo meshShaderStageInfo{};
         meshShaderStageInfo.stage = vk::ShaderStageFlagBits::eMeshEXT;
         meshShaderStageInfo.module = meshShaderModule;
@@ -60,8 +58,7 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
     }
     else
     {
-        auto vertCode = ReadFile(configInfo.vertShaderPath);
-        CreateShaderModule(vertCode, &vertShaderModule);
+        vertShaderModule = Utils::CreateShaderModule(m_logicalDevice, configInfo.vertShaderPath);
 
         vk::PipelineShaderStageCreateInfo vertShaderStageInfo{};
         vertShaderStageInfo.stage = vk::ShaderStageFlagBits::eVertex;
@@ -70,10 +67,9 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
         shaderStages.push_back(vertShaderStageInfo);
     }
 
-    if(configInfo.useRasterization)
+    if(configInfo.useFragmentShader)
     {
-        auto fragCode = ReadFile(configInfo.fragShaderPath);
-        CreateShaderModule(fragCode, &fragShaderModule);
+        fragShaderModule = Utils::CreateShaderModule(m_logicalDevice, configInfo.fragShaderPath);
         vk::PipelineShaderStageCreateInfo fragShaderStageInfo{};
         fragShaderStageInfo.stage = vk::ShaderStageFlagBits::eFragment;
         fragShaderStageInfo.module = fragShaderModule;
@@ -82,20 +78,20 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
     }
 
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
-    if(!useMeshShaders)
-    {
-        vertexInputInfo.vertexBindingDescriptionCount = static_cast<u32>(configInfo.inputBindings.size());
-        vertexInputInfo.pVertexBindingDescriptions = configInfo.inputBindings.data();
-        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<u32>(configInfo.attribBindings.size());
-        vertexInputInfo.pVertexAttributeDescriptions = configInfo.attribBindings.data();
-        vertexInputInfo.pNext = nullptr;
-    }
-    else
+    if(useMeshShaders)
     {
         vertexInputInfo.vertexBindingDescriptionCount = 0;
         vertexInputInfo.pVertexBindingDescriptions = nullptr;
         vertexInputInfo.vertexAttributeDescriptionCount = 0;
         vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+        vertexInputInfo.pNext = nullptr;
+    }
+    else
+    {
+        vertexInputInfo.vertexBindingDescriptionCount = static_cast<u32>(configInfo.inputBindings.size());
+        vertexInputInfo.pVertexBindingDescriptions = configInfo.inputBindings.data();
+        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<u32>(configInfo.attribBindings.size());
+        vertexInputInfo.pVertexAttributeDescriptions = configInfo.attribBindings.data();
         vertexInputInfo.pNext = nullptr;
     }
 
@@ -132,7 +128,11 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
 
     result = m_logicalDevice.CreateGraphicsPipeline(pipelineInfoGraphics, &m_pipeline);
 
-    if(result != vk::Result::eSuccess) { HGERROR("Failed to create pipeline! Error: %s", vk::to_string(result).c_str()); }
+    if(result != vk::Result::eSuccess)
+    {
+        HGERROR("Failed to create pipeline! Error: %s", vk::to_string(result).c_str());
+        return;
+    }
 
     HGINFO("Successfully created pipeline");
 
@@ -143,15 +143,6 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
 
     HGINFO("Successfully destroyed shader modules");
     HGINFO("Created render pipeline");
-}
-
-void RenderPipeline::CreateShaderModule(const std::vector<char>& code, vk::ShaderModule* shaderModule)
-{
-    vk::ShaderModuleCreateInfo createInfo{};
-    createInfo.codeSize = code.size();
-    createInfo.pCode = reinterpret_cast<const u32*>(code.data());
-
-    if(m_logicalDevice.CreateShaderModule(createInfo, shaderModule) != vk::Result::eSuccess) { HGERROR("Failed to create shader module!"); }
 }
 
 // NOTE: You should still assign the vertex shader path in case the used physical device does not support mesh shaders
@@ -169,8 +160,8 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
     configInfo.rasterizationInfo.rasterizerDiscardEnable = false;
     configInfo.rasterizationInfo.polygonMode = PolygonMode::eFill;
     configInfo.rasterizationInfo.lineWidth = 1.0f;
-    configInfo.rasterizationInfo.cullMode = CullModeFlagBits::eBack;
-    configInfo.rasterizationInfo.frontFace = FrontFace::eClockwise;
+    configInfo.rasterizationInfo.cullMode = CullModeFlagBits::eNone;
+    configInfo.rasterizationInfo.frontFace = FrontFace::eCounterClockwise;
     configInfo.rasterizationInfo.depthBiasEnable = false;
     configInfo.rasterizationInfo.depthBiasConstantFactor = 0.0f; // Optional
     configInfo.rasterizationInfo.depthBiasClamp = 0.0f;          // Optional
@@ -185,7 +176,7 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
 
     configInfo.colorBlendAttachment.colorWriteMask =
         ColorComponentFlagBits::eR | ColorComponentFlagBits::eG | ColorComponentFlagBits::eB | ColorComponentFlagBits::eA;
-    configInfo.colorBlendAttachment.blendEnable = true;
+    configInfo.colorBlendAttachment.blendEnable = false;
     configInfo.colorBlendAttachment.srcColorBlendFactor = BlendFactor::eSrcAlpha;
     configInfo.colorBlendAttachment.dstColorBlendFactor = BlendFactor::eOneMinusSrcAlpha;
     configInfo.colorBlendAttachment.colorBlendOp = BlendOp::eAdd;

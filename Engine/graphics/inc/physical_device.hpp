@@ -117,8 +117,7 @@ private:
     DeviceSupportLevel EvaluateDeviceSupportLevel(const DeviceCapabilities& capabilities);
     PhysicalDevice::DeviceCapabilities GetDeviceCapabilities(vk::PhysicalDevice physicalDevice);
 
-    const std::vector<const char*> REQUIRED_BASE_DEVICE_EXTENSIONS = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-    };
+    const std::vector<const char*> REQUIRED_BASE_DEVICE_EXTENSIONS = {VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+                                                                      VK_KHR_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME};
 };
 } // namespace Humongous

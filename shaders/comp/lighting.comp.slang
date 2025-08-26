@@ -5,12 +5,12 @@
     float4x4 view;
     float4x4 invView;
     float4x4 projectionView;
-    float3 cameraPos; 
+    float4 cameraPos; 
 } ubo;
 
 [[vk::binding(0, 1)]] cbuffer UBOParams 
 {
-    float3 camPos;
+    float4 camPos;
     float _padding0;
     float4 lightDir;
     float exposure;
@@ -141,7 +141,7 @@ void main(uint3 gl_GlobalInvocationID : SV_DispatchThreadID)
     float3 emissive = mpSample.rgb;
     float metallic = mpSample.a;
     float3 worldPos = ReconstructWorldPos(uv, depth, imageDims);
-    float3 V = normalize(uboParams.camPos - worldPos);
+    float3 V = normalize(uboParams.camPos.xyz - worldPos);
     float3 L = normalize(-uboParams.lightDir.xyz);
     float3 H = normalize(V + L);
 

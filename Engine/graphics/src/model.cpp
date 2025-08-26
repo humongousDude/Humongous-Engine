@@ -42,11 +42,11 @@ void Model::LoadFromFile(std::string filePath, f32 scale)
     std::string error;
     std::string warning;
 
-    bool   binary = false;
+    b8     binary = false;
     size_t extpos = filePath.rfind('.', filePath.length());
     if(extpos != std::string::npos) { binary = (filePath.substr(extpos + 1, filePath.length() - extpos) == "glb"); }
 
-    bool       fileLoaded = binary ? gltfContext.LoadBinaryFromFile(&gltfModel, &error, &warning, filePath.c_str())
+    b8         fileLoaded = binary ? gltfContext.LoadBinaryFromFile(&gltfModel, &error, &warning, filePath.c_str())
                                    : gltfContext.LoadASCIIFromFile(&gltfModel, &error, &warning, filePath.c_str());
     LoaderInfo loaderInfo{};
     size_t     vertexCount = 0;
@@ -260,8 +260,8 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
             u32 indexCount = 0;
             u32 vertexCount = 0;
 
-            bool hasSkin = false;
-            bool hasIndices = primitive.indices > -1;
+            b8 hasSkin = false;
+            b8 hasIndices = primitive.indices > -1;
 
             std::vector<std::vector<Eigen::Vector3f>> morphTargetPositionsOriginal;
             std::vector<std::vector<Eigen::Vector3f>> morphTargetNormalsOriginal;
@@ -378,8 +378,14 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
                 Vertex vert{};
 
                 const f32*      p = reinterpret_cast<const f32*>(rawPosBase + (v * posByteStride));
-                Eigen::Vector3f posVec = Eigen::Map<const Eigen::Vector3f>(p);
+                Eigen::Vector3f posVec;
+                posVec.x() = p[0];
+                posVec.y() = p[1];
+                posVec.z() = p[2];
                 vert.position = Eigen::Vector4f(posVec.x(), posVec.y(), posVec.z(), 1.0f);
+
+                HGINFO("Eigen determined vertex pos: %f, %f, %f", vert.position.x(), vert.position.y(), vert.position.z());
+                HGINFO("True vertex position: %f, %f, %f", p[0], p[1], p[2]);
 
                 if(rawNormBase)
                 {

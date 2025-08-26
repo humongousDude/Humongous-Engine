@@ -32,8 +32,8 @@ public:
                        const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts, const ShaderSet& shaderSet);
     ~SimpleRenderSystem();
 
-    void RenderObjectsMesh(RenderData& renderData, const bool& depthOnly);
-    void RenderObjects(RenderData& renderData, const bool& depthOnly);
+    void RenderObjectsMesh(RenderData& renderData, const b8& depthOnly);
+    void RenderObjects(RenderData& renderData, const b8& depthOnly);
     u32  GetObjectsDrawn() { return m_verticesDrawn; }
 
     vk::PipelineLayout m_pipelineLayout{};
@@ -41,11 +41,13 @@ public:
 private:
     struct alignas(16) DrawData
     {
+        u32 vertexOffset{0};
         u32 materialID{0};
         u32 localNodeIndex{0};
         u32 isSkinned{0};
         u32 isMorphed{0};
-        u32 instanceOffset;
+        u32 instanceOffset{0};
+        u32 pad[2];
     };
 
     struct alignas(16) InstanceData

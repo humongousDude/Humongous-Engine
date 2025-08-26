@@ -16,8 +16,8 @@ void main(
     out uint materialID : MATERIALID0,
 )
 {
-    Vertex  v = globalVertices[vertexID]; 
     DrawData currentDraw = drawData[drawID];
+    Vertex  v = globalVertices[vertexID + currentDraw.vertexOffset]; 
     uint globalInstanceIndex = currentDraw.instanceOffset + instanceID;
     InstanceData currentInstance = instData[globalInstanceIndex];
     float4x4 modelMatrix = currentInstance.modelMatrix;

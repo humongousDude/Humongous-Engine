@@ -223,13 +223,13 @@ u32 ResourceManager::LoadModel(const std::string& name)
 
     HGINFO("Model %s loaded. Added to map with handle %i. Map size: %zu", name.c_str(), handleToReturn, m_modelMap.size());
 
-    auto vertices = m->GetVertices();
-    auto indices = m->GetIndices();
-    auto meshes = m->GetMeshes();
-    auto primitives = m->GetPrimitives();
-    auto meshlets = m->GetMeshlets();
-    auto meshletVertices = m->GetMeshletVertices();
-    auto meshletPrimitives = m->GetMeshletPrimitives();
+    auto& vertices = m->GetVertices();
+    auto& indices = m->GetIndices();
+    auto& meshes = m->GetMeshes();
+    auto& primitives = m->GetPrimitives();
+    auto& meshlets = m->GetMeshlets();
+    auto& meshletVertices = m->GetMeshletVertices();
+    auto& meshletPrimitives = m->GetMeshletPrimitives();
 
     AddVerticesToModel(vertices, meshes);
     AddIndicesToModel(indices, primitives);

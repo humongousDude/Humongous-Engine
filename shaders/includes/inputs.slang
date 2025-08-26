@@ -14,12 +14,13 @@ struct Vertex {
 }
 
 struct DrawData {
+    uint vertexOffset;
     uint materialID;
     uint localNodeIndex;
     uint isSkinned;
     uint isMorphed;
     uint instanceOffset;
-    uint pad0[3];
+    uint __pad0[2];
 };
 
 struct InstanceData {
@@ -55,7 +56,6 @@ struct MeshletPushConstants {
     float4x4 invView;
     float4x4 projectionView;
     float4 cameraPos;
-    float pad0;
 }  ubo;
 
 [[vk::binding(2, 1)]] StructuredBuffer<float4x4> node;

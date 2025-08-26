@@ -85,6 +85,10 @@ void PhysicalDevice::PickPhysicalDevice()
     m_currentSupportLevel = bestSupportLevel;
     m_currentCapabilities = bestCapabilities; // Save capabilities of the chosen device
 
+    m_currentCapabilities.supportsMeshShaders = false;
+    m_currentSupportLevel = DeviceSupportLevel::BaseGraphics;
+    ;
+
     if(m_physicalDevice == VK_NULL_HANDLE)
     {
         HGFATAL("Failed to find a suitable GPU! No device meets even the minimum 'BaseGraphics' requirements.");

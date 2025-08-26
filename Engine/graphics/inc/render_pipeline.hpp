@@ -20,7 +20,7 @@ public:
         std::string meshShaderPath;
         std::string taskShaderPath;
 
-        b32         useRasterization{true};
+        b32         useFragmentShader{true};
         std::string fragShaderPath;
 
         std::vector<vk::VertexInputBindingDescription>   inputBindings;
@@ -55,6 +55,5 @@ private:
     vk::Pipeline          m_pipeline;
 
     void CreateRenderPipeline(const PipelineConfigInfo& configInfo);
-    void CreateShaderModule(const std::vector<char>& code, vk::ShaderModule* shaderModule);
 };
 } // namespace Humongous
