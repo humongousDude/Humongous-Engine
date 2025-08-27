@@ -1,3 +1,5 @@
+#pragma once
+
 #include "defines.hpp"
 
 #ifdef HGASSERTIONS_ENABLED
@@ -6,7 +8,6 @@
 #include <intrin.h>
 #define BreakDebug() __debugbreak()
 #elif defined(__GNUC__) || defined(__clang__)
-// For GCC and Clang on Linux
 #define BreakDebug() __builtin_trap()
 #else
 #error "Platform not supported for debugging."

@@ -52,3 +52,6 @@ vcpkg_installed
 
 \.cache
 compile_commands.json
+
+imgui.ini
+log.txt
