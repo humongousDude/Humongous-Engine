@@ -384,9 +384,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
                 posVec.z() = p[2];
                 vert.position = Eigen::Vector4f(posVec.x(), posVec.y(), posVec.z(), 1.0f);
 
-                HGINFO("Eigen determined vertex pos: %f, %f, %f", vert.position.x(), vert.position.y(), vert.position.z());
-                HGINFO("True vertex position: %f, %f, %f", p[0], p[1], p[2]);
-
                 if(rawNormBase)
                 {
                     const f32*      n = reinterpret_cast<const f32*>(rawNormBase + (v * normByteStride));
