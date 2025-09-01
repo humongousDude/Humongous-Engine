@@ -7,69 +7,48 @@ struct TaskPayload {
     uint instanceCount;
 };
 
-struct MeshOut
-{
-    float4 position : SV_Position;
-    float4 color    : COLOR0; 
+struct OutVertex{
+    float4 position      : SV_Position; 
+    float2 uv0          : TEXCOORD0;    
+    float2 uv1          : TEXCOORD1;    
+    float4 color        : COLOR0;       
+    float3 worldPosition: POSITION0;    
+    float3 normal       : NORMAL0;      
+    float3 tangent      : TANGENT0;     
+    float3 bitangent    : BITANGENT0;   
+    uint   materialID   : MATERIALID0;  
 };
 
-#define MAX_MESHLET_VERTICES 64
-#define MAX_MESHLET_PRIMITIVES 124 
 
-[[numthreads(32, 1, 1)]]
-[[shader("mesh")]]
-[outputtopology("triangle")] // Specify output topology
+static const uint MAX_MESHLET_VERTS = 64;
+static const uint MAX_MESHLET_PRIMS = 126;
+
+[numthreads(32, 1, 1)]
+[shader("mesh")]
+[outputtopology("triangle")]
 void main(
-    const TaskPayload payload : payload,
-
-    int3 gl_LocalInvocationID : SV_GroupThreadID,
-
-    out vertices MeshOut verts[MAX_MESHLET_VERTICES],
-    out indices uint3 prims[MAX_MESHLET_PRIMITIVES]
+    OutputVertices<OutVertex, MAX_MESHLET_VERTS> outVertices,
+    OutputIndices<uint3, MAX_MESHLET_PRIMS> outIndices,
 )
 {
-    uint globalMeshletIndex = payload.globalMeshletIndex;
-    uint drawDataIndex = payload.drawDataIndex;
-    // uint instanceOffset = payload.instanceOffset; // Not directly used here, but accessible via payload
-    // uint instanceCount = payload.instanceCount; // Not directly used here, but accessible via payload
+    // Minimal safe emission so SPIR-V keeps the decorated outputs.
+    // Replace with your real meshlet vertex fetch/transform code.
 
-    Meshlet meshlet = meshlets[globalMeshletIndex];
-
-    DrawData currentDrawData = drawData[drawDataIndex];
-    InstanceData currentInstanceData = instData[currentDrawData.instanceOffset]; // Use the instance offset from DrawData
-
-    // CRUCIAL: Set the number of vertices and primitives to be output by this mesh workgroup.
-    // This tells the hardware how many elements in `verts` and `prims` are valid.
-    SetMeshOutputCounts(meshlet.vertexCount, meshlet.primitiveCount);
-
-    // Process Vertices
-    // Each thread processes one vertex if its ID is within the meshlet's vertex count
-    if (gl_LocalInvocationID.x < meshlet.vertexCount)
+    outVertices[0].position   = float4(-1.0, -1.0, 0.0, 1.0);
+    outVertices[1].position   = float4( 1.0, -1.0, 0.0, 1.0);
+    outVertices[2].position   = float4( 0.0,  1.0, 0.0, 1.0);
+    for (uint i = 0; i < 3; ++i)
     {
-        uint localVertexIdx = meshletVertices[meshlet.indexOffset + gl_LocalInvocationID.x];
-        Vertex vertex = globalVertices[localVertexIdx];
-
-        // Basic transformation: Model-View-Projection
-        float4 transformedPos = mul(ubo.projectionView, mul(currentInstanceData.modelMatrix, vertex.position));
-
-        // Assign the computed vertex data directly to the output array
-        verts[gl_LocalInvocationID.x].position = transformedPos;
-        verts[gl_LocalInvocationID.x].color = vertex.color;
+        outVertices[i].uv0       = float2(0.0, 0.0);
+        outVertices[i].uv1       = float2(0.0, 0.0);
+        outVertices[i].color     = float4(1,1,1,1);
+        outVertices[i].normal    = float3(0,0,1);
+        outVertices[i].tangent   = float3(1,0,0);
+        outVertices[i].bitangent = float3(0,1,0);
+        outVertices[i].materialID = 0;
     }
 
-    // Process Primitives (Triangles)
-    // Each thread processes one primitive if its ID is within the meshlet's primitive count
-    if (gl_LocalInvocationID.x < meshlet.primitiveCount)
-    {
-        // Get the packed primitive indices for the current triangle
-        uint packedIndices = meshletPrimitives[meshlet.primitiveID + gl_LocalInvocationID.x];
+    outIndices[0] = uint3(0, 1, 2);
 
-        // Unpack the 3 local vertex indices (0-255 range within the meshlet's vertex buffer)
-        uint idx0 = (packedIndices >> 0) & 0xFF;   // First 8 bits
-        uint idx1 = (packedIndices >> 8) & 0xFF;   // Next 8 bits
-        uint idx2 = (packedIndices >> 16) & 0xFF;  // Next 8 bits
-
-        // Assign the primitive indices directly to the output array
-        prims[gl_LocalInvocationID.x] = uint3(idx0, idx1, idx2);
-    }
+    SetMeshOutputCounts(3, 1);
 }
