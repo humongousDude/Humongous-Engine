@@ -32,19 +32,21 @@ struct InstanceData {
 };
 
 struct Meshlet{
-    uint vertexOffset;
+    uint localVertexOffset;
+    uint globalVertexOffset;
     uint vertexCount;
-    uint indexOffset;
+    uint localIndexOffset;
+    uint globalIndexOffset;
     uint primitiveCount;
-    float4 boundingSphere;
     uint primitiveID;
 };
 
 struct MeshletPushConstants {
-    uint meshletOffset;
+    uint meshletIndex;
     uint drawDataIndex;
     uint instanceOffset;
     uint instanceCount;
+    uint meshletCount;
 };
 
 [[vk::push_constant]] MeshletPushConstants pc;

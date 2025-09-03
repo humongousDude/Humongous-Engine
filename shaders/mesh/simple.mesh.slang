@@ -3,7 +3,7 @@ import "../includes/inputs.slang";
 struct TaskPayload {
     uint globalMeshletIndex;
     uint drawDataIndex;
-    uint instanceOffset;
+    uint instanceIndex;
     uint instanceCount;
 };
 
@@ -22,33 +22,70 @@ struct OutVertex{
 
 static const uint MAX_MESHLET_VERTS = 64;
 static const uint MAX_MESHLET_PRIMS = 126;
+static const uint GROUP_SIZE = 32;
 
-[numthreads(32, 1, 1)]
+[numthreads(GROUP_SIZE, 1, 1)]
 [shader("mesh")]
 [outputtopology("triangle")]
 void main(
+    in payload TaskPayload payload,
+    uint tid : SV_GroupThreadID,
     OutputVertices<OutVertex, MAX_MESHLET_VERTS> outVertices,
-    OutputIndices<uint3, MAX_MESHLET_PRIMS> outIndices,
+    OutputIndices<uint3, MAX_MESHLET_PRIMS> outIndices
 )
 {
-    // Minimal safe emission so SPIR-V keeps the decorated outputs.
-    // Replace with your real meshlet vertex fetch/transform code.
+    Meshlet m = meshlets[payload.globalMeshletIndex];
+    DrawData d = drawData[payload.drawDataIndex];
 
-    outVertices[0].position   = float4(-1.0, -1.0, 0.0, 1.0);
-    outVertices[1].position   = float4( 1.0, -1.0, 0.0, 1.0);
-    outVertices[2].position   = float4( 0.0,  1.0, 0.0, 1.0);
-    for (uint i = 0; i < 3; ++i)
+    // pick the instance within the draw
+    InstanceData inst = instData[payload.instanceIndex];
+
+    // rest unchanged
+    float4x4 nodeTransform = node[d.localNodeIndex + inst.globalNodeIndex];
+    float4x4 modelTransform = mul(inst.modelMatrix, nodeTransform);
+    float3x3 normalMat = (float3x3)modelTransform;
+
+    uint vcount = min(m.vertexCount, MAX_MESHLET_VERTS);
+    uint pcount = min(m.primitiveCount, MAX_MESHLET_PRIMS);
+
+    for (uint i = tid; i < vcount; i += GROUP_SIZE)
     {
-        outVertices[i].uv0       = float2(0.0, 0.0);
-        outVertices[i].uv1       = float2(0.0, 0.0);
-        outVertices[i].color     = float4(1,1,1,1);
-        outVertices[i].normal    = float3(0,0,1);
-        outVertices[i].tangent   = float3(1,0,0);
-        outVertices[i].bitangent = float3(0,1,0);
-        outVertices[i].materialID = 0;
+        uint meshletVertIndex = meshletVertices[m.localVertexOffset + i];
+        uint globalVertIndex   = d.vertexOffset + meshletVertIndex;
+        Vertex vin = globalVertices[globalVertIndex];
+
+        float4 worldPos4 = mul(modelTransform, vin.position);
+        float4 clip = mul(ubo.projectionView, worldPos4);
+
+        outVertices[i].position      = clip;
+        outVertices[i].worldPosition = worldPos4.xyz;
+        outVertices[i].normal        = normalize(mul(normalMat, vin.normal.xyz));
+        outVertices[i].tangent       = normalize(mul(normalMat, vin.tangent.xyz));
+        outVertices[i].bitangent     = normalize(mul(normalMat, vin.bitTangent.xyz));
+        outVertices[i].uv0           = vin.uv1.xy;
+        outVertices[i].uv1           = vin.uv2.xy;
+        outVertices[i].color         = vin.color;
+        outVertices[i].materialID    = d.materialID;
     }
 
-    outIndices[0] = uint3(0, 1, 2);
+    uint primBase = m.localIndexOffset;
+    for (uint pi = tid; pi < pcount; pi += GROUP_SIZE)
+    {
+        uint base = primBase + pi * 3u;
+        uint b0 = uint(meshletPrimitives[base + 0u]);
+        uint b1 = uint(meshletPrimitives[base + 1u]);
+        uint b2 = uint(meshletPrimitives[base + 2u]);
 
-    SetMeshOutputCounts(3, 1);
+        if (b0 >= vcount) b0 = 0;
+        if (b1 >= vcount) b1 = 0;
+        if (b2 >= vcount) b2 = 0;
+
+        outIndices[pi] = uint3(b0, b1, b2);
+    }
+
+
+    if (tid == 0)
+    {
+        SetMeshOutputCounts(vcount, pcount);
+    }
 }
