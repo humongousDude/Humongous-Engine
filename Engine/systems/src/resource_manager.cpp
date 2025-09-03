@@ -234,7 +234,7 @@ u32 ResourceManager::LoadModel(const std::string& name)
     AddVerticesToModel(vertices, meshes);
     AddIndicesToModel(indices, primitives);
 
-    if(!meshlets.empty()) { AddMeshletsToModel(meshlets, meshletVertices, meshletPrimitives, handleToReturn); }
+    if(!meshlets.empty()) { AddMeshletsToModel(primitives, meshlets, meshletVertices, meshletPrimitives, handleToReturn); }
 
     m_modelMap.emplace(handleToReturn, std::move(m));
     m_modelNameToHandle.emplace(name, handleToReturn);
@@ -242,8 +242,8 @@ u32 ResourceManager::LoadModel(const std::string& name)
     return handleToReturn;
 }
 
-void ResourceManager::AddMeshletsToModel(const std::vector<Meshlet>& meshlets, const std::vector<u32>& meshletVertices,
-                                         const std::vector<u8>& meshletPrimitives, const u32& handle)
+void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, std::vector<Meshlet>& meshlets,
+                                         const std::vector<u32>& meshletVertices, const std::vector<u8>& meshletPrimitives, const u32& handle)
 {
     if(!m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders)
     {
@@ -252,6 +252,16 @@ void ResourceManager::AddMeshletsToModel(const std::vector<Meshlet>& meshlets, c
     }
 
     const u32 meshletStartIndex = m_meshlets.size();
+    const u32 meshletVertexStartIndex = m_meshletVertices.size();
+    const u32 meshletPrimitiveStartIndex = m_meshletPrimitives.size();
+
+    for(auto* primitive: primitives) { primitive->globalMeshletOffset = static_cast<u32>(meshletStartIndex + primitive->localMeshletOffset); }
+    for(auto& meshlet: meshlets)
+    {
+        meshlet.globalVertexOffset = static_cast<u32>(meshletVertexStartIndex + meshlet.localVertexOffset);
+        meshlet.globalIndexOffset = static_cast<u32>(meshletPrimitiveStartIndex + meshlet.localIndexOffset);
+    }
+
     m_modelHandleToMeshletStart.emplace(handle, std::pair<u32, u32>(meshletStartIndex, meshlets.size()));
     m_meshlets.insert(m_meshlets.end(), meshlets.begin(), meshlets.end());
     m_meshletVertices.insert(m_meshletVertices.end(), meshletVertices.begin(), meshletVertices.end());
@@ -453,14 +463,14 @@ void ResourceManager::AddVerticesToModel(const std::vector<Model::Vertex>& model
 {
     const size_t baseVertex = m_modelVertices.size();
 
-    m_modelVertices.insert(m_modelVertices.end(), modelVertices.begin(), modelVertices.end());
-
     for(Mesh* mesh: modelMeshes)
     {
         mesh->baseVertex = static_cast<u32>(baseVertex);
 
         for(Primitive* prim: mesh->primitives) { prim->globalVertexOffset = static_cast<u32>(baseVertex + prim->localVertexOffset); }
     }
+
+    m_modelVertices.insert(m_modelVertices.end(), modelVertices.begin(), modelVertices.end());
 
     HGINFO("We now have %i vertices", modelVertices.size());
 

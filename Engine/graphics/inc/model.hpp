@@ -21,6 +21,8 @@
 
 namespace Humongous
 {
+// Local variables are relative to the model's buffers
+// Global variables are relative to the entire scene's buffers
 struct Primitive
 {
     Node*       owner{nullptr};
@@ -43,7 +45,8 @@ struct Primitive
     bool      hasIndices = false;
 
     u32 meshletCount{0};
-    u32 meshletOffset{0};
+    u32 localMeshletOffset{0};
+    u32 globalMeshletOffset{0};
 
     Primitive(u32 firstIndex, u32 indexCount, u32 vertexCount, u32 localVertexOffset, Material* material)
         : localFirstIndex(firstIndex), indexCount(indexCount), vertexCount(vertexCount), localVertexOffset(localVertexOffset), material(material),
@@ -65,14 +68,17 @@ struct Mesh
     std::vector<f32>        weights;
 };
 
+// "local" variables are relative to the entire model's buffers
+// "global" variables are relative to the entire scene's buffers
 struct Meshlet
 {
-    u32             vertexOffset;
-    u32             vertexCount;
-    u32             indexOffset;
-    u32             primitiveCount;
-    Eigen::Vector4f boundingSphere;
-    u32             primitiveID;
+    u32  localVertexOffset{0};
+    u32  globalVertexOffset{0};
+    u32  vertexCount{0};
+    u32  localIndexOffset{0};
+    u32  globalIndexOffset{0};
+    u32  primitiveCount{0};
+    uint __pad0[2];
 };
 
 class Model

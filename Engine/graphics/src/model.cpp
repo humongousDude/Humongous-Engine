@@ -576,7 +576,7 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
     {
         if(!primitive->hasIndices || primitive->indexCount == 0)
         {
-            primitive->meshletOffset = 0;
+            primitive->localMeshletOffset = 0;
             primitive->meshletCount = 0;
             continue;
         }
@@ -626,7 +626,7 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
             }
         }
 
-        primitive->meshletOffset = static_cast<u32>(m_meshlets.size());
+        primitive->localMeshletOffset = static_cast<u32>(m_meshlets.size());
         primitive->meshletCount = static_cast<u32>(actualMeshletCount);
 
         size_t currentBaseVertexOffset = m_meshletVertices.size();
@@ -635,12 +635,10 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
         for(size_t i = 0; i < actualMeshletCount; ++i)
         {
             Meshlet m;
-            m.vertexOffset = static_cast<u32>(currentBaseVertexOffset + tempMeshlets[i].vertex_offset);
+            m.localVertexOffset = static_cast<u32>(currentBaseVertexOffset + tempMeshlets[i].vertex_offset);
             m.vertexCount = tempMeshlets[i].vertex_count;
-            m.indexOffset = static_cast<u32>(currentPrimitiveBaseOffset + tempMeshlets[i].triangle_offset);
+            m.localIndexOffset = static_cast<u32>(currentPrimitiveBaseOffset + tempMeshlets[i].triangle_offset);
             m.primitiveCount = tempMeshlets[i].triangle_count;
-            m.boundingSphere = temp_boundingSpheres[i];
-            m.primitiveID = primitive->id;
 
             m_meshlets.push_back(m);
         }

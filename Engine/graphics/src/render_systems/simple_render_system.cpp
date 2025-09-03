@@ -4,7 +4,6 @@
 #include "asset_manager.hpp"
 #include "globals.hpp"
 #include "logger.hpp"
-#include "model_instance.hpp"
 #include "resource_manager.hpp"
 #include "scene_handler.hpp"
 #include "swapchain.hpp"
@@ -219,214 +218,164 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const b8& dep
 {
     if(!m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders)
     {
-        HGWARN("Tried to render objects with mesh shaders, but the device does not support them! Switching to non-mesh shaders...");
         RenderObjects(renderData, depthOnly);
         return;
     }
+    if(renderData.visibleEntities->empty()) { return; }
 
-    std::vector<DrawData>     drawDataVec;
-    std::vector<InstanceData> instanceDataVec;
-    u32                       instanceOffset = 0;
+    std::vector<DrawData>            drawDataVec;
+    std::vector<InstanceData>        instanceDataVec;
+    std::vector<MeshletDrawCallInfo> meshletDrawCalls;
+    drawDataVec.reserve(256);
+    instanceDataVec.reserve(renderData.visibleEntities->size());
+    u32 instanceOffset = 0;
 
     std::unordered_map<u32, std::vector<u32>> staticModelIDToEntityIDs;
-
-    for(const auto& entity: *renderData.visibleEntities)
+    for(const auto& e: *renderData.visibleEntities)
     {
-        auto modelComp = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entity.id);
-        if(modelComp && modelComp->instance && modelComp->instance->GetModel())
-        {
-            staticModelIDToEntityIDs[modelComp->instance->GetModel()->GetHandle()].push_back(entity.id);
-        }
+        auto mc = SceneHandler::GetWorld()->GetComponent<ModelComponent>(e.id);
+        if(mc && mc->instance && mc->instance->GetModel()) { staticModelIDToEntityIDs[mc->instance->GetModel()->GetHandle()].push_back(e.id); }
     }
 
-    drawDataVec.reserve(staticModelIDToEntityIDs.size() * 4);
-    instanceDataVec.reserve(renderData.visibleEntities->size());
-
-    std::vector<MeshletDrawCallInfo> meshletDrawCalls;
-
-    for(const auto& [staticModelID, entityIDs]: staticModelIDToEntityIDs)
+    for(const auto& [modelHandle, entityIDs]: staticModelIDToEntityIDs)
     {
         if(entityIDs.empty()) { continue; }
 
         auto someModelComponent = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entityIDs[0]);
-        if(!someModelComponent || !someModelComponent->instance || !someModelComponent->instance->GetModel()) { continue; }
+        if(!someModelComponent || !someModelComponent->instance) { continue; }
         const auto& staticModel = someModelComponent->instance->GetModel();
 
         for(const auto& [materialId, primitivesInBatch]: staticModel->GetMaterialBatches())
         {
             for(const auto& primitive: primitivesInBatch)
             {
-                if(primitive->meshletCount > 0)
-                {
-                    u32 currentDrawDataIndex = static_cast<u32>(drawDataVec.size());
+                if(primitive->meshletCount == 0) { continue; }
 
-                    DrawData draw{};
-                    draw.materialID = primitive->material->index;
-                    draw.localNodeIndex = primitive->owner->index;
-                    draw.isSkinned = staticModel->HasSkins();
-                    draw.isMorphed = !primitive->morphTargetPositions.empty() || !primitive->morphTargetNormals.empty() ||
-                                     !primitive->morphTargetTangents.empty();
-                    draw.instanceOffset = instanceOffset;
-                    drawDataVec.push_back(draw);
+                DrawData draw{};
+                draw.vertexOffset = primitive->globalVertexOffset;
+                draw.materialID = primitive->material->index;
+                draw.localNodeIndex = primitive->owner->index;
+                draw.isSkinned = staticModel->HasSkins() ? 1u : 0u;
+                draw.isMorphed =
+                    (!primitive->morphTargetPositions.empty() || !primitive->morphTargetNormals.empty() || !primitive->morphTargetTangents.empty())
+                        ? 1u
+                        : 0u;
+                draw.instanceOffset = instanceOffset;
 
-                    MeshletDrawCallInfo meshletDrawCall{};
-                    meshletDrawCall.drawDataIndex = currentDrawDataIndex;
-                    meshletDrawCall.meshletOffset = primitive->meshletOffset;
-                    meshletDrawCall.meshletCount = primitive->meshletCount;
-                    meshletDrawCall.instanceOffset = instanceOffset;
-                    meshletDrawCall.instanceCount = static_cast<u32>(entityIDs.size());
+                u32 drawIndex = static_cast<u32>(drawDataVec.size());
+                drawDataVec.push_back(draw);
 
-                    meshletDrawCalls.push_back(meshletDrawCall);
-                }
+                MeshletDrawCallInfo dc{};
+                dc.drawDataIndex = drawIndex;
+                dc.meshletOffset = primitive->globalMeshletOffset;
+                dc.meshletCount = primitive->meshletCount;
+                dc.instanceOffset = instanceOffset;
+                dc.instanceCount = static_cast<u32>(entityIDs.size());
+                meshletDrawCalls.push_back(dc);
             }
         }
 
-        for(const auto& entityId: entityIDs)
+        for(u32 entId: entityIDs)
         {
-            const auto modelComp = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entityId);
-            if(!modelComp || !modelComp->instance) { continue; }
+            const auto mc = SceneHandler::GetWorld()->GetComponent<ModelComponent>(entId);
+            if(!mc || !mc->instance) { continue; }
 
-            const auto& currentModelInstance = modelComp->instance;
+            InstanceData inst{};
+            inst.modelMatrix = SceneHandler::GetWorld()->GetComponent<TransformComponent>(entId)->Mat4();
+            inst.modelID = mc->instance->GetInstanceID();
+            inst.globalNodeIndex = m_resourceManager.GetModelHandleToMatrixStart(mc->instance->GetInstanceID());
+            if(staticModel->HasSkins()) { inst.jointMatrixStart = m_resourceManager.GetModelHandleToJointStart(mc->instance->GetInstanceID()); }
+            if(staticModel->HasMorphs()) { inst.morphTargetStart = m_resourceManager.GetModelHandleToMorphStart(mc->instance->GetInstanceID()); }
 
-            InstanceData instance{};
-            instance.modelMatrix = SceneHandler::GetWorld()->GetComponent<TransformComponent>(entityId)->Mat4();
-            instance.modelID = currentModelInstance->GetInstanceID();
-            instance.globalNodeIndex = m_resourceManager.GetModelHandleToMatrixStart(currentModelInstance->GetInstanceID());
-
-            if(staticModel->HasSkins())
-            {
-                instance.jointMatrixStart = m_resourceManager.GetModelHandleToJointStart(currentModelInstance->GetInstanceID());
-            }
-            if(staticModel->HasMorphs())
-            {
-                instance.morphTargetStart = m_resourceManager.GetModelHandleToMorphStart(currentModelInstance->GetInstanceID());
-            }
-
-            instanceDataVec.push_back(instance);
+            instanceDataVec.push_back(inst);
         }
+
         instanceOffset += static_cast<u32>(entityIDs.size());
     }
+
+    if(meshletDrawCalls.empty()) { return; }
 
     vk::DeviceSize drawDataSize = sizeof(DrawData) * drawDataVec.size();
     vk::DeviceSize instanceDataSize = sizeof(InstanceData) * instanceDataVec.size();
 
-    if(!meshletDrawCalls.empty())
+    auto ensureBuffer = [&](std::unique_ptr<Buffer>& buf, vk::DeviceSize needed, const char* name) {
+        if(!buf || buf->GetBuffer() == VK_NULL_HANDLE || buf->GetBufferSize() < needed)
+        {
+            buf.reset();
+            buf = std::make_unique<Buffer>(m_logicalDevice, needed, 1,
+                                           vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                                           vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 1, name);
+        }
+    };
+
+    auto& drawDataBuffer = depthOnly ? m_depthDrawDataBuffers[renderData.frameIndex] : m_drawDataBuffers[renderData.frameIndex];
+    auto& instanceDataBuffer = depthOnly ? m_depthInstanceBuffers[renderData.frameIndex] : m_drawInstanceBuffers[renderData.frameIndex];
+
+    ensureBuffer(drawDataBuffer, drawDataSize, "draw data buffer");
+    ensureBuffer(instanceDataBuffer, instanceDataSize, "instance data buffer");
+
+    auto uploadToDeviceBuffer = [&](Buffer& deviceBuf, void* src, vk::DeviceSize size, const char* tmpName) {
+        Buffer staging{m_logicalDevice,
+                       size,
+                       1,
+                       vk::BufferUsageFlagBits::eTransferSrc,
+                       vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                       VMA_MEMORY_USAGE_CPU_TO_GPU,
+                       1,
+                       tmpName};
+        staging.Map();
+        staging.WriteToBuffer(src, size);
+        staging.UnMap();
+        Buffer::CopyBuffer(m_logicalDevice, staging, deviceBuf, size);
+    };
+
+    if(drawDataSize > 0) { uploadToDeviceBuffer(*drawDataBuffer, drawDataVec.data(), drawDataSize, "drawdata-staging"); }
+    if(instanceDataSize > 0) { uploadToDeviceBuffer(*instanceDataBuffer, instanceDataVec.data(), instanceDataSize, "instdata-staging"); }
+
+    DescriptorPool* poolToUse = depthOnly ? m_depthPool[renderData.frameIndex].get() : m_pool[renderData.frameIndex].get();
+    poolToUse->ResetPool();
+
+    vk::DescriptorSet setToUse = depthOnly ? m_depthSet[renderData.frameIndex] : m_set[renderData.frameIndex];
+    DescriptorWriter  writer{*m_layout, poolToUse};
+    auto              drawInfo = drawDataBuffer->DescriptorInfo();
+    auto              instInfo = instanceDataBuffer->DescriptorInfo();
+    writer.WriteBuffer(0, &drawInfo).WriteBuffer(1, &instInfo);
+    writer.Build(setToUse);
+
+    if(depthOnly) { m_depthOnlyPipeline->Bind(renderData.commandBuffer); }
+    else { m_opaqueGeometryPipeline->Bind(renderData.commandBuffer); }
+
+    m_resourceManager.BindGlobalDescriptorSets(renderData.commandBuffer, m_pipelineLayout);
+
+    if(!renderData.uboSets.empty())
     {
-        DescriptorPool* poolToUse = depthOnly ? m_depthPool[renderData.frameIndex].get() : m_pool[renderData.frameIndex].get();
-
-        auto& drawDataBufferToUse = depthOnly ? m_depthDrawDataBuffers[renderData.frameIndex] : m_drawDataBuffers[renderData.frameIndex];
-        auto& instanceBufferToUse = depthOnly ? m_depthInstanceBuffers[renderData.frameIndex] : m_drawInstanceBuffers[renderData.frameIndex];
-
-        if(drawDataBufferToUse)
-        {
-
-            if(drawDataBufferToUse->GetBuffer() == VK_NULL_HANDLE || drawDataBufferToUse->GetBufferSize() < drawDataSize)
-            {
-                drawDataBufferToUse.reset();
-            }
-        }
-        if(instanceBufferToUse)
-        {
-            if(instanceBufferToUse->GetBuffer() == VK_NULL_HANDLE || instanceBufferToUse->GetBufferSize() < instanceDataSize)
-            {
-                instanceBufferToUse.reset();
-            }
-        }
-
-        // Draw data buffer upload
-        {
-            drawDataBufferToUse = std::make_unique<Buffer>(
-                m_logicalDevice, drawDataSize, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw data buffer");
-
-            Buffer stagingBuffer{m_logicalDevice,
-                                 drawDataSize,
-                                 1,
-                                 vk::BufferUsageFlagBits::eTransferSrc,
-                                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                                 VMA_MEMORY_USAGE_CPU_TO_GPU,
-                                 1,
-                                 "draw data staging buffer"};
-
-            stagingBuffer.Map();
-            stagingBuffer.WriteToBuffer((void*)drawDataVec.data(), drawDataSize);
-            stagingBuffer.UnMap();
-
-            Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *drawDataBufferToUse, drawDataSize);
-        }
-
-        // Instance data buffer upload
-        {
-            instanceBufferToUse = std::make_unique<Buffer>(
-                m_logicalDevice, instanceDataSize, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "instance data buffer");
-
-            Buffer stagingBuffer{m_logicalDevice,
-                                 instanceDataSize,
-                                 1,
-                                 vk::BufferUsageFlagBits::eTransferSrc,
-                                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                                 VMA_MEMORY_USAGE_CPU_TO_GPU,
-                                 1,
-                                 "instance data staging buffer"};
-
-            stagingBuffer.Map();
-            stagingBuffer.WriteToBuffer((void*)instanceDataVec.data(), instanceDataSize);
-            stagingBuffer.UnMap();
-
-            Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *instanceBufferToUse, instanceDataSize);
-        }
-
-        if(depthOnly) { m_depthOnlyPipeline->Bind(renderData.commandBuffer); }
-        else { m_opaqueGeometryPipeline->Bind(renderData.commandBuffer); }
-
-        vk::DescriptorSet debugSet;
-        auto              debugBufferInfo = m_debugBuffer->DescriptorInfo();
-        DescriptorWriter  debugWriter{*m_resourceManager.GetModelDescriptors().debugLayout, m_resourceManager.GetDescriptorPools().debugPool.get()};
-        debugWriter.WriteBuffer(0, &debugBufferInfo);
-        if(debugSet == VK_NULL_HANDLE) { debugWriter.Build(debugSet); }
-        else { debugWriter.Overwrite(debugSet); }
-        poolToUse->ResetPool();
-
-        vk::DescriptorSet setToUse = depthOnly ? m_depthSet[renderData.frameIndex] : m_set[renderData.frameIndex];
-
-        auto             drawDataBufferInfo = drawDataBufferToUse->DescriptorInfo();
-        auto             instBufInfo = instanceBufferToUse->DescriptorInfo();
-        DescriptorWriter writer{*m_layout, poolToUse};
-        writer.WriteBuffer(0, &drawDataBufferInfo).WriteBuffer(1, &instBufInfo);
-        writer.Build(setToUse);
-
-        m_resourceManager.BindGlobalDescriptorSets(renderData.commandBuffer, m_pipelineLayout);
-
-        if(!renderData.uboSets.empty())
-        {
-            renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
-                                                        static_cast<u32>(Globals::ModelDescriptorIndices::Camera),
-                                                        static_cast<u32>(renderData.uboSets.size()), renderData.uboSets.data(), 0, nullptr);
-        }
-
-        std::vector<vk::DescriptorSet> sets{setToUse};
         renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
-                                                    static_cast<u32>(Globals::ModelDescriptorIndices::Model) + 1, sets.size(), sets.data(), 0,
-                                                    nullptr);
+                                                    static_cast<u32>(Globals::ModelDescriptorIndices::Camera),
+                                                    static_cast<u32>(renderData.uboSets.size()), renderData.uboSets.data(), 0, nullptr);
+    }
 
-        renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
-                                                    static_cast<u32>(Globals::ModelDescriptorIndices::Debug), 1, &debugSet, 0, nullptr);
+    std::vector<vk::DescriptorSet> sets{setToUse};
+    renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
+                                                static_cast<u32>(Globals::ModelDescriptorIndices::Model) + 1, (uint32_t)sets.size(), sets.data(), 0,
+                                                nullptr);
 
-        for(const auto& drawCall: meshletDrawCalls)
-        {
+    // vk::DescriptorSet debugSet;
+    // renderData.commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
+    //                                             static_cast<u32>(Globals::ModelDescriptorIndices::Debug), 1, &debugSet, 0, nullptr);
 
-            MeshletPushConstants pushConstants{};
-            pushConstants.meshletOffset = drawCall.meshletOffset;
-            pushConstants.drawDataIndex = drawCall.drawDataIndex;
-            pushConstants.instanceOffset = drawCall.instanceOffset;
-            pushConstants.instanceCount = drawCall.instanceCount;
-            pushConstants.meshletCount = drawCall.meshletCount;
+    for(const auto& dc: meshletDrawCalls)
+    {
+        MeshletPushConstants pcData{};
+        pcData.meshletOffset = dc.meshletOffset;
+        pcData.drawDataIndex = dc.drawDataIndex;
+        pcData.instanceOffset = dc.instanceOffset;
+        pcData.instanceCount = dc.instanceCount;
+        pcData.meshletCount = dc.meshletCount;
 
-            renderData.commandBuffer.pushConstants(m_pipelineLayout, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 0,
-                                                   sizeof(MeshletPushConstants), &pushConstants);
-            m_logicalDevice.RecordDrawMesh(renderData.commandBuffer, drawCall.meshletCount, drawCall.instanceCount, 1);
-        }
+        renderData.commandBuffer.pushConstants(m_pipelineLayout, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 0,
+                                               sizeof(MeshletPushConstants), &pcData);
+
+        m_logicalDevice.RecordDrawMesh(renderData.commandBuffer, dc.meshletCount, dc.instanceCount, 1);
     }
 }
 

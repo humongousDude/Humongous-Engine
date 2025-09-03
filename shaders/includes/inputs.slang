@@ -38,7 +38,7 @@ struct Meshlet{
     uint localIndexOffset;
     uint globalIndexOffset;
     uint primitiveCount;
-    uint primitiveID;
+    uint __pad0[2];
 };
 
 struct MeshletPushConstants {

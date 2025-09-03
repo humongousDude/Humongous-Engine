@@ -4,7 +4,6 @@ struct TaskPayload {
     uint globalMeshletIndex;
     uint drawDataIndex;
     uint instanceIndex;
-    uint instanceCount;
 };
 
 struct OutVertex{
@@ -37,10 +36,8 @@ void main(
     Meshlet m = meshlets[payload.globalMeshletIndex];
     DrawData d = drawData[payload.drawDataIndex];
 
-    // pick the instance within the draw
     InstanceData inst = instData[payload.instanceIndex];
 
-    // rest unchanged
     float4x4 nodeTransform = node[d.localNodeIndex + inst.globalNodeIndex];
     float4x4 modelTransform = mul(inst.modelMatrix, nodeTransform);
     float3x3 normalMat = (float3x3)modelTransform;

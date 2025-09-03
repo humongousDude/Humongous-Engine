@@ -90,8 +90,8 @@ public:
     u32 GetModelHandleToJointStart(const u32& handle) { return m_modelHandleToJointStart.at(handle).first; }
     u32 GetModelHandleToMorphStart(const u32& handle) { return m_modelHandleToMorphStart.at(handle).first; }
 
-    void AddMeshletsToModel(const std::vector<Meshlet>& meshlets, const std::vector<u32>& meshletVertices, const std::vector<u8>& meshletPrimitives,
-                            const u32& handle);
+    void AddMeshletsToModel(std::vector<Primitive*>& primitives, std::vector<Meshlet>& meshlets, const std::vector<u32>& meshletVertices,
+                            const std::vector<u8>& meshletPrimitives, const u32& handle);
 
 private:
     struct DescriptorPools
