@@ -1,4 +1,12 @@
 
+struct TaskPayload {
+    uint meshletOffset;
+    uint drawDataIndex;
+    uint instanceIndex;
+    uint meshletCount;
+    uint instanceCount;
+};
+
 struct Vertex {
     float4 position;
     float4 normal;
@@ -41,15 +49,13 @@ struct Meshlet{
     uint __pad0[2];
 };
 
-struct MeshletPushConstants {
+struct MeshletDrawData {
     uint meshletIndex;
     uint drawDataIndex;
     uint instanceOffset;
     uint instanceCount;
     uint meshletCount;
 };
-
-[[vk::push_constant]] MeshletPushConstants pc;
 
 [[vk::binding(0, 0)]]cbuffer UBO {
     float4x4 projection;
@@ -67,6 +73,8 @@ struct MeshletPushConstants {
 [[vk::binding(6, 1)]] StructuredBuffer<Meshlet> meshlets;
 [[vk::binding(7, 1)]] StructuredBuffer<uint> meshletVertices;
 [[vk::binding(8, 1)]] StructuredBuffer<uint8_t> meshletPrimitives;
+
 [[vk::binding(0, 2)]] StructuredBuffer<DrawData> drawData;
 [[vk::binding(1, 2)]] StructuredBuffer<InstanceData> instData;
+
 [[vk::binding(0, 3)]] RWStructuredBuffer<uint> debugData;

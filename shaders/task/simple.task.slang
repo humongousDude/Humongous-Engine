@@ -1,20 +1,26 @@
 import "../includes/inputs.slang";
 
-struct TaskPayload {
-    uint globalMeshletIndex;
-    uint drawDataIndex;
-    uint instanceIndex;
-};
+static const uint WORKGROUP_SIZE = 64;
 
-groupshared TaskPayload payload;
+[[vk::binding(2, 2)]] StructuredBuffer<MeshletDrawData> meshDrawData;
 
-[numthreads(1, 1, 1)]
+[numthreads(WORKGROUP_SIZE, 1, 1)]
 [shader("amplification")]
-void main(uint3 dispatchThreadID : SV_DispatchThreadID)
+void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint drawID : SV_DrawIndex)
 {
-    payload.globalMeshletIndex = pc.meshletIndex + dispatchThreadID.x;
-    payload.drawDataIndex      = pc.drawDataIndex;
-    payload.instanceIndex      = pc.instanceOffset + dispatchThreadID.y;
+    MeshletDrawData mdd = meshDrawData[drawID];
 
-    DispatchMesh(1, 1, 1, payload);
+    TaskPayload payload;
+    payload.drawDataIndex = mdd.drawDataIndex;
+    payload.instanceIndex = mdd.instanceOffset;
+    payload.instanceCount = mdd.instanceCount;
+    payload.meshletCount = mdd.meshletCount;
+    payload.meshletOffset = mdd.meshletIndex;
+    
+    // Each thread within the workgroup will process a specific meshlet-instance pair.
+    // The total number of tasks to dispatch is meshletCount * instanceCount.
+    uint numTasks = mdd.meshletCount * mdd.instanceCount;
+    
+    // Dispatch one meshlet for each task. The total number of tasks is `numTasks`.
+    DispatchMesh(numTasks, 1, 1, payload);
 }

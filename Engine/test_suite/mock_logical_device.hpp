@@ -134,6 +134,8 @@ public:
     MOCK_METHOD(void, RecordBlitImage, (vk::CommandBuffer cmd, vk::BlitImageInfo2 blit), (const, override));
     MOCK_METHOD(vk::Result, FlushMappedMemoryRanges, (const std::vector<vk::MappedMemoryRange>& ranges), (const, override));
     MOCK_METHOD(void, RecordDrawMesh, (vk::CommandBuffer cmd, u32 taskCountx, u32 taskCounty, u32 taskCountz), (const, override));
+    MOCK_METHOD(void, RecordDrawMeshTasksIndirect, (vk::CommandBuffer cmd, vk::Buffer buffer, vk::DeviceSize offset, u32 drawCount, u32 stride),
+                (const, override));
 };
 
 } // namespace Humongous

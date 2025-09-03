@@ -1,10 +1,5 @@
 import "../includes/inputs.slang";
 
-struct TaskPayload {
-    uint globalMeshletIndex;
-    uint drawDataIndex;
-    uint instanceIndex;
-};
 
 struct OutVertex{
     float4 position      : SV_Position; 
@@ -28,15 +23,25 @@ static const uint GROUP_SIZE = 32;
 [outputtopology("triangle")]
 void main(
     in payload TaskPayload payload,
+    uint3 gid : SV_GroupID,
     uint tid : SV_GroupThreadID,
     OutputVertices<OutVertex, MAX_MESHLET_VERTS> outVertices,
     OutputIndices<uint3, MAX_MESHLET_PRIMS> outIndices
 )
 {
-    Meshlet m = meshlets[payload.globalMeshletIndex];
-    DrawData d = drawData[payload.drawDataIndex];
+    // The GroupID.x tells us which meshlet-instance pair we are.
+    // We need to unpack this into a specific meshlet index and instance index.
+    uint totalMeshlets = payload.meshletCount;
+    uint totalInstances = payload.instanceCount;
+    
+    uint taskIndex = gid.x;
+    
+    uint meshletIndex = taskIndex % totalMeshlets;
+    uint instanceIndex = taskIndex / totalMeshlets;
 
-    InstanceData inst = instData[payload.instanceIndex];
+    Meshlet m = meshlets[payload.meshletOffset + meshletIndex];
+    DrawData d = drawData[payload.drawDataIndex];
+    InstanceData inst = instData[payload.instanceIndex + instanceIndex];
 
     float4x4 nodeTransform = node[d.localNodeIndex + inst.globalNodeIndex];
     float4x4 modelTransform = mul(inst.modelMatrix, nodeTransform);

@@ -53,6 +53,17 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
     vulkan12Features.samplerFilterMinmax = VK_TRUE;
     vulkan12Features.pNext = &vulkan11Features;
 
+    vk::PhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{};
+    if(m_physicalDevice->GetCurrentCapabilities().supportsMeshShaders)
+    {
+        meshShaderFeatures.taskShader = true;
+        meshShaderFeatures.meshShader = true;
+        vulkan11Features.pNext = &meshShaderFeatures;
+
+        vulkan12Features.shaderInt8 = true;
+        vulkan12Features.uniformAndStorageBuffer8BitAccess = true;
+    }
+
     // vulkan 1.3 features
     vk::PhysicalDeviceVulkan13Features vulkan13Features{};
     vulkan13Features.synchronization2 = VK_TRUE;
@@ -127,6 +138,8 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
     }
 
     m_drawMeshTasks = reinterpret_cast<PFN_vkCmdDrawMeshTasksEXT>(vkGetDeviceProcAddr(m_logicalDevice, "vkCmdDrawMeshTasksEXT"));
+    m_drawMeshTasksIndirect =
+        reinterpret_cast<PFN_vkCmdDrawMeshTasksIndirectEXT>(vkGetDeviceProcAddr(m_logicalDevice, "vkCmdDrawMeshTasksIndirectEXT"));
 
     HGINFO("logical device queues acquired");
 }
@@ -366,8 +379,23 @@ vk::Result VulkanLogicalDevice::FlushMappedMemoryRanges(const std::vector<vk::Ma
 
 void VulkanLogicalDevice::RecordDrawMesh(vk::CommandBuffer cmd, u32 taskCountx, u32 taskCounty, u32 taskCountz) const
 {
-    if(m_drawMeshTasks == nullptr) { return; }
+    if(m_drawMeshTasks == nullptr)
+    {
+        HGERROR("tried to call vkCmdDrawMeshTasksEXT, but our pointer was invalid!");
+        return;
+    }
     m_drawMeshTasks(cmd, taskCountx, taskCounty, taskCountz);
+}
+
+void VulkanLogicalDevice::RecordDrawMeshTasksIndirect(vk::CommandBuffer cmd, vk::Buffer buffer, vk::DeviceSize offset, u32 drawCount,
+                                                      u32 stride) const
+{
+    if(m_drawMeshTasksIndirect == nullptr)
+    {
+        HGERROR("tried to call vkCmdDrawMeshTasksIndirectEXT, but our pointer was invalid!");
+        return;
+    }
+    m_drawMeshTasksIndirect(cmd, buffer, offset, drawCount, stride);
 }
 
 } // namespace Humongous
