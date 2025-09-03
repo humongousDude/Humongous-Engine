@@ -85,10 +85,6 @@ void PhysicalDevice::PickPhysicalDevice()
     m_currentSupportLevel = bestSupportLevel;
     m_currentCapabilities = bestCapabilities; // Save capabilities of the chosen device
 
-    m_currentCapabilities.supportsMeshShaders = false;
-    m_currentSupportLevel = DeviceSupportLevel::BaseGraphics;
-    ;
-
     if(m_physicalDevice == VK_NULL_HANDLE)
     {
         HGFATAL("Failed to find a suitable GPU! No device meets even the minimum 'BaseGraphics' requirements.");
@@ -225,6 +221,7 @@ PhysicalDevice::DeviceCapabilities PhysicalDevice::GetDeviceCapabilities(vk::Phy
     }
 
     if(!allBaseExtensionsPresent) { return capabilities; }
+    m_presentExtensions = REQUIRED_BASE_DEVICE_EXTENSIONS;
 
     vk::PhysicalDeviceFeatures features{};
     physicalDevice.getFeatures(&features);
@@ -243,6 +240,7 @@ PhysicalDevice::DeviceCapabilities PhysicalDevice::GetDeviceCapabilities(vk::Phy
             physicalDevice, meshShaderFeatures, [](const vk::PhysicalDeviceMeshShaderFeaturesEXT& f) { return f.meshShader; });
 
         capabilities.supportsMeshShaders = supportsTaskShaders && supportsMeshShaders;
+        if(capabilities.supportsMeshShaders) { m_presentExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME); }
     }
 
     capabilities.supportsBindlessDescriptors = CheckExtensionAvailability(physicalDevice, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);

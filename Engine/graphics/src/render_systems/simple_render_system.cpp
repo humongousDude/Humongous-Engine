@@ -58,9 +58,11 @@ void SimpleRenderSystem::AllocateDescriptorSet()
     m_set.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_depthSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
+    auto targetVertexStage = m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders ? vk::ShaderStageFlagBits::eMeshEXT
+                                                                                                              : vk::ShaderStageFlagBits::eVertex;
     DescriptorSetLayout::Builder layoutBuilder{m_logicalDevice};
-    layoutBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex, 1);
-    layoutBuilder.AddBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eVertex, 1);
+    layoutBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, targetVertexStage, 1);
+    layoutBuilder.AddBinding(1, vk::DescriptorType::eStorageBuffer, targetVertexStage, 1);
     m_layout = layoutBuilder.Build();
 
     DescriptorPool::Builder poolBuilder{m_logicalDevice};
@@ -91,6 +93,7 @@ struct MeshletPushConstants
     u32 drawDataIndex;
     u32 instanceOffset;
     u32 instanceCount;
+    u32 meshletCount;
 };
 
 void SimpleRenderSystem::CreatePipelineLayout(const std::vector<vk::DescriptorSetLayout>& layouts)
@@ -266,8 +269,14 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const b8& dep
                     draw.instanceOffset = instanceOffset;
                     drawDataVec.push_back(draw);
 
-                    meshletDrawCalls.push_back({currentDrawDataIndex, primitive->meshletOffset, primitive->meshletCount, instanceOffset,
-                                                static_cast<u32>(entityIDs.size())});
+                    MeshletDrawCallInfo meshletDrawCall{};
+                    meshletDrawCall.drawDataIndex = currentDrawDataIndex;
+                    meshletDrawCall.meshletOffset = primitive->meshletOffset;
+                    meshletDrawCall.meshletCount = primitive->meshletCount;
+                    meshletDrawCall.instanceOffset = instanceOffset;
+                    meshletDrawCall.instanceCount = static_cast<u32>(entityIDs.size());
+
+                    meshletDrawCalls.push_back(meshletDrawCall);
                 }
             }
         }
@@ -301,20 +310,27 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const b8& dep
     vk::DeviceSize drawDataSize = sizeof(DrawData) * drawDataVec.size();
     vk::DeviceSize instanceDataSize = sizeof(InstanceData) * instanceDataVec.size();
 
-    if(meshletDrawCalls.empty())
+    if(!meshletDrawCalls.empty())
     {
         DescriptorPool* poolToUse = depthOnly ? m_depthPool[renderData.frameIndex].get() : m_pool[renderData.frameIndex].get();
 
         auto& drawDataBufferToUse = depthOnly ? m_depthDrawDataBuffers[renderData.frameIndex] : m_drawDataBuffers[renderData.frameIndex];
         auto& instanceBufferToUse = depthOnly ? m_depthInstanceBuffers[renderData.frameIndex] : m_drawInstanceBuffers[renderData.frameIndex];
 
-        if(drawDataBufferToUse->GetBuffer() == VK_NULL_HANDLE || drawDataBufferToUse->GetBufferSize() < drawDataSize)
+        if(drawDataBufferToUse)
         {
-            drawDataBufferToUse.reset();
+
+            if(drawDataBufferToUse->GetBuffer() == VK_NULL_HANDLE || drawDataBufferToUse->GetBufferSize() < drawDataSize)
+            {
+                drawDataBufferToUse.reset();
+            }
         }
-        if(instanceBufferToUse->GetBuffer() == VK_NULL_HANDLE || instanceBufferToUse->GetBufferSize() < instanceDataSize)
+        if(instanceBufferToUse)
         {
-            instanceBufferToUse.reset();
+            if(instanceBufferToUse->GetBuffer() == VK_NULL_HANDLE || instanceBufferToUse->GetBufferSize() < instanceDataSize)
+            {
+                instanceBufferToUse.reset();
+            }
         }
 
         // Draw data buffer upload
@@ -400,12 +416,16 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const b8& dep
         for(const auto& drawCall: meshletDrawCalls)
         {
 
-            MeshletPushConstants pushConstants = {drawCall.meshletOffset, drawCall.drawDataIndex, drawCall.instanceOffset, drawCall.instanceCount};
+            MeshletPushConstants pushConstants{};
+            pushConstants.meshletOffset = drawCall.meshletOffset;
+            pushConstants.drawDataIndex = drawCall.drawDataIndex;
+            pushConstants.instanceOffset = drawCall.instanceOffset;
+            pushConstants.instanceCount = drawCall.instanceCount;
+            pushConstants.meshletCount = drawCall.meshletCount;
 
             renderData.commandBuffer.pushConstants(m_pipelineLayout, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 0,
                                                    sizeof(MeshletPushConstants), &pushConstants);
-
-            // renderData.commandBuffer.drawMeshTasksEXT(drawCall.meshletCount, 1, 1);
+            m_logicalDevice.RecordDrawMesh(renderData.commandBuffer, drawCall.meshletCount, drawCall.instanceCount, 1);
         }
     }
 }

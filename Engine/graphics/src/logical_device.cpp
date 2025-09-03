@@ -126,6 +126,8 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
         m_logicalDevice.getQueue2(&presentQueueInfo, &m_presentQueue);
     }
 
+    m_drawMeshTasks = reinterpret_cast<PFN_vkCmdDrawMeshTasksEXT>(vkGetDeviceProcAddr(m_logicalDevice, "vkCmdDrawMeshTasksEXT"));
+
     HGINFO("logical device queues acquired");
 }
 
@@ -360,6 +362,12 @@ void VulkanLogicalDevice::RecordBlitImage(vk::CommandBuffer cmd, vk::BlitImageIn
 vk::Result VulkanLogicalDevice::FlushMappedMemoryRanges(const std::vector<vk::MappedMemoryRange>& ranges) const
 {
     return m_logicalDevice.flushMappedMemoryRanges(static_cast<u32>(ranges.size()), ranges.data());
+}
+
+void VulkanLogicalDevice::RecordDrawMesh(vk::CommandBuffer cmd, u32 taskCountx, u32 taskCounty, u32 taskCountz) const
+{
+    if(m_drawMeshTasks == nullptr) { return; }
+    m_drawMeshTasks(cmd, taskCountx, taskCounty, taskCountz);
 }
 
 } // namespace Humongous

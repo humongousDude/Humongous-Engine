@@ -35,8 +35,11 @@ void Camera::InitDescriptorThings(const ILogicalDevice& logicalDevice)
     builder.AddPoolSize(vk::DescriptorType::eUniformBuffer, 25);
     m_projectionPool = builder.Build();
 
+    auto targetVertexStage = logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders ? vk::ShaderStageFlagBits::eMeshEXT
+                                                                                                            : vk::ShaderStageFlagBits::eVertex;
+
     DescriptorSetLayout::Builder builder2{logicalDevice};
-    builder2.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex);
+    builder2.AddBinding(0, vk::DescriptorType::eUniformBuffer, targetVertexStage);
     m_vertProjectionLayout = builder2.Build();
 
     DescriptorSetLayout::Builder builder3{logicalDevice};

@@ -73,7 +73,7 @@ public:
 
     QueueFamilyData FindQueueFamilies(vk::PhysicalDevice physicalDevice) const override;
 
-    std::vector<const char*> GetDeviceExtensions() const override { return REQUIRED_BASE_DEVICE_EXTENSIONS; }
+    std::vector<const char*> GetDeviceExtensions() const override { return m_presentExtensions; }
 
     SwapChainSupportDetails QuerySwapChainSupport(vk::PhysicalDevice physicalDevice) const override;
 
@@ -119,5 +119,6 @@ private:
 
     const std::vector<const char*> REQUIRED_BASE_DEVICE_EXTENSIONS = {VK_KHR_SWAPCHAIN_EXTENSION_NAME,
                                                                       VK_KHR_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME};
+    std::vector<const char*>       m_presentExtensions;
 };
 } // namespace Humongous

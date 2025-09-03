@@ -4,6 +4,7 @@ struct TaskPayload {
     uint globalMeshletIndex;
     uint drawDataIndex;
     uint instanceIndex;
+    uint instanceCount;
 };
 
 groupshared TaskPayload payload;
