@@ -387,8 +387,7 @@ void VulkanLogicalDevice::RecordDrawMesh(vk::CommandBuffer cmd, u32 taskCountx, 
     m_drawMeshTasks(cmd, taskCountx, taskCounty, taskCountz);
 }
 
-void VulkanLogicalDevice::RecordDrawMeshTasksIndirect(vk::CommandBuffer cmd, vk::Buffer buffer, vk::DeviceSize offset, u32 drawCount,
-                                                      u32 stride) const
+void VulkanLogicalDevice::RecordDrawMeshIndirect(vk::CommandBuffer cmd, vk::Buffer buffer, vk::DeviceSize offset, u32 drawCount, u32 stride) const
 {
     if(m_drawMeshTasksIndirect == nullptr)
     {

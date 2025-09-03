@@ -7,6 +7,7 @@
 #include "material.hpp"
 #include "texture.hpp"
 #include <Eigen/Dense>
+#include <cfloat>
 
 // ERROR is already defined in wingdi.h and collides with a define in the Draco headers
 #if defined(_WIN32) && defined(ERROR) && defined(TINYGLTF_ENABLE_DRACO)

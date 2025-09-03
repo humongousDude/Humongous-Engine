@@ -60,6 +60,7 @@ public:
     virtual void       RecordBlitImage(vk::CommandBuffer cmd, vk::BlitImageInfo2 blit) const = 0;
     virtual vk::Result FlushMappedMemoryRanges(const std::vector<vk::MappedMemoryRange>& ranges) const = 0;
     virtual void       RecordDrawMesh(vk::CommandBuffer cmd, u32 taskCountx, u32 taskCounty, u32 taskCountz) const = 0;
+    virtual void       RecordDrawMeshIndirect(vk::CommandBuffer cmd, vk::Buffer buffer, u32 offset, u32 count, u32 stride) const = 0;
 };
 
 class VulkanLogicalDevice : public ILogicalDevice, NonCopyable
@@ -116,6 +117,7 @@ public:
     void              RecordBlitImage(vk::CommandBuffer cmd, vk::BlitImageInfo2 blit) const override;
     vk::Result        FlushMappedMemoryRanges(const std::vector<vk::MappedMemoryRange>& ranges) const override;
     void              RecordDrawMesh(vk::CommandBuffer cmd, u32 taskCountx, u32 taskCounty, u32 taskCountz) const override;
+    void              RecordDrawMeshIndirect(vk::CommandBuffer cmd, vk::Buffer buffer, u32 offset, u32 count, u32 stride) const override;
 
 private:
     IInstance& m_instance;
@@ -132,7 +134,8 @@ private:
 
     vk::CommandPool m_commandPool;
 
-    PFN_vkCmdDrawMeshTasksEXT m_drawMeshTasks;
+    PFN_vkCmdDrawMeshTasksEXT         m_drawMeshTasks;
+    PFN_vkCmdDrawMeshTasksIndirectEXT m_drawMeshTasksIndirect;
 
     void CreateLogicalDevice(IInstance& instance, IPhysicalDevice& physicalDevice);
     void CreateCommandPool(IPhysicalDevice& physicalDevice);

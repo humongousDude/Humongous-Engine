@@ -2,7 +2,6 @@
 #pragma once
 
 #include "non_copyable.hpp"
-#include <glm/fwd.hpp>
 #include <logical_device.hpp>
 #include <vk_mem_alloc.h>
 

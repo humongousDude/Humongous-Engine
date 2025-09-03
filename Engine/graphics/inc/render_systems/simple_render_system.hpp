@@ -33,7 +33,7 @@ public:
     ~SimpleRenderSystem();
 
     void RenderObjectsMesh(RenderData& renderData, const b8& depthOnly);
-    void RenderObjects(RenderData& renderData, const b8& depthOnly);
+    void RenderObjectsTraditional(RenderData& renderData, const b8& depthOnly);
     u32  GetObjectsDrawn() { return m_verticesDrawn; }
 
     vk::PipelineLayout m_pipelineLayout{};
@@ -83,6 +83,11 @@ private:
     std::vector<std::unique_ptr<Buffer>> m_depthDrawDataBuffers;
     std::vector<std::unique_ptr<Buffer>> m_depthInstanceBuffers;
     std::vector<vk::DescriptorSet>       m_depthSet = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE};
+
+    std::vector<std::unique_ptr<Buffer>> m_meshDataDrawBuffers;
+    std::vector<std::unique_ptr<Buffer>> m_depthMeshDataDrawBuffers;
+    std::vector<std::unique_ptr<Buffer>> m_meshIndirectDrawBuffers;
+    std::vector<std::unique_ptr<Buffer>> m_depthMeshIndirectDrawBuffers;
 
     void AllocateDescriptorSet();
     void CreatePipelineLayout(const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts);

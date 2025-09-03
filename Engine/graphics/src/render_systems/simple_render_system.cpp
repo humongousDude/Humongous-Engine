@@ -53,6 +53,8 @@ SimpleRenderSystem::~SimpleRenderSystem()
         m_depthDrawDataBuffers[i].reset();
         m_meshDataDrawBuffers[i].reset();
         m_depthMeshDataDrawBuffers[i].reset();
+        m_meshIndirectDrawBuffers[i].reset();
+        m_depthMeshIndirectDrawBuffers[i].reset();
     }
 
     HGINFO("Destroyed Simple render system");
@@ -385,7 +387,7 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const b8& dep
                                                 static_cast<u32>(Globals::ModelDescriptorIndices::Model) + 1, (uint32_t)sets.size(), sets.data(), 0,
                                                 nullptr);
 
-    m_logicalDevice.RecordDrawMeshTasksIndirect(
+    m_logicalDevice.RecordDrawMeshIndirect(
         renderData.commandBuffer, meshDataIndirectBuffer->GetBuffer(),
         0,                                          // offset
         static_cast<u32>(drawCalls.size()),         // The number of commands in the buffer
