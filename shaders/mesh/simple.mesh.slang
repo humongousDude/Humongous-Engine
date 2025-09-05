@@ -1,6 +1,5 @@
 import "../includes/inputs.slang";
 
-
 struct OutVertex{
     float4 position      : SV_Position; 
     float2 uv0          : TEXCOORD0;    

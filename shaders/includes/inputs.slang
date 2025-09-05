@@ -7,6 +7,10 @@ struct TaskPayload {
     uint instanceCount;
 };
 
+// struct TaskPayload {
+//     uint drawID;
+// };
+
 struct Vertex {
     float4 position;
     float4 normal;
@@ -49,7 +53,7 @@ struct Meshlet{
     uint __pad0[2];
 };
 
-struct MeshletDrawData {
+struct MeshletDrawInfo {
     uint meshletIndex;
     uint drawDataIndex;
     uint instanceOffset;
