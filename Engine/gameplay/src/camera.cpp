@@ -94,6 +94,9 @@ void Camera::InitDescriptorThings(const ILogicalDevice& logicalDevice)
 void Camera::Update()
 {
     UpdateViewMatrix();
+
+    m_frustumPlanes = Camera::ExtractFrustumPlanes(GetProjectionViewMatrix());
+
     UpdateUBO(m_index);
     UpdateCombinedCameraData(m_index);
 
@@ -109,17 +112,23 @@ void Camera::UpdateUBO(u32 index)
     ubo.invView = m_viewMatrix.inverse();
     ubo.projectionView = GetProjectionViewMatrix();
     ubo.cameraPos = m_position;
+    ubo.frustumPlanes[0] =
+        Eigen::Vector4f(m_frustumPlanes[0].normal.x(), m_frustumPlanes[0].normal.y(), m_frustumPlanes[0].normal.z(), m_frustumPlanes[0].distance);
+    ubo.frustumPlanes[1] =
+        Eigen::Vector4f(m_frustumPlanes[1].normal.x(), m_frustumPlanes[1].normal.y(), m_frustumPlanes[1].normal.z(), m_frustumPlanes[1].distance);
+    ubo.frustumPlanes[2] =
+        Eigen::Vector4f(m_frustumPlanes[2].normal.x(), m_frustumPlanes[2].normal.y(), m_frustumPlanes[2].normal.z(), m_frustumPlanes[2].distance);
+    ubo.frustumPlanes[3] =
+        Eigen::Vector4f(m_frustumPlanes[3].normal.x(), m_frustumPlanes[3].normal.y(), m_frustumPlanes[3].normal.z(), m_frustumPlanes[3].distance);
+    ubo.frustumPlanes[4] =
+        Eigen::Vector4f(m_frustumPlanes[4].normal.x(), m_frustumPlanes[4].normal.y(), m_frustumPlanes[4].normal.z(), m_frustumPlanes[4].distance);
+    ubo.frustumPlanes[5] =
+        Eigen::Vector4f(m_frustumPlanes[5].normal.x(), m_frustumPlanes[5].normal.y(), m_frustumPlanes[5].normal.z(), m_frustumPlanes[5].distance);
 
     m_projectionBuffers[index]->WriteToBuffer(&ubo);
 
     m_uboParams.camPos = m_position;
-    // m_uboParams.lightDir = glm::vec4(glm::normalize(Eigen::Vector3f(1.0f, -3.0f, 1.0f)), 0.0f); // Example directional light
-    // m_uboParams.exposure = 2.0f;                                  // Example exposure
-    // m_uboParams.gamma = 2.2f;                                     // Standard gamma
     m_uboParams.prefilteredCubeMipLevels = static_cast<f32>(9); // Get actual mip count
-    // m_uboParams.scaleIBLAmbient = 1.0f;                           // Start with no ambient scaling
-    // m_uboParams.debugViewInputs = 0;   // Debugging disabled
-    // m_uboParams.debugViewEquation = 0; // Debugging disabled
     m_paramBuffers[index]->WriteToBuffer(&m_uboParams);
 }
 
@@ -151,7 +160,7 @@ void Camera::SetOrthographicProjection(f32 left, f32 right, f32 top, f32 bottom,
 
 void Camera::SetPerspectiveProjection(f32 fovy, f32 aspect, f32 near, f32 far)
 {
-    float f = 1.0f / std::tan(fovy / 2.0f);
+    f32 f = 1.0f / std::tan(fovy / 2.0f);
 
     m_projectionMatrix = Eigen::Matrix4f::Zero();
     m_projectionMatrix(0, 0) = f / aspect;
@@ -185,12 +194,13 @@ void Camera::UpdateViewMatrix()
     m_viewMatrix.block<3, 1>(0, 3) << -X.dot(m_position.head<3>()), -Y.dot(m_position.head<3>()), -Z.dot(m_position.head<3>());
 }
 
-void Camera::ExtractFrustumPlanes(const Eigen::Matrix4f& projectionViewMatrix, std::array<Plane, 6>& frustumPlanes)
+std::array<Plane, 6> Camera::ExtractFrustumPlanes(const Eigen::Matrix4f& projectionViewMatrix)
 {
-    Eigen::Vector4f row0 = projectionViewMatrix.row(0);
-    Eigen::Vector4f row1 = projectionViewMatrix.row(1);
-    Eigen::Vector4f row2 = projectionViewMatrix.row(2);
-    Eigen::Vector4f row3 = projectionViewMatrix.row(3);
+    std::array<Plane, 6> frustumPlanes{};
+    Eigen::Vector4f      row0 = projectionViewMatrix.row(0);
+    Eigen::Vector4f      row1 = projectionViewMatrix.row(1);
+    Eigen::Vector4f      row2 = projectionViewMatrix.row(2);
+    Eigen::Vector4f      row3 = projectionViewMatrix.row(3);
 
     frustumPlanes[0].normal = (row3 + row0).head<3>();
     frustumPlanes[0].distance = row3.w() + row0.w();
@@ -217,9 +227,10 @@ void Camera::ExtractFrustumPlanes(const Eigen::Matrix4f& projectionViewMatrix, s
         frustumPlanes[i].normal /= length;
         frustumPlanes[i].distance /= length;
     }
+    return frustumPlanes;
 }
 
-bool Camera::IsAABBOutsidePlane(const Plane& plane, const Eigen::Vector3f& aabbMin, const Eigen::Vector3f& aabbMax) const
+b8 Camera::IsAABBOutsidePlane(const Plane& plane, const Eigen::Vector3f& aabbMin, const Eigen::Vector3f& aabbMax) const
 {
     // Find the vertex of the AABB that is furthest in the direction of the plane's normal (p-vertex)
     Eigen::Vector3f positiveVertex = aabbMin;
@@ -236,25 +247,19 @@ bool Camera::IsAABBOutsidePlane(const Plane& plane, const Eigen::Vector3f& aabbM
     return false; // AABB is at least partially inside
 }
 
-bool Camera::IsAABBInsideFrustum(const Eigen::Vector3f& aabbMin, const Eigen::Vector3f& aabbMax) const
+b8 Camera::IsAABBInsideFrustum(const Eigen::Vector3f& aabbMin, const Eigen::Vector3f& aabbMax) const
 {
-    std::array<Plane, 6> frustumPlanes;
-    Camera::ExtractFrustumPlanes(GetProjectionViewMatrix(), frustumPlanes);
-
     for(int i = 0; i < 6; i++)
     {
-        if(IsAABBOutsidePlane(frustumPlanes[i], aabbMin, aabbMax))
-        {
-            return false; // AABB is outside the frustum
-        }
+        if(IsAABBOutsidePlane(m_frustumPlanes[i], aabbMin, aabbMax)) { return false; }
     }
 
-    return true; // AABB is inside or intersecting the frustum
+    return true;
 }
 
 void Camera::DrawUI()
 {
-    static bool     first = true;
+    static b8       first = true;
     static UiWidget widget{"Lighting", true, {0, 500}, {400, 500}, 0};
     if(first)
     {

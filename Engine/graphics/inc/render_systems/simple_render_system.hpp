@@ -89,6 +89,12 @@ private:
     std::vector<std::unique_ptr<Buffer>> m_meshIndirectDrawBuffers;
     std::vector<std::unique_ptr<Buffer>> m_depthMeshIndirectDrawBuffers;
 
+    std::vector<std::unique_ptr<Buffer>> m_meshShaderbufferVisibleIndices;
+    std::vector<std::unique_ptr<Buffer>> m_meshShaderbufferVisibleCounter;
+
+    std::vector<std::unique_ptr<Buffer>> m_depthMeshShaderbufferVisibleIndices;
+    std::vector<std::unique_ptr<Buffer>> m_depthMeshShaderbufferVisibleCounter;
+
     void AllocateDescriptorSet();
     void CreatePipelineLayout(const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts);
     void CreatePipeline(const ShaderSet& shaderSet);

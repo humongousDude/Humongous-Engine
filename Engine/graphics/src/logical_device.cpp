@@ -62,6 +62,7 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
 
         vulkan12Features.shaderInt8 = true;
         vulkan12Features.uniformAndStorageBuffer8BitAccess = true;
+        vulkan12Features.storageBuffer8BitAccess = true;
     }
 
     // vulkan 1.3 features

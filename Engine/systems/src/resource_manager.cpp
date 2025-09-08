@@ -108,7 +108,9 @@ void ResourceManager::InitDescriptors()
     DescriptorSetLayout::Builder nodeBuilder{m_logicalDevice};
     nodeBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, vertexStage);
     nodeBuilder.AddBinding(1, vk::DescriptorType::eStorageBuffer, vertexStage);
-    nodeBuilder.AddBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT, 1);
+    nodeBuilder.AddBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
+    nodeBuilder.AddBinding(3, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
+    nodeBuilder.AddBinding(4, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
     m_modelDescriptors.vertices = nodeBuilder.Build();
 
     m_descriptorPools.storageBufferPool->AllocateDescriptor(m_modelDescriptors.vertices->GetDescriptorSetLayout(),

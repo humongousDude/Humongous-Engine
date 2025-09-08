@@ -31,6 +31,10 @@ SimpleRenderSystem::SimpleRenderSystem(const ILogicalDevice& logicalDevice, Reso
     m_depthMeshDataDrawBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_meshIndirectDrawBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
     m_depthMeshIndirectDrawBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_meshShaderbufferVisibleIndices.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_meshShaderbufferVisibleCounter.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_depthMeshShaderbufferVisibleIndices.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_depthMeshShaderbufferVisibleCounter.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
     HGINFO("Created simple render system");
 }
@@ -55,6 +59,10 @@ SimpleRenderSystem::~SimpleRenderSystem()
         m_depthMeshDataDrawBuffers[i].reset();
         m_meshIndirectDrawBuffers[i].reset();
         m_depthMeshIndirectDrawBuffers[i].reset();
+        m_meshShaderbufferVisibleIndices[i].reset();
+        m_meshShaderbufferVisibleCounter[i].reset();
+        m_depthMeshShaderbufferVisibleIndices[i].reset();
+        m_depthMeshShaderbufferVisibleCounter[i].reset();
     }
 
     HGINFO("Destroyed Simple render system");
@@ -75,14 +83,16 @@ void SimpleRenderSystem::AllocateDescriptorSet()
 
     if(m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders)
     {
-        layoutBuilder.AddBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT, 1);
+        layoutBuilder.AddBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
+        layoutBuilder.AddBinding(3, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
+        layoutBuilder.AddBinding(4, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
     }
 
     m_layout = layoutBuilder.Build();
 
     DescriptorPool::Builder poolBuilder{m_logicalDevice};
-    poolBuilder.AddPoolSize(vk::DescriptorType::eStorageBuffer, 3);
-    poolBuilder.SetMaxSets(3);
+    poolBuilder.AddPoolSize(vk::DescriptorType::eStorageBuffer, 10);
+    poolBuilder.SetMaxSets(10);
 
     for(u32 i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
     {
@@ -116,6 +126,7 @@ void SimpleRenderSystem::CreatePipelineLayout(const std::vector<vk::DescriptorSe
     if(m_logicalDevice.GetVkDevice().createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_pipelineLayout) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create pipeline layout");
+        return;
     }
 
     HGINFO("Created pipeline layout");
@@ -229,7 +240,11 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const b8& dep
         RenderObjectsTraditional(renderData, depthOnly);
         return;
     }
-    if(renderData.visibleEntities->empty()) { return; }
+    if(renderData.visibleEntities->empty())
+    {
+        m_verticesDrawn = 0;
+        return;
+    }
 
     std::vector<DrawData>                            drawDataVec;
     std::vector<InstanceData>                        instanceDataVec;
@@ -264,11 +279,8 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const b8& dep
                 draw.vertexOffset = primitive->globalVertexOffset;
                 draw.materialID = primitive->material->index;
                 draw.localNodeIndex = primitive->owner->index;
-                draw.isSkinned = staticModel->HasSkins() ? 1u : 0u;
-                draw.isMorphed =
-                    (!primitive->morphTargetPositions.empty() || !primitive->morphTargetNormals.empty() || !primitive->morphTargetTangents.empty())
-                        ? 1u
-                        : 0u;
+                draw.isSkinned = staticModel->HasSkins();
+                draw.isMorphed = staticModel->HasMorphs();
                 draw.instanceOffset = instanceOffset;
 
                 u32 drawIndex = static_cast<u32>(drawDataVec.size());
@@ -310,10 +322,19 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const b8& dep
 
     if(meshletDrawInfo.empty()) { return; }
 
+    m_verticesDrawn = meshletDrawInfo.size();
+
     vk::DeviceSize drawDataSize = sizeof(DrawData) * drawDataVec.size();
     vk::DeviceSize instanceDataSize = sizeof(InstanceData) * instanceDataVec.size();
     vk::DeviceSize meshDataSize = sizeof(MeshletDrawInfo) * meshletDrawInfo.size();
+
     vk::DeviceSize meshDataIndirectSize = sizeof(vk::DrawMeshTasksIndirectCommandEXT) * drawCalls.size();
+
+    uint32_t totalPossible = 0;
+    for(auto& md: meshletDrawInfo) { totalPossible += md.meshletCount * md.instanceCount; }
+
+    vk::DeviceSize meshShaderBufferSize = sizeof(uint32_t) * totalPossible;
+    vk::DeviceSize meshShaderCounterSize = sizeof(uint32_t);
 
     auto ensureBuffer = [&](std::unique_ptr<Buffer>& buf, vk::DeviceSize needed, vk::BufferUsageFlags usage, const char* name) {
         if(!buf || buf->GetBuffer() == VK_NULL_HANDLE || buf->GetBufferSize() < needed)
@@ -336,9 +357,12 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const b8& dep
     auto& drawDataBuffer = depthOnly ? m_depthDrawDataBuffers[renderData.frameIndex] : m_drawDataBuffers[renderData.frameIndex];
     auto& instanceDataBuffer = depthOnly ? m_depthInstanceBuffers[renderData.frameIndex] : m_drawInstanceBuffers[renderData.frameIndex];
     auto& meshDataBuffer = depthOnly ? m_depthMeshDataDrawBuffers[renderData.frameIndex] : m_meshDataDrawBuffers[renderData.frameIndex];
-
     auto& meshDataIndirectBuffer =
         depthOnly ? m_depthMeshIndirectDrawBuffers[renderData.frameIndex] : m_meshIndirectDrawBuffers[renderData.frameIndex];
+    auto& meshShaderBuffer =
+        depthOnly ? m_depthMeshShaderbufferVisibleIndices[renderData.frameIndex] : m_meshShaderbufferVisibleIndices[renderData.frameIndex];
+    auto& meshShaderCounterBuffer =
+        depthOnly ? m_depthMeshShaderbufferVisibleCounter[renderData.frameIndex] : m_meshShaderbufferVisibleCounter[renderData.frameIndex];
 
     ensureBuffer(drawDataBuffer, drawDataSize, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, "draw data buffer");
 
@@ -349,6 +373,16 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const b8& dep
 
     ensureBuffer(meshDataIndirectBuffer, meshDataIndirectSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndirectBuffer,
                  "mesh data indirect buffer");
+
+    ensureBuffer(meshShaderBuffer, meshShaderBufferSize,
+                 vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eTransferSrc |
+                     vk::BufferUsageFlagBits::eIndirectBuffer,
+                 "mesh shader buffer");
+
+    ensureBuffer(meshShaderCounterBuffer, meshShaderCounterSize,
+                 vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eTransferSrc |
+                     vk::BufferUsageFlagBits::eIndirectBuffer,
+                 "mesh shader counter buffer");
 
     auto uploadToDeviceBuffer = [&](Buffer& deviceBuf, void* src, vk::DeviceSize size, const char* tmpName) {
         Buffer staging{m_logicalDevice,
@@ -371,13 +405,10 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const b8& dep
     if(meshDataIndirectSize > 0)
     {
         uploadToDeviceBuffer(*meshDataIndirectBuffer, drawCalls.data(), meshDataIndirectSize, "meshdata-indirect-staging");
-
-        if(meshDataIndirectBuffer->GetUsageFlags() != (vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndirectBuffer))
-        {
-            HGERROR("mesh data indirect buffer somehow received incorrect usage flags!");
-            return;
-        }
     }
+
+    renderData.commandBuffer.fillBuffer(meshShaderBuffer->GetBuffer(), 0, meshShaderBuffer->GetBufferSize(), 0);
+    renderData.commandBuffer.fillBuffer(meshShaderCounterBuffer->GetBuffer(), 0, meshShaderCounterBuffer->GetBufferSize(), 0);
 
     DescriptorPool* poolToUse = depthOnly ? m_depthPool[renderData.frameIndex].get() : m_pool[renderData.frameIndex].get();
     poolToUse->ResetPool();
@@ -387,7 +418,13 @@ void SimpleRenderSystem::RenderObjectsMesh(RenderData& renderData, const b8& dep
     auto              drawInfo = drawDataBuffer->DescriptorInfo();
     auto              instInfo = instanceDataBuffer->DescriptorInfo();
     auto              meshInfo = meshDataBuffer->DescriptorInfo();
-    writer.WriteBuffer(0, &drawInfo).WriteBuffer(1, &instInfo).WriteBuffer(2, &meshInfo);
+    auto              meshShaderInfo = meshShaderBuffer->DescriptorInfo();
+    auto              meshShaderCounterInfo = meshShaderCounterBuffer->DescriptorInfo();
+    writer.WriteBuffer(0, &drawInfo)
+        .WriteBuffer(1, &instInfo)
+        .WriteBuffer(2, &meshInfo)
+        .WriteBuffer(3, &meshShaderInfo)
+        .WriteBuffer(4, &meshShaderCounterInfo);
     writer.Build(setToUse);
 
     if(depthOnly) { m_depthOnlyPipeline->Bind(renderData.commandBuffer); }

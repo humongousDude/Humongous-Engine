@@ -20,6 +20,7 @@ struct alignas(16) ProjectionUBO
     Eigen::Matrix4f invView;
     Eigen::Matrix4f projectionView;
     Eigen::Vector4f cameraPos;
+    Eigen::Vector4f frustumPlanes[6];
 };
 
 struct alignas(16) UboParams
@@ -34,7 +35,7 @@ struct alignas(16) UboParams
 struct Plane
 {
     Eigen::Vector3f normal;
-    float           distance;
+    f32             distance;
 };
 
 class Camera
@@ -51,8 +52,8 @@ public:
     Camera(const ILogicalDevice& logicalDevice);
     ~Camera();
 
-    void SetOrthographicProjection(float left, float right, float top, float bottom, float near, float far);
-    void SetPerspectiveProjection(float fovy, float spect, float near, float far);
+    void SetOrthographicProjection(f32 left, f32 right, f32 top, f32 bottom, f32 near, f32 far);
+    void SetPerspectiveProjection(f32 fovy, f32 spect, f32 near, f32 far);
 
     vk::DescriptorSet GetVertexDescriptorSet(u32 index) const { return m_vertProjectionMatrixSet[index]; };
     vk::DescriptorSet GetFragmentDescriptorSet(u32 index) const { return m_fragProjectionMatrixSet[index]; };
@@ -75,9 +76,9 @@ public:
 
     Eigen::Matrix4f GetProjectionViewMatrix() const { return m_projectionMatrix * m_viewMatrix; }
 
-    static void ExtractFrustumPlanes(const Eigen::Matrix4f& viewProjectionMatrix, std::array<Plane, 6>& planes);
-    bool        IsAABBOutsidePlane(const Plane& plane, const Eigen::Vector3f& aabbMin, const Eigen::Vector3f& aabbMax) const;
-    bool        IsAABBInsideFrustum(const Eigen::Vector3f& aabbMin, const Eigen::Vector3f& aabbMax) const;
+    static std::array<Plane, 6> ExtractFrustumPlanes(const Eigen::Matrix4f& projectionViewMatrix);
+    b8                          IsAABBOutsidePlane(const Plane& plane, const Eigen::Vector3f& aabbMin, const Eigen::Vector3f& aabbMax) const;
+    b8                          IsAABBInsideFrustum(const Eigen::Vector3f& aabbMin, const Eigen::Vector3f& aabbMax) const;
 
     void UpdateViewMatrix(); // Function to calculate and update m_viewMatrix
 
@@ -111,12 +112,13 @@ private:
     std::vector<vk::DescriptorSet> m_uboParamSet;
     UboParams                      m_uboParams{};
 
-    Eigen::Matrix4f m_projectionMatrix{};
-    Eigen::Matrix4f m_viewMatrix{};
-    Eigen::Vector4f m_position{};
-    Eigen::Vector3f m_rotation{};
-    Eigen::Vector3f m_forward{};
-    Eigen::Vector3f m_up{};
+    Eigen::Matrix4f      m_projectionMatrix{};
+    Eigen::Matrix4f      m_viewMatrix{};
+    Eigen::Vector4f      m_position{};
+    Eigen::Vector3f      m_rotation{};
+    Eigen::Vector3f      m_forward{};
+    Eigen::Vector3f      m_up{};
+    std::array<Plane, 6> m_frustumPlanes{};
 
     void InitDescriptorThings(const ILogicalDevice& logicalDevice);
 

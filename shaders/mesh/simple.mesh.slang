@@ -15,7 +15,7 @@ struct OutVertex{
 
 static const uint MAX_MESHLET_VERTS = 64;
 static const uint MAX_MESHLET_PRIMS = 126;
-static const uint GROUP_SIZE = 32;
+static const uint GROUP_SIZE = 64;
 
 [numthreads(GROUP_SIZE, 1, 1)]
 [shader("mesh")]
@@ -28,15 +28,15 @@ void main(
     OutputIndices<uint3, MAX_MESHLET_PRIMS> outIndices
 )
 {
-    // The GroupID.x tells us which meshlet-instance pair we are.
-    // We need to unpack this into a specific meshlet index and instance index.
     uint totalMeshlets = payload.meshletCount;
     uint totalInstances = payload.instanceCount;
     
     uint taskIndex = gid.x;
     
-    uint meshletIndex = taskIndex % totalMeshlets;
-    uint instanceIndex = taskIndex / totalMeshlets;
+    uint packedID = visibleMeshletIndicesOut[payload.visibleMeshletListOffset + gid.x];
+    
+    uint instanceIndex = packedID >> 16;
+    uint meshletIndex  = packedID & 0xFFFF;
 
     Meshlet m = meshlets[payload.meshletOffset + meshletIndex];
     DrawData d = drawData[payload.drawDataIndex];

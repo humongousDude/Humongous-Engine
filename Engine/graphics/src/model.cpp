@@ -609,21 +609,32 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
             tempMeshletPrimitives.clear();
         }
 
-        std::vector<Eigen::Vector4f> temp_boundingSpheres(actualMeshletCount);
+        // This was named tempBoundingSphere in your code, so I'll stick with that.
+        std::vector<Eigen::Vector4f> tempBoundingSphere(actualMeshletCount);
+
         for(size_t i = 0; i < actualMeshletCount; ++i)
         {
             const meshopt_Meshlet& moMeshlet = tempMeshlets[i];
 
-            const u32* meshletVertexIndices = tempMeshletVertices.data() + moMeshlet.vertex_offset;
+            // --- FIX STARTS HERE ---
 
-            std::vector<Eigen::Vector3f> currentMeshletPositions;
-            currentMeshletPositions.reserve(moMeshlet.vertex_count);
-            for(size_t i = 0; i < moMeshlet.vertex_count; ++i)
-            {
-                u32           vertexIndex = meshletVertexIndices[i];
-                const Vertex& vtx = loaderInfo.vertexBuffer[vertexIndex];
-                currentMeshletPositions.push_back(vtx.position.head<3>());
-            }
+            // Pointer to the start of this specific meshlet's vertex index data
+            const unsigned int* meshlet_vertices = &tempMeshletVertices[moMeshlet.vertex_offset];
+            // Pointer to the start of this specific meshlet's triangle data
+            const unsigned char* meshlet_triangles = &tempMeshletPrimitives[moMeshlet.triangle_offset];
+
+            // Correctly call the bounds computation function
+            meshopt_Bounds bounds =
+                meshopt_computeMeshletBounds(meshlet_vertices, meshlet_triangles, moMeshlet.triangle_count,
+                                             reinterpret_cast<const float*>(vertices), // Pointer to the primitive's vertex position data
+                                             vertexCount,                              // Total vertices in the primitive
+                                             sizeof(Vertex)                            // Stride between vertices
+                );
+
+            // --- FIX ENDS HERE ---
+
+            // Store the center and radius in our temporary vector
+            tempBoundingSphere[i] = Eigen::Vector4f(bounds.center[0], bounds.center[1], bounds.center[2], bounds.radius);
         }
 
         primitive->localMeshletOffset = static_cast<u32>(m_meshlets.size());
@@ -639,6 +650,7 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
             m.vertexCount = tempMeshlets[i].vertex_count;
             m.localIndexOffset = static_cast<u32>(currentPrimitiveBaseOffset + tempMeshlets[i].triangle_offset);
             m.primitiveCount = tempMeshlets[i].triangle_count;
+            m.boundingSphere = tempBoundingSphere[i];
 
             m_meshlets.push_back(m);
         }

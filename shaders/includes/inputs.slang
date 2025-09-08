@@ -5,11 +5,8 @@ struct TaskPayload {
     uint instanceIndex;
     uint meshletCount;
     uint instanceCount;
+    uint visibleMeshletListOffset; 
 };
-
-// struct TaskPayload {
-//     uint drawID;
-// };
 
 struct Vertex {
     float4 position;
@@ -50,7 +47,8 @@ struct Meshlet{
     uint localIndexOffset;
     uint globalIndexOffset;
     uint primitiveCount;
-    uint __pad0[2];
+    float4 boundingSphere;
+    uint __pad0;
 };
 
 struct MeshletDrawInfo {
@@ -68,6 +66,7 @@ struct MeshletDrawInfo {
     float4x4 invView;
     float4x4 projectionView;
     float4 cameraPos;
+    float4 frustumPlanes[6];
 }  ubo;
 
 [[vk::binding(2, 1)]] StructuredBuffer<float4x4> node;
@@ -80,5 +79,7 @@ struct MeshletDrawInfo {
 
 [[vk::binding(0, 2)]] StructuredBuffer<DrawData> drawData;
 [[vk::binding(1, 2)]] StructuredBuffer<InstanceData> instData;
+[[vk::binding(3, 2)]] RWStructuredBuffer<uint> visibleMeshletIndicesOut;
+[[vk::binding(4, 2)]] RWStructuredBuffer<uint> visibleMeshletCounter;
 
 [[vk::binding(0, 3)]] RWStructuredBuffer<uint> debugData;

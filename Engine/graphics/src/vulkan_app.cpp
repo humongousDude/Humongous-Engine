@@ -426,27 +426,27 @@ void VulkanApp::Run()
                                            m_cam->GetParamDescriptorSet(m_renderer->GetFrameIndex()),
                                            m_skyboxRenderSystem->GetSkybox()->GetCompDescriptorSet());
 
-                // m_renderer->BeginSkyboxPass(cmd);
-                //
-                // m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
-                //
-                // m_renderer->EndSkyboxPass(cmd);
+                m_renderer->BeginSkyboxPass(cmd);
 
-                // m_renderer->BeginUIPass(cmd);
-                //
-                // UI::BeginUIFrame(cmd);
-                //
-                // objectDataWidget.Draw();
-                // m_cam->DrawUI();
-                //
-                // UI::Debug_DrawMetrics(m_simpleRenderSystem->GetObjectsDrawn(), m_cam->GetPosition());
-                //
-                // UI::EndUIFrame(cmd);
-                //
-                // m_renderer->EndUIPass(cmd);
-                //
-                // ImGui::UpdatePlatformWindows();
-                // ImGui::RenderPlatformWindowsDefault();
+                m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
+
+                m_renderer->EndSkyboxPass(cmd);
+
+                m_renderer->BeginUIPass(cmd);
+
+                UI::BeginUIFrame(cmd);
+
+                objectDataWidget.Draw();
+                m_cam->DrawUI();
+
+                UI::Debug_DrawMetrics(m_simpleRenderSystem->GetObjectsDrawn(), m_cam->GetPosition());
+
+                UI::EndUIFrame(cmd);
+
+                m_renderer->EndUIPass(cmd);
+
+                ImGui::UpdatePlatformWindows();
+                ImGui::RenderPlatformWindowsDefault();
 
                 m_renderer->EndFrame();
             }

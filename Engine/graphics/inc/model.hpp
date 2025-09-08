@@ -73,13 +73,14 @@ struct Mesh
 // "global" variables are relative to the entire scene's buffers
 struct Meshlet
 {
-    u32  localVertexOffset{0};
-    u32  globalVertexOffset{0};
-    u32  vertexCount{0};
-    u32  localIndexOffset{0};
-    u32  globalIndexOffset{0};
-    u32  primitiveCount{0};
-    uint __pad0[2];
+    u32             localVertexOffset{0};
+    u32             globalVertexOffset{0};
+    u32             vertexCount{0};
+    u32             localIndexOffset{0};
+    u32             globalIndexOffset{0};
+    u32             primitiveCount{0};
+    Eigen::Vector4f boundingSphere;
+    uint            __pad0;
 };
 
 class Model
