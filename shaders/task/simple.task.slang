@@ -3,11 +3,15 @@ import "../includes/inputs.slang";
 
 static const uint MAX_VISIBLE_MESHLETS_PER_DRAW = 4096;
 static const uint WORKGROUP_SIZE = 64;
+static const float CULLING_EPSILON = 0.001f;
 
 bool IsSphereInFrustum(float3 center, float radius, float4 planes[6])
 {
     for (int i = 0; i < 6; ++i) {
-        if (dot(planes[i].xyz, center) + planes[i].w < -radius) return false;
+        if (dot(planes[i].xyz, center) + planes[i].w < -radius)
+        {
+            return false; // Outside the frustum
+        }
     }
     return true;
 }
@@ -44,7 +48,13 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint drawID : SV_DrawInd
         float4x4 modelTransform = mul(inst.modelMatrix, nodeTransform);
         
         float3 worldCenter = mul(modelTransform, float4(m.boundingSphere.xyz, 1.0)).xyz;
-        float scaledRadius = m.boundingSphere.w * modelTransform[0][0]; 
+
+        float3 scale;
+        scale.x = length(float3(modelTransform[0][0], modelTransform[1][0], modelTransform[2][0]));
+        scale.y = length(float3(modelTransform[0][1], modelTransform[1][1], modelTransform[2][1]));
+        scale.z = length(float3(modelTransform[0][2], modelTransform[1][2], modelTransform[2][2]));
+
+        float scaledRadius = m.boundingSphere.w * max(scale.x, max(scale.y, scale.z));
 
         bool inFrustum = IsSphereInFrustum(worldCenter, scaledRadius, ubo.frustumPlanes);
         if(inFrustum)
