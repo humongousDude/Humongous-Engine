@@ -82,4 +82,4 @@ struct MeshletDrawInfo {
 [[vk::binding(3, 2)]] RWStructuredBuffer<uint> visibleMeshletIndicesOut;
 [[vk::binding(4, 2)]] RWStructuredBuffer<uint> visibleMeshletCounter;
 
-[[vk::binding(0, 3)]] RWStructuredBuffer<uint> debugData;
+// [[vk::binding(0, 3)]] RWStructuredBuffer<uint> debugData;

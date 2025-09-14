@@ -61,19 +61,12 @@ void VulkanApp::Init(const int argc, char* argv[])
 
     std::vector<vk::DescriptorSetLayout> skyboxLayouts = {m_cam->GetVertexDescriptorLayout()};
 
-    ShaderSet set = {m_assetManager->GetAsset(AssetManager::AssetType::SHADER, "simple.vert"),
-                     m_assetManager->GetAsset(AssetManager::AssetType::SHADER, "pbr.frag")};
-
     m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, "papermill", skyboxLayouts);
 
-    std::vector<vk::DescriptorSetLayout> simpleLayouts = {
-        m_cam->GetVertexDescriptorLayout(),
-    };
-
-    m_simpleRenderSystem = std::make_unique<SimpleRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, simpleLayouts, set);
+    CreateRenderSystems();
 
     m_mainDeletionQueue.PushDeletor([&]() {
-        m_simpleRenderSystem.reset();
+        m_entityRenderSystem.reset();
         m_skyboxRenderSystem.reset();
         m_renderer.reset();
         m_cam.reset();
@@ -85,6 +78,99 @@ void VulkanApp::Init(const int argc, char* argv[])
         m_physicalDevice.reset();
         m_window.reset();
         m_instance.reset();
+    });
+}
+
+void VulkanApp::CreateRenderSystems()
+{
+    HGINFO("Creating entity render system...");
+    const auto&                          resourceLayouts = m_resourceManager->GetDescriptorLayouts();
+    std::vector<vk::DescriptorSetLayout> simpleLayouts;
+    simpleLayouts.push_back(m_cam->GetVertexDescriptorLayout());
+    simpleLayouts.insert(simpleLayouts.end(), resourceLayouts.begin(), resourceLayouts.end());
+
+    RenderPipeline::PipelineConfigInfo configInfo = RenderPipeline::DefaultPipelineConfigInfo();
+
+    configInfo.vertShaderPath = m_assetManager->GetAsset(AssetManager::AssetType::SHADER, "simple.vert");
+    configInfo.fragShaderPath = m_assetManager->GetAsset(AssetManager::AssetType::SHADER, "pbr.frag");
+    configInfo.meshShaderPath = m_assetManager->GetAsset(AssetManager::AssetType::SHADER, "simple.mesh");
+    configInfo.taskShaderPath = m_assetManager->GetAsset(AssetManager::AssetType::SHADER, "simple.task");
+    configInfo.descriptorSetLayouts = simpleLayouts;
+
+    configInfo.colorBlendAttachment.blendEnable = false;
+    configInfo.colorAttachmentFormat = vk::Format::eR8G8B8A8Unorm;
+
+    configInfo.colorBlendAttachments.clear();
+    configInfo.colorBlendAttachments.push_back(configInfo.colorBlendAttachment);
+    configInfo.colorBlendAttachments.push_back(configInfo.colorBlendAttachment);
+    configInfo.colorBlendAttachments.push_back(configInfo.colorBlendAttachment);
+
+    configInfo.colorAttachmentFormats.clear();
+    configInfo.colorAttachmentFormats.push_back(configInfo.colorAttachmentFormat);
+    configInfo.colorAttachmentFormats.push_back(configInfo.colorAttachmentFormat);
+    configInfo.colorAttachmentFormats.push_back(configInfo.colorAttachmentFormat);
+    configInfo.colorBlendInfo.attachmentCount = configInfo.colorBlendAttachments.size();
+    configInfo.renderingInfo.colorAttachmentCount = configInfo.colorBlendAttachments.size();
+    configInfo.renderingInfo.pColorAttachmentFormats = configInfo.colorAttachmentFormats.data();
+    configInfo.colorBlendInfo.pAttachments = configInfo.colorBlendAttachments.data();
+
+    configInfo.renderingInfo.depthAttachmentFormat = vk::Format::eD32SfloatS8Uint;
+    configInfo.colorBlendInfo.logicOpEnable = false;
+    configInfo.depthStencilInfo.depthCompareOp = vk::CompareOp::eEqual;
+    configInfo.depthStencilInfo.depthWriteEnable = false;
+    configInfo.depthStencilInfo.stencilTestEnable = true;
+
+    vk::StencilOpState stencilState{};
+    stencilState.compareOp = vk::CompareOp::eAlways;
+    stencilState.passOp = vk::StencilOp::eReplace;
+    stencilState.reference = static_cast<u32>(Globals::StencilMasks::Model);
+    stencilState.compareMask = 0xFF;
+    stencilState.writeMask = 0xFF;
+    configInfo.depthStencilInfo.front = stencilState;
+    configInfo.depthStencilInfo.back = stencilState;
+    configInfo.renderingInfo.stencilAttachmentFormat = vk::Format::eD32SfloatS8Uint;
+
+    configInfo.useMeshShaders = m_logicalDevice->GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders;
+
+    if(configInfo.useMeshShaders)
+    {
+        m_entityRenderSystem = std::make_unique<MeshRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, configInfo);
+    }
+    else { m_entityRenderSystem = std::make_unique<TraditionalRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, configInfo); }
+    HGINFO("Created entity render system");
+
+    HGINFO("Creating depth only render system...");
+
+    configInfo.colorAttachmentFormat = vk::Format::eUndefined;
+    configInfo.colorAttachmentFormats.clear();
+    configInfo.colorBlendAttachments.clear();
+    configInfo.colorBlendInfo.attachmentCount = configInfo.colorBlendAttachments.size();
+    configInfo.renderingInfo.colorAttachmentCount = configInfo.colorBlendAttachments.size();
+    configInfo.renderingInfo.pColorAttachmentFormats = configInfo.colorAttachmentFormats.data();
+    configInfo.colorBlendInfo.pAttachments = configInfo.colorBlendAttachments.data();
+
+    configInfo.depthStencilInfo.depthCompareOp = vk::CompareOp::eGreaterOrEqual;
+    configInfo.depthStencilInfo.depthTestEnable = true;
+    configInfo.depthStencilInfo.depthWriteEnable = true;
+    configInfo.depthStencilInfo.stencilTestEnable = false;
+
+    configInfo.renderingInfo.stencilAttachmentFormat = vk::Format::eUndefined;
+
+    configInfo.depthStencilInfo.front = vk::StencilOpState{};
+    configInfo.depthStencilInfo.front = vk::StencilOpState{};
+
+    configInfo.useFragmentShader = false;
+
+    if(configInfo.useMeshShaders)
+    {
+        m_depthRenderSystem = std::make_unique<MeshRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, configInfo);
+    }
+    else { m_depthRenderSystem = std::make_unique<TraditionalRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, configInfo); }
+    HGINFO("Created depth only render system");
+
+    m_mainDeletionQueue.PushDeletor([&]() {
+        m_entityRenderSystem.reset();
+        m_depthRenderSystem.reset();
     });
 }
 
@@ -401,24 +487,26 @@ void VulkanApp::Run()
                 RenderData data{
                     .commandBuffer = cmd,
                     .uboSets = {m_cam->GetVertexDescriptorSet(m_renderer->GetFrameIndex())},
-                    .visibleEntities = &sortedObjs,
+                    .entities = &sortedObjs,
                     .world = *world,
                     .frameIndex = m_renderer->GetFrameIndex(),
                     .cam = *m_cam,
                 };
+                m_depthRenderSystem->ReadyBuffers(data);
+                m_entityRenderSystem->ReadyBuffers(data);
+                m_depthRenderSystem->ReadyDescriptors(data);
+                m_entityRenderSystem->ReadyDescriptors(data);
 
                 m_renderer->BeginDepthPrePass(cmd);
-
-                m_simpleRenderSystem->RenderObjectsMesh(data, true);
-
+                m_depthRenderSystem->Render(data);
                 m_renderer->EndDepthPrePass(cmd);
 
                 // m_renderer->DoOcclusionCulling(cmd, sortedObjs, *world, *m_cam);
 
-                data.visibleEntities = &frustumAndSortedEntities;
+                data.entities = &frustumAndSortedEntities;
                 m_renderer->BeginGeometryPass(cmd);
 
-                m_simpleRenderSystem->RenderObjectsMesh(data, false);
+                m_entityRenderSystem->Render(data);
 
                 m_renderer->EndGeometryPass(cmd);
 
@@ -439,7 +527,7 @@ void VulkanApp::Run()
                 objectDataWidget.Draw();
                 m_cam->DrawUI();
 
-                UI::Debug_DrawMetrics(m_simpleRenderSystem->GetObjectsDrawn(), m_cam->GetPosition());
+                UI::Debug_DrawMetrics(0, m_cam->GetPosition());
 
                 UI::EndUIFrame(cmd);
 

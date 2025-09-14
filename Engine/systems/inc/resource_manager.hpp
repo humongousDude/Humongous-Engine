@@ -62,14 +62,11 @@ public:
 
     void BindGlobalDescriptorSets(vk::CommandBuffer cmd, vk::PipelineLayout layout);
 
-    // Bindless, node matricies, vertices, debug
-    std::vector<vk::DescriptorSetLayout> GetLayoutVector()
+    // Bindless, drawData
+    std::vector<vk::DescriptorSetLayout> GetDescriptorLayouts()
     {
-        return {m_bindlessLayout->GetDescriptorSetLayout(), m_modelDescriptors.vertices->GetDescriptorSetLayout(),
-                m_modelDescriptors.debugLayout->GetDescriptorSetLayout()};
+        return {m_bindlessLayout->GetDescriptorSetLayout(), m_modelDescriptors.traditionalDrawData->GetDescriptorSetLayout()};
     }
-
-    vk::DescriptorSet GetVertexDescriptor() { return m_modelDescriptors.vertexDescriptor; }
 
     u32 RequestTexture(class tinygltf::Image img, struct Texture::TexSamplerInfo sampler);
     u32 RequestMaterial(const Model::ShaderMaterial& mat);
@@ -105,10 +102,10 @@ private:
 
     struct ModelDescriptors
     {
-        vk::DescriptorSet                    vertexDescriptor;
-        std::unique_ptr<DescriptorSetLayout> vertices;
-        std::unique_ptr<DescriptorSetLayout> debugLayout;
+        std::unique_ptr<DescriptorSetLayout> traditionalDrawData;
+        // std::unique_ptr<DescriptorSetLayout> meshDrawData;
         std::unique_ptr<DescriptorSetLayout> rendererBuffer;
+        std::unique_ptr<DescriptorSetLayout> debugLayout;
     } m_modelDescriptors;
 
     struct TextureBinding

@@ -43,13 +43,15 @@ private:
     std::unique_ptr<VulkanLogicalDevice> m_logicalDevice;
     std::unique_ptr<Renderer>            m_renderer;
     std::unique_ptr<Renderer>            m_uiRenderer;
-    std::unique_ptr<SimpleRenderSystem>  m_simpleRenderSystem;
+    std::unique_ptr<IRenderSystem>       m_entityRenderSystem;
+    std::unique_ptr<IRenderSystem>       m_depthRenderSystem;
     std::unique_ptr<SkyboxRenderSystem>  m_skyboxRenderSystem;
     std::unique_ptr<Camera>              m_cam;
     std::unique_ptr<ResourceManager>     m_resourceManager;
     std::unique_ptr<AssetManager>        m_assetManager;
 
     void Init(int argc, char* argv[]);
+    void CreateRenderSystems();
     void LoadGameObjects();
 
     void HandleInput(float frameTime, SDL_Event* event);

@@ -34,7 +34,7 @@ ResourceManager::~ResourceManager()
         texture.texture->Destroy();
     }
 
-    if(m_modelDescriptors.vertices) { m_modelDescriptors.vertices.reset(); }
+    if(m_modelDescriptors.traditionalDrawData) { m_modelDescriptors.traditionalDrawData.reset(); }
     if(m_modelDescriptors.rendererBuffer) { m_modelDescriptors.rendererBuffer.reset(); }
     if(m_modelDescriptors.debugLayout) { m_modelDescriptors.debugLayout.reset(); }
 
@@ -95,26 +95,32 @@ void ResourceManager::InitDescriptors()
 
     if(canUseMeshShaders)
     {
+        // meshlets
         bindlessBuilder
-            .AddBinding(6, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eMeshEXT, 1)  // meshlets
-            .AddBinding(7, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eMeshEXT, 1)  // meshlet vertices
-            .AddBinding(8, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eMeshEXT, 1); // meshlet primitives
+            .AddBinding(6, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1)
+            // meshlet vertices
+            .AddBinding(7, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1)
+            // meshlet primitives
+            .AddBinding(8, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
     }
 
     m_bindlessLayout = bindlessBuilder.Build();
 
     m_bindlessSet = m_bindlessTexturePool->AllocateDescriptor(m_bindlessLayout->GetDescriptorSetLayout());
 
-    DescriptorSetLayout::Builder nodeBuilder{m_logicalDevice};
-    nodeBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, vertexStage);
-    nodeBuilder.AddBinding(1, vk::DescriptorType::eStorageBuffer, vertexStage);
-    nodeBuilder.AddBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
-    nodeBuilder.AddBinding(3, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
-    nodeBuilder.AddBinding(4, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
-    m_modelDescriptors.vertices = nodeBuilder.Build();
-
-    m_descriptorPools.storageBufferPool->AllocateDescriptor(m_modelDescriptors.vertices->GetDescriptorSetLayout(),
-                                                            m_modelDescriptors.vertexDescriptor);
+    DescriptorSetLayout::Builder drawDataBuilder{m_logicalDevice};
+    drawDataBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, vertexStage); // DrawData
+    drawDataBuilder.AddBinding(1, vk::DescriptorType::eStorageBuffer, vertexStage); // InstanceData
+    if(m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders)
+    {
+        // MeshletDrawInfo
+        drawDataBuilder.AddBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
+        // visibleMeshletIndices
+        drawDataBuilder.AddBinding(3, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
+        // visibleMeshletCounter
+        drawDataBuilder.AddBinding(4, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
+    }
+    m_modelDescriptors.traditionalDrawData = drawDataBuilder.Build();
 
     DescriptorSetLayout::Builder debugBuilder{m_logicalDevice};
     debugBuilder.AddBinding(0, vk::DescriptorType::eStorageBuffer, vertexStage);

@@ -3,7 +3,7 @@
 
 * ***Get distracted with new rendering techniques and stuff instead of trying to get the engine to work*** <-- Probably gonna be stuck here for a while
 
-    * The distractions in question:
+     * The distractions in question:
      * Render graph
      * Graphics pipeline libraries
      * Timeline semaphores

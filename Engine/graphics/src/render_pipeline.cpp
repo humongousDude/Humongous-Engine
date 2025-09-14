@@ -10,27 +10,58 @@ namespace Humongous
 RenderPipeline::RenderPipeline(const ILogicalDevice& logicalDevice, const RenderPipeline::PipelineConfigInfo& configinfo)
     : m_logicalDevice{logicalDevice}
 {
-    CreateRenderPipeline(configinfo);
+    if(configinfo.pipelineLayout == VK_NULL_HANDLE)
+    {
+        CreateLayout(configinfo);
+        m_ownsLayout = true;
+    }
+    else
+    {
+        m_pipelineLayout = configinfo.pipelineLayout;
+        m_ownsLayout = false;
+    }
+    CreatePipeline(configinfo);
 }
 
 RenderPipeline::~RenderPipeline()
 {
     HGINFO("Destroying Render pipeline...");
+    if(m_ownsLayout) { m_logicalDevice.DestroyPipelineLayout(m_pipelineLayout); }
     m_logicalDevice.DestroyPipeline(m_pipeline);
     HGINFO("Destroyed Render Pipeline");
 }
 
-void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigInfo& configInfo)
+void RenderPipeline::CreateLayout(const RenderPipeline::PipelineConfigInfo& configInfo)
+{
+    HGINFO("Creating Render Pipeline Layout...");
+
+    vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.setLayoutCount = static_cast<u32>(configInfo.descriptorSetLayouts.size());
+    pipelineLayoutInfo.pSetLayouts = configInfo.descriptorSetLayouts.data();
+    pipelineLayoutInfo.pushConstantRangeCount = static_cast<u32>(configInfo.pushConstantRanges.size());
+    pipelineLayoutInfo.pPushConstantRanges = configInfo.pushConstantRanges.data();
+
+    if(m_logicalDevice.CreatePipelineLayout(pipelineLayoutInfo, &m_pipelineLayout) != vk::Result::eSuccess)
+    {
+        HGERROR("Failed to create pipeline layout");
+        return;
+    }
+
+    HGINFO("Created pipeline layout");
+}
+
+void RenderPipeline::CreatePipeline(const RenderPipeline::PipelineConfigInfo& configInfo)
 {
     HGINFO("Creating Render Pipeline...");
     HGINFO("Reading shader files...");
 
     std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
 
-    vk::ShaderModule vertShaderModule = VK_NULL_HANDLE;
-    vk::ShaderModule fragShaderModule = VK_NULL_HANDLE;
-    vk::ShaderModule meshShaderModule = VK_NULL_HANDLE;
-    vk::ShaderModule taskShaderModule = VK_NULL_HANDLE;
+    vk::ShaderModule                       vertShaderModule = VK_NULL_HANDLE;
+    vk::ShaderModule                       fragShaderModule = VK_NULL_HANDLE;
+    vk::ShaderModule                       meshShaderModule = VK_NULL_HANDLE;
+    vk::ShaderModule                       taskShaderModule = VK_NULL_HANDLE;
+    vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
 
     b8 useMeshShaders = configInfo.useMeshShaders;
 
@@ -55,6 +86,12 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
         meshShaderStageInfo.module = meshShaderModule;
         meshShaderStageInfo.pName = "main";
         shaderStages.push_back(meshShaderStageInfo);
+
+        vertexInputInfo.vertexBindingDescriptionCount = 0;
+        vertexInputInfo.pVertexBindingDescriptions = nullptr;
+        vertexInputInfo.vertexAttributeDescriptionCount = 0;
+        vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+        vertexInputInfo.pNext = nullptr;
     }
     else
     {
@@ -65,6 +102,12 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
         vertShaderStageInfo.module = vertShaderModule;
         vertShaderStageInfo.pName = "main";
         shaderStages.push_back(vertShaderStageInfo);
+
+        vertexInputInfo.vertexBindingDescriptionCount = static_cast<u32>(configInfo.inputBindings.size());
+        vertexInputInfo.pVertexBindingDescriptions = configInfo.inputBindings.data();
+        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<u32>(configInfo.attribBindings.size());
+        vertexInputInfo.pVertexAttributeDescriptions = configInfo.attribBindings.data();
+        vertexInputInfo.pNext = nullptr;
     }
 
     if(configInfo.useFragmentShader)
@@ -75,24 +118,6 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
         fragShaderStageInfo.module = fragShaderModule;
         fragShaderStageInfo.pName = "main";
         shaderStages.push_back(fragShaderStageInfo);
-    }
-
-    vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
-    if(useMeshShaders)
-    {
-        vertexInputInfo.vertexBindingDescriptionCount = 0;
-        vertexInputInfo.pVertexBindingDescriptions = nullptr;
-        vertexInputInfo.vertexAttributeDescriptionCount = 0;
-        vertexInputInfo.pVertexAttributeDescriptions = nullptr;
-        vertexInputInfo.pNext = nullptr;
-    }
-    else
-    {
-        vertexInputInfo.vertexBindingDescriptionCount = static_cast<u32>(configInfo.inputBindings.size());
-        vertexInputInfo.pVertexBindingDescriptions = configInfo.inputBindings.data();
-        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<u32>(configInfo.attribBindings.size());
-        vertexInputInfo.pVertexAttributeDescriptions = configInfo.attribBindings.data();
-        vertexInputInfo.pNext = nullptr;
     }
 
     vk::PipelineViewportStateCreateInfo viewportState{};
@@ -112,7 +137,7 @@ void RenderPipeline::CreateRenderPipeline(const RenderPipeline::PipelineConfigIn
     pipelineInfoGraphics.pColorBlendState = &configInfo.colorBlendInfo;
     pipelineInfoGraphics.pDepthStencilState = &configInfo.depthStencilInfo;
     pipelineInfoGraphics.pDynamicState = &configInfo.dynamicStateInfo;
-    pipelineInfoGraphics.layout = configInfo.pipelineLayout;
+    pipelineInfoGraphics.layout = m_pipelineLayout;
     pipelineInfoGraphics.renderPass = VK_NULL_HANDLE;
     pipelineInfoGraphics.subpass = 0;
     pipelineInfoGraphics.basePipelineHandle = VK_NULL_HANDLE;
@@ -221,6 +246,11 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
     // Always specify depth and stencil formats if relevant, even if undefined
     configInfo.renderingInfo.depthAttachmentFormat = Format::eD32SfloatS8Uint;   // Common depth/stencil format
     configInfo.renderingInfo.stencilAttachmentFormat = Format::eD32SfloatS8Uint; // Stencil must match depth if combined
+
+    configInfo.pushConstantRanges.clear();
+    configInfo.descriptorSetLayouts.clear();
+    configInfo.pipelineLayout = VK_NULL_HANDLE;
+
     return configInfo;
 }
 
