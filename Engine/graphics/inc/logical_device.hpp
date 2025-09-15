@@ -1,6 +1,7 @@
 #pragma once
 #include "allocator.hpp"
 #include "defines.hpp"
+#include "frame_scheduler.hpp"
 #include "instance.hpp"
 #include "non_copyable.hpp"
 #include "physical_device.hpp"
@@ -61,6 +62,17 @@ public:
     virtual vk::Result FlushMappedMemoryRanges(const std::vector<vk::MappedMemoryRange>& ranges) const = 0;
     virtual void       RecordDrawMesh(vk::CommandBuffer cmd, u32 taskCountx, u32 taskCounty, u32 taskCountz) const = 0;
     virtual void       RecordDrawMeshIndirect(vk::CommandBuffer cmd, vk::Buffer buffer, u32 offset, u32 count, u32 stride) const = 0;
+
+    // virtual vk::Result SubmitGraphicsQueue(const vk::SubmitInfo2& submitInfo, const u32& index) const = 0;
+    // virtual vk::Result SubmitTransferQueue(const vk::SubmitInfo2& submitInfo, const u32& index) const = 0;
+    // virtual vk::Result SubmitComputeQueue(const vk::SubmitInfo2& submitInfo, const u32& index) const = 0;
+
+    virtual vk::Queue GetTransferQueue() const = 0;
+    virtual vk::Queue GetComputeQueue() const = 0;
+    virtual u32       GetTransferQueueIndex() const = 0;
+    virtual u32       GetComputeQueueIndex() const = 0;
+
+    virtual WorkScheduler& GetWorkScheduler() const = 0;
 };
 
 class VulkanLogicalDevice : public ILogicalDevice, NonCopyable
@@ -74,9 +86,13 @@ public:
 
     vk::Queue GetGraphicsQueue() const override { return m_graphicsQueue; }
     vk::Queue GetPresentQueue() const override { return m_presentQueue; }
+    vk::Queue GetTransferQueue() const override { return m_transferQueue; }
+    vk::Queue GetComputeQueue() const override { return m_computeQueue; }
 
     u32 GetGraphicsQueueIndex() const override { return m_graphicsQueueIndex; }
     u32 GetPresentQueueIndex() const override { return m_presentQueueIndex; }
+    u32 GetTransferQueueIndex() const override { return m_transferQueueIndex; }
+    u32 GetComputeQueueIndex() const override { return m_computeQueueIndex; }
 
     IAllocator& GetAllocator() const override { return *m_allocator; }
 
@@ -119,6 +135,8 @@ public:
     void              RecordDrawMesh(vk::CommandBuffer cmd, u32 taskCountx, u32 taskCounty, u32 taskCountz) const override;
     void              RecordDrawMeshIndirect(vk::CommandBuffer cmd, vk::Buffer buffer, u32 offset, u32 count, u32 stride) const override;
 
+    WorkScheduler& GetWorkScheduler() const override { return *m_scheduler; }
+
 private:
     IInstance& m_instance;
 
@@ -127,19 +145,28 @@ private:
 
     vk::Queue m_graphicsQueue;
     vk::Queue m_presentQueue;
-    u32       m_graphicsQueueIndex;
-    u32       m_presentQueueIndex;
+    vk::Queue m_transferQueue;
+    vk::Queue m_computeQueue;
+
+    u32 m_graphicsQueueIndex;
+    u32 m_presentQueueIndex;
+    u32 m_transferQueueIndex;
+    u32 m_computeQueueIndex;
 
     std::unique_ptr<Allocator> m_allocator;
 
-    vk::CommandPool m_commandPool;
+    vk::CommandPool m_graphicsCommandPool;
+    vk::CommandPool m_transferCommandPool;
+    vk::CommandPool m_computeCommandPool;
 
     PFN_vkCmdDrawMeshTasksEXT         m_drawMeshTasks;
     PFN_vkCmdDrawMeshTasksIndirectEXT m_drawMeshTasksIndirect;
 
+    std::vector<vk::DeviceQueueCreateInfo> CreateQueues(IPhysicalDevice& physicalDevice);
+
+    std::unique_ptr<WorkScheduler> m_scheduler;
+
     void CreateLogicalDevice(IInstance& instance, IPhysicalDevice& physicalDevice);
     void CreateCommandPool(IPhysicalDevice& physicalDevice);
-
-    std::vector<vk::DeviceQueueCreateInfo> CreateQueues(IPhysicalDevice& physicalDevice);
 };
 } // namespace Humongous

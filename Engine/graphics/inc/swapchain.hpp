@@ -13,8 +13,6 @@ namespace Humongous
 class SwapChain : NonCopyable
 {
 public:
-    static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-
     SwapChain(const Window& window, const PhysicalDevice& physicalDevice, const ILogicalDevice& logicalDevice,
               std::shared_ptr<SwapChain> oldSwap = nullptr);
     ~SwapChain();
@@ -40,8 +38,8 @@ public:
     std::vector<vk::Image>     GetImages() const { return m_images; }
 
     vk::Semaphore& GetRenderFinishedSemaphoreAtIndex(const u32& index) { return m_renderFinishedSemaphore[index]; }
-
     vk::Semaphore& GetRenderFinishedSemaphoreAtCurrentFrame() { return m_renderFinishedSemaphore[m_imageIndex]; }
+    vk::Result     Present(vk::Semaphore renderFinished, u32& currentImageIndex);
 
 private:
     const ILogicalDevice& m_logicalDevice;

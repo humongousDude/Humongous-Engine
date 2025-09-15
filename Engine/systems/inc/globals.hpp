@@ -25,8 +25,10 @@ enum class StencilMasks : u32
     Model = 1,
 };
 
+// TODO: Replace with config loaded from file
 enum class Limits : u32
 {
+    MaxFramesInFlight = 2,
     MaximumRenderDistance = 200,
 };
 

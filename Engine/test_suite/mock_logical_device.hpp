@@ -135,6 +135,16 @@ public:
     MOCK_METHOD(vk::Result, FlushMappedMemoryRanges, (const std::vector<vk::MappedMemoryRange>& ranges), (const, override));
     MOCK_METHOD(void, RecordDrawMesh, (vk::CommandBuffer cmd, u32 taskCountx, u32 taskCounty, u32 taskCountz), (const, override));
     MOCK_METHOD(void, RecordDrawMeshIndirect, (vk::CommandBuffer cmd, vk::Buffer buffer, u32 offset, u32 drawCount, u32 stride), (const, override));
+    // MOCK_METHOD(void, SubmitGraphicsQueue, (const vk::SubmitInfo2& submitInfo, vk::Fence fence), (const, override));
+    // MOCK_METHOD(void, SubmitTransferQueue, (const vk::SubmitInfo2& submitInfo, vk::Fence fence), (const, override));
+    // MOCK_METHOD(void, SubmitComputeQueue, (const vk::SubmitInfo2& submitInfo, vk::Fence fence), (const, override));
+    // MOCK_METHOD(void, Present, (const vk::PresentInfoKHR& presentInfo), (const, override));
+    //
+    MOCK_METHOD(vk::Queue, GetTransferQueue, (), (const, override));
+    MOCK_METHOD(vk::Queue, GetComputeQueue, (), (const, override));
+    MOCK_METHOD(u32, GetTransferQueueIndex, (), (const, override));
+    MOCK_METHOD(u32, GetComputeQueueIndex, (), (const, override));
+    MOCK_METHOD(WorkScheduler&, GetWorkScheduler, (), (const, override));
 };
 
 } // namespace Humongous

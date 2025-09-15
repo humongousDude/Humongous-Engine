@@ -205,4 +205,20 @@ vk::Result SwapChain::AcquireNextImage(vk::Semaphore imageAvailableSemaphore, u3
     return result;
 }
 
+vk::Result SwapChain::Present(vk::Semaphore renderFinished, u32& currentImageIndex)
+{
+    vk::PresentInfoKHR presentInfo{};
+    presentInfo.pNext = nullptr;
+    presentInfo.pSwapchains = &m_swapChain;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pWaitSemaphores = &GetRenderFinishedSemaphoreAtIndex(currentImageIndex);
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pImageIndices = &currentImageIndex;
+
+    auto result = m_logicalDevice.GetPresentQueue().presentKHR(&presentInfo);
+
+    if(result != vk::Result::eSuccess) { HGERROR("failed to present swap chain image"); }
+    return result;
+}
+
 } // namespace Humongous

@@ -140,11 +140,15 @@ void TransitionImageLayout(ImageTransitionInfo& info)
         HGERROR("Unable to transition image layout, image is null");
         return;
     }
-    if(info.newLayout == info.oldLayout)
+
+    b8 needsQueueTransfer = (info.srcQueueFamilyIndex != VK_QUEUE_FAMILY_IGNORED && info.dstQueueFamilyIndex != VK_QUEUE_FAMILY_IGNORED &&
+                             info.srcQueueFamilyIndex != info.dstQueueFamilyIndex);
+    if(info.newLayout == info.oldLayout && !needsQueueTransfer)
     {
-        HGWARN("Identical layouts, skipping transition");
+        HGWARN("Identical layouts and no queue transfer, skipping transition");
         return;
     }
+
     if(info.layerCount < 1)
     {
         HGWARN("Layer count is less than 1, skipping transition");
@@ -152,8 +156,6 @@ void TransitionImageLayout(ImageTransitionInfo& info)
     }
 
     vk::ImageMemoryBarrier2 imageBarrier{};
-    imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     imageBarrier.oldLayout = info.oldLayout;
     imageBarrier.newLayout = info.newLayout;
     imageBarrier.image = info.image;
@@ -162,6 +164,9 @@ void TransitionImageLayout(ImageTransitionInfo& info)
     imageBarrier.subresourceRange.levelCount = info.levelCount;
     imageBarrier.subresourceRange.baseArrayLayer = info.baseArrayLayer;
     imageBarrier.subresourceRange.layerCount = info.layerCount;
+
+    imageBarrier.srcQueueFamilyIndex = needsQueueTransfer ? info.srcQueueFamilyIndex : VK_QUEUE_FAMILY_IGNORED;
+    imageBarrier.dstQueueFamilyIndex = needsQueueTransfer ? info.dstQueueFamilyIndex : VK_QUEUE_FAMILY_IGNORED;
 
     switch(info.oldLayout)
     {

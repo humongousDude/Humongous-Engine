@@ -3,7 +3,6 @@
 #include "camera.hpp"
 #include "extra.hpp"
 #include "render_pipeline.hpp"
-#include "swapchain.hpp"
 #include "world.hpp"
 
 #include <memory>
@@ -79,8 +78,8 @@ protected:
     const IAssetManager&            m_assetManager;
     std::unique_ptr<RenderPipeline> m_pipeline;
 
-    std::array<std::unique_ptr<DescriptorPool>, SwapChain::MAX_FRAMES_IN_FLIGHT> m_pool{};
-    std::array<vk::DescriptorSet, SwapChain::MAX_FRAMES_IN_FLIGHT>               m_set{};
+    std::array<std::unique_ptr<DescriptorPool>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_pool{};
+    std::array<vk::DescriptorSet, static_cast<u32>(Globals::Limits::MaxFramesInFlight)>               m_set{};
 };
 
 class MeshRenderSystem : public IRenderSystem
@@ -104,14 +103,14 @@ public:
     void ReadyDescriptors(RenderData& renderData) override;
 
 private:
-    std::array<u32, SwapChain::MAX_FRAMES_IN_FLIGHT> m_drawCount{};
+    std::array<u32, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_drawCount{};
 
-    std::array<std::unique_ptr<Buffer>, SwapChain::MAX_FRAMES_IN_FLIGHT> m_drawDataBuffers{};
-    std::array<std::unique_ptr<Buffer>, SwapChain::MAX_FRAMES_IN_FLIGHT> m_instanceBuffers{};
-    std::array<std::unique_ptr<Buffer>, SwapChain::MAX_FRAMES_IN_FLIGHT> m_meshDataBuffers{};
-    std::array<std::unique_ptr<Buffer>, SwapChain::MAX_FRAMES_IN_FLIGHT> m_indirectBuffers{};
-    std::array<std::unique_ptr<Buffer>, SwapChain::MAX_FRAMES_IN_FLIGHT> m_shaderbufferVisibleIndices{};
-    std::array<std::unique_ptr<Buffer>, SwapChain::MAX_FRAMES_IN_FLIGHT> m_shaderbufferVisibleCounter{};
+    std::array<std::unique_ptr<Buffer>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_drawDataBuffers{};
+    std::array<std::unique_ptr<Buffer>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_instanceBuffers{};
+    std::array<std::unique_ptr<Buffer>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_meshDataBuffers{};
+    std::array<std::unique_ptr<Buffer>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_indirectBuffers{};
+    std::array<std::unique_ptr<Buffer>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_shaderbufferVisibleIndices{};
+    std::array<std::unique_ptr<Buffer>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_shaderbufferVisibleCounter{};
 };
 
 class TraditionalRenderSystem : public IRenderSystem
@@ -128,8 +127,8 @@ public:
 private:
     std::unique_ptr<Buffer> m_debugBuffer{};
 
-    std::array<std::unique_ptr<Buffer>, SwapChain::MAX_FRAMES_IN_FLIGHT> m_indirectDrawBuffers{};
-    std::array<std::unique_ptr<Buffer>, SwapChain::MAX_FRAMES_IN_FLIGHT> m_drawDataBuffers{};
-    std::array<std::unique_ptr<Buffer>, SwapChain::MAX_FRAMES_IN_FLIGHT> m_drawInstanceBuffers{};
+    std::array<std::unique_ptr<Buffer>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_indirectDrawBuffers{};
+    std::array<std::unique_ptr<Buffer>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_drawDataBuffers{};
+    std::array<std::unique_ptr<Buffer>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_drawInstanceBuffers{};
 };
 } // namespace Humongous

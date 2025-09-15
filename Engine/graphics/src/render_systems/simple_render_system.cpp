@@ -6,14 +6,13 @@
 #include "logger.hpp"
 #include "resource_manager.hpp"
 #include "scene_handler.hpp"
-#include "swapchain.hpp"
 
 namespace Humongous
 {
 
 IRenderSystem::~IRenderSystem()
 {
-    for(u32 i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i) { m_pool[i].reset(); }
+    for(u32 i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); ++i) { m_pool[i].reset(); }
     m_pipeline.reset();
 };
 
@@ -119,7 +118,7 @@ void IRenderSystem::AllocateDescriptorSet()
     poolBuilder.SetMaxSets(10);
 
     auto layout = m_resourceManager.GetModelDescriptors().traditionalDrawData->GetDescriptorSetLayout();
-    for(u32 i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
+    for(u32 i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); ++i)
     {
         m_pool[i] = poolBuilder.Build();
         m_pool[i]->AllocateDescriptor(layout, m_set[i]);
@@ -143,7 +142,7 @@ TraditionalRenderSystem::~TraditionalRenderSystem()
     m_pipeline.reset();
     m_debugBuffer.reset();
 
-    for(u32 i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
+    for(u32 i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); ++i)
     {
         m_indirectDrawBuffers[i].reset();
         m_drawDataBuffers[i].reset();
@@ -319,7 +318,7 @@ MeshRenderSystem::~MeshRenderSystem()
     HGINFO("Destroying mesh render system...");
     m_pipeline.reset();
 
-    for(u32 i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
+    for(u32 i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); ++i)
     {
         m_pool[i].reset();
 

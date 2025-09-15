@@ -12,7 +12,7 @@ Camera::Camera(const ILogicalDevice& logicalDevice) { InitDescriptorThings(logic
 
 Camera::~Camera()
 {
-    for(u32 i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
+    for(u32 i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); ++i)
     {
         m_projectionBuffers[i].reset();
         m_paramBuffers[i].reset();
@@ -54,20 +54,20 @@ void Camera::InitDescriptorThings(const ILogicalDevice& logicalDevice)
     builder5.AddBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute);
     m_paramDescriptorLayout = builder5.Build();
 
-    m_projectionBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    m_vertProjectionMatrixSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    m_fragProjectionMatrixSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    m_compProjectionMatrixSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    m_uboParamSet.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    m_paramBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
-    m_combinedCameraDataBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_projectionBuffers.resize(static_cast<u32>(Globals::Limits::MaxFramesInFlight));
+    m_vertProjectionMatrixSet.resize(static_cast<u32>(Globals::Limits::MaxFramesInFlight));
+    m_fragProjectionMatrixSet.resize(static_cast<u32>(Globals::Limits::MaxFramesInFlight));
+    m_compProjectionMatrixSet.resize(static_cast<u32>(Globals::Limits::MaxFramesInFlight));
+    m_uboParamSet.resize(static_cast<u32>(Globals::Limits::MaxFramesInFlight));
+    m_paramBuffers.resize(static_cast<u32>(Globals::Limits::MaxFramesInFlight));
+    m_combinedCameraDataBuffers.resize(static_cast<u32>(Globals::Limits::MaxFramesInFlight));
 
-    for(int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; ++i)
+    for(int i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); ++i)
     {
-        m_projectionBuffers[i] =
-            std::make_unique<Buffer>(logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(ProjectionUBO), vk::BufferUsageFlagBits::eUniformBuffer,
-                                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO, 1,
-                                     "global projection buffer");
+        m_projectionBuffers[i] = std::make_unique<Buffer>(logicalDevice, static_cast<u32>(Globals::Limits::MaxFramesInFlight),
+                                                          sizeof(ProjectionUBO), vk::BufferUsageFlagBits::eUniformBuffer,
+                                                          vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                                                          VMA_MEMORY_USAGE_AUTO, 1, "global projection buffer");
         m_projectionBuffers[i]->Map();
 
         auto bufInfo = m_projectionBuffers[i]->DescriptorInfo();
@@ -75,19 +75,19 @@ void Camera::InitDescriptorThings(const ILogicalDevice& logicalDevice)
         DescriptorWriter(*m_fragProjectionLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_fragProjectionMatrixSet[i]);
         DescriptorWriter(*m_compProjectionLayout, m_projectionPool.get()).WriteBuffer(0, &bufInfo).Build(m_compProjectionMatrixSet[i]);
 
-        m_paramBuffers[i] =
-            std::make_unique<Buffer>(logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(UboParams), vk::BufferUsageFlagBits::eUniformBuffer,
-                                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO, 1,
-                                     "global ubo params buffer");
+        m_paramBuffers[i] = std::make_unique<Buffer>(logicalDevice, static_cast<u32>(Globals::Limits::MaxFramesInFlight), sizeof(UboParams),
+                                                     vk::BufferUsageFlagBits::eUniformBuffer,
+                                                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                                                     VMA_MEMORY_USAGE_AUTO, 1, "global ubo params buffer");
         m_paramBuffers[i]->Map();
 
         auto paramInfo = m_paramBuffers[i]->DescriptorInfo();
         DescriptorWriter(*m_paramDescriptorLayout, m_projectionPool.get()).WriteBuffer(0, &paramInfo).Build(m_uboParamSet[i]);
 
         m_combinedCameraDataBuffers[i] = std::make_unique<Buffer>(
-            logicalDevice, SwapChain::MAX_FRAMES_IN_FLIGHT, sizeof(CombinedCameraData), vk::BufferUsageFlagBits::eUniformBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO, 1,
-            "global combined camera data buffer");
+            logicalDevice, static_cast<u32>(Globals::Limits::MaxFramesInFlight), sizeof(CombinedCameraData),
+            vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+            VMA_MEMORY_USAGE_AUTO, 1, "global combined camera data buffer");
     }
 }
 
@@ -100,7 +100,7 @@ void Camera::Update()
     UpdateUBO(m_index);
     UpdateCombinedCameraData(m_index);
 
-    m_index = (m_index + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
+    m_index = (m_index + 1) % static_cast<u32>(Globals::Limits::MaxFramesInFlight);
 }
 
 void Camera::UpdateUBO(u32 index)

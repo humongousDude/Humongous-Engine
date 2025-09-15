@@ -440,4 +440,30 @@ void Buffer::CopyBuffer(const ILogicalDevice& device, Buffer& srcBuffer, Buffer&
     dstBuffer.UpdateAddress(dstBuffer.GetUsageFlags());
 }
 
+void Buffer::TransferQueue(const vk::CommandBuffer& cmd, const u32& srcQueueFamilyIndex, const u32& dstQueueFamilyIndex,
+                           const vk::PipelineStageFlags2& srcStage, const vk::PipelineStageFlags2& dstStage, const vk::AccessFlags2& srcAccess,
+                           const vk::AccessFlags2& dstAccess)
+{
+    // A barrier is only needed if the source and destination queue families are different.
+    if(srcQueueFamilyIndex == dstQueueFamilyIndex) { return; }
+
+    vk::BufferMemoryBarrier2 bufferBarrier{};
+    bufferBarrier.srcStageMask = srcStage;
+    bufferBarrier.srcAccessMask = srcAccess;
+    bufferBarrier.dstStageMask = dstStage;
+    bufferBarrier.dstAccessMask = dstAccess;
+    bufferBarrier.srcQueueFamilyIndex = srcQueueFamilyIndex;
+    bufferBarrier.dstQueueFamilyIndex = dstQueueFamilyIndex;
+    bufferBarrier.buffer = m_buffer;
+    bufferBarrier.offset = 0;
+    bufferBarrier.size = m_bufferSize;
+
+    vk::DependencyInfo dependencyInfo{};
+    dependencyInfo.pNext = nullptr;
+    dependencyInfo.bufferMemoryBarrierCount = 1;
+    dependencyInfo.pBufferMemoryBarriers = &bufferBarrier;
+
+    cmd.pipelineBarrier2(dependencyInfo);
+}
+
 } // namespace Humongous

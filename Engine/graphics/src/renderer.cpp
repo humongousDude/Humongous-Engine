@@ -206,7 +206,7 @@ void Renderer::CreateGBuffer()
     auto cmd = m_logicalDevice.BeginSingleTimeCommands();
     u32  mipLevels = floor(log2(std::max(imgCI.width, imgCI.height))) + 1;
 
-    for(int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
+    for(int i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); i++)
     {
         if(m_frames[i].gbuffer.albedo.image != VK_NULL_HANDLE) { m_frames[i].gbuffer.albedo.Destroy(m_logicalDevice); }
         if(m_frames[i].gbuffer.normalRough.image != VK_NULL_HANDLE) { m_frames[i].gbuffer.normalRough.Destroy(m_logicalDevice); }
@@ -421,7 +421,7 @@ void Renderer::CreateCommandBuffers()
 {
     HGINFO("Allocating command buffers...");
 
-    m_frames.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
+    m_frames.resize(static_cast<u32>(Globals::Limits::MaxFramesInFlight));
 
     vk::CommandBufferAllocateInfo allocInfo{};
     allocInfo.commandPool = m_commandPool;
@@ -450,7 +450,7 @@ void Renderer::CreateSyncStructures()
 
     vk::SemaphoreCreateInfo semaphoreCreateInfo{};
 
-    for(int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++)
+    for(int i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); i++)
     {
         if(m_logicalDevice.GetVkDevice().createFence(&fenceCreateInfo, nullptr, &m_frames[i].inFlightFence) != vk::Result::eSuccess)
         {
@@ -695,13 +695,13 @@ void Renderer::PostGeometryPassTransitions(vk::CommandBuffer cmd)
 vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& visibleEntities)
 {
     vk::Result result = m_logicalDevice.GetVkDevice().waitForFences(1, &GetCurrentFrame().inFlightFence, vk::True, std::numeric_limits<u64>::max());
-    if(result != vk::Result::eSuccess) { HGINFO("Failed to wait for fences: %s", vk::to_string(result).c_str()); }
+    if(result != vk::Result::eSuccess) { HGERROR("Failed to wait for fences: %s", vk::to_string(result).c_str()); }
 
     result = m_logicalDevice.GetVkDevice().resetFences(1, &GetCurrentFrame().inFlightFence);
-    if(result != vk::Result::eSuccess) { HGINFO("Failed to reset fences: %s", vk::to_string(result).c_str()); }
+    if(result != vk::Result::eSuccess) { HGERROR("Failed to reset fences: %s", vk::to_string(result).c_str()); }
 
     result = m_swapChain->AcquireNextImage(GetCurrentFrame().imageAvailableSemaphore, m_currentImageIndex);
-    if(result != vk::Result::eSuccess) { HGINFO("Failed to acquire swapchain image: %s", vk::to_string(result).c_str()); }
+    if(result != vk::Result::eSuccess) { HGERROR("Failed to acquire swapchain image: %s", vk::to_string(result).c_str()); }
 
     if(result == vk::Result::eErrorOutOfDateKHR)
     {
@@ -714,6 +714,8 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
         HGERROR("failed to acquire swap chain image!");
         return VK_NULL_HANDLE;
     }
+
+    m_logicalDevice.GetWorkScheduler().BeginFrame();
 
     ReadyPerFrameData(visibleEntities);
 
@@ -796,51 +798,19 @@ void Renderer::EndFrame()
     Utils::TransitionImageLayout(presentTransitionInfo);
 
     cmd.end();
+    m_logicalDevice.GetWorkScheduler().AddWork(cmd, m_logicalDevice.GetGraphicsQueue());
 
-    vk::CommandBufferSubmitInfo cmdInfo{};
-    cmdInfo.deviceMask = 0;
-    cmdInfo.setCommandBuffer(GetCurrentFrame().commandBuffer);
+    m_logicalDevice.GetWorkScheduler().Flush(GetCurrentFrame().inFlightFence, GetCurrentFrame().imageAvailableSemaphore,
+                                             m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex));
 
-    vk::SemaphoreSubmitInfo waitInfo{};
-    waitInfo.semaphore = GetCurrentFrame().imageAvailableSemaphore;
-    waitInfo.stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-
-    vk::SemaphoreSubmitInfo signalInfo{};
-    signalInfo.semaphore = m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex);
-    signalInfo.stageMask = vk::PipelineStageFlagBits2::eAllGraphics;
-
-    vk::SubmitInfo2 submit{};
-    submit.waitSemaphoreInfoCount = 1;
-    submit.pWaitSemaphoreInfos = &waitInfo;
-    submit.commandBufferInfoCount = 1;
-    submit.pCommandBufferInfos = &cmdInfo;
-    submit.signalSemaphoreInfoCount = 1;
-    submit.pSignalSemaphoreInfos = &signalInfo;
-
-    vk::Result result = m_logicalDevice.GetGraphicsQueue().submit2(1, &submit, GetCurrentFrame().inFlightFence);
-
-    if(result != vk::Result::eSuccess) { HGERROR("Failed to submit command buffer"); }
-
-    auto s = m_swapChain->GetSwapChain();
-
-    vk::PresentInfoKHR presentInfo{};
-    presentInfo.pNext = nullptr;
-    presentInfo.pSwapchains = &s;
-    presentInfo.swapchainCount = 1;
-    presentInfo.pWaitSemaphores = &m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex);
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pImageIndices = &m_currentImageIndex;
-
-    result = m_logicalDevice.GetPresentQueue().presentKHR(&presentInfo);
+    auto result = m_swapChain->Present(m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex), m_currentImageIndex);
     if(result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || m_window.WasWindowResized())
     {
         m_window.ResetWindowResizedFlag();
         RecreateSwapChain();
     }
 
-    else if(result != vk::Result::eSuccess) { HGERROR("failed to present swap chain image"); }
-
-    m_currentFrameIndex = (m_currentFrameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT;
+    m_currentFrameIndex = (m_currentFrameIndex + 1) % static_cast<u32>(Globals::Limits::MaxFramesInFlight);
 }
 
 void Renderer::BeginGeometryPass(vk::CommandBuffer cmd)

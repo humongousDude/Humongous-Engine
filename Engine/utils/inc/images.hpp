@@ -73,6 +73,8 @@ struct ImageTransitionInfo
     const ILogicalDevice& logicalDevice;
     vk::Image             image;
     vk::ImageAspectFlags  imageAspect = vk::ImageAspectFlagBits::eColor;
+    u32                   srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    u32                   dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     u32                   baseMipLevel = 0;
     u32                   levelCount = 1;
     u32                   baseArrayLayer = 0;

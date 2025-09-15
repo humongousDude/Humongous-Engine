@@ -303,6 +303,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     }
 
     m_textureImage.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
     m_logicalDevice.EndSingleTimeCommands(blitCmd);
 
     TexSamplerInfo samplerInfo{};

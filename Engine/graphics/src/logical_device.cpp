@@ -16,14 +16,16 @@ VulkanLogicalDevice::VulkanLogicalDevice(IInstance& instance, IPhysicalDevice& p
     CreateLogicalDevice(instance, physicalDevice);
     CreateCommandPool(physicalDevice);
     m_allocator = std::make_unique<Allocator>(*this, instance);
+    m_scheduler = std::make_unique<WorkScheduler>(*this);
     HGINFO("Created logical device");
 }
 
 VulkanLogicalDevice::~VulkanLogicalDevice()
 {
     HGINFO("Destroying logical device...");
-    vkDestroyCommandPool(m_logicalDevice, m_commandPool, nullptr);
+    vkDestroyCommandPool(m_logicalDevice, m_graphicsCommandPool, nullptr);
     m_allocator.reset();
+    m_scheduler.reset();
     vkDestroyDevice(m_logicalDevice, nullptr);
     HGINFO("Destroyed logical device");
 }
@@ -44,6 +46,7 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
 
     // vulkan 1.2 features
     vk::PhysicalDeviceVulkan12Features vulkan12Features{};
+    vulkan12Features.timelineSemaphore = VK_TRUE;
     vulkan12Features.descriptorIndexing = VK_TRUE;
     vulkan12Features.bufferDeviceAddress = VK_TRUE;
     vulkan12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
@@ -181,14 +184,17 @@ void VulkanLogicalDevice::CreateCommandPool(IPhysicalDevice& physicalDevice)
     poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
     poolInfo.queueFamilyIndex = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice()).graphicsFamily.value();
 
-    if(m_logicalDevice.createCommandPool(&poolInfo, nullptr, &m_commandPool) != vk::Result::eSuccess) { HGFATAL("Failed to create command pool!"); }
+    if(m_logicalDevice.createCommandPool(&poolInfo, nullptr, &m_graphicsCommandPool) != vk::Result::eSuccess)
+    {
+        HGFATAL("Failed to create command pool!");
+    }
 }
 
 vk::CommandBuffer VulkanLogicalDevice::BeginSingleTimeCommands() const
 {
     vk::CommandBufferAllocateInfo allocInfo{};
     allocInfo.level = vk::CommandBufferLevel::ePrimary;
-    allocInfo.commandPool = m_commandPool;
+    allocInfo.commandPool = m_graphicsCommandPool;
     allocInfo.commandBufferCount = 1;
 
     vk::CommandBuffer commandBuffer{};
@@ -205,7 +211,7 @@ vk::CommandBuffer VulkanLogicalDevice::BeginSingleTimeCommands() const
 
 void VulkanLogicalDevice::EndSingleTimeCommands(vk::CommandBuffer commandBuffer) const
 {
-    vkEndCommandBuffer(commandBuffer);
+    commandBuffer.end();
 
     vk::CommandBufferSubmitInfo commandBufferInfo{};
     commandBufferInfo.setCommandBuffer(commandBuffer);
@@ -222,7 +228,7 @@ void VulkanLogicalDevice::EndSingleTimeCommands(vk::CommandBuffer commandBuffer)
     if(r != vk::Result::eSuccess) { HGERROR("Failed to submit single time command! Error: %s", vk::to_string(r).c_str()); }
 
     m_graphicsQueue.waitIdle();
-    m_logicalDevice.freeCommandBuffers(m_commandPool, 1, &commandBuffer);
+    m_logicalDevice.freeCommandBuffers(m_graphicsCommandPool, 1, &commandBuffer);
 }
 
 vk::DescriptorPool VulkanLogicalDevice::CreateDescriptorPool(const vk::DescriptorPoolCreateInfo& info) const
