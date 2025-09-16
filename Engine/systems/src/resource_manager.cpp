@@ -81,8 +81,10 @@ void ResourceManager::InitDescriptors()
     m_bindlessTexturePool = std::make_unique<DescriptorPoolGrowable>(
         m_logicalDevice, 64, vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet | vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind, t1);
 
-    b8                      canUseMeshShaders = m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders;
-    vk::ShaderStageFlagBits vertexStage = canUseMeshShaders ? vk::ShaderStageFlagBits::eMeshEXT : vk::ShaderStageFlagBits::eVertex;
+    b8                   canUseMeshShaders = m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders;
+    vk::ShaderStageFlags vertexStage;
+    if(canUseMeshShaders) { vertexStage = vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT; }
+    else { vertexStage = vk::ShaderStageFlagBits::eVertex; }
 
     DescriptorSetLayout::Builder bindlessBuilder{m_logicalDevice};
     bindlessBuilder

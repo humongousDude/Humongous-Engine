@@ -2,7 +2,6 @@
 #include "abstractions/descriptor_writer.hpp"
 #include "imgui.h"
 #include "logger.hpp"
-#include "swapchain.hpp"
 #include "ui/widget.hpp"
 
 namespace Humongous
@@ -35,8 +34,12 @@ void Camera::InitDescriptorThings(const ILogicalDevice& logicalDevice)
     builder.AddPoolSize(vk::DescriptorType::eUniformBuffer, 25);
     m_projectionPool = builder.Build();
 
-    auto targetVertexStage = logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders ? vk::ShaderStageFlagBits::eMeshEXT
-                                                                                                            : vk::ShaderStageFlagBits::eVertex;
+    vk::ShaderStageFlags targetVertexStage;
+    if(logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders)
+    {
+        targetVertexStage = vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT;
+    }
+    else { targetVertexStage = vk::ShaderStageFlagBits::eVertex; }
 
     DescriptorSetLayout::Builder builder2{logicalDevice};
     builder2.AddBinding(0, vk::DescriptorType::eUniformBuffer, targetVertexStage);

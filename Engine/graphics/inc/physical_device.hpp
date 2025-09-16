@@ -17,10 +17,15 @@ class IPhysicalDevice
 public:
     struct QueueFamilyData
     {
-        std::optional<u32> graphicsFamily;
-        std::optional<u32> presentFamily;
+        std::optional<u32> graphicsFamily{0};
+        std::optional<u32> presentFamily{0};
+        std::optional<u32> computeFamily{0};
+        std::optional<u32> transferFamily{0};
 
-        bool IsComplete() { return graphicsFamily.has_value() && presentFamily.has_value(); }
+        b8 IsComplete()
+        {
+            return graphicsFamily.has_value() && presentFamily.has_value() && computeFamily.has_value() && transferFamily.has_value();
+        }
     };
 
     struct SwapChainSupportDetails
@@ -107,13 +112,10 @@ private:
 
     void PickPhysicalDevice();
 
-    bool IsDeviceSuitable(vk::PhysicalDevice physicalDevice);
-    bool CheckDeviceExtensionSupport(vk::PhysicalDevice physicalDevice);
-
     b32 CheckExtensionAvailability(vk::PhysicalDevice physicalDevice, const char* extensionName);
 
     template <typename T>
-    b32                CheckPhysicalDeviceFeature(vk::PhysicalDevice physicalDevice, T& featuresStruct, std::function<bool(const T&)> featureCheck);
+    b32                CheckPhysicalDeviceFeature(vk::PhysicalDevice physicalDevice, T& featuresStruct, std::function<b8(const T&)> featureCheck);
     DeviceSupportLevel EvaluateDeviceSupportLevel(const DeviceCapabilities& capabilities);
     PhysicalDevice::DeviceCapabilities GetDeviceCapabilities(vk::PhysicalDevice physicalDevice);
 

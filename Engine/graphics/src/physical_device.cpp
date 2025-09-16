@@ -2,10 +2,7 @@
 #include "logger.hpp"
 #include "string"
 #include "vector"
-#include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_to_string.hpp>
-
-// FIXME: No discard warnings
 
 namespace Humongous
 {
@@ -30,16 +27,22 @@ void PhysicalDevice::PickPhysicalDevice()
     result = m_instance.GetVkInstance().enumeratePhysicalDevices(&deviceCount, nullptr);
     if(result != vk::Result::eSuccess)
     {
-        HGFATAL("Failed to get number of physical devices! Error: %s", string_VkResult(static_cast<VkResult>(result)));
+        HGFATAL("Failed to get number of physical devices! Error: %s", vk::to_string(result).c_str());
+        return;
     }
-    if(deviceCount == 0) { HGFATAL("Failed to find GPUs with Vulkan support!"); }
+    if(deviceCount == 0)
+    {
+        HGFATAL("Failed to find GPUs with Vulkan support!");
+        return;
+    }
     HGINFO("found %d devices", deviceCount);
 
     std::vector<vk::PhysicalDevice> devices(deviceCount);
     result = m_instance.GetVkInstance().enumeratePhysicalDevices(&deviceCount, devices.data());
     if(result != vk::Result::eSuccess)
     {
-        HGFATAL("Failed to enumerate physical devices! Error: %s", string_VkResult(static_cast<VkResult>(result)));
+        HGFATAL("Failed to enumerate physical devices! Error: %s", vk::to_string(result).c_str());
+        return;
     }
 
     m_physicalDevice = VK_NULL_HANDLE;
@@ -88,6 +91,7 @@ void PhysicalDevice::PickPhysicalDevice()
     if(m_physicalDevice == VK_NULL_HANDLE)
     {
         HGFATAL("Failed to find a suitable GPU! No device meets even the minimum 'BaseGraphics' requirements.");
+        return;
     }
     else
     {
@@ -116,32 +120,47 @@ PhysicalDevice::SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(vk
     if(physicalDevice.getSurfaceCapabilities2KHR(&surfaceInfo, &details.capabilities) != vk::Result::eSuccess)
     {
         HGFATAL("Failed to get surface capabilities!");
+        return {};
     };
 
     u32  formatCount;
     auto result = physicalDevice.getSurfaceFormats2KHR(&surfaceInfo, &formatCount, nullptr);
-    if(result != vk::Result::eSuccess) { HGFATAL("Failed to get surface format count! Error: %s", vk::to_string(result).c_str()); }
+    if(result != vk::Result::eSuccess)
+    {
+        HGFATAL("Failed to get surface format count! Error: %s", vk::to_string(result).c_str());
+        return {};
+    }
 
     if(formatCount != 0)
     {
         details.formats.resize(formatCount);
-        // FIXME: this is probably not a good way to set the sType, but I can't figure out another way
-        for(int i = 0; i < formatCount; i++) { details.formats[i].sType = vk::StructureType::eSurfaceFormat2KHR; }
 
         result = physicalDevice.getSurfaceFormats2KHR(&surfaceInfo, &formatCount, details.formats.data());
-        if(result != vk::Result::eSuccess) { HGFATAL("Failed to get surface formats! Error: %s", vk::to_string(result).c_str()); }
+        if(result != vk::Result::eSuccess)
+        {
+            HGFATAL("Failed to get surface formats! Error: %s", vk::to_string(result).c_str());
+            return {};
+        }
     }
 
     u32 presentModeCount;
     result = physicalDevice.getSurfacePresentModesKHR(m_surface, &presentModeCount, nullptr);
-    if(result != vk::Result::eSuccess) { HGFATAL("Failed to acquire present mode count! Error: %s", vk::to_string(result).c_str()); }
+    if(result != vk::Result::eSuccess)
+    {
+        HGFATAL("Failed to acquire present mode count! Error: %s", vk::to_string(result).c_str());
+        return {};
+    }
 
     if(presentModeCount != 0)
     {
         details.presentModes.resize(presentModeCount);
         result = physicalDevice.getSurfacePresentModesKHR(m_surface, &presentModeCount, details.presentModes.data());
 
-        if(result != vk::Result::eSuccess) { HGFATAL("Failed to acquire present modes! Error: %s", vk::to_string(result).c_str()); }
+        if(result != vk::Result::eSuccess)
+        {
+            HGFATAL("Failed to acquire present modes! Error: %s", vk::to_string(result).c_str());
+            return {};
+        }
     }
 
     return details;
@@ -150,9 +169,19 @@ PhysicalDevice::SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(vk
 b32 PhysicalDevice::CheckExtensionAvailability(vk::PhysicalDevice physicalDevice, const char* extensionName)
 {
     uint32_t extensionCount;
-    physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr);
+    auto     res = physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr);
+    if(res != vk::Result::eSuccess)
+    {
+        HGFATAL("Failed to acquire device extension count! Error: %s", vk::to_string(res).c_str());
+        return false;
+    }
     std::vector<vk::ExtensionProperties> availableExtensions(extensionCount);
-    physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions.data());
+    res = physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions.data());
+    if(res != vk::Result::eSuccess)
+    {
+        HGFATAL("Failed to acquire device extension properties! Error: %s", vk::to_string(res).c_str());
+        return false;
+    }
 
     for(const auto& extension: availableExtensions)
     {
@@ -161,34 +190,8 @@ b32 PhysicalDevice::CheckExtensionAvailability(vk::PhysicalDevice physicalDevice
     return false;
 }
 
-bool PhysicalDevice::IsDeviceSuitable(vk::PhysicalDevice physicalDevice)
-{
-    vk::PhysicalDeviceProperties2 deviceProperties{};
-    physicalDevice.getProperties2(&deviceProperties);
-    vk::PhysicalDeviceFeatures2 deviceFeatures{};
-    physicalDevice.getFeatures2(&deviceFeatures);
-
-    bool haveAllRequiredIndices = FindQueueFamilies(physicalDevice).IsComplete();
-    bool deviceHasExtensions = CheckDeviceExtensionSupport(physicalDevice);
-
-    bool swapChainAdequate = false;
-    if(deviceHasExtensions)
-    {
-        SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(physicalDevice);
-        swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
-    }
-
-    if(haveAllRequiredIndices && deviceHasExtensions && swapChainAdequate)
-    {
-        HGINFO("device is suitable");
-        HGINFO("Device: %s", deviceProperties.properties.deviceName.data());
-    }
-
-    return haveAllRequiredIndices && deviceHasExtensions && swapChainAdequate;
-}
-
 template <typename T>
-b32 PhysicalDevice::CheckPhysicalDeviceFeature(vk::PhysicalDevice physicalDevice, T& featuresStruct, std::function<bool(const T&)> featureCheck)
+b32 PhysicalDevice::CheckPhysicalDeviceFeature(vk::PhysicalDevice physicalDevice, T& featuresStruct, std::function<b8(const T&)> featureCheck)
 {
     vk::PhysicalDeviceFeatures2 features2{};
     features2.pNext = &featuresStruct;
@@ -209,7 +212,7 @@ PhysicalDevice::DeviceCapabilities PhysicalDevice::GetDeviceCapabilities(vk::Phy
 
     SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(physicalDevice);
 
-    bool allBaseExtensionsPresent = true;
+    b8 allBaseExtensionsPresent = true;
     for(const char* ext: REQUIRED_BASE_DEVICE_EXTENSIONS)
     {
         if(!CheckExtensionAvailability(physicalDevice, ext))
@@ -255,48 +258,60 @@ PhysicalDevice::DeviceCapabilities PhysicalDevice::GetDeviceCapabilities(vk::Phy
     return capabilities;
 }
 
-bool PhysicalDevice::CheckDeviceExtensionSupport(vk::PhysicalDevice physicalDevice)
-{
-    u32  extensionCount;
-    auto result = physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr);
-
-    if(result != vk::Result::eSuccess) { HGFATAL("Couldn't acquire device extension count! Error: %s", vk::to_string(result).c_str()); }
-
-    std::vector<vk::ExtensionProperties> availableExtensions(extensionCount);
-    result = physicalDevice.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions.data());
-    if(result != vk::Result::eSuccess) { HGFATAL("Couldn't acquire device extension properties! Error: %s", vk::to_string(result).c_str()); }
-
-    // std::set<std::string> requiredExtensions(D.begin(), deviceExtensions.end());
-
-    HGDEBUG("%d extensions avablialbi", extensionCount);
-    return 1;
-    // for(const auto& extension: availableExtensions) { requiredExtensions.erase(extension.extensionName); }
-    //
-    // for(const auto& extension: requiredExtensions) { HGINFO("Missing extension: %s", extension.c_str()); }
-    //
-    // return requiredExtensions.empty();
-}
-
 PhysicalDevice::QueueFamilyData PhysicalDevice::FindQueueFamilies(vk::PhysicalDevice physicalDevice) const
 {
     QueueFamilyData indices;
     u32             queueFamilyCount = 0;
     physicalDevice.getQueueFamilyProperties2(&queueFamilyCount, nullptr);
     std::vector<vk::QueueFamilyProperties2> queueFamilyProperties(queueFamilyCount);
-    for(auto& queueFamilyProperty: queueFamilyProperties) { queueFamilyProperty.sType = vk::StructureType::eQueueFamilyProperties2; }
+
     physicalDevice.getQueueFamilyProperties2(&queueFamilyCount, queueFamilyProperties.data());
     vk::Bool32 presentSupport = false;
 
-    int i = 0;
+    s32 i = 0;
     for(const auto& queueFamily: queueFamilyProperties)
     {
-        if(queueFamily.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics) { indices.graphicsFamily = i; }
+        if(queueFamily.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics)
+        {
+            if(!indices.graphicsFamily.has_value()) { indices.graphicsFamily = i; }
+        }
+
         auto result = physicalDevice.getSurfaceSupportKHR(i, m_surface, &presentSupport);
         if(result != vk::Result::eSuccess) { HGFATAL("Failed to get surface support! Error: %s", vk::to_string(result).c_str()); }
-        if(presentSupport) { indices.presentFamily = i; }
+
+        if(presentSupport)
+        {
+            if(!indices.presentFamily.has_value()) { indices.presentFamily = i; }
+        }
+
+        if(queueFamily.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eCompute)
+        {
+            if(!indices.computeFamily.has_value() || i != indices.graphicsFamily.value() && i != indices.transferFamily.value())
+            {
+                indices.computeFamily = i;
+            }
+            else if(!indices.computeFamily.has_value() || i != indices.graphicsFamily.value()) { indices.computeFamily = i; }
+            else { indices.computeFamily = indices.graphicsFamily.value(); }
+        }
+
+        if(queueFamily.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eTransfer)
+        {
+            if(!indices.transferFamily.has_value() || (i != indices.graphicsFamily.value() && i != indices.computeFamily.value()))
+            {
+                indices.transferFamily = i;
+            }
+            else if(!indices.transferFamily.has_value() || i != indices.graphicsFamily.value()) { indices.transferFamily = i; }
+            else { indices.transferFamily = indices.graphicsFamily.value(); }
+        }
+
         i++;
     }
-    HGINFO("Indices graphics: %d, present: %d", indices.graphicsFamily.value(), indices.presentFamily.value());
+
+    if(!indices.computeFamily.has_value()) { indices.computeFamily = indices.graphicsFamily.value(); }
+    if(!indices.transferFamily.has_value()) { indices.transferFamily = indices.graphicsFamily.value(); }
+
+    HGINFO("Indices graphics: %d, present: %d, compute: %d, transfer: %d", indices.graphicsFamily.value(), indices.presentFamily.value(),
+           indices.computeFamily.value(), indices.transferFamily.value());
 
     return indices;
 }

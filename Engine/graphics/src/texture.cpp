@@ -429,7 +429,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
 
         GenerateMipmaps(cmd, m_textureImage.image, m_width, m_height, m_miplevels, vk::ImageLayout::eShaderReadOnlyOptimal);
 
-        m_logicalDevice.EndSingleTimeCommands(cmd);
+        m_logicalDevice.GetWorkScheduler().AddWork(cmd, m_logicalDevice.GetTransferQueue());
 
         m_textureImage.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
         if(storage) { m_textureImage.imageLayout = vk::ImageLayout::eGeneral; }

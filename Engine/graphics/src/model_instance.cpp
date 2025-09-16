@@ -9,7 +9,7 @@ namespace Humongous
 ModelInstance::ModelInstance(std::shared_ptr<Model> model, ResourceManager& resourceManager, const u32& instanceID)
     : m_model(model), m_resourceManager(resourceManager), m_instanceID(instanceID)
 {
-    HGINFO("Creating new model instance...");
+    HGTRACE("Creating new model instance...");
     const u32 nodeCount = m_model->GetLinearNodes().size();
     m_localNodeMatrices.resize(nodeCount);
     m_globalNodeMatrices.resize(nodeCount);
@@ -42,7 +42,7 @@ ModelInstance::ModelInstance(std::shared_ptr<Model> model, ResourceManager& reso
     UpdateSkins();
     UpdateAnimatedAABB();
 
-    HGINFO("Created a new model instance");
+    HGTRACE("Created a new model instance");
 }
 
 ModelInstance::~ModelInstance() {}

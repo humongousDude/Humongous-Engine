@@ -38,8 +38,15 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
     IPhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 
     HGASSERT(indices.IsComplete() && "Incomplete queue family indices!");
+    HGINFO("GOT HERE %i", __LINE__);
     m_graphicsQueueIndex = indices.graphicsFamily.value();
+    HGINFO("GOT HERE %i", __LINE__);
     m_presentQueueIndex = indices.presentFamily.value();
+    HGINFO("GOT HERE %i", __LINE__);
+    m_computeQueueIndex = indices.computeFamily.value();
+    HGINFO("GOT HERE %i", __LINE__);
+    m_transferQueueIndex = indices.transferFamily.value();
+    HGINFO("GOT HERE %i", __LINE__);
 
     vk::PhysicalDeviceVulkan11Features vulkan11Features{};
     vulkan11Features.shaderDrawParameters = VK_TRUE;
@@ -86,8 +93,8 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
     const f32 prio = 1.0f;
 
     auto queueCreateInfos = CreateQueues(physicalDevice);
-    queueCreateInfos[0].pQueuePriorities = &prio;
-    queueCreateInfos[1].pQueuePriorities = &prio;
+    // queueCreateInfos[0].pQueuePriorities = &prio;
+    // queueCreateInfos[1].pQueuePriorities = &prio;
 
     auto extensions = physicalDevice.GetDeviceExtensions();
 
@@ -111,40 +118,26 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
 
     HGINFO("logical device created");
 
-    if(m_graphicsQueueIndex == m_presentQueueIndex)
+    // Acquire queue handles
+    vk::DeviceQueueInfo2 queueInfo{};
+    queueInfo.sType = vk::StructureType::eDeviceQueueInfo2;
+    queueInfo.queueIndex = 0; // we requested only one queue per family
+
+    queueInfo.queueFamilyIndex = m_graphicsQueueIndex;
+    m_logicalDevice.getQueue2(&queueInfo, &m_graphicsQueue);
+    queueInfo.queueFamilyIndex = m_presentQueueIndex;
+    m_logicalDevice.getQueue2(&queueInfo, &m_presentQueue);
+    queueInfo.queueFamilyIndex = m_computeQueueIndex;
+    m_logicalDevice.getQueue2(&queueInfo, &m_computeQueue);
+    queueInfo.queueFamilyIndex = m_transferQueueIndex;
+    m_logicalDevice.getQueue2(&queueInfo, &m_transferQueue);
+
+    if(m_physicalDevice->GetCurrentCapabilities().supportsMeshShaders)
     {
-        // If graphics and present families are the same, they both use queue family at m_graphicsQueueIndex
-        // We request queue index 0 from that family for both graphics and present operations.
-        vk::DeviceQueueInfo2 graphicsQueueInfo{};
-        graphicsQueueInfo.sType = vk::StructureType::eDeviceQueueInfo2;
-        graphicsQueueInfo.queueFamilyIndex = m_graphicsQueueIndex;
-        graphicsQueueInfo.queueIndex = 0; // Request the first (and likely only) queue from this family
-
-        m_logicalDevice.getQueue2(&graphicsQueueInfo, &m_graphicsQueue);
-        m_presentQueue = m_graphicsQueue; // They are the same queue
+        m_drawMeshTasks = reinterpret_cast<PFN_vkCmdDrawMeshTasksEXT>(vkGetDeviceProcAddr(m_logicalDevice, "vkCmdDrawMeshTasksEXT"));
+        m_drawMeshTasksIndirect =
+            reinterpret_cast<PFN_vkCmdDrawMeshTasksIndirectEXT>(vkGetDeviceProcAddr(m_logicalDevice, "vkCmdDrawMeshTasksIndirectEXT"));
     }
-    else
-    {
-        HGINFO("For whatever reason, they weren't equal");
-        // Graphics and present families are different
-        vk::DeviceQueueInfo2 graphicsQueueInfo{};
-        graphicsQueueInfo.sType = vk::StructureType::eDeviceQueueInfo2;
-        graphicsQueueInfo.queueFamilyIndex = m_graphicsQueueIndex;
-        graphicsQueueInfo.queueIndex = 0; // Request the first queue from the graphics family
-
-        vk::DeviceQueueInfo2 presentQueueInfo{};
-        presentQueueInfo.sType = vk::StructureType::eDeviceQueueInfo2;
-        presentQueueInfo.queueFamilyIndex = m_presentQueueIndex;
-        presentQueueInfo.queueIndex = 0; // Request the first queue from the present family
-
-        m_logicalDevice.getQueue2(&graphicsQueueInfo, &m_graphicsQueue);
-        m_logicalDevice.getQueue2(&presentQueueInfo, &m_presentQueue);
-    }
-
-    m_drawMeshTasks = reinterpret_cast<PFN_vkCmdDrawMeshTasksEXT>(vkGetDeviceProcAddr(m_logicalDevice, "vkCmdDrawMeshTasksEXT"));
-    m_drawMeshTasksIndirect =
-        reinterpret_cast<PFN_vkCmdDrawMeshTasksIndirectEXT>(vkGetDeviceProcAddr(m_logicalDevice, "vkCmdDrawMeshTasksIndirectEXT"));
-
     HGINFO("logical device queues acquired");
 }
 
@@ -154,15 +147,20 @@ std::vector<vk::DeviceQueueCreateInfo> VulkanLogicalDevice::CreateQueues(IPhysic
 
     IPhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
 
-    // Use std::set to get unique queue family indices
-    std::set<u32> uniqueQueueFamilyIndices; // Use u32 for Vulkan indices
+    std::set<u32> uniqueQueueFamilyIndices;
     if(indices.graphicsFamily.has_value()) { uniqueQueueFamilyIndices.insert(indices.graphicsFamily.value()); }
     if(indices.presentFamily.has_value()) { uniqueQueueFamilyIndices.insert(indices.presentFamily.value()); }
+    if(indices.computeFamily.has_value()) { uniqueQueueFamilyIndices.insert(indices.computeFamily.value()); }
+    if(indices.transferFamily.has_value()) { uniqueQueueFamilyIndices.insert(indices.transferFamily.value()); }
 
-    if(uniqueQueueFamilyIndices.empty()) { HGFATAL("Failed to find any suitable queue families!"); }
+    if(uniqueQueueFamilyIndices.empty())
+    {
+        HGFATAL("Failed to find any suitable queue families!");
+        return {};
+    }
 
     std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
-    float                                  queuePriority = 1.0f;
+    static f32                             queuePriority = 1.0f;
 
     for(u32 queueFamilyIndex: uniqueQueueFamilyIndices)
     {
