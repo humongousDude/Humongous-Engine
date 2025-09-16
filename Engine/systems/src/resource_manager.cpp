@@ -143,47 +143,74 @@ void ResourceManager::InitDescriptors()
 
 void ResourceManager::InitializeInitials()
 {
-    m_modelNodeMatriciesBuffer =
-        std::make_unique<Buffer>(m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                 vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible, VMA_MEMORY_USAGE_CPU_TO_GPU,
-                                 1, "model node matricies buffer");
+    {
 
-    vk::WriteDescriptorSet write{};
-    write.dstSet = m_bindlessSet;
-    write.dstBinding = 2;
-    write.dstArrayElement = 0;
-    write.descriptorCount = 1;
-    write.descriptorType = vk::DescriptorType::eStorageBuffer;
-    auto info = m_modelNodeMatriciesBuffer->DescriptorInfo();
-    write.pBufferInfo = &info;
-    m_logicalDevice.UpdateDescriptorSets({write});
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = 1;
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "model node matricies buffer";
+        m_modelNodeMatriciesBuffer = std::make_unique<Buffer>(createInfo);
 
-    m_modelJointMatriciesBuffer =
-        std::make_unique<Buffer>(m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                 vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "global jointMatricies buffer");
+        vk::WriteDescriptorSet write{};
+        write.dstSet = m_bindlessSet;
+        write.dstBinding = 2;
+        write.dstArrayElement = 0;
+        write.descriptorCount = 1;
+        write.descriptorType = vk::DescriptorType::eStorageBuffer;
+        auto info = m_modelNodeMatriciesBuffer->DescriptorInfo();
+        write.pBufferInfo = &info;
+        m_logicalDevice.UpdateDescriptorSets({write});
+    }
 
-    write.dstSet = m_bindlessSet;
-    write.dstBinding = 4;
-    write.dstArrayElement = 0;
-    write.descriptorCount = 1;
-    write.descriptorType = vk::DescriptorType::eStorageBuffer;
-    info = m_modelJointMatriciesBuffer->DescriptorInfo();
-    write.pBufferInfo = &info;
-    m_logicalDevice.UpdateDescriptorSets({write});
+    {
 
-    m_modelMorphTargetsBuffer =
-        std::make_unique<Buffer>(m_logicalDevice, 1, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                 vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 1, "global morphTargets buffer");
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = 1;
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "global jointMatricies buffer";
+        m_modelJointMatriciesBuffer = std::make_unique<Buffer>(createInfo);
 
-    write.dstSet = m_bindlessSet;
-    write.dstBinding = 5;
-    write.dstArrayElement = 0;
-    write.descriptorCount = 1;
-    write.descriptorType = vk::DescriptorType::eStorageBuffer;
-    info = m_modelMorphTargetsBuffer->DescriptorInfo();
-    write.pBufferInfo = &info;
-    m_logicalDevice.UpdateDescriptorSets({write});
+        vk::WriteDescriptorSet write{};
+        write.dstSet = m_bindlessSet;
+        write.dstBinding = 4;
+        write.dstArrayElement = 0;
+        write.descriptorCount = 1;
+        write.descriptorType = vk::DescriptorType::eStorageBuffer;
+        auto info = m_modelJointMatriciesBuffer->DescriptorInfo();
+        write.pBufferInfo = &info;
+        m_logicalDevice.UpdateDescriptorSets({write});
+    }
 
+    {
+
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = 1;
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "global morphTargets buffer";
+        m_modelMorphTargetsBuffer = std::make_unique<Buffer>(createInfo);
+
+        vk::WriteDescriptorSet write{};
+        write.dstSet = m_bindlessSet;
+        write.dstBinding = 5;
+        write.dstArrayElement = 0;
+        write.descriptorCount = 1;
+        write.descriptorType = vk::DescriptorType::eStorageBuffer;
+        auto info = m_modelMorphTargetsBuffer->DescriptorInfo();
+        write.pBufferInfo = &info;
+        m_logicalDevice.UpdateDescriptorSets({write});
+    }
     auto newTex = std::make_unique<Texture>(m_logicalDevice);
     newTex->FillWithEmpty(m_logicalDevice, 512, 512, false);
 
@@ -198,6 +225,7 @@ void ResourceManager::InitializeInitials()
     if(m_bindlessImageInfos.size() <= bindlessIndex) { m_bindlessImageInfos.resize(bindlessIndex + 1); }
     m_bindlessImageInfos[bindlessIndex] = imageInfo;
 
+    vk::WriteDescriptorSet write{};
     write.dstSet = m_bindlessSet;
     write.dstBinding = 0;
     write.dstArrayElement = bindlessIndex;
@@ -280,10 +308,16 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
     {
         if(!m_meshletBuffer || m_meshletBuffer->GetBufferSize() < m_meshlets.size() * sizeof(Meshlet))
         {
+            Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+            createInfo.size = m_meshlets.size() * sizeof(Meshlet);
+            createInfo.instanceCount = 1;
+            createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
+            createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+            createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
+            createInfo.minOffsetAlignment = 1;
+            createInfo.name = "meshlet buffer";
             m_meshletBuffer.reset();
-            m_meshletBuffer = std::make_unique<Buffer>(m_logicalDevice, m_meshlets.size() * sizeof(Meshlet), 1,
-                                                       vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                                       vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "meshlet buffer");
+            m_meshletBuffer = std::make_unique<Buffer>(createInfo);
 
             vk::WriteDescriptorSet write{};
             write.dstSet = m_bindlessSet;
@@ -296,14 +330,15 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
             m_logicalDevice.UpdateDescriptorSets({write});
         }
 
-        Buffer stagingBuffer{m_logicalDevice,
-                             m_meshlets.size() * sizeof(Meshlet),
-                             1,
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU,
-                             1,
-                             "meshlet staging buffer"};
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = m_meshlets.size() * sizeof(Meshlet);
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "meshlet staging buffer";
+        Buffer stagingBuffer{createInfo};
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer(m_meshlets.data(), m_meshlets.size() * sizeof(Meshlet));
@@ -316,11 +351,16 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
     {
         if(!m_meshletVertexBuffer || m_meshletVertexBuffer->GetBufferSize() < m_meshletVertices.size() * sizeof(u32))
         {
+            Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+            createInfo.size = m_meshletVertices.size() * sizeof(u32);
+            createInfo.instanceCount = 1;
+            createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
+            createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+            createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
+            createInfo.minOffsetAlignment = 1;
+            createInfo.name = "meshlet vertex buffer";
             m_meshletVertexBuffer.reset();
-            m_meshletVertexBuffer =
-                std::make_unique<Buffer>(m_logicalDevice, m_meshletVertices.size() * sizeof(u32), 1,
-                                         vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "meshlet vertex buffer");
+            m_meshletVertexBuffer = std::make_unique<Buffer>(createInfo);
 
             vk::WriteDescriptorSet write{};
             write.dstSet = m_bindlessSet;
@@ -333,14 +373,15 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
             m_logicalDevice.UpdateDescriptorSets({write});
         }
 
-        Buffer stagingBuffer{m_logicalDevice,
-                             m_meshletVertices.size() * sizeof(u32),
-                             1,
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU,
-                             1,
-                             "meshlet vertex staging buffer"};
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = m_meshletVertices.size() * sizeof(u32);
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "meshlet vertex staging buffer";
+        Buffer stagingBuffer{createInfo};
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer(m_meshletVertices.data(), m_meshletVertices.size() * sizeof(u32));
@@ -353,11 +394,16 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
     {
         if(!m_meshletPrimitiveBuffer || m_meshletPrimitiveBuffer->GetBufferSize() < m_meshletPrimitives.size() * sizeof(u8))
         {
+            Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+            createInfo.size = m_meshletPrimitives.size() * sizeof(u8);
+            createInfo.instanceCount = 1;
+            createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
+            createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+            createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
+            createInfo.minOffsetAlignment = 1;
+            createInfo.name = "meshlet primitive buffer";
             m_meshletPrimitiveBuffer.reset();
-            m_meshletPrimitiveBuffer =
-                std::make_unique<Buffer>(m_logicalDevice, m_meshletPrimitives.size() * sizeof(u8), 1,
-                                         vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "meshlet primitive buffer");
+            m_meshletPrimitiveBuffer = std::make_unique<Buffer>(createInfo);
 
             vk::WriteDescriptorSet write{};
             write.dstSet = m_bindlessSet;
@@ -370,14 +416,15 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
             m_logicalDevice.UpdateDescriptorSets({write});
         }
 
-        Buffer stagingBuffer{m_logicalDevice,
-                             m_meshletPrimitives.size() * sizeof(u8),
-                             1,
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU,
-                             1,
-                             "meshlet primitive staging buffer"};
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = m_meshletPrimitives.size() * sizeof(u8);
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "meshlet primitive staging buffer";
+        Buffer stagingBuffer{createInfo};
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer(m_meshletPrimitives.data(), m_meshletPrimitives.size() * sizeof(u8));
@@ -401,10 +448,15 @@ std::shared_ptr<ModelInstance> ResourceManager::RequestModel(const std::string& 
 
     if(!m_modelNodeMatriciesBuffer || m_modelNodeMatriciesBuffer->GetBufferSize() < m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f))
     {
-        m_modelNodeMatriciesBuffer = std::make_unique<Buffer>(m_logicalDevice, m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f), 1,
-                                                              vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                                              vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
-                                                              VMA_MEMORY_USAGE_CPU_TO_GPU, 1, "model node matricies buffer");
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = m_modelNodeMatricesFlat.size() * sizeof(Eigen::Matrix4f);
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "model node matricies buffer";
+        m_modelNodeMatriciesBuffer = std::make_unique<Buffer>(createInfo);
 
         vk::WriteDescriptorSet write{};
         write.dstSet = m_bindlessSet;
@@ -448,16 +500,26 @@ void ResourceManager::AddIndicesToModel(const std::vector<u32>& modelIndices, st
 
     if(!m_modelIndexBuffer || m_modelIndexBuffer->GetBufferSize() < requiredBufferSize)
     {
-        m_modelIndexBuffer =
-            std::make_unique<Buffer>(m_logicalDevice, requiredBufferSize,
-                                     1, // Alignment
-                                     vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                     vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 1, "global index buffer");
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = requiredBufferSize;
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "global index buffer";
+        m_modelIndexBuffer = std::make_unique<Buffer>(createInfo);
     }
 
-    Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU, 1,
-                         "global index staging buffer");
+    Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+    createInfo.size = requiredBufferSize;
+    createInfo.instanceCount = 1;
+    createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+    createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+    createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+    createInfo.minOffsetAlignment = 1;
+    createInfo.name = "global index staging buffer";
+    Buffer stagingBuffer{createInfo};
 
     stagingBuffer.Map();
     stagingBuffer.WriteToBuffer(m_modelIndicies.data(), requiredBufferSize);
@@ -489,11 +551,16 @@ void ResourceManager::AddVerticesToModel(const std::vector<Model::Vertex>& model
     {
         m_modelVertexBuffer.reset();
 
-        m_modelVertexBuffer =
-            std::make_unique<Buffer>(m_logicalDevice, requiredBufferSize, 1,
-                                     vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
-                                         vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                                     vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "global vertex buffer");
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = requiredBufferSize;
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
+                                 vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "global vertex buffer";
+        m_modelVertexBuffer = std::make_unique<Buffer>(createInfo);
 
         vk::WriteDescriptorSet write{};
         write.dstSet = m_bindlessSet;
@@ -506,9 +573,15 @@ void ResourceManager::AddVerticesToModel(const std::vector<Model::Vertex>& model
         m_logicalDevice.UpdateDescriptorSets({write});
     }
 
-    Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU, 1,
-                         "global vertex staging buffer");
+    Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+    createInfo.size = requiredBufferSize;
+    createInfo.instanceCount = 1;
+    createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+    createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+    createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+    createInfo.minOffsetAlignment = 1;
+    createInfo.name = "global vertex staging buffer";
+    Buffer stagingBuffer{createInfo};
 
     stagingBuffer.Map();
     stagingBuffer.WriteToBuffer(m_modelVertices.data(), requiredBufferSize);
@@ -568,10 +641,16 @@ void ResourceManager::FinalizeGPUData()
         {
             m_modelJointMatriciesBuffer.reset();
 
-            m_modelJointMatriciesBuffer = std::make_unique<Buffer>(
-                m_logicalDevice, requiredBufferSize, 1,
-                vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "global jointMatricies buffer");
+            Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+            createInfo.size = requiredBufferSize;
+            createInfo.instanceCount = 1;
+            createInfo.bufferUsage =
+                vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress;
+            createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+            createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
+            createInfo.minOffsetAlignment = 1;
+            createInfo.name = "global jointMatricies buffer";
+            m_modelJointMatriciesBuffer = std::make_unique<Buffer>(createInfo);
 
             vk::WriteDescriptorSet write{};
             write.dstSet = m_bindlessSet;
@@ -584,9 +663,15 @@ void ResourceManager::FinalizeGPUData()
             m_logicalDevice.UpdateDescriptorSets({write});
         }
 
-        Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU, 1,
-                             "global jointMatricies staging buffer");
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = requiredBufferSize;
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "global jointMatricies staging buffer";
+        Buffer stagingBuffer{createInfo};
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer(m_modelJointMatricies.data(), requiredBufferSize);
@@ -603,10 +688,16 @@ void ResourceManager::FinalizeGPUData()
         {
             m_modelMorphTargetsBuffer.reset();
 
-            m_modelMorphTargetsBuffer = std::make_unique<Buffer>(
-                m_logicalDevice, requiredBufferSize, 1,
-                vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 1, "global morphTargets buffer");
+            Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+            createInfo.size = requiredBufferSize;
+            createInfo.instanceCount = 1;
+            createInfo.bufferUsage =
+                vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress;
+            createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+            createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
+            createInfo.minOffsetAlignment = 1;
+            createInfo.name = "global morphTargets buffer";
+            m_modelMorphTargetsBuffer = std::make_unique<Buffer>(createInfo);
 
             vk::WriteDescriptorSet write{};
             write.dstSet = m_bindlessSet;
@@ -619,9 +710,15 @@ void ResourceManager::FinalizeGPUData()
             m_logicalDevice.UpdateDescriptorSets({write});
         }
 
-        Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU, 1,
-                             "global morphTargets staging buffer");
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = requiredBufferSize;
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "global morphTargets staging buffer";
+        Buffer stagingBuffer{createInfo};
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer(m_modelMorphTargets.data(), requiredBufferSize);
@@ -638,9 +735,15 @@ void ResourceManager::FinalizeGPUData()
         {
             m_modelNodeMatriciesBuffer.reset();
 
-            m_modelNodeMatriciesBuffer = std::make_unique<Buffer>(
-                m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, 16, "global nodeMatrices buffer");
+            Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+            createInfo.size = requiredBufferSize;
+            createInfo.instanceCount = 1;
+            createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
+            createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+            createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
+            createInfo.minOffsetAlignment = 1;
+            createInfo.name = "global nodeMatrices buffer";
+            m_modelNodeMatriciesBuffer = std::make_unique<Buffer>(createInfo);
 
             vk::WriteDescriptorSet write{};
             write.dstSet = m_bindlessSet;
@@ -653,9 +756,15 @@ void ResourceManager::FinalizeGPUData()
             m_logicalDevice.UpdateDescriptorSets({write});
         }
 
-        Buffer stagingBuffer(m_logicalDevice, requiredBufferSize, 1, vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_CPU_TO_GPU, 1,
-                             "global nodeMatrices staging buffer");
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = requiredBufferSize;
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "global nodeMatrices staging buffer";
+        Buffer stagingBuffer{createInfo};
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer(m_modelNodeMatricesFlat.data(), requiredBufferSize);
@@ -777,10 +886,15 @@ u32 ResourceManager::RequestMaterial(const Model::ShaderMaterial& mat)
 
     if(!m_materialDataBuffer || m_materialDataBuffer->GetBufferSize() < rawMaterials.size() * sizeof(Model::ShaderMaterial))
     {
-        m_materialDataBuffer = std::make_unique<Buffer>(m_logicalDevice, rawMaterials.size() * sizeof(Model::ShaderMaterial), 1,
-                                                        vk::BufferUsageFlagBits::eStorageBuffer,
-                                                        vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
-                                                        VMA_MEMORY_USAGE_CPU_TO_GPU, 1, "global material data buffer");
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = rawMaterials.size() * sizeof(Model::ShaderMaterial);
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "global material data buffer";
+        m_materialDataBuffer = std::make_unique<Buffer>(createInfo);
     }
 
     m_materialDataBuffer->Map();

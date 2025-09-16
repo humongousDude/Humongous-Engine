@@ -22,19 +22,17 @@ public:
         vk::MemoryPropertyFlags properties;
         vk::DeviceSize          minOffsetAlignment = 1;
         std::string             name = "";
+        vk::SharingMode         sharingMode = vk::SharingMode::eExclusive;
+        std::vector<u32>        queueFamilyIndices;
     };
 
-    Buffer(const ILogicalDevice& device, vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsageFlags usageFlags,
-           vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment = 1,
-           const std::string& name = "");
     Buffer(const BufferCreateInfo& createInfo);
     ~Buffer();
 
     vk::Result Map(vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0);
     void       UnMap();
 
-    void Init(vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsageFlags usageFlags, vk::MemoryPropertyFlags memoryPropertyFlags,
-              VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment = 1, const std::string& name = "");
+    void Init(const BufferCreateInfo& createInfo);
 
     void                     WriteToBuffer(void* data, vk::DeviceSize size = vk::WholeSize, vk::DeviceSize offset = 0);
     vk::Result               Flush(vk::DeviceSize size = vk::WholeSize, vk::DeviceSize offset = 0);
@@ -72,22 +70,7 @@ public:
                        const vk::AccessFlags2& dstAccess);
 
 private:
-    struct CreateInfo
-    {
-        const ILogicalDevice&   device;
-        vk::DeviceSize          size;
-        vk::BufferUsageFlags    bufferUsage;
-        VmaMemoryUsage          memoryUsage;
-        vk::MemoryPropertyFlags properties;
-        vk::Buffer*             buffer;
-        vk::DeviceMemory        memory;
-        void*                   data;
-        VmaAllocation&          allocation;
-        vk::DeviceSize          minOffsetAlignment = 1;
-        std::string             name = "";
-    };
     static vk::DeviceSize GetAlignment(vk::DeviceSize instanceSize, vk::DeviceSize minOffsetAlignment);
-    void                  CreateBuffer(CreateInfo& createInfo);
 
     const ILogicalDevice& m_logicalDevice;
     vk::Buffer            m_buffer = VK_NULL_HANDLE;
@@ -104,5 +87,7 @@ private:
     std::string             m_name = "";
     b8                      m_isValid = false;
     b8                      m_isMapped{false};
+    vk::SharingMode         m_sharingMode = vk::SharingMode::eExclusive;
+    std::vector<u32>        m_queueFamilyIndices{0};
 };
 } // namespace Humongous

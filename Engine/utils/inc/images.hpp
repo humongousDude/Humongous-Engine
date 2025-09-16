@@ -63,6 +63,8 @@ struct AllocatedImageCreateInfo
     VmaPool                 imagePool{VK_NULL_HANDLE};
     vk::SampleCountFlagBits samples{VK_SAMPLE_COUNT_1_BIT};
     std::string             name = "you should name me!";
+    vk::SharingMode         sharingMode = vk::SharingMode::eExclusive;
+    std::vector<u32>        queueFamilyIndices{0};
 };
 
 struct ImageTransitionInfo

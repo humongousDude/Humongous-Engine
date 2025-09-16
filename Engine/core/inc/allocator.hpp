@@ -12,7 +12,8 @@ public:
     virtual ~IAllocator() = default;
 
     virtual vk::Result        AllocateBuffer(const vk::DeviceSize size, const VmaMemoryUsage vmaUsage, const vk::BufferUsageFlags bufferUsage,
-                                             const vk::MemoryPropertyFlags properties, VmaAllocation& allocation, vk::Buffer& buffer) = 0;
+                                             VmaAllocationCreateInfo allocCreateInfo, const vk::MemoryPropertyFlags properties, VmaAllocation& allocation,
+                                             vk::Buffer& buffer) = 0;
     virtual void              FreeBuffer(VmaAllocation allocation, vk::Buffer buffer) = 0;
     virtual vk::Result        AllocateImage(const vk::ImageCreateInfo& createInfo, VmaAllocation& allocation, vk::Image& image) = 0;
     virtual void              FreeImage(VmaAllocation allocation, vk::Image image) = 0;
@@ -36,7 +37,8 @@ public:
     ~Allocator();
 
     vk::Result        AllocateBuffer(const vk::DeviceSize size, const VmaMemoryUsage vmaUsage, const vk::BufferUsageFlags bufferUsage,
-                                     const vk::MemoryPropertyFlags properties, VmaAllocation& allocation, vk::Buffer& buffer) override;
+                                     VmaAllocationCreateInfo allocCreateInfo, const vk::MemoryPropertyFlags properties, VmaAllocation& allocation,
+                                     vk::Buffer& buffer) override;
     void              FreeBuffer(VmaAllocation allocation, vk::Buffer buffer) override;
     vk::Result        AllocateImage(const vk::ImageCreateInfo& createInfo, VmaAllocation& allocation, vk::Image& image) override;
     void              FreeImage(VmaAllocation allocation, vk::Image image) override;

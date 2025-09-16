@@ -183,18 +183,21 @@ void TraditionalRenderSystem::Render(RenderData& renderData)
     // indirect buffer
 
     {
-        Buffer stagingBuffer{m_logicalDevice,
-                             indirectCommandsSize,
-                             1,
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU,
-                             4,
-                             "indirect staging buffer"};
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = indirectCommandsSize;
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "indirect staging buffer";
+        Buffer stagingBuffer{createInfo};
 
-        indirectBufferToUse = std::make_unique<Buffer>(
-            m_logicalDevice, indirectCommandsSize, 1, vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eTransferDst,
-            vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw indirect commmand buffer");
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+        createInfo.name = "draw indirect commmand buffer";
+        createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eTransferDst;
+        indirectBufferToUse = std::make_unique<Buffer>(createInfo);
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer((void*)opaqueCommands.data(), opaqueCommands.size() * sizeof(vk::DrawIndexedIndirectCommand));
@@ -205,18 +208,21 @@ void TraditionalRenderSystem::Render(RenderData& renderData)
     // draw data buffer
 
     {
-        Buffer stagingBuffer{m_logicalDevice,
-                             drawDataSize,
-                             1,
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU,
-                             1,
-                             "draw data staging buffer"};
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = drawDataSize;
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "draw data staging buffer";
+        Buffer stagingBuffer{createInfo};
 
-        drawDataBufferToUse = std::make_unique<Buffer>(
-            m_logicalDevice, drawDataSize, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-            vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "draw data buffer");
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+        createInfo.name = "draw data buffer";
+        createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
+        drawDataBufferToUse = std::make_unique<Buffer>(createInfo);
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer((void*)opaqueDrawData.data(), opaqueDrawData.size() * sizeof(DrawData));
@@ -227,18 +233,21 @@ void TraditionalRenderSystem::Render(RenderData& renderData)
     // instance data buffer
 
     {
-        Buffer stagingBuffer{m_logicalDevice,
-                             instanceDataSize,
-                             1,
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU,
-                             1,
-                             "instance data staging buffer"};
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = instanceDataSize;
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "instance data staging buffer";
+        Buffer stagingBuffer{createInfo};
 
-        instanceBufferToUse = std::make_unique<Buffer>(
-            m_logicalDevice, instanceDataSize, 1, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-            vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 1, "instance data buffer");
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+        createInfo.name = "instance data buffer";
+        createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
+        instanceBufferToUse = std::make_unique<Buffer>(createInfo);
 
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer((void*)instanceData.data(), instanceData.size() * sizeof(InstanceData));
@@ -461,14 +470,16 @@ void MeshRenderSystem::ReadyBuffers(RenderData& renderData)
                  "mesh shader counter buffer");
 
     auto uploadToDeviceBuffer = [&](Buffer& deviceBuf, void* src, vk::DeviceSize size, const char* tmpName) {
-        Buffer staging{m_logicalDevice,
-                       size,
-                       1,
-                       vk::BufferUsageFlagBits::eTransferSrc,
-                       vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                       VMA_MEMORY_USAGE_CPU_TO_GPU,
-                       1,
-                       tmpName};
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = size;
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = tmpName;
+        Buffer staging{createInfo};
+
         staging.Map();
         staging.WriteToBuffer(src, size);
         staging.UnMap();

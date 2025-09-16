@@ -1194,19 +1194,41 @@ void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils
     visibilityResultsBuffer.reset();
     rendererDataBuffer.reset();
 
-    objectDataBuffer =
-        std::make_unique<Buffer>(m_logicalDevice, objectDataForGPU.size() * sizeof(OcclusionObjectData), 1, vk::BufferUsageFlagBits::eStorageBuffer,
-                                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO, 1,
-                                 "occlusion object data buffer");
+    {
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = objectDataForGPU.size() * sizeof(OcclusionObjectData);
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_AUTO;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "occlusion object data buffer";
+        objectDataBuffer = std::make_unique<Buffer>(createInfo);
+    }
 
-    visibilityResultsBuffer =
-        std::make_unique<Buffer>(m_logicalDevice, objectDataForGPU.size() * sizeof(VisiblityResultSet), 1, vk::BufferUsageFlagBits::eStorageBuffer,
-                                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VMA_MEMORY_USAGE_AUTO, 1,
-                                 "occlusion visibility results buffer");
+    {
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = objectDataForGPU.size() * sizeof(VisiblityResultSet);
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_AUTO;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "occlusion visibility results buffer";
+        visibilityResultsBuffer = std::make_unique<Buffer>(createInfo);
+    }
 
-    rendererDataBuffer = std::make_unique<Buffer>(m_logicalDevice, sizeof(RendererData), 1, vk::BufferUsageFlagBits::eUniformBuffer,
-                                                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                                                  VMA_MEMORY_USAGE_AUTO, 1, "occlusion renderer data buffer");
+    {
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        createInfo.size = sizeof(RendererData);
+        createInfo.instanceCount = 1;
+        createInfo.bufferUsage = vk::BufferUsageFlagBits::eUniformBuffer;
+        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        createInfo.memoryUsage = VMA_MEMORY_USAGE_AUTO;
+        createInfo.minOffsetAlignment = 1;
+        createInfo.name = "occlusion renderer data buffer";
+        rendererDataBuffer = std::make_unique<Buffer>(createInfo);
+    }
 
     RendererData renderDataContent{{m_swapChain->GetExtent().width, m_swapChain->GetExtent().height}};
 

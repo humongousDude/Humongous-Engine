@@ -16,19 +16,11 @@
 namespace Humongous
 {
 
-Buffer::Buffer(const ILogicalDevice& device, vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsageFlags usageFlags,
-               vk::MemoryPropertyFlags memoryPropertyFlags, VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment, const std::string& name)
-    : m_logicalDevice{device}, m_instanceSize{instanceSize}, m_instanceCount{instanceCount}, m_usageFlags{usageFlags},
-      m_memoryPropertyFlags{memoryPropertyFlags}
-{
-    Init(instanceSize, instanceCount, usageFlags, memoryPropertyFlags, memoryUsage, minOffsetAlignment, name);
-}
-
 Buffer::Buffer(const BufferCreateInfo& createInfo)
     : m_logicalDevice{createInfo.device}, m_instanceSize{createInfo.size}, m_instanceCount{createInfo.instanceCount},
       m_usageFlags{createInfo.bufferUsage}, m_memoryPropertyFlags{createInfo.properties}
 {
-    Init(createInfo.size, 1, createInfo.bufferUsage, createInfo.properties, createInfo.memoryUsage, createInfo.minOffsetAlignment, createInfo.name);
+    Init(createInfo);
 }
 
 b8 IsValidMemoryPropertyCombination(vk::MemoryPropertyFlags memoryPropertyFlags)
@@ -48,28 +40,76 @@ b8 IsValidMemoryPropertyCombination(vk::MemoryPropertyFlags memoryPropertyFlags)
     return true;
 }
 
-void Buffer::Init(vk::DeviceSize instanceSize, u32 instanceCount, vk::BufferUsageFlags usageFlags, vk::MemoryPropertyFlags memoryPropertyFlags,
-                  VmaMemoryUsage memoryUsage, vk::DeviceSize minOffsetAlignment, const std::string& name)
+b8 RequiresExplicitVMAAccesFlag(const VmaMemoryUsage& usage)
 {
-    m_instanceSize = instanceSize;
-    m_instanceCount = instanceCount;
-    m_usageFlags = usageFlags;
-    m_memoryPropertyFlags = memoryPropertyFlags;
-    m_alignmentSize = GetAlignment(m_instanceSize, minOffsetAlignment);
+    if(usage & VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO) { return true; }
+    if(usage & VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE) { return true; }
+    if(usage & VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO_PREFER_HOST) { return true; }
+    return false;
+}
+
+void Buffer::Init(const BufferCreateInfo& createInfo)
+{
+    m_instanceSize = createInfo.size;
+    m_instanceCount = createInfo.instanceCount;
+    m_usageFlags = createInfo.bufferUsage;
+    m_memoryPropertyFlags = createInfo.properties;
+    m_alignmentSize = GetAlignment(m_instanceSize, createInfo.minOffsetAlignment);
     m_bufferSize = m_alignmentSize * m_instanceCount;
-    m_name = name;
+    m_sharingMode = createInfo.sharingMode;
+    m_queueFamilyIndices = createInfo.queueFamilyIndices;
+    m_name = createInfo.name;
 
-    CreateInfo createInfo{.device = m_logicalDevice,
-                          .size = m_bufferSize,
-                          .bufferUsage = m_usageFlags,
-                          .properties = m_memoryPropertyFlags,
-                          .buffer = &m_buffer,
-                          .memory = m_allocationInfo.deviceMemory,
-                          .allocation = m_allocation,
-                          .minOffsetAlignment = minOffsetAlignment,
-                          .name = m_name};
+    if(createInfo.size <= 0)
+    {
+        HGERROR("Cannot create buffer with <= 0 memory");
+        return;
+    }
+    if(!IsValidMemoryPropertyCombination(createInfo.properties))
+    {
+        HGERROR("Cannot create buffer with invalid memory property combination");
+        return;
+    }
 
-    CreateBuffer(createInfo);
+    vk::BufferCreateInfo bufferInfo{};
+    bufferInfo.size = m_instanceSize;
+    bufferInfo.usage = m_usageFlags;
+    bufferInfo.sharingMode = m_sharingMode;
+
+    if(m_sharingMode != vk::SharingMode::eExclusive)
+    {
+        bufferInfo.queueFamilyIndexCount = static_cast<u32>(m_queueFamilyIndices.size());
+        bufferInfo.pQueueFamilyIndices = m_queueFamilyIndices.data();
+    }
+
+    VmaAllocationCreateInfo allocCreateInfo{};
+    allocCreateInfo.usage = createInfo.memoryUsage;
+    allocCreateInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(m_memoryPropertyFlags);
+
+    if(RequiresExplicitVMAAccesFlag(createInfo.memoryUsage)) { allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT; }
+
+    vk::Result result = m_logicalDevice.GetAllocator().AllocateBuffer(m_instanceSize, createInfo.memoryUsage, m_usageFlags, allocCreateInfo,
+                                                                      m_memoryPropertyFlags, m_allocation, m_buffer);
+
+    if(result != vk::Result::eSuccess)
+    {
+        HGERROR("Failed to create buffer: %s", vk::to_string(result).c_str());
+        return;
+    }
+
+    m_logicalDevice.GetAllocator().NameAllocation(m_allocation, createInfo.name.c_str());
+
+    VmaAllocationInfo allocInfo = {};
+    allocInfo = m_logicalDevice.GetAllocator().GetAllocationInfo(m_allocation);
+
+    if(!m_allocation)
+    {
+        HGERROR("Failed to get allocation info");
+        return;
+    }
+
+    m_allocationInfo = allocInfo;
+    m_isValid = true;
 
     UpdateAddress(m_usageFlags);
 }
@@ -93,52 +133,6 @@ vk::DeviceSize Buffer::GetAlignment(vk::DeviceSize m_instanceSize, vk::DeviceSiz
 {
     if(minOffsetAlignment > 0) { return (m_instanceSize + minOffsetAlignment - 1) & ~(minOffsetAlignment - 1); }
     return m_instanceSize;
-}
-
-void Buffer::CreateBuffer(CreateInfo& createInfo)
-{
-    if(createInfo.size <= 0)
-    {
-        HGERROR("Cannot create buffer with <= 0 memory");
-        return;
-    }
-    if(!IsValidMemoryPropertyCombination(createInfo.properties))
-    {
-        HGERROR("Cannot create buffer with invalid memory property combination");
-        return;
-    }
-
-    vk::BufferCreateInfo bufferInfo{};
-    bufferInfo.size = createInfo.size;
-    bufferInfo.usage = createInfo.bufferUsage;
-    bufferInfo.sharingMode = vk::SharingMode::eExclusive;
-
-    VmaAllocationCreateInfo allocCreateInfo{};
-    allocCreateInfo.usage = createInfo.memoryUsage;
-    allocCreateInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(createInfo.properties);
-
-    vk::Result result = m_logicalDevice.GetAllocator().AllocateBuffer(createInfo.size, createInfo.memoryUsage, createInfo.bufferUsage,
-                                                                      createInfo.properties, createInfo.allocation, *createInfo.buffer);
-
-    if(result != vk::Result::eSuccess)
-    {
-        HGERROR("Failed to create buffer: %s", vk::to_string(result).c_str());
-        return;
-    }
-
-    m_logicalDevice.GetAllocator().NameAllocation(createInfo.allocation, createInfo.name.c_str());
-
-    VmaAllocationInfo allocInfo = {};
-    allocInfo = m_logicalDevice.GetAllocator().GetAllocationInfo(createInfo.allocation);
-
-    if(!createInfo.allocation)
-    {
-        HGERROR("Failed to get allocation info");
-        return;
-    }
-
-    m_allocationInfo = allocInfo;
-    m_isValid = true;
 }
 
 /**

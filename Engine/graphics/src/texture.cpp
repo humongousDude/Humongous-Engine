@@ -176,12 +176,16 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     HGASSERT(fmtProps.optimalTilingFeatures & vk::FormatFeatureFlagBits::eBlitSrc);
     HGASSERT(fmtProps.optimalTilingFeatures & vk::FormatFeatureFlagBits::eBlitDst);
 
-    Buffer stagingBuffer{m_logicalDevice,
-                         bufferSize,
-                         1,
-                         vk::BufferUsageFlagBits::eTransferSrc,
-                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                         VMA_MEMORY_USAGE_CPU_TO_GPU};
+    Buffer::BufferCreateInfo bufCreateInfo{.device = m_logicalDevice};
+    bufCreateInfo.size = bufferSize;
+    bufCreateInfo.instanceCount = 1;
+    bufCreateInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+    bufCreateInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+    bufCreateInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+    bufCreateInfo.minOffsetAlignment = 1;
+    bufCreateInfo.name = "staging buffer";
+
+    Buffer stagingBuffer{bufCreateInfo};
     stagingBuffer.Map();
     stagingBuffer.WriteToBuffer(buffer, bufferSize);
 
@@ -338,12 +342,16 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
 
         m_miplevels = static_cast<u32>(std::floor(std::log2(std::max(m_width, m_height)))) + 1;
 
-        Buffer stagingBuffer{m_logicalDevice,
-                             imageSize,
-                             1,
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU};
+        Buffer::BufferCreateInfo bufCreateInfo{.device = m_logicalDevice};
+        bufCreateInfo.size = imageSize;
+        bufCreateInfo.instanceCount = 1;
+        bufCreateInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+        bufCreateInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        bufCreateInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        bufCreateInfo.minOffsetAlignment = 1;
+        bufCreateInfo.name = "staging buffer";
+
+        Buffer stagingBuffer{bufCreateInfo};
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer(pixels, static_cast<size_t>(imageSize));
 
@@ -451,12 +459,16 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         m_baseSize = m_width;
         vk::Format format = vk::Format(ktxTexture_GetVkFormat(ktxTex));
 
-        Buffer stagingBuffer{m_logicalDevice,
-                             ktxTexture_GetDataSize(ktxTex),
-                             1,
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU};
+        Buffer::BufferCreateInfo bufCreateInfo{.device = m_logicalDevice};
+        bufCreateInfo.size = ktxTexture_GetDataSize(ktxTex);
+        bufCreateInfo.instanceCount = 1;
+        bufCreateInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
+        bufCreateInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+        bufCreateInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        bufCreateInfo.minOffsetAlignment = 1;
+        bufCreateInfo.name = "staging buffer";
+
+        Buffer stagingBuffer{bufCreateInfo};
         stagingBuffer.Map();
         stagingBuffer.WriteToBuffer(ktxTexture_GetData(ktxTex), ktxTexture_GetDataSize(ktxTex));
 

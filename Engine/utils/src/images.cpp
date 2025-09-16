@@ -64,9 +64,15 @@ void CreateAllocatedImage(AllocatedImageCreateInfo& createInfo)
     imageInfo.tiling = createInfo.tiling;
     imageInfo.initialLayout = createInfo.initialLayout;
     imageInfo.usage = createInfo.usage;
-    imageInfo.sharingMode = vk::SharingMode::eExclusive;
     imageInfo.samples = createInfo.samples;
     imageInfo.flags = createInfo.flags;
+    imageInfo.sharingMode = createInfo.sharingMode;
+
+    if(createInfo.sharingMode != vk::SharingMode::eExclusive)
+    {
+        imageInfo.queueFamilyIndexCount = static_cast<u32>(createInfo.queueFamilyIndices.size());
+        imageInfo.pQueueFamilyIndices = createInfo.queueFamilyIndices.data();
+    }
 
     VmaAllocationCreateInfo allocInfo{};
     allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;

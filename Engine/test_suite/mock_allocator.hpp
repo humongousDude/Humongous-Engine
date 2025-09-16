@@ -12,9 +12,10 @@ public:
     MockAllocator()
     {
         // Allocate a buffer of the requested size and store it.
-        ON_CALL(*this, AllocateBuffer(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
-            .WillByDefault([this](const vk::DeviceSize          size, const VmaMemoryUsage, const vk::BufferUsageFlags,
-                                  const vk::MemoryPropertyFlags properties, VmaAllocation& allocation, vk::Buffer& buffer) {
+        ON_CALL(*this, AllocateBuffer(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
+            .WillByDefault([this](const vk::DeviceSize size, const VmaMemoryUsage vmaUsage, const vk::BufferUsageFlags bufferUsage,
+                                  VmaAllocationCreateInfo allocCreateInfo, const vk::MemoryPropertyFlags properties, VmaAllocation& allocation,
+                                  vk::Buffer& buffer) {
                 VmaAllocation newAllocation = reinterpret_cast<VmaAllocation>(m_nextAllocationHandle++);
 
                 m_allocations[newAllocation].buffer = std::vector<char>(size);
@@ -76,7 +77,7 @@ public:
 
     MOCK_METHOD(vk::Result, AllocateBuffer,
                 (const vk::DeviceSize size, const VmaMemoryUsage vmaUsage, const vk::BufferUsageFlags bufferUsage,
-                 const vk::MemoryPropertyFlags properties, VmaAllocation& allocation, vk::Buffer& buffer),
+                 VmaAllocationCreateInfo allocCreateInfo, const vk::MemoryPropertyFlags properties, VmaAllocation& allocation, vk::Buffer& buffer),
                 (override));
     MOCK_METHOD(void, FreeBuffer, (VmaAllocation allocation, vk::Buffer buffer), (override));
     MOCK_METHOD(vk::Result, AllocateImage, (const vk::ImageCreateInfo& createInfo, VmaAllocation& allocation, vk::Image& image), (override));

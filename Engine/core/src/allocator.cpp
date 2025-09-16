@@ -54,16 +54,14 @@ void Allocator::Initialize()
 }
 
 vk::Result Allocator::AllocateBuffer(const vk::DeviceSize size, const VmaMemoryUsage vmaUsage, const vk::BufferUsageFlags bufferUsage,
-                                     const vk::MemoryPropertyFlags properties, VmaAllocation& allocation, vk::Buffer& buffer)
+                                     VmaAllocationCreateInfo allocCreateInfo, const vk::MemoryPropertyFlags properties, VmaAllocation& allocation,
+                                     vk::Buffer& buffer)
 {
     vk::BufferCreateInfo bufferInfo{};
     bufferInfo.size = size;
     bufferInfo.usage = bufferUsage;
     bufferInfo.sharingMode = vk::SharingMode::eExclusive;
 
-    VmaAllocationCreateInfo allocCreateInfo{};
-    allocCreateInfo.usage = vmaUsage;
-    allocCreateInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(properties);
     vk::Result result = static_cast<vk::Result>(vmaCreateBuffer(m_allocator, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocCreateInfo,
                                                                 reinterpret_cast<VkBuffer*>(&buffer), &allocation, nullptr));
 
