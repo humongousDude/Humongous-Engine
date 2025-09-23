@@ -10,9 +10,14 @@ namespace Humongous
 Skybox::Skybox(const SkyboxCreateInfo& createInfo, const IAssetManager& assetManager)
     : m_logicalDevice{createInfo.logicalDevice}, m_assetManager{assetManager}
 {
+    HGINFO("Creating skybox from %s", createInfo.cubemapPath.c_str());
     LoadCubemap(createInfo.cubemapPath);
+    HGINFO("created cubemap...");
     GeneratePBRImages(createInfo.uniformPool, createInfo.imagePool, createInfo.storageImagePool);
+    HGINFO("generated pbr images...");
     LoadDescriptorSet(createInfo.descriptorSetLayout, createInfo.compDescriptorSetLayout, &createInfo.imagePool);
+    HGINFO("loaded descriptor set...");
+    HGINFO("Skybox %s created", createInfo.cubemapPath.c_str());
 }
 
 Skybox::~Skybox()
@@ -247,6 +252,12 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
 
         for(u32 mipLevel = 0; mipLevel < m_prefilteredMap->GetMipLevels(); mipLevel++)
         {
+            if(m_prefilteredReadViews[mipLevel] == VK_NULL_HANDLE || m_prefilteredWriteViews[mipLevel] == VK_NULL_HANDLE)
+            {
+                HGERROR("Invalid image view for prefiltered map mip level %u", mipLevel);
+                continue;
+            }
+
             u32 mipSize = m_prefilteredMap->GetBaseSize() >> mipLevel;
             mipSize = std::max(1u, mipSize);
 

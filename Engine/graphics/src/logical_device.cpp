@@ -402,4 +402,11 @@ void VulkanLogicalDevice::RecordDrawMeshIndirect(vk::CommandBuffer cmd, vk::Buff
     m_drawMeshTasksIndirect(cmd, buffer, offset, drawCount, stride);
 }
 
+void VulkanLogicalDevice::RecordBlitCommand(vk::CommandBuffer cmd, vk::BlitImageInfo2 blit) const { cmd.blitImage2(blit); }
+
+vk::FormatProperties VulkanLogicalDevice::GetFormatProperties(vk::Format format) const
+{
+    return m_physicalDevice->GetVkPhysicalDevice().getFormatProperties(format);
+}
+
 } // namespace Humongous

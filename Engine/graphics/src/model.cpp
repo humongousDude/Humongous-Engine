@@ -62,7 +62,10 @@ void Model::LoadFromFile(std::string filePath, f32 scale)
 
     std::string fileName;
     if(filenameStartPos != std::string::npos) { fileName = filePath.substr(filenameStartPos + 1); }
-    else { fileName = filePath; }
+    else
+    {
+        fileName = filePath;
+    }
 
     std::string filenameWithoutExtension;
     if(extpos != std::string::npos && extpos > filenameStartPos)
@@ -71,17 +74,27 @@ void Model::LoadFromFile(std::string filePath, f32 scale)
         {
             filenameWithoutExtension = filePath.substr(filenameStartPos + 1, extpos - (filenameStartPos + 1));
         }
-        else { filenameWithoutExtension = filePath.substr(0, extpos); }
+        else
+        {
+            filenameWithoutExtension = filePath.substr(0, extpos);
+        }
     }
-    else { filenameWithoutExtension = fileName; }
+    else
+    {
+        filenameWithoutExtension = fileName;
+    }
 
     m_name = filenameWithoutExtension;
 
     if(fileLoaded)
     {
+        HGINFO("GOT HERE %i", __LINE__);
         LoadTextureSamplers(gltfModel);
+        HGINFO("GOT HERE %i", __LINE__);
         LoadTextures(gltfModel);
+        HGINFO("GOT HERE %i", __LINE__);
         LoadMaterials(gltfModel);
+        HGINFO("GOT HERE %i", __LINE__);
 
         const tinygltf::Scene& scene = gltfModel.scenes[gltfModel.defaultScene > -1 ? gltfModel.defaultScene : 0];
 
@@ -100,7 +113,10 @@ void Model::LoadFromFile(std::string filePath, f32 scale)
         for(auto node: m_linearNodes)
         {
             if(node->skinIndex > -1) { node->skin = m_skins[node->skinIndex]; }
-            else { node->skin = nullptr; }
+            else
+            {
+                node->skin = nullptr;
+            }
         }
     }
     else
@@ -391,7 +407,10 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
                     normVec.normalize();
                     vert.normal = Eigen::Vector4f(normVec.x(), normVec.y(), normVec.z(), 1.0f);
                 }
-                else { vert.normal = Eigen::Vector4f::Zero(); }
+                else
+                {
+                    vert.normal = Eigen::Vector4f::Zero();
+                }
 
                 if(rawUv0Base)
                 {
@@ -399,7 +418,10 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
                     Eigen::Vector2f uvVec = Eigen::Map<const Eigen::Vector2f>(uv);
                     vert.uv0 = Eigen::Vector4f(uvVec.x(), uvVec.y(), 1.0f, 1.0f);
                 }
-                else { vert.uv0 = Eigen::Vector4f::Zero(); }
+                else
+                {
+                    vert.uv0 = Eigen::Vector4f::Zero();
+                }
 
                 if(primitive.attributes.find("JOINTS_0") != primitive.attributes.end())
                 {
@@ -422,9 +444,15 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
                         const u8* j = reinterpret_cast<const u8*>(rawJointBase + (v * currentJointByteStride));
                         vert.joint0 = Eigen::Vector4i(j[0], j[1], j[2], j[3]);
                     }
-                    else { HGERROR("Unexpected JOINTS_0 componentType = %d", jointAccessor.componentType); }
+                    else
+                    {
+                        HGERROR("Unexpected JOINTS_0 componentType = %d", jointAccessor.componentType);
+                    }
                 }
-                else { vert.joint0 = Eigen::Vector4i::Zero(); }
+                else
+                {
+                    vert.joint0 = Eigen::Vector4i::Zero();
+                }
 
                 if(primitive.attributes.find("WEIGHTS_0") != primitive.attributes.end())
                 {
@@ -439,7 +467,10 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
                     vert.weight0 = Eigen::Map<const Eigen::Vector4f>(w);
                     if(vert.weight0.norm() == 0.0f) { vert.weight0 = Eigen::Vector4f::Zero(); }
                 }
-                else { vert.weight0 = Eigen::Vector4f::Zero(); }
+                else
+                {
+                    vert.weight0 = Eigen::Vector4f::Zero();
+                }
 
                 if(primitive.attributes.find("TANGENT") != primitive.attributes.end())
                 {
@@ -556,7 +587,10 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
         m_meshes.push_back(newMesh);
     }
     if(parent) { parent->children.push_back(newNode); }
-    else { m_nodes.push_back(newNode); }
+    else
+    {
+        m_nodes.push_back(newNode);
+    }
     m_linearNodes[newNode->index] = newNode;
 }
 
@@ -761,7 +795,10 @@ void Model::LoadTextures(tinygltf::Model& gltfModel)
             textureSampler.addressModeV = vk::SamplerAddressMode::eRepeat;
             textureSampler.addressModeW = vk::SamplerAddressMode::eRepeat;
         }
-        else { textureSampler = m_textureSamplers[tex.sampler]; }
+        else
+        {
+            textureSampler = m_textureSamplers[tex.sampler];
+        }
         m_textures.push_back(m_resourceManager.RequestTexture(image, textureSampler));
     }
 }
@@ -1165,7 +1202,10 @@ void Model::LoadAnimations(tinygltf::Model& gltfModel)
             else if(source.target_path == "translation") { channel.path = AnimationChannel::PathType::TRANSLATION; }
             else if(source.target_path == "scale") { channel.path = AnimationChannel::PathType::SCALE; }
             else if(source.target_path == "weights") { channel.path = AnimationChannel::PathType::WEIGHTS; }
-            else { HGWARN("Unknown target path!"); }
+            else
+            {
+                HGWARN("Unknown target path!");
+            }
             channel.samplerIndex = source.sampler;
             channel.node = NodeFromIndex(source.target_node);
             if(!channel.node) { continue; }
@@ -1226,7 +1266,10 @@ void Model::AnimationSampler::ApplyTranslation(size_t index, f32 time, std::vect
                 constexpr const f32 EPSILON = std::numeric_limits<f32>::epsilon();
 
                 if(timeSpan < EPSILON) { u = 0.0f; }
-                else { u = std::max(0.0f, time - inputs[index]) / timeSpan; }
+                else
+                {
+                    u = std::max(0.0f, time - inputs[index]) / timeSpan;
+                }
 
                 translations[targetNodeIndex] = (outputsVec4[index] * (1.0f - u) + outputsVec4[index + 1] * u).head<3>();
                 break;
@@ -1261,7 +1304,10 @@ void Model::AnimationSampler::ApplyScale(size_t index, f32 time, std::vector<Eig
                 const f32 EPSILON = std::numeric_limits<f32>::epsilon();
 
                 if(timeSpan < EPSILON) { u = 0.0f; }
-                else { u = std::max(0.0f, time - inputs[index]) / timeSpan; }
+                else
+                {
+                    u = std::max(0.0f, time - inputs[index]) / timeSpan;
+                }
 
                 scales[targetNodeIndex] = (outputsVec4[index] * (1.0f - u) + outputsVec4[index + 1] * u).head<3>();
                 break;

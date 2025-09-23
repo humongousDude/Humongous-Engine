@@ -61,9 +61,9 @@ public:
 
         ON_CALL(*this, FreeBuffer(::testing::_, ::testing::_)).WillByDefault(::testing::Return());
 
-        ON_CALL(*this, AllocateImage(::testing::_, ::testing::_, ::testing::_))
-            .WillByDefault(::testing::DoAll(::testing::SetArgReferee<1>(reinterpret_cast<VmaAllocation>(0xCAFEFACE)),
-                                            ::testing::SetArgReferee<2>(vk::Image(reinterpret_cast<VkImage>(0xCCDD1122))),
+        ON_CALL(*this, AllocateImage(::testing::_, ::testing::_, ::testing::_, ::testing::_))
+            .WillByDefault(::testing::DoAll(::testing::SetArgReferee<2>(reinterpret_cast<VmaAllocation>(0xCAFEFACE)),
+                                            ::testing::SetArgReferee<3>(vk::Image(reinterpret_cast<VkImage>(0xCCDD1122))),
                                             ::testing::Return(vk::Result::eSuccess)));
 
         ON_CALL(*this, FreeImage(::testing::_, ::testing::_)).WillByDefault(::testing::Return());
@@ -80,7 +80,8 @@ public:
                  VmaAllocationCreateInfo allocCreateInfo, const vk::MemoryPropertyFlags properties, VmaAllocation& allocation, vk::Buffer& buffer),
                 (override));
     MOCK_METHOD(void, FreeBuffer, (VmaAllocation allocation, vk::Buffer buffer), (override));
-    MOCK_METHOD(vk::Result, AllocateImage, (const vk::ImageCreateInfo& createInfo, VmaAllocation& allocation, vk::Image& image), (override));
+    MOCK_METHOD(vk::Result, AllocateImage,
+                (const vk::ImageCreateInfo& createInfo, VmaAllocationCreateInfo a, VmaAllocation& allocation, vk::Image& image), (override));
     MOCK_METHOD(void, FreeImage, (VmaAllocation allocation, vk::Image image), (override));
     MOCK_METHOD(void, NameAllocation, (VmaAllocation allocation, const char* name), (override));
     MOCK_METHOD(VmaAllocationInfo, GetAllocationInfo, (VmaAllocation allocation), (override));

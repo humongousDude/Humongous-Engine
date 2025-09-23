@@ -84,7 +84,10 @@ void ResourceManager::InitDescriptors()
     b8                   canUseMeshShaders = m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders;
     vk::ShaderStageFlags vertexStage;
     if(canUseMeshShaders) { vertexStage = vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT; }
-    else { vertexStage = vk::ShaderStageFlagBits::eVertex; }
+    else
+    {
+        vertexStage = vk::ShaderStageFlagBits::eVertex;
+    }
 
     DescriptorSetLayout::Builder bindlessBuilder{m_logicalDevice};
     bindlessBuilder
@@ -146,7 +149,6 @@ void ResourceManager::InitDescriptors()
 void ResourceManager::InitializeInitials()
 {
     {
-
         Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
         createInfo.size = 1;
         createInfo.instanceCount = 1;
@@ -169,7 +171,6 @@ void ResourceManager::InitializeInitials()
     }
 
     {
-
         Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
         createInfo.size = 1;
         createInfo.instanceCount = 1;
@@ -192,7 +193,6 @@ void ResourceManager::InitializeInitials()
     }
 
     {
-
         Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
         createInfo.size = 1;
         createInfo.instanceCount = 1;
@@ -213,6 +213,7 @@ void ResourceManager::InitializeInitials()
         write.pBufferInfo = &info;
         m_logicalDevice.UpdateDescriptorSets({write});
     }
+
     auto newTex = std::make_unique<Texture>(m_logicalDevice);
     newTex->FillWithEmpty(m_logicalDevice, 512, 512, false);
 
@@ -791,6 +792,7 @@ u32 ResourceManager::RequestModelNodeMatriciesIndex(const u32& modelHandle)
 
 std::shared_ptr<Skybox> ResourceManager::LoadSkybox(const std::string& name)
 {
+    HGINFO("Loading skybox %s", name.c_str());
     SkyboxCreateInfo info{.logicalDevice = m_logicalDevice,
                           .cubemapPath = m_assetManager.GetAsset(AssetManager::AssetType::TEXTURE, name),
                           .descriptorSetLayout = *m_skyboxLayout,
@@ -799,6 +801,7 @@ std::shared_ptr<Skybox> ResourceManager::LoadSkybox(const std::string& name)
                           .uniformPool = *m_descriptorPools.uniformPool,
                           .storageImagePool = *m_descriptorPools.storageImagePool};
     auto             s = std::make_shared<Skybox>(info, m_assetManager);
+    HGINFO("Skybox %s loaded", name.c_str());
     return s;
 }
 

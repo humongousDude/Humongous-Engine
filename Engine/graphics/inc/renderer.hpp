@@ -3,11 +3,11 @@
 #include "abstractions/buffer.hpp"
 #include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool.hpp"
+#include "abstractions/image.hpp"
 #include "camera.hpp"
 #include "compute_pipeline.hpp"
 #include "defines.hpp"
 #include "extra.hpp"
-#include "images.hpp"
 #include "logical_device.hpp"
 #include "swapchain.hpp"
 #include "vk_mem_alloc.h"
@@ -30,10 +30,10 @@ private:
     {
         vk::DescriptorSet imageSet;
 
-        AllocatedImage albedo;
-        AllocatedImage normalRough;
-        AllocatedImage materialParam;
-        AllocatedImage depth;
+        std::unique_ptr<Image> albedo;
+        std::unique_ptr<Image> normalRough;
+        std::unique_ptr<Image> materialParam;
+        std::unique_ptr<Image> depth;
     };
 
 public:
@@ -53,7 +53,7 @@ public:
         std::vector<VisiblityResultSet> visiblityResults;
         u32                             numObjectsDispatched;
 
-        AllocatedImage drawImage;
+        std::unique_ptr<Image> drawImage;
 
         struct DepthMip
         {
@@ -62,8 +62,8 @@ public:
             vk::DescriptorSet set;
             vk::ImageLayout   layout;
         };
-        AllocatedImage        hiZImage;
-        std::vector<DepthMip> hiZMips;
+        std::unique_ptr<Image> hiZImage;
+        std::vector<DepthMip>  hiZMips;
 
         vk::DescriptorSet occlusionSet;
         u32               boundingBoxCount;

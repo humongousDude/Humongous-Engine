@@ -72,13 +72,10 @@ vk::Result Allocator::AllocateBuffer(const vk::DeviceSize size, const VmaMemoryU
 
 void Allocator::FreeBuffer(VmaAllocation allocation, vk::Buffer buffer) { vmaDestroyBuffer(m_allocator, buffer, allocation); }
 
-vk::Result Allocator::AllocateImage(const vk::ImageCreateInfo& createInfo, VmaAllocation& allocation, vk::Image& image)
+vk::Result Allocator::AllocateImage(const vk::ImageCreateInfo& createInfo, VmaAllocationCreateInfo allocCreateInfo, VmaAllocation& allocation,
+                                    vk::Image& image)
 {
-    VmaAllocationCreateInfo allocInfo{};
-    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(vk::MemoryPropertyFlagBits::eDeviceLocal);
-
-    auto res = vk::Result(vmaCreateImage(m_allocator, reinterpret_cast<const VkImageCreateInfo*>(&createInfo), &allocInfo,
+    auto res = vk::Result(vmaCreateImage(m_allocator, reinterpret_cast<const VkImageCreateInfo*>(&createInfo), &allocCreateInfo,
                                          reinterpret_cast<VkImage*>(&image), &allocation, nullptr));
 
     if(res != vk::Result::eSuccess) { image = VK_NULL_HANDLE; }

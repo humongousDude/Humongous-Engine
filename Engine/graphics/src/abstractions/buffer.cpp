@@ -161,7 +161,10 @@ vk::Result Buffer::Map(vk::DeviceSize size, vk::DeviceSize offset)
     m_isMapped = true;
 
     if(!m_allocationInfo.pMappedData) { return m_logicalDevice.GetAllocator().Map(m_allocation, &m_allocationInfo.pMappedData); }
-    else { return vk::Result::eSuccess; }
+    else
+    {
+        return vk::Result::eSuccess;
+    }
 }
 
 /**
@@ -458,6 +461,39 @@ void Buffer::TransferQueue(const vk::CommandBuffer& cmd, const u32& srcQueueFami
     dependencyInfo.pBufferMemoryBarriers = &bufferBarrier;
 
     cmd.pipelineBarrier2(dependencyInfo);
+}
+
+void Buffer::CopyToImage(vk::CommandBuffer cmd, Image& image, const std::vector<vk::BufferImageCopy>& regions)
+{
+    if(m_buffer == VK_NULL_HANDLE || !image.IsValid())
+    {
+        HGERROR("Unable to copy buffer to image, buffer or image is null");
+        return;
+    }
+
+    m_logicalDevice.RecordCopyBufferToImage(cmd, m_buffer, image.GetImage(), vk::ImageLayout::eTransferDstOptimal, regions);
+}
+
+void Buffer::CopyToImage(vk::CommandBuffer cmd, Image& image, const u32& width, const u32& height)
+{
+    if(m_buffer == VK_NULL_HANDLE || !image.IsValid())
+    {
+        HGERROR("Unable to copy buffer to image, buffer or image is null");
+        return;
+    }
+
+    vk::BufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+    region.imageOffset = vk::Offset3D(0, 0, 0);
+    region.imageExtent = vk::Extent3D(width, height, 1);
+
+    m_logicalDevice.RecordCopyBufferToImage(cmd, m_buffer, image.GetImage(), vk::ImageLayout::eTransferDstOptimal, {region});
 }
 
 } // namespace Humongous

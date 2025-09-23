@@ -1,11 +1,10 @@
 // Original from Brendan Galea's vulkan tutorial, adapted to use VMA
 #pragma once
 
+#include "abstractions/image.hpp"
+#include "logical_device.hpp"
 #include "non_copyable.hpp"
-#include <logical_device.hpp>
 #include <vk_mem_alloc.h>
-
-// TODO: Change this to use vulkan.hpp
 
 namespace Humongous
 {
@@ -68,6 +67,9 @@ public:
     void TransferQueue(const vk::CommandBuffer& cmd, const u32& srcQueueFamilyIndex, const u32& dstQueueFamilyIndex,
                        const vk::PipelineStageFlags2& srcStage, const vk::PipelineStageFlags2& dstStage, const vk::AccessFlags2& srcAccess,
                        const vk::AccessFlags2& dstAccess);
+
+    void CopyToImage(vk::CommandBuffer cmd, Image& image, const std::vector<vk::BufferImageCopy>& regions);
+    void CopyToImage(vk::CommandBuffer cmd, Image& image, const u32& width, const u32& height);
 
 private:
     static vk::DeviceSize GetAlignment(vk::DeviceSize instanceSize, vk::DeviceSize minOffsetAlignment);

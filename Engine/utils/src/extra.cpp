@@ -95,4 +95,151 @@ vk::ShaderModule CreateShaderModule(const ILogicalDevice& logicalDevice, const s
     return shaderModule;
 }
 
+void TransitionImageLayout(ImageTransitionInfo& info)
+{
+    if(info.cmd == VK_NULL_HANDLE)
+    {
+        HGERROR("Unable to transition image layout, command buffer is null");
+        return;
+    }
+    if(info.image == VK_NULL_HANDLE)
+    {
+        HGERROR("Unable to transition image layout, image is null");
+        return;
+    }
+
+    b8 needsQueueTransfer = (info.srcQueueFamilyIndex != VK_QUEUE_FAMILY_IGNORED && info.dstQueueFamilyIndex != VK_QUEUE_FAMILY_IGNORED &&
+                             info.srcQueueFamilyIndex != info.dstQueueFamilyIndex);
+    if(info.newLayout == info.oldLayout && !needsQueueTransfer)
+    {
+        HGWARN("Identical layouts and no queue transfer, skipping transition");
+        return;
+    }
+
+    if(info.layerCount < 1)
+    {
+        HGWARN("Layer count is less than 1, skipping transition");
+        return;
+    }
+
+    vk::ImageMemoryBarrier2 imageBarrier{};
+    imageBarrier.oldLayout = info.oldLayout;
+    imageBarrier.newLayout = info.newLayout;
+    imageBarrier.image = info.image;
+    imageBarrier.subresourceRange.aspectMask = info.imageAspect;
+    imageBarrier.subresourceRange.baseMipLevel = info.baseMipLevel;
+    imageBarrier.subresourceRange.levelCount = info.levelCount;
+    imageBarrier.subresourceRange.baseArrayLayer = info.baseArrayLayer;
+    imageBarrier.subresourceRange.layerCount = info.layerCount;
+
+    imageBarrier.srcQueueFamilyIndex = needsQueueTransfer ? info.srcQueueFamilyIndex : VK_QUEUE_FAMILY_IGNORED;
+    imageBarrier.dstQueueFamilyIndex = needsQueueTransfer ? info.dstQueueFamilyIndex : VK_QUEUE_FAMILY_IGNORED;
+
+    switch(info.oldLayout)
+    {
+        case vk::ImageLayout::eUndefined:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eNone;
+            break;
+
+        case vk::ImageLayout::eColorAttachmentOptimal:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
+            break;
+
+        case vk::ImageLayout::eDepthAttachmentOptimal:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eLateFragmentTests;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+            break;
+
+        case vk::ImageLayout::eTransferSrcOptimal:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eTransfer;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eTransferRead;
+            break;
+
+        case vk::ImageLayout::eTransferDstOptimal:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eTransfer;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eTransferWrite;
+            break;
+
+        case vk::ImageLayout::eShaderReadOnlyOptimal:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eFragmentShader | vk::PipelineStageFlagBits2::eComputeShader;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eShaderRead;
+            break;
+
+        case vk::ImageLayout::eGeneral:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eComputeShader;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eShaderWrite;
+            break;
+
+        default:
+            imageBarrier.srcStageMask = vk::PipelineStageFlagBits2::eAllCommands;
+            imageBarrier.srcAccessMask = vk::AccessFlagBits2::eMemoryWrite;
+            break;
+    }
+
+    switch(info.newLayout)
+    {
+        case vk::ImageLayout::eColorAttachmentOptimal:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
+            break;
+
+        case vk::ImageLayout::eDepthAttachmentOptimal:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+            break;
+
+        case vk::ImageLayout::eTransferSrcOptimal:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eTransfer;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eTransferRead;
+            break;
+
+        case vk::ImageLayout::eTransferDstOptimal:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eTransfer;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eTransferWrite;
+            break;
+
+        case vk::ImageLayout::eShaderReadOnlyOptimal:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead;
+            break;
+
+        case vk::ImageLayout::eGeneral:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
+            break;
+
+        case vk::ImageLayout::ePresentSrcKHR:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eAllCommands;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eNone;
+            break;
+
+        default:
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eAllCommands;
+            imageBarrier.dstAccessMask = vk::AccessFlagBits2::eMemoryWrite | vk::AccessFlagBits2::eMemoryRead;
+            break;
+    }
+
+    vk::DependencyInfo depInfo{};
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &imageBarrier;
+
+    info.logicalDevice.RecordPipelineBarrier(info.cmd, depInfo);
+}
+
+void TransitionImageLayout(const ILogicalDevice& logicalDevice, vk::Image image, vk::ImageLayout currentLayout, vk::ImageLayout newLayout)
+{
+    vk::CommandBuffer   cmd = logicalDevice.BeginSingleTimeCommands();
+    ImageTransitionInfo info{.logicalDevice = logicalDevice};
+    info.cmd = cmd;
+    info.oldLayout = currentLayout;
+    info.newLayout = newLayout;
+    info.image = image;
+
+    TransitionImageLayout(info);
+
+    logicalDevice.EndSingleTimeCommands(cmd);
+}
+
 } // namespace Humongous::Utils

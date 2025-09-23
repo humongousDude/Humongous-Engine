@@ -145,6 +145,10 @@ public:
     MOCK_METHOD(u32, GetTransferQueueIndex, (), (const, override));
     MOCK_METHOD(u32, GetComputeQueueIndex, (), (const, override));
     MOCK_METHOD(WorkScheduler&, GetWorkScheduler, (), (const, override));
+    MOCK_METHOD(void, RecordBlitCommand, (vk::CommandBuffer cmd, vk::BlitImageInfo2 blit), (const, override));
+    MOCK_METHOD(vk::FormatProperties, GetFormatProperties, (vk::Format format), (const, override));
+    MOCK_METHOD(vk::PhysicalDeviceFeatures2, GetFeatures, (), (const, override));
+    MOCK_METHOD(vk::PhysicalDeviceProperties2, GetProperties, (), (const, override));
 };
 
 } // namespace Humongous

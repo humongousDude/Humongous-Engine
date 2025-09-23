@@ -11,13 +11,14 @@ class IAllocator
 public:
     virtual ~IAllocator() = default;
 
-    virtual vk::Result        AllocateBuffer(const vk::DeviceSize size, const VmaMemoryUsage vmaUsage, const vk::BufferUsageFlags bufferUsage,
-                                             VmaAllocationCreateInfo allocCreateInfo, const vk::MemoryPropertyFlags properties, VmaAllocation& allocation,
-                                             vk::Buffer& buffer) = 0;
-    virtual void              FreeBuffer(VmaAllocation allocation, vk::Buffer buffer) = 0;
-    virtual vk::Result        AllocateImage(const vk::ImageCreateInfo& createInfo, VmaAllocation& allocation, vk::Image& image) = 0;
-    virtual void              FreeImage(VmaAllocation allocation, vk::Image image) = 0;
-    virtual void              NameAllocation(VmaAllocation allocation, const char* name) = 0;
+    virtual vk::Result AllocateBuffer(const vk::DeviceSize size, const VmaMemoryUsage vmaUsage, const vk::BufferUsageFlags bufferUsage,
+                                      VmaAllocationCreateInfo allocCreateInfo, const vk::MemoryPropertyFlags properties, VmaAllocation& allocation,
+                                      vk::Buffer& buffer) = 0;
+    virtual void       FreeBuffer(VmaAllocation allocation, vk::Buffer buffer) = 0;
+    virtual vk::Result AllocateImage(const vk::ImageCreateInfo& createInfo, VmaAllocationCreateInfo allocCreateInfo, VmaAllocation& allocation,
+                                     vk::Image& image) = 0;
+    virtual void       FreeImage(VmaAllocation allocation, vk::Image image) = 0;
+    virtual void       NameAllocation(VmaAllocation allocation, const char* name) = 0;
     virtual VmaAllocationInfo GetAllocationInfo(VmaAllocation allocation) = 0;
     virtual vk::Result        Map(VmaAllocation allocation, void** data) = 0;
     virtual void              Unmap(VmaAllocation allocation) = 0;
@@ -40,7 +41,8 @@ public:
                                      VmaAllocationCreateInfo allocCreateInfo, const vk::MemoryPropertyFlags properties, VmaAllocation& allocation,
                                      vk::Buffer& buffer) override;
     void              FreeBuffer(VmaAllocation allocation, vk::Buffer buffer) override;
-    vk::Result        AllocateImage(const vk::ImageCreateInfo& createInfo, VmaAllocation& allocation, vk::Image& image) override;
+    vk::Result        AllocateImage(const vk::ImageCreateInfo& createInfo, VmaAllocationCreateInfo allocCreateInfo, VmaAllocation& allocation,
+                                    vk::Image& image) override;
     void              FreeImage(VmaAllocation allocation, vk::Image image) override;
     void              NameAllocation(VmaAllocation allocation, const char* name) override;
     VmaAllocationInfo GetAllocationInfo(VmaAllocation allocation) override;

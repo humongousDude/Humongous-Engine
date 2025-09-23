@@ -1,9 +1,9 @@
 #pragma once
 
-#include <SDL3/SDL.h>
-#include "non_copyable.hpp"
 #include "defines.hpp"
+#include "non_copyable.hpp"
 #include "vulkan/vulkan.hpp"
+#include <SDL3/SDL.h>
 
 namespace Humongous
 {
@@ -15,30 +15,30 @@ public:
 
     SDL_Window* GetWindow() const { return window; }
 
-    // bool ShouldWindowClose() const { return glfwWindowShouldClose(window); }
+    // b8 ShouldWindowClose() const { return glfwWindowShouldClose(window); }
 
     vk::SurfaceKHR CreateWindowSurface(vk::Instance instance);
 
-    bool IsFocused() const { return SDL_GetWindowFlags(window) == SDL_WINDOW_INPUT_FOCUS; }
-    bool IsMinimized() const { return SDL_GetWindowFlags(window) == SDL_WINDOW_MAXIMIZED; }
+    b8 IsFocused() const { return SDL_GetWindowFlags(window) == SDL_WINDOW_INPUT_FOCUS; }
+    b8 IsMinimized() const { return SDL_GetWindowFlags(window) == SDL_WINDOW_MAXIMIZED; }
 
     vk::Extent2D GetExtent() const { return {static_cast<u32>(width), static_cast<u32>(height)}; }
 
-    bool WasWindowResized() const { return m_wasWindowResizedFlag; }
+    b8   WasWindowResized() const { return m_wasWindowResizedFlag; }
     void ResetWindowResizedFlag() { m_wasWindowResizedFlag = false; }
 
     void HideCursor();
     void ShowCursor();
 
-    bool IsCursorHidden() { return m_cursorHidden; }
+    b8 IsCursorHidden() { return m_cursorHidden; }
 
 private:
-    int  width = 800, height = 600;
-    bool m_cursorHidden = false;
+    int width = 800, height = 600;
+    b8  m_cursorHidden = false;
 
     SDL_Window* window = nullptr;
 
-    bool m_wasWindowResizedFlag;
+    b8 m_wasWindowResizedFlag;
 
     void CreateWindow();
 

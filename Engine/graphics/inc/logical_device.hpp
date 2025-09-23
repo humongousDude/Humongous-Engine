@@ -73,6 +73,11 @@ public:
     virtual u32       GetComputeQueueIndex() const = 0;
 
     virtual WorkScheduler& GetWorkScheduler() const = 0;
+
+    virtual void                          RecordBlitCommand(vk::CommandBuffer cmd, vk::BlitImageInfo2 blit) const = 0;
+    virtual vk::FormatProperties          GetFormatProperties(vk::Format format) const = 0;
+    virtual vk::PhysicalDeviceFeatures2   GetFeatures() const = 0;
+    virtual vk::PhysicalDeviceProperties2 GetProperties() const = 0;
 };
 
 class VulkanLogicalDevice : public ILogicalDevice, NonCopyable
@@ -136,6 +141,11 @@ public:
     void              RecordDrawMeshIndirect(vk::CommandBuffer cmd, vk::Buffer buffer, u32 offset, u32 count, u32 stride) const override;
 
     WorkScheduler& GetWorkScheduler() const override { return *m_scheduler; }
+
+    void                          RecordBlitCommand(vk::CommandBuffer cmd, vk::BlitImageInfo2 blit) const override;
+    vk::FormatProperties          GetFormatProperties(vk::Format format) const override;
+    vk::PhysicalDeviceFeatures2   GetFeatures() const override { return m_physicalDevice->GetFeatures(); };
+    vk::PhysicalDeviceProperties2 GetProperties() const override { return m_physicalDevice->GetProperties(); };
 
 private:
     IInstance& m_instance;

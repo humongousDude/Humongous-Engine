@@ -59,7 +59,10 @@ void SwapChain::CreateSwapChain(const Window& window, const PhysicalDevice& phys
         createInfo.queueFamilyIndexCount = 2;
         createInfo.pQueueFamilyIndices = queueFamilyIndices;
     }
-    else { createInfo.imageSharingMode = vk::SharingMode::eExclusive; }
+    else
+    {
+        createInfo.imageSharingMode = vk::SharingMode::eExclusive;
+    }
 
     createInfo.preTransform = details.capabilities.surfaceCapabilities.currentTransform;
     createInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
@@ -217,7 +220,7 @@ vk::Result SwapChain::Present(vk::Semaphore renderFinished, u32& currentImageInd
 
     auto result = m_logicalDevice.GetPresentQueue().presentKHR(&presentInfo);
 
-    if(result != vk::Result::eSuccess) { HGERROR("failed to present swap chain image"); }
+    if(result != vk::Result::eSuccess) { HGERROR("failed to present swap chain image, Error: %s", vk::to_string(result).c_str()); }
     return result;
 }
 

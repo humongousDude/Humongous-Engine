@@ -22,10 +22,10 @@ set(ENGINE_SOURCES
 
     # --- Utils ---
     utils/src/extra.cpp
-    utils/src/images.cpp
 
     # --- Graphics ---
     graphics/src/abstractions/buffer.cpp
+    graphics/src/abstractions/image.cpp
     graphics/src/abstractions/descriptor_layout.cpp
     graphics/src/abstractions/descriptor_pool.cpp
     graphics/src/abstractions/descriptor_pool_growable.cpp
@@ -96,10 +96,10 @@ set(ENGINE_HEADERS
 
     # --- Utils ---
     utils/inc/extra.hpp
-    utils/inc/images.hpp
 
     # --- Graphics ---
     graphics/inc/abstractions/buffer.hpp
+    graphics/inc/abstractions/image.hpp
     graphics/inc/abstractions/descriptor_layout.hpp
     graphics/inc/abstractions/descriptor_pool.hpp
     graphics/inc/abstractions/descriptor_pool_growable.hpp
