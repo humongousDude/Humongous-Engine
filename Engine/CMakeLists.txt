@@ -8,6 +8,7 @@ if(MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL" CACHE STRING "MSVC runtime library type") 
 endif()
 
+
 set(ENGINE_SOURCES
     # --- Core ---
     core/src/allocator.cpp
@@ -209,6 +210,11 @@ source_group(TREE ${CMAKE_SOURCE_DIR}/shaders PREFIX "Shaders" FILES ${SHADER_SO
 
 if(MSVC)
     target_compile_options(Engine PUBLIC /utf-8)
+endif()
+
+if(UNIX AND CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_compile_options(Engine PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+    target_link_options(Engine PRIVATE -fsanitize=address,undefined)
 endif()
 
 target_compile_definitions(Engine PUBLIC

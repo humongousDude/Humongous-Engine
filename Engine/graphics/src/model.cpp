@@ -88,13 +88,9 @@ void Model::LoadFromFile(std::string filePath, f32 scale)
 
     if(fileLoaded)
     {
-        HGINFO("GOT HERE %i", __LINE__);
         LoadTextureSamplers(gltfModel);
-        HGINFO("GOT HERE %i", __LINE__);
         LoadTextures(gltfModel);
-        HGINFO("GOT HERE %i", __LINE__);
         LoadMaterials(gltfModel);
-        HGINFO("GOT HERE %i", __LINE__);
 
         const tinygltf::Scene& scene = gltfModel.scenes[gltfModel.defaultScene > -1 ? gltfModel.defaultScene : 0];
 
@@ -233,15 +229,27 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
 
     if(node.matrix.size() == 16)
     {
-        newNode->localMatrix = Eigen::Map<const Eigen::Matrix4d>(node.matrix.data()).cast<float>();
+        newNode->localMatrix = Eigen::Map<const Eigen::Matrix<double, 4, 4, Eigen::RowMajor>>(node.matrix.data()).cast<f32>();
         newNode->isMatrixSpecified = true;
         Utils::DecomposeMatrix(newNode->localMatrix, newNode->translation, newNode->rotation, newNode->scale);
     }
     else
     {
-        if(node.translation.size() == 3) { newNode->translation = Eigen::Map<const Eigen::Vector3d>(node.translation.data()).cast<float>(); }
-        if(node.rotation.size() == 4) { newNode->rotation = Eigen::Map<const Eigen::Quaterniond>(node.rotation.data()).cast<float>(); }
-        if(node.scale.size() == 3) { newNode->scale = Eigen::Map<const Eigen::Vector3d>(node.scale.data()).cast<float>(); }
+        if(node.translation.size() == 3) { newNode->translation = Eigen::Map<const Eigen::Vector3d>(node.translation.data()).cast<f32>(); }
+        else
+        {
+            newNode->translation = Eigen::Vector3f::Zero();
+        }
+        if(node.rotation.size() == 4) { newNode->rotation = Eigen::Map<const Eigen::Quaterniond>(node.rotation.data()).cast<f32>(); }
+        else
+        {
+            newNode->rotation = Eigen::Quaternionf::Identity();
+        }
+        if(node.scale.size() == 3) { newNode->scale = Eigen::Map<const Eigen::Vector3d>(node.scale.data()).cast<f32>(); }
+        else
+        {
+            newNode->scale = Eigen::Vector3f::Ones();
+        }
         newNode->isMatrixSpecified = false;
 
         newNode->CalculateLocalMatrix();
@@ -604,7 +612,7 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
 
     const size_t maxVertices = 64;
     const size_t maxTriangles = 124;
-    const float  coneWeight = 0.0f;
+    const f32    coneWeight = 0.0f;
 
     for(Primitive* primitive: m_primitives)
     {
@@ -629,7 +637,7 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
 
         size_t actualMeshletCount =
             meshopt_buildMeshlets(tempMeshlets.data(), tempMeshletVertices.data(), tempMeshletPrimitives.data(), (unsigned int*)indices, indexCount,
-                                  reinterpret_cast<const float*>(vertices), vertexCount, sizeof(Vertex), maxVertices, maxTriangles, coneWeight);
+                                  reinterpret_cast<const f32*>(vertices), vertexCount, sizeof(Vertex), maxVertices, maxTriangles, coneWeight);
 
         tempMeshlets.resize(actualMeshletCount);
         if(actualMeshletCount > 0)
@@ -660,9 +668,9 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
             // Correctly call the bounds computation function
             meshopt_Bounds bounds =
                 meshopt_computeMeshletBounds(meshlet_vertices, meshlet_triangles, moMeshlet.triangle_count,
-                                             reinterpret_cast<const float*>(vertices), // Pointer to the primitive's vertex position data
-                                             vertexCount,                              // Total vertices in the primitive
-                                             sizeof(Vertex)                            // Stride between vertices
+                                             reinterpret_cast<const f32*>(vertices), // Pointer to the primitive's vertex position data
+                                             vertexCount,                            // Total vertices in the primitive
+                                             sizeof(Vertex)                          // Stride between vertices
                 );
 
             // --- FIX ENDS HERE ---
@@ -1080,7 +1088,7 @@ void Model::LoadSkins(tinygltf::Model& gltfModel)
 
             newSkin->inverseBindMatrices.resize(accessor.count);
 
-            const float* srcDataPtr = reinterpret_cast<const float*>(&buffer.data[accessor.byteOffset + bufferView.byteOffset]);
+            const f32* srcDataPtr = reinterpret_cast<const f32*>(&buffer.data[accessor.byteOffset + bufferView.byteOffset]);
 
             for(size_t i = 0; i < accessor.count; ++i) { newSkin->inverseBindMatrices[i] = Eigen::Map<const Eigen::Matrix4f>(srcDataPtr + i * 16); }
         }
@@ -1363,7 +1371,7 @@ void Model::AnimationSampler::ApplyRotation(size_t index, f32 time, std::vector<
     }
 }
 
-void Model::AnimationSampler::ApplyMorph(size_t index, f32 time, const Primitive& targetPrimitive, std::vector<float>& instanceWeights) const
+void Model::AnimationSampler::ApplyMorph(size_t index, f32 time, const Primitive& targetPrimitive, std::vector<f32>& instanceWeights) const
 {
     if(targetPrimitive.morphTargetPositions.empty())
     {

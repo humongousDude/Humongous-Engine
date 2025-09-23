@@ -1,8 +1,7 @@
 # **What is this?**
 A game engine built with C++, using Vulkan for rendering.
 
-Development is currently being done on Arch Linux, compiled with GCC. I don't have a windows machine, so I can't do any testing on Windows. Sorry
-Project is compiled with the latest G++ compiler, and I don't plan on targeting older versions of G++.
+Development is currently being done on Arch Linux, compiled with the latest version of Clang.
 
 ## Libraries:
 * [SDL3](https://github.com/libsdl-org/SDL)

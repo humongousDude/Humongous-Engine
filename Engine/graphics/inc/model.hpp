@@ -80,7 +80,7 @@ struct Meshlet
     u32             globalIndexOffset{0};
     u32             primitiveCount{0};
     Eigen::Vector4f boundingSphere;
-    uint            __pad0;
+    uint            __pad0[2];
 };
 
 class Model

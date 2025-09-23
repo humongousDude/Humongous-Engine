@@ -155,7 +155,7 @@ void ResourceManager::InitializeInitials()
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
         createInfo.properties = vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        createInfo.minOffsetAlignment = 1;
+        createInfo.minOffsetAlignment = 16;
         createInfo.name = "model node matricies buffer";
         m_modelNodeMatriciesBuffer = std::make_unique<Buffer>(createInfo);
 
@@ -177,7 +177,7 @@ void ResourceManager::InitializeInitials()
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
         createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
-        createInfo.minOffsetAlignment = 1;
+        createInfo.minOffsetAlignment = 16;
         createInfo.name = "global jointMatricies buffer";
         m_modelJointMatriciesBuffer = std::make_unique<Buffer>(createInfo);
 
@@ -199,7 +199,7 @@ void ResourceManager::InitializeInitials()
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
         createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
-        createInfo.minOffsetAlignment = 1;
+        createInfo.minOffsetAlignment = 16;
         createInfo.name = "global morphTargets buffer";
         m_modelMorphTargetsBuffer = std::make_unique<Buffer>(createInfo);
 
@@ -317,7 +317,7 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
             createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
             createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
             createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
-            createInfo.minOffsetAlignment = 1;
+            createInfo.minOffsetAlignment = 16;
             createInfo.name = "meshlet buffer";
             m_meshletBuffer.reset();
             m_meshletBuffer = std::make_unique<Buffer>(createInfo);
@@ -339,7 +339,7 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
         createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        createInfo.minOffsetAlignment = 1;
+        createInfo.minOffsetAlignment = 16;
         createInfo.name = "meshlet staging buffer";
         Buffer stagingBuffer{createInfo};
 
@@ -360,7 +360,7 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
             createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
             createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
             createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
-            createInfo.minOffsetAlignment = 1;
+            createInfo.minOffsetAlignment = 16;
             createInfo.name = "meshlet vertex buffer";
             m_meshletVertexBuffer.reset();
             m_meshletVertexBuffer = std::make_unique<Buffer>(createInfo);
@@ -382,7 +382,7 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
         createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        createInfo.minOffsetAlignment = 1;
+        createInfo.minOffsetAlignment = 16;
         createInfo.name = "meshlet vertex staging buffer";
         Buffer stagingBuffer{createInfo};
 
@@ -403,7 +403,7 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
             createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
             createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
             createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
-            createInfo.minOffsetAlignment = 1;
+            createInfo.minOffsetAlignment = 16;
             createInfo.name = "meshlet primitive buffer";
             m_meshletPrimitiveBuffer.reset();
             m_meshletPrimitiveBuffer = std::make_unique<Buffer>(createInfo);
@@ -425,7 +425,7 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
         createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        createInfo.minOffsetAlignment = 1;
+        createInfo.minOffsetAlignment = 16;
         createInfo.name = "meshlet primitive staging buffer";
         Buffer stagingBuffer{createInfo};
 
@@ -457,7 +457,7 @@ std::shared_ptr<ModelInstance> ResourceManager::RequestModel(const std::string& 
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
         createInfo.properties = vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        createInfo.minOffsetAlignment = 1;
+        createInfo.minOffsetAlignment = 16;
         createInfo.name = "model node matricies buffer";
         m_modelNodeMatriciesBuffer = std::make_unique<Buffer>(createInfo);
 
@@ -509,7 +509,7 @@ void ResourceManager::AddIndicesToModel(const std::vector<u32>& modelIndices, st
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst;
         createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
-        createInfo.minOffsetAlignment = 1;
+        createInfo.minOffsetAlignment = 16;
         createInfo.name = "global index buffer";
         m_modelIndexBuffer = std::make_unique<Buffer>(createInfo);
     }
@@ -520,7 +520,7 @@ void ResourceManager::AddIndicesToModel(const std::vector<u32>& modelIndices, st
     createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
     createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
     createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-    createInfo.minOffsetAlignment = 1;
+    createInfo.minOffsetAlignment = 16;
     createInfo.name = "global index staging buffer";
     Buffer stagingBuffer{createInfo};
 
@@ -561,7 +561,7 @@ void ResourceManager::AddVerticesToModel(const std::vector<Model::Vertex>& model
                                  vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress;
         createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
-        createInfo.minOffsetAlignment = 1;
+        createInfo.minOffsetAlignment = 16;
         createInfo.name = "global vertex buffer";
         m_modelVertexBuffer = std::make_unique<Buffer>(createInfo);
 
@@ -582,7 +582,7 @@ void ResourceManager::AddVerticesToModel(const std::vector<Model::Vertex>& model
     createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
     createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
     createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-    createInfo.minOffsetAlignment = 1;
+    createInfo.minOffsetAlignment = 16;
     createInfo.name = "global vertex staging buffer";
     Buffer stagingBuffer{createInfo};
 
@@ -651,7 +651,7 @@ void ResourceManager::FinalizeGPUData()
                 vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress;
             createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
             createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
-            createInfo.minOffsetAlignment = 1;
+            createInfo.minOffsetAlignment = 16;
             createInfo.name = "global jointMatricies buffer";
             m_modelJointMatriciesBuffer = std::make_unique<Buffer>(createInfo);
 
@@ -672,7 +672,7 @@ void ResourceManager::FinalizeGPUData()
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
         createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        createInfo.minOffsetAlignment = 1;
+        createInfo.minOffsetAlignment = 16;
         createInfo.name = "global jointMatricies staging buffer";
         Buffer stagingBuffer{createInfo};
 
@@ -698,7 +698,7 @@ void ResourceManager::FinalizeGPUData()
                 vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress;
             createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
             createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
-            createInfo.minOffsetAlignment = 1;
+            createInfo.minOffsetAlignment = 16;
             createInfo.name = "global morphTargets buffer";
             m_modelMorphTargetsBuffer = std::make_unique<Buffer>(createInfo);
 
@@ -719,7 +719,7 @@ void ResourceManager::FinalizeGPUData()
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
         createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        createInfo.minOffsetAlignment = 1;
+        createInfo.minOffsetAlignment = 16;
         createInfo.name = "global morphTargets staging buffer";
         Buffer stagingBuffer{createInfo};
 
@@ -744,7 +744,7 @@ void ResourceManager::FinalizeGPUData()
             createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
             createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
             createInfo.memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
-            createInfo.minOffsetAlignment = 1;
+            createInfo.minOffsetAlignment = 16;
             createInfo.name = "global nodeMatrices buffer";
             m_modelNodeMatriciesBuffer = std::make_unique<Buffer>(createInfo);
 
@@ -765,7 +765,7 @@ void ResourceManager::FinalizeGPUData()
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
         createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        createInfo.minOffsetAlignment = 1;
+        createInfo.minOffsetAlignment = 16;
         createInfo.name = "global nodeMatrices staging buffer";
         Buffer stagingBuffer{createInfo};
 
@@ -897,7 +897,7 @@ u32 ResourceManager::RequestMaterial(const Model::ShaderMaterial& mat)
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer;
         createInfo.properties = vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        createInfo.minOffsetAlignment = 1;
+        createInfo.minOffsetAlignment = 16;
         createInfo.name = "global material data buffer";
         m_materialDataBuffer = std::make_unique<Buffer>(createInfo);
     }

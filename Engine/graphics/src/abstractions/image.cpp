@@ -139,7 +139,7 @@ void Image::TransitionLayout(vk::CommandBuffer cmd, vk::ImageLayout newLayout, u
 
     if(newLayout == m_layout)
     {
-        HGWARN("Identical layouts, skipping transition");
+        HGTRACE("Identical layouts, skipping transition");
         return;
     }
 

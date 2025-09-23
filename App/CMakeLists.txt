@@ -20,6 +20,11 @@ function(configure_executable target)
             )
         endif()
     endif()
+
+    if(UNIX AND CMAKE_BUILD_TYPE MATCHES "Debug")
+        target_compile_options(${target} PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+        target_link_options(${target} PRIVATE -fsanitize=address,undefined)
+    endif()
 endfunction()
 
 add_executable(App main.cpp)
