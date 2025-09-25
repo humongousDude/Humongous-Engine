@@ -6,25 +6,25 @@
 
 namespace Humongous
 {
-class Mesh;
+struct Mesh;
 struct Skin;
 
 struct Node
 {
     ~Node();
-    Node*              parent;
-    u32                index;
-    std::vector<Node*> children;
-    Eigen::Matrix4f    localMatrix = Eigen::Matrix4f::Zero();
-    Eigen::Matrix4f    localToModelMatrix = Eigen::Matrix4f::Zero();
-    std::string        name;
-    Mesh*              mesh;
-    Eigen::Vector3f    translation{};
-    Eigen::Vector3f    scale = Eigen::Vector3f::Ones();
-    Eigen::Quaternionf rotation{};
-    Skin*              skin;
-    s32                skinIndex{-1};
-    b32                isMatrixSpecified{false};
+    Node*                 parent;
+    u32                   index;
+    std::vector<Node*>    children;
+    Eigen::Matrix4f       localMatrix = Eigen::Matrix4f::Zero();
+    Eigen::Matrix4f       localToModelMatrix = Eigen::Matrix4f::Zero();
+    std::string           name;
+    std::unique_ptr<Mesh> mesh;
+    Eigen::Vector3f       translation{};
+    Eigen::Vector3f       scale = Eigen::Vector3f::Ones();
+    Eigen::Quaternionf    rotation{};
+    Skin*                 skin;
+    s32                   skinIndex{-1};
+    b32                   isMatrixSpecified{false};
 
     void CalculateLocalMatrix();
     void UpdateLocalToModelMatrix(const Eigen::Matrix4f& parentWorldMatrix);

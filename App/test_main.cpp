@@ -4,10 +4,10 @@
 
 int main(int argc, char* argv[])
 {
-    // PauseLogging();
+    PauseLogging();
     ::testing::InitGoogleTest(&argc, argv);
     auto ret = RUN_ALL_TESTS();
-    // ResumeLogging();
+    ResumeLogging();
 
     if(ret != 0)
     {

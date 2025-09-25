@@ -15,12 +15,9 @@
 namespace Humongous
 {
 // Mesh
-Mesh::Mesh(Eigen::Matrix4f matrix) {};
+Mesh::Mesh() {};
 
-Mesh::~Mesh()
-{
-    for(Primitive* p: primitives) { delete p; }
-}
+Mesh::~Mesh() { primitives.clear(); }
 
 Model::Model(ResourceManager& resourceManager, const std::string& modelPath, f32 scale, const u32& handle)
     : m_handle(handle), m_resourceManager(resourceManager)
@@ -143,8 +140,10 @@ void Model::LoadFromFile(std::string filePath, f32 scale)
 void Model::Destroy()
 {
     for(auto node: m_nodes) { delete node; }
-    m_nodes.resize(0);
-    m_linearNodes.resize(0);
+    m_primitives.clear();
+    m_meshes.clear();
+    m_nodes.clear();
+    m_linearNodes.clear();
 };
 
 // TODO: clean up this abomination
@@ -267,12 +266,14 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
 
     if(node.mesh > -1)
     {
-        const tinygltf::Mesh mesh = model.meshes[node.mesh];
-        Mesh*                newMesh = new Mesh(newNode->localMatrix);
+        const tinygltf::Mesh  mesh = model.meshes[node.mesh];
+        std::unique_ptr<Mesh> newMesh = std::make_unique<Mesh>();
 
         if(!mesh.weights.empty()) { m_hasMorphTargets = true; }
 
         newMesh->weights.resize(mesh.weights.size());
+        m_primitives.reserve(m_primitives.size() + mesh.primitives.size());
+        newMesh->primitives.reserve(mesh.primitives.size());
         for(size_t i = 0; i < mesh.weights.size(); ++i) { newMesh->weights[i] = static_cast<f32>(mesh.weights[i]); }
 
         for(size_t j = 0; j < mesh.primitives.size(); j++)
@@ -567,7 +568,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
                 }
             }
 
-            Primitive* newPrimitive = new Primitive();
+            std::unique_ptr<Primitive> newPrimitive = std::make_unique<Primitive>();
             newPrimitive->localFirstIndex = indexStart;
             newPrimitive->indexCount = static_cast<u32>(currentPrimitiveIndices.size());
             newPrimitive->localVertexOffset = vertexStart;
@@ -584,15 +585,15 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
             newPrimitive->morphTargetNormals = std::move(morphTargetNormalsOriginal);
             newPrimitive->morphTargetTangents = std::move(morphTargetTangentsOriginal);
 
-            OptimizePrimitive(newPrimitive, loaderInfo, currentPrimitiveVertices, currentPrimitiveIndices);
+            OptimizePrimitive(newPrimitive.get(), loaderInfo, currentPrimitiveVertices, currentPrimitiveIndices);
 
-            newMesh->primitives.push_back(newPrimitive);
-            m_primitives.push_back(newPrimitive);
+            newMesh->primitives.push_back(std::move(newPrimitive));
+            m_primitives.push_back(newMesh->primitives.back().get());
             m_morphTargets.insert(m_morphTargets.end(), newMesh->weights.begin(), newMesh->weights.end());
         }
 
-        newNode->mesh = newMesh;
-        m_meshes.push_back(newMesh);
+        newNode->mesh = std::move(newMesh);
+        m_meshes.push_back(newNode->mesh.get());
     }
     if(parent) { parent->children.push_back(newNode); }
     else
@@ -1039,7 +1040,7 @@ void Model::UpdateMaterialBatches(Node* node)
 {
     if(node->mesh)
     {
-        for(auto* prim: node->mesh->primitives) { m_materialBatches[prim->material->index].push_back(prim); }
+        for(auto& prim: node->mesh->primitives) { m_materialBatches[prim->material->index].push_back(prim.get()); }
     }
     for(auto& c: node->children) { UpdateMaterialBatches(c); }
 }
@@ -1053,7 +1054,7 @@ void Model::CalculateRestAABB()
 
     for(const auto* mesh: m_meshes)
     {
-        for(const Primitive* primitive: mesh->primitives)
+        for(const auto& primitive: mesh->primitives)
         {
             if(!primitive || !primitive->boundingBox.valid || !primitive->owner) { continue; }
 

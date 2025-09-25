@@ -31,7 +31,10 @@ ModelInstance::ModelInstance(std::shared_ptr<Model> model, ResourceManager& reso
     }
 
     if(!m_model->GetJointMatrices().empty()) { m_jointMatrices.resize(model->GetJointMatrices().size()); }
-    else { m_jointMatrices.push_back(Eigen::Matrix4f::Identity()); }
+    else
+    {
+        m_jointMatrices.push_back(Eigen::Matrix4f::Identity());
+    }
     if(m_model->HasMorphs())
     {
         m_morphWeights.resize(model->GetMorphTargets().size());
@@ -59,7 +62,7 @@ void ModelInstance::UpdateAnimatedAABB()
 
     for(const auto* mesh: m_model->GetMeshes())
     {
-        for(const Primitive* primitive: mesh->primitives)
+        for(const auto& primitive: mesh->primitives)
         {
             if(!primitive || !primitive->boundingBox.valid || !primitive->owner) { continue; }
 
@@ -82,7 +85,10 @@ void ModelInstance::UpdateAnimatedAABB()
 
                 worldSpacePrimitiveAABB = BoundingBox::TransformAABB(inflatedLocalAABB, animatedOwnerGlobalTransform);
             }
-            else { worldSpacePrimitiveAABB = BoundingBox::TransformAABB(inflatedLocalAABB, animatedOwnerGlobalTransform); }
+            else
+            {
+                worldSpacePrimitiveAABB = BoundingBox::TransformAABB(inflatedLocalAABB, animatedOwnerGlobalTransform);
+            }
 
             m_animatedAABB.Extend(worldSpacePrimitiveAABB);
         }

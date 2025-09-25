@@ -487,6 +487,8 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         samplerInfo.addressModeW = vk::SamplerAddressMode::eClampToEdge;
 
         CreateTextureImageSampler(samplerInfo, ImageType::CUBEMAP);
+
+        ktxTexture_Destroy(ktxTex);
     }
 }
 

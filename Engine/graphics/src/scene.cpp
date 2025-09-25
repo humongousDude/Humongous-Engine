@@ -1,4 +1,5 @@
 #include "scene.hpp"
+#include "model.hpp"
 
 #define MAX_NUM_JOINTS 128u
 
@@ -34,6 +35,7 @@ void Node::UpdateLocalToModelMatrix()
 Node::~Node()
 {
     for(auto& child: children) { delete child; }
+    mesh.reset();
 }
 
 } // namespace Humongous

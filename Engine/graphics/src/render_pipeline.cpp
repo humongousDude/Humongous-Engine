@@ -186,7 +186,7 @@ RenderPipeline::PipelineConfigInfo RenderPipeline::DefaultPipelineConfigInfo()
     configInfo.rasterizationInfo.polygonMode = PolygonMode::eFill;
     configInfo.rasterizationInfo.lineWidth = 1.0f;
     configInfo.rasterizationInfo.cullMode = CullModeFlagBits::eNone;
-    configInfo.rasterizationInfo.frontFace = FrontFace::eCounterClockwise;
+    configInfo.rasterizationInfo.frontFace = FrontFace::eClockwise;
     configInfo.rasterizationInfo.depthBiasEnable = false;
     configInfo.rasterizationInfo.depthBiasConstantFactor = 0.0f; // Optional
     configInfo.rasterizationInfo.depthBiasClamp = 0.0f;          // Optional

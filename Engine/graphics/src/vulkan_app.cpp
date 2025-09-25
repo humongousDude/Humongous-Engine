@@ -97,6 +97,8 @@ void VulkanApp::CreateRenderSystems()
     configInfo.taskShaderPath = m_assetManager->GetAsset(AssetManager::AssetType::SHADER, "simple.task");
     configInfo.descriptorSetLayouts = simpleLayouts;
 
+    configInfo.rasterizationInfo.cullMode = vk::CullModeFlagBits::eBack;
+
     configInfo.colorBlendAttachment.blendEnable = false;
     configInfo.colorAttachmentFormat = vk::Format::eR8G8B8A8Unorm;
 
@@ -136,7 +138,10 @@ void VulkanApp::CreateRenderSystems()
     {
         m_entityRenderSystem = std::make_unique<MeshRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, configInfo);
     }
-    else { m_entityRenderSystem = std::make_unique<TraditionalRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, configInfo); }
+    else
+    {
+        m_entityRenderSystem = std::make_unique<TraditionalRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, configInfo);
+    }
     HGINFO("Created entity render system");
 
     HGINFO("Creating depth only render system...");
@@ -165,7 +170,10 @@ void VulkanApp::CreateRenderSystems()
     {
         m_depthRenderSystem = std::make_unique<MeshRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, configInfo);
     }
-    else { m_depthRenderSystem = std::make_unique<TraditionalRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, configInfo); }
+    else
+    {
+        m_depthRenderSystem = std::make_unique<TraditionalRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, configInfo);
+    }
     HGINFO("Created depth only render system");
 
     m_mainDeletionQueue.PushDeletor([&]() {
@@ -281,31 +289,46 @@ void VulkanApp::HandleInput(const float frameTime, SDL_Event* event)
     if(keyboardState[SDL_SCANCODE_S])
     {
         if(movementType == KeyboardHandler::Movements::FORWARD) { movementType = KeyboardHandler::Movements::NONE; }
-        else { movementType = KeyboardHandler::Movements::BACKWARD; }
+        else
+        {
+            movementType = KeyboardHandler::Movements::BACKWARD;
+        }
     }
     if(keyboardState[SDL_SCANCODE_A])
     {
         if(movementType == KeyboardHandler::Movements::RIGHT) { movementType = KeyboardHandler::Movements::NONE; }
         else if(movementType == KeyboardHandler::Movements::FORWARD) { movementType = KeyboardHandler::Movements::FORWARD_LEFT; }
         else if(movementType == KeyboardHandler::Movements::BACKWARD) { movementType = KeyboardHandler::Movements::BACKWARD_LEFT; }
-        else { movementType = KeyboardHandler::Movements::LEFT; }
+        else
+        {
+            movementType = KeyboardHandler::Movements::LEFT;
+        }
     }
     if(keyboardState[SDL_SCANCODE_D])
     {
         if(movementType == KeyboardHandler::Movements::LEFT) { movementType = KeyboardHandler::Movements::NONE; }
         else if(movementType == KeyboardHandler::Movements::FORWARD) { movementType = KeyboardHandler::Movements::FORWARD_RIGHT; }
         else if(movementType == KeyboardHandler::Movements::BACKWARD) { movementType = KeyboardHandler::Movements::BACKWARD_RIGHT; }
-        else { movementType = KeyboardHandler::Movements::RIGHT; }
+        else
+        {
+            movementType = KeyboardHandler::Movements::RIGHT;
+        }
     }
     if(keyboardState[SDL_SCANCODE_Q])
     {
         if(movementType == KeyboardHandler::Movements::UP) { movementType = KeyboardHandler::Movements::NONE; }
-        else { movementType = KeyboardHandler::Movements::DOWN; }
+        else
+        {
+            movementType = KeyboardHandler::Movements::DOWN;
+        }
     }
     if(keyboardState[SDL_SCANCODE_E])
     {
         if(movementType == KeyboardHandler::Movements::DOWN) { movementType = KeyboardHandler::Movements::NONE; }
-        else { movementType = KeyboardHandler::Movements::UP; }
+        else
+        {
+            movementType = KeyboardHandler::Movements::UP;
+        }
     }
     if(keyboardState[SDL_SCANCODE_P])
     {

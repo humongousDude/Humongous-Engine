@@ -108,10 +108,7 @@ void Image::AllocateImage(const ImageCreateInfo& createInfo)
 
     m_layout = vk::ImageLayout::eUndefined;
 
-    size_t dataHash =
-        std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(createInfo.name.data()), m_width * m_height >> 3));
-
-    std::string key = "img_" + std::to_string(dataHash);
+    std::string key = createInfo.name + "_" + std::to_string(m_width) + "x" + std::to_string(m_height) + "_ch" + vk::to_string(m_format);
 
     m_hashId = key;
 }

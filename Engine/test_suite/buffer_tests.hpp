@@ -173,22 +173,24 @@ TEST(BufferSuite, UnmapCallToMappedBuffer)
 TEST(BufferSuite, WriteToBuffer)
 {
     testing::NiceMock<MockLogicalDevice> device;
-    Buffer::BufferCreateInfo             info{device};
-    info.size = 1024;
+    vk::DeviceSize                       targetSize = sizeof(u32);
+
+    Buffer::BufferCreateInfo info{device};
+    info.size = targetSize;
     info.bufferUsage = vk::BufferUsageFlagBits::eTransferDst;
     info.properties = vk::MemoryPropertyFlagBits::eHostVisible;
 
     Buffer buffer{info};
 
     EXPECT_EQ(buffer.IsValid(), true);
-    EXPECT_EQ(buffer.GetBufferSize(), 1024);
+    EXPECT_EQ(buffer.GetBufferSize(), targetSize);
     EXPECT_EQ(buffer.GetUsageFlags(), vk::BufferUsageFlagBits::eTransferDst);
     EXPECT_EQ(buffer.GetMemoryPropertyFlags(), vk::MemoryPropertyFlagBits::eHostVisible);
     EXPECT_EQ(buffer.Map(), vk::Result::eSuccess);
     EXPECT_EQ(buffer.IsMapped(), true);
 
     u32 data = 0;
-    buffer.WriteToBuffer(&data);
+    buffer.WriteToBuffer(&data, targetSize);
 
     EXPECT_EQ(data, 0);
 }
@@ -260,42 +262,45 @@ TEST(BufferSuite, WriteToBufferWithInvalidSize)
 {
     testing::NiceMock<MockLogicalDevice> device;
     Buffer::BufferCreateInfo             info{device};
-    info.size = 1024;
+    vk::DeviceSize                       targetSize = sizeof(u32);
+    info.size = targetSize;
     info.bufferUsage = vk::BufferUsageFlagBits::eTransferDst;
     info.properties = vk::MemoryPropertyFlagBits::eHostVisible;
 
     Buffer buffer{info};
 
     EXPECT_EQ(buffer.IsValid(), true);
-    EXPECT_EQ(buffer.GetBufferSize(), 1024);
+    EXPECT_EQ(buffer.GetBufferSize(), targetSize);
     EXPECT_EQ(buffer.GetUsageFlags(), vk::BufferUsageFlagBits::eTransferDst);
     EXPECT_EQ(buffer.GetMemoryPropertyFlags(), vk::MemoryPropertyFlagBits::eHostVisible);
     EXPECT_EQ(buffer.Map(), vk::Result::eSuccess);
     EXPECT_EQ(buffer.IsMapped(), true);
 
     u32 data = 0;
-    buffer.WriteToBuffer(&data, -1);
+    buffer.WriteToBuffer(&data, targetSize + 1);
 }
 
 TEST(BufferSuite, WriteToBufferWithInvalidOffset)
 {
     testing::NiceMock<MockLogicalDevice> device;
     Buffer::BufferCreateInfo             info{device};
-    info.size = 1024;
+    vk::DeviceSize                       targetSize = sizeof(u32);
+
+    info.size = targetSize;
     info.bufferUsage = vk::BufferUsageFlagBits::eTransferDst;
     info.properties = vk::MemoryPropertyFlagBits::eHostVisible;
 
     Buffer buffer{info};
 
     EXPECT_EQ(buffer.IsValid(), true);
-    EXPECT_EQ(buffer.GetBufferSize(), 1024);
+    EXPECT_EQ(buffer.GetBufferSize(), targetSize);
     EXPECT_EQ(buffer.GetUsageFlags(), vk::BufferUsageFlagBits::eTransferDst);
     EXPECT_EQ(buffer.GetMemoryPropertyFlags(), vk::MemoryPropertyFlagBits::eHostVisible);
     EXPECT_EQ(buffer.Map(), vk::Result::eSuccess);
     EXPECT_EQ(buffer.IsMapped(), true);
 
     u32 data = 0;
-    buffer.WriteToBuffer(&data, sizeof(u32), -1);
+    buffer.WriteToBuffer(&data, 0, targetSize + 1);
 }
 
 TEST(BufferSuite, WriteToBufferWithOversizedSize)

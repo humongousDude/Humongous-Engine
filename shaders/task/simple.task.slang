@@ -10,7 +10,7 @@ bool IsSphereInFrustum(float3 center, float radius, float4 planes[6])
     for (int i = 0; i < 6; ++i) {
         if (dot(planes[i].xyz, center) + planes[i].w < -radius)
         {
-            return false; // Outside the frustum
+            return false; 
         }
     }
     return true;
@@ -67,6 +67,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint drawID : SV_DrawInd
             }
         }
     }
+
     GroupMemoryBarrierWithGroupSync();
 
     if (dispatchThreadID.x == 0 && visibleCount > 0)

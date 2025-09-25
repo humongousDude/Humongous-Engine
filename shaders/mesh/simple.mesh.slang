@@ -85,6 +85,7 @@ void main(
     }
 
 
+    GroupMemoryBarrierWithGroupSync();
     if (tid == 0)
     {
         SetMeshOutputCounts(vcount, pcount);

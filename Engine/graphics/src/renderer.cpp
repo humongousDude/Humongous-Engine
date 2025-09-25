@@ -36,18 +36,18 @@ Renderer::~Renderer()
         m_logicalDevice.GetVkDevice().destroySemaphore(frame.imageAvailableSemaphore, nullptr);
         m_logicalDevice.GetVkDevice().destroyFence(frame.inFlightFence, nullptr);
 
-        // frame.gbuffer.albedo.Destroy(m_logicalDevice);
-        // frame.gbuffer.normalRough.Destroy(m_logicalDevice);
-        // frame.gbuffer.materialParam.Destroy(m_logicalDevice);
-        // frame.gbuffer.depth.Destroy(m_logicalDevice);
+        frame.gbuffer.albedo.reset();
+        frame.gbuffer.normalRough.reset();
+        frame.gbuffer.materialParam.reset();
+        frame.gbuffer.depth.reset();
 
         frame.visiblityResultBuffer.reset();
         frame.debugBuffer.reset();
         frame.objectDataBuffer.reset();
         frame.rendererDataBuffer.reset();
 
-        // frame.drawImage.Destroy(m_logicalDevice);
-        // frame.hiZImage.Destroy(m_logicalDevice);
+        frame.drawImage.reset();
+        frame.hiZImage.reset();
         for(auto& mip: frame.hiZMips)
         {
             m_logicalDevice.DestroyImageView(mip.sampledView);
@@ -93,13 +93,14 @@ void Renderer::RecreateSwapChain()
     }
     // recreate the image views
 
-    HGINFO("Recreated swap chain");
     m_logicalDevice.GetVkDevice().waitIdle();
 
     m_screenImageExtent = m_swapChain->GetExtent();
 
     CreateDrawImage();
     CreateGBuffer();
+
+    HGINFO("Recreated swap chain");
 }
 
 void Renderer::CreateDrawImage()
@@ -313,6 +314,7 @@ void Renderer::CreateLightingPipeline()
     if(m_logicalDevice.CreatePipelineLayout(pipelineLayoutInfo, &m_lightingPipelineLayout) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create lighting layout");
+        return;
     }
 
     HGINFO("Created lighting layout");
@@ -338,6 +340,7 @@ void Renderer::CreateCommandPool()
     if(m_logicalDevice.GetVkDevice().createCommandPool(&poolInfo, nullptr, &m_commandPool) != vk::Result::eSuccess)
     {
         HGERROR("Failed to create command pool");
+        return;
     }
 
     HGINFO("Created command pool");
@@ -376,11 +379,27 @@ void Renderer::CreateSyncStructures()
 
     vk::SemaphoreCreateInfo semaphoreCreateInfo{};
 
-    for(int i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); i++)
+    for(u32 i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); i++)
     {
+        // wait just in case
+        if(m_frames[i].inFlightFence != VK_NULL_HANDLE &&
+           m_logicalDevice.GetVkDevice().waitForFences(1, &m_frames[i].inFlightFence, VK_TRUE, std::numeric_limits<u64>::max()) !=
+               vk::Result::eSuccess)
+        {
+            HGERROR("Failed to wait for fence for frame %i", i);
+            continue;
+        }
+
+        if(m_frames[i].inFlightFence != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroyFence(m_frames[i].inFlightFence, nullptr); }
+
         if(m_logicalDevice.GetVkDevice().createFence(&fenceCreateInfo, nullptr, &m_frames[i].inFlightFence) != vk::Result::eSuccess)
         {
             HGERROR("Failed to create fence");
+        }
+
+        if(m_frames[i].imageAvailableSemaphore != VK_NULL_HANDLE)
+        {
+            m_logicalDevice.GetVkDevice().destroySemaphore(m_frames[i].imageAvailableSemaphore, nullptr);
         }
 
         if(m_logicalDevice.GetVkDevice().createSemaphore(&semaphoreCreateInfo, nullptr, &m_frames[i].imageAvailableSemaphore) !=
@@ -578,7 +597,11 @@ void Renderer::PostGeometryPassTransitions(vk::CommandBuffer cmd)
 vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& visibleEntities)
 {
     vk::Result result = m_logicalDevice.GetVkDevice().waitForFences(1, &GetCurrentFrame().inFlightFence, vk::True, std::numeric_limits<u64>::max());
-    if(result != vk::Result::eSuccess) { HGERROR("Failed to wait for fences: %s", vk::to_string(result).c_str()); }
+    if(result != vk::Result::eSuccess)
+    {
+        HGERROR("Failed to wait for fences: %s", vk::to_string(result).c_str());
+        return VK_NULL_HANDLE;
+    }
 
     result = m_logicalDevice.GetVkDevice().resetFences(1, &GetCurrentFrame().inFlightFence);
     if(result != vk::Result::eSuccess)

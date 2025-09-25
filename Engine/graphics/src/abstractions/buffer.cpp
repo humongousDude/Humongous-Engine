@@ -226,6 +226,18 @@ void Buffer::WriteToBuffer(void* data, vk::DeviceSize size, vk::DeviceSize offse
 
     if(size == vk::WholeSize) { size = m_bufferSize; }
 
+    if(size <= 0)
+    {
+        HGERROR("Cannot write <= 0 bytes to buffer");
+        return;
+    }
+
+    if(offset < 0)
+    {
+        HGERROR("Cannot write to buffer with negative offset");
+        return;
+    }
+
     if(offset > m_bufferSize || offset + size > m_bufferSize)
     {
         HGERROR("Write exceeds \"%s\"'s bounds (Buffer: %i bytes, Offset: %i bytes, Size: %i bytes)", m_name.c_str(), m_bufferSize, offset, size);

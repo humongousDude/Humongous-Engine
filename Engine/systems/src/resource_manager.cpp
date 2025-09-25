@@ -541,7 +541,7 @@ void ResourceManager::AddVerticesToModel(const std::vector<Model::Vertex>& model
     {
         mesh->baseVertex = static_cast<u32>(baseVertex);
 
-        for(Primitive* prim: mesh->primitives) { prim->globalVertexOffset = static_cast<u32>(baseVertex + prim->localVertexOffset); }
+        for(auto& prim: mesh->primitives) { prim->globalVertexOffset = static_cast<u32>(baseVertex + prim->localVertexOffset); }
     }
 
     m_modelVertices.insert(m_modelVertices.end(), modelVertices.begin(), modelVertices.end());

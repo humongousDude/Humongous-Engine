@@ -43,7 +43,7 @@ struct Primitive
     u32                                       globalWeightOffset{0};
 
     Material* material = nullptr;
-    bool      hasIndices = false;
+    b8        hasIndices = false;
 
     u32 meshletCount{0};
     u32 localMeshletOffset{0};
@@ -60,13 +60,13 @@ struct Primitive
 
 struct Mesh
 {
-    Mesh(Eigen::Matrix4f matrix);
+    Mesh();
     ~Mesh();
 
-    u32                     baseVertex = 0;
-    u32                     baseIndex = 0;
-    std::vector<Primitive*> primitives;
-    std::vector<f32>        weights;
+    u32                                     baseVertex = 0;
+    u32                                     baseIndex = 0;
+    std::vector<std::unique_ptr<Primitive>> primitives;
+    std::vector<f32>                        weights;
 };
 
 // "local" variables are relative to the entire model's buffers
@@ -196,7 +196,7 @@ public:
         Eigen::Vector4f targetPos0 = Eigen::Vector4f::Zero();
         Eigen::Vector4f targetPos1 = Eigen::Vector4f::Zero();
 
-        bool operator==(const Vertex& other) const
+        b8 operator==(const Vertex& other) const
         {
             return position == other.position && normal == other.normal && uv0 == other.uv0 && uv1 == other.uv1 && color == other.color;
         }
@@ -307,7 +307,7 @@ private:
         u32                        vertexPos = 0;
     };
 
-    bool m_initialized{false};
+    b8   m_initialized{false};
     void LoadFromFile(std::string filepath, f32 scale = 1.0f);
     void Destroy();
 
