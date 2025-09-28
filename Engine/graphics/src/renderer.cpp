@@ -604,31 +604,14 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
     }
 
     result = m_logicalDevice.GetVkDevice().resetFences(1, &GetCurrentFrame().inFlightFence);
-    if(result != vk::Result::eSuccess)
-    {
-        HGERROR("Failed to reset fences: %s", vk::to_string(result).c_str());
-        return VK_NULL_HANDLE;
-    }
+    if(result != vk::Result::eSuccess) { HGERROR("Failed to reset fences: %s", vk::to_string(result).c_str()); }
 
     result = m_swapChain->AcquireNextImage(GetCurrentFrame().imageAvailableSemaphore, m_currentImageIndex);
-    if(result != vk::Result::eSuccess)
-    {
-        HGERROR("Failed to acquire swapchain image: %s", vk::to_string(result).c_str());
-        return VK_NULL_HANDLE;
-    }
+    if(result == vk::Result::eErrorOutOfDateKHR) { RecreateSwapChain(); }
 
-    if(result == vk::Result::eErrorOutOfDateKHR)
-    {
-        RecreateSwapChain();
-        return VK_NULL_HANDLE;
-    }
+    if(result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) { HGERROR("failed to acquire swap chain image!"); }
 
-    if(result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
-    {
-        HGERROR("failed to acquire swap chain image!");
-        return VK_NULL_HANDLE;
-    }
-
+    HGINFO("Beginning frame...");
     m_logicalDevice.GetWorkScheduler().BeginFrame();
 
     ReadyPerFrameData(visibleEntities);
@@ -701,12 +684,6 @@ void Renderer::EndFrame()
                                              m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex));
 
     auto result = m_swapChain->Present(m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex), m_currentImageIndex);
-    if(result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || m_window.WasWindowResized())
-    {
-        m_window.ResetWindowResizedFlag();
-        RecreateSwapChain();
-    }
-
     m_currentFrameIndex = (m_currentFrameIndex + 1) % static_cast<u32>(Globals::Limits::MaxFramesInFlight);
 }
 
