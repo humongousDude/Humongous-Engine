@@ -39,7 +39,10 @@ void Camera::InitDescriptorThings(const ILogicalDevice& logicalDevice)
     {
         targetVertexStage = vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT;
     }
-    else { targetVertexStage = vk::ShaderStageFlagBits::eVertex; }
+    else
+    {
+        targetVertexStage = vk::ShaderStageFlagBits::eVertex;
+    }
 
     DescriptorSetLayout::Builder builder2{logicalDevice};
     builder2.AddBinding(0, vk::DescriptorType::eUniformBuffer, targetVertexStage);
@@ -136,7 +139,7 @@ void Camera::UpdateUBO(u32 index)
     m_projectionBuffers[index]->WriteToBuffer(&ubo);
 
     m_uboParams.camPos = m_position;
-    m_uboParams.prefilteredCubeMipLevels = static_cast<f32>(9); // Get actual mip count
+    m_uboParams.prefilteredCubeMipLevels = static_cast<f32>(9); // TODO: Get actual mip count
     m_paramBuffers[index]->WriteToBuffer(&m_uboParams);
 }
 

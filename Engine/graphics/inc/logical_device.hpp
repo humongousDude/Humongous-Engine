@@ -1,10 +1,10 @@
 #pragma once
 #include "allocator.hpp"
 #include "defines.hpp"
-#include "frame_scheduler.hpp"
 #include "instance.hpp"
 #include "non_copyable.hpp"
 #include "physical_device.hpp"
+#include "work_scheduler.hpp"
 #include <memory>
 
 namespace Humongous
@@ -24,7 +24,7 @@ public:
 
     virtual IAllocator& GetAllocator() const = 0;
 
-    virtual vk::CommandBuffer BeginSingleTimeCommands() const = 0;
+    virtual vk::CommandBuffer BeginSingleTimeCommands(const u32& queueIndex = 0) const = 0;
     virtual void              EndSingleTimeCommands(vk::CommandBuffer cmd) const = 0;
 
     virtual vk::DescriptorPool CreateDescriptorPool(const vk::DescriptorPoolCreateInfo& info) const = 0;
@@ -101,7 +101,7 @@ public:
 
     IAllocator& GetAllocator() const override { return *m_allocator; }
 
-    vk::CommandBuffer BeginSingleTimeCommands() const override;
+    vk::CommandBuffer BeginSingleTimeCommands(const u32& queueIndex = 0) const override;
     void              EndSingleTimeCommands(vk::CommandBuffer cmd) const override;
 
     vk::DescriptorPool CreateDescriptorPool(const vk::DescriptorPoolCreateInfo& info) const override;

@@ -182,6 +182,7 @@ void TraditionalRenderSystem::Render(RenderData& renderData)
     // uploading data
     // indirect buffer
 
+    std::vector<std::unique_ptr<Buffer>> stagingBuffers;
     {
         Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
         createInfo.size = indirectCommandsSize;
@@ -191,7 +192,7 @@ void TraditionalRenderSystem::Render(RenderData& renderData)
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 1;
         createInfo.name = "indirect staging buffer";
-        Buffer stagingBuffer{createInfo};
+        std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(createInfo);
 
         createInfo.memoryUsage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
         createInfo.name = "draw indirect commmand buffer";
@@ -199,11 +200,12 @@ void TraditionalRenderSystem::Render(RenderData& renderData)
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eTransferDst;
         indirectBufferToUse = std::make_unique<Buffer>(createInfo);
 
-        stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer((void*)opaqueCommands.data(), opaqueCommands.size() * sizeof(vk::DrawIndexedIndirectCommand));
-        stagingBuffer.UnMap();
+        stagingBuffer->Map();
+        stagingBuffer->WriteToBuffer((void*)opaqueCommands.data(), opaqueCommands.size() * sizeof(vk::DrawIndexedIndirectCommand));
+        stagingBuffer->UnMap();
 
-        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *indirectBufferToUse, indirectCommandsSize);
+        Buffer::CopyBuffer(m_logicalDevice, renderData.commandBuffer, *stagingBuffer, *indirectBufferToUse, indirectCommandsSize);
+        stagingBuffers.push_back(std::move(stagingBuffer));
     }
     // draw data buffer
 
@@ -216,7 +218,7 @@ void TraditionalRenderSystem::Render(RenderData& renderData)
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 1;
         createInfo.name = "draw data staging buffer";
-        Buffer stagingBuffer{createInfo};
+        std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(createInfo);
 
         createInfo.memoryUsage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
         createInfo.name = "draw data buffer";
@@ -224,11 +226,14 @@ void TraditionalRenderSystem::Render(RenderData& renderData)
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
         drawDataBufferToUse = std::make_unique<Buffer>(createInfo);
 
-        stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer((void*)opaqueDrawData.data(), opaqueDrawData.size() * sizeof(DrawData));
-        stagingBuffer.UnMap();
+        stagingBuffer->Map();
+        stagingBuffer->WriteToBuffer((void*)opaqueDrawData.data(), opaqueDrawData.size() * sizeof(DrawData));
+        stagingBuffer->UnMap();
 
-        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *drawDataBufferToUse, opaqueDrawData.size() * sizeof(DrawData));
+        Buffer::CopyBuffer(m_logicalDevice, renderData.commandBuffer, *stagingBuffer, *drawDataBufferToUse,
+                           opaqueDrawData.size() * sizeof(DrawData));
+
+        stagingBuffers.push_back(std::move(stagingBuffer));
     }
     // instance data buffer
 
@@ -241,7 +246,7 @@ void TraditionalRenderSystem::Render(RenderData& renderData)
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 1;
         createInfo.name = "instance data staging buffer";
-        Buffer stagingBuffer{createInfo};
+        std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(createInfo);
 
         createInfo.memoryUsage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
         createInfo.name = "instance data buffer";
@@ -249,11 +254,13 @@ void TraditionalRenderSystem::Render(RenderData& renderData)
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
         instanceBufferToUse = std::make_unique<Buffer>(createInfo);
 
-        stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer((void*)instanceData.data(), instanceData.size() * sizeof(InstanceData));
-        stagingBuffer.UnMap();
+        stagingBuffer->Map();
+        stagingBuffer->WriteToBuffer((void*)instanceData.data(), instanceData.size() * sizeof(InstanceData));
+        stagingBuffer->UnMap();
 
-        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *instanceBufferToUse, instanceDataSize);
+        Buffer::CopyBuffer(m_logicalDevice, renderData.commandBuffer, *stagingBuffer, *instanceBufferToUse, instanceDataSize);
+
+        stagingBuffers.push_back(std::move(stagingBuffer));
     }
 
     m_pipeline->Bind(renderData.commandBuffer);
@@ -266,7 +273,10 @@ void TraditionalRenderSystem::Render(RenderData& renderData)
     debugWriter.WriteBuffer(0, &debugBufferInfo);
 
     if(debugSet == VK_NULL_HANDLE) { debugWriter.Build(debugSet); }
-    else { debugWriter.Overwrite(debugSet); }
+    else
+    {
+        debugWriter.Overwrite(debugSet);
+    }
 
     poolToUse->ResetPool();
 
@@ -309,6 +319,7 @@ void TraditionalRenderSystem::Render(RenderData& renderData)
     //
     // renderData.commandBuffer.drawIndexedIndirect(indirectBufferToUse->GetBuffer(), 0, opaqueCommands.size(),
     //                                              sizeof(vk::DrawIndexedIndirectCommand));
+    m_logicalDevice.GetWorkScheduler().AddStagingBuffers(stagingBuffers);
 }
 
 MeshRenderSystem::MeshRenderSystem(const ILogicalDevice& logicalDevice, ResourceManager& resourceManager, const IAssetManager& assetManager,
@@ -469,21 +480,23 @@ void MeshRenderSystem::ReadyBuffers(RenderData& renderData)
                  vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eTransferSrc,
                  "mesh shader counter buffer");
 
-    auto uploadToDeviceBuffer = [&](Buffer& deviceBuf, void* src, vk::DeviceSize size, const char* tmpName) {
+    std::vector<std::unique_ptr<Buffer>> stagingBuffers;
+    auto                                 uploadToDeviceBuffer = [&](Buffer& deviceBuf, void* src, vk::DeviceSize size, const char* tmpName) {
         Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
-        createInfo.size = size;
+        createInfo.size = size * 100;
         createInfo.instanceCount = 1;
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
         createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 1;
         createInfo.name = tmpName;
-        Buffer staging{createInfo};
+        std::unique_ptr<Buffer> staging = std::make_unique<Buffer>(createInfo);
 
-        staging.Map();
-        staging.WriteToBuffer(src, size);
-        staging.UnMap();
-        Buffer::CopyBuffer(m_logicalDevice, staging, deviceBuf, size);
+        staging->Map();
+        staging->WriteToBuffer(src, size);
+        staging->UnMap();
+        Buffer::CopyBuffer(m_logicalDevice, renderData.commandBuffer, *staging, deviceBuf, size);
+        stagingBuffers.push_back(std::move(staging));
     };
 
     if(drawDataSize > 0) { uploadToDeviceBuffer(*drawDataBuffer, drawDataVec.data(), drawDataSize, "drawdata-staging"); }
@@ -498,6 +511,8 @@ void MeshRenderSystem::ReadyBuffers(RenderData& renderData)
     renderData.commandBuffer.fillBuffer(meshShaderCounterBuffer->GetBuffer(), 0, meshShaderCounterBuffer->GetBufferSize(), 0);
 
     m_drawCount[renderData.frameIndex] = static_cast<u32>(drawCalls.size());
+
+    m_logicalDevice.GetWorkScheduler().AddStagingBuffers(stagingBuffers);
 }
 
 void MeshRenderSystem::ReadyDescriptors(RenderData& renderData)

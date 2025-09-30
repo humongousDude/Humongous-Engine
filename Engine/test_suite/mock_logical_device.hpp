@@ -56,7 +56,7 @@ public:
 
         ON_CALL(*this, GetAllocator()).WillByDefault(::testing::ReturnRef(m_allocator));
 
-        ON_CALL(*this, BeginSingleTimeCommands())
+        ON_CALL(*this, BeginSingleTimeCommands(::testing::_))
             .WillByDefault(::testing::Return(vk::CommandBuffer(reinterpret_cast<VkCommandBuffer>(0xAABBCCDD))));
 
         ON_CALL(*this, EndSingleTimeCommands(::testing::_)).WillByDefault(::testing::Return());
@@ -89,7 +89,7 @@ public:
     MOCK_METHOD(u32, GetGraphicsQueueIndex, (), (const, override));
     MOCK_METHOD(u32, GetPresentQueueIndex, (), (const, override));
     MOCK_METHOD(IAllocator&, GetAllocator, (), (const, override));
-    MOCK_METHOD(vk::CommandBuffer, BeginSingleTimeCommands, (), (const, override));
+    MOCK_METHOD(vk::CommandBuffer, BeginSingleTimeCommands, (const u32& queueIndex), (const, override));
     MOCK_METHOD(void, EndSingleTimeCommands, (vk::CommandBuffer cmd), (const, override));
     MOCK_METHOD(vk::DescriptorPool, CreateDescriptorPool, (const vk::DescriptorPoolCreateInfo& info), (const, override));
     MOCK_METHOD(void, DestroyDescriptorPool, (vk::DescriptorPool pool), (const, override));

@@ -59,7 +59,7 @@ public:
         return m_deviceAddress;
     }
 
-    static void CopyBuffer(const ILogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size);
+    static void CopyBuffer(const ILogicalDevice& device, vk::CommandBuffer cmd, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size);
 
     b8 IsMapped() const { return m_isMapped; }
     b8 IsValid() const { return m_isValid; }

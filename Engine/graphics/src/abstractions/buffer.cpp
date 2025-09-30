@@ -406,7 +406,7 @@ vk::DescriptorBufferInfo Buffer::DescriptorInfoForIndex(int index) { return Desc
  */
 vk::Result Buffer::InvalidateIndex(int index) { return Invalidate(m_alignmentSize, index * m_alignmentSize); }
 
-void Buffer::CopyBuffer(const ILogicalDevice& device, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size)
+void Buffer::CopyBuffer(const ILogicalDevice& device, vk::CommandBuffer cmd, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size)
 {
     if(!srcBuffer.IsValid() || !dstBuffer.IsValid())
     {
@@ -414,12 +414,6 @@ void Buffer::CopyBuffer(const ILogicalDevice& device, Buffer& srcBuffer, Buffer&
         return;
     }
 
-    vk::CommandBuffer commandBuffer = device.BeginSingleTimeCommands();
-    if(commandBuffer == VK_NULL_HANDLE)
-    {
-        HGERROR("Device failed to provide one-time submite command buffer");
-        return;
-    }
     if(size > dstBuffer.GetBufferSize())
     {
         HGERROR("Copy size is larger than destination buffer, need %i more bytes", size - dstBuffer.GetBufferSize());
@@ -441,9 +435,7 @@ void Buffer::CopyBuffer(const ILogicalDevice& device, Buffer& srcBuffer, Buffer&
     copyBufferInfo.pRegions = &copyRegion;
     copyBufferInfo.pNext = nullptr;
 
-    device.RecordCopyBuffer(commandBuffer, copyBufferInfo);
-
-    device.EndSingleTimeCommands(commandBuffer);
+    device.RecordCopyBuffer(cmd, copyBufferInfo);
 
     srcBuffer.UpdateAddress(srcBuffer.GetUsageFlags());
     dstBuffer.UpdateAddress(dstBuffer.GetUsageFlags());

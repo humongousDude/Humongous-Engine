@@ -49,7 +49,7 @@ set(ENGINE_SOURCES
     graphics/src/texture.cpp
     graphics/src/vulkan_app.cpp
     graphics/src/window.cpp
-    graphics/src/frame_scheduler.cpp
+    graphics/src/work_scheduler.cpp
 
     # --- Audio ---
     audio/src/audio_engine.cpp
@@ -123,7 +123,7 @@ set(ENGINE_HEADERS
     graphics/inc/texture.hpp
     graphics/inc/vulkan_app.hpp
     graphics/inc/window.hpp
-    graphics/inc/frame_scheduler.hpp
+    graphics/inc/work_scheduler.hpp
 
     # --- Audio ---
     audio/inc/audio_engine.hpp

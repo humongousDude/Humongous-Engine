@@ -307,7 +307,10 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
     m_meshletVertices.insert(m_meshletVertices.end(), meshletVertices.begin(), meshletVertices.end());
     m_meshletPrimitives.insert(m_meshletPrimitives.end(), meshletPrimitives.begin(), meshletPrimitives.end());
 
+    auto cmd = m_logicalDevice.BeginSingleTimeCommands();
+
     // Meshlets
+    std::vector<std::unique_ptr<Buffer>> stagingBuffers;
     {
         if(!m_meshletBuffer || m_meshletBuffer->GetBufferSize() < m_meshlets.size() * sizeof(Meshlet))
         {
@@ -341,13 +344,14 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 16;
         createInfo.name = "meshlet staging buffer";
-        Buffer stagingBuffer{createInfo};
+        std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(createInfo);
 
-        stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer(m_meshlets.data(), m_meshlets.size() * sizeof(Meshlet));
-        stagingBuffer.UnMap();
+        stagingBuffer->Map();
+        stagingBuffer->WriteToBuffer(m_meshlets.data(), m_meshlets.size() * sizeof(Meshlet));
+        stagingBuffer->UnMap();
 
-        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_meshletBuffer, m_meshlets.size() * sizeof(Meshlet));
+        Buffer::CopyBuffer(m_logicalDevice, cmd, *stagingBuffer, *m_meshletBuffer, m_meshlets.size() * sizeof(Meshlet));
+        stagingBuffers.push_back(std::move(stagingBuffer));
     }
 
     // Meshlet vertices
@@ -384,13 +388,14 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 16;
         createInfo.name = "meshlet vertex staging buffer";
-        Buffer stagingBuffer{createInfo};
+        std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(createInfo);
 
-        stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer(m_meshletVertices.data(), m_meshletVertices.size() * sizeof(u32));
-        stagingBuffer.UnMap();
+        stagingBuffer->Map();
+        stagingBuffer->WriteToBuffer(m_meshletVertices.data(), m_meshletVertices.size() * sizeof(u32));
+        stagingBuffer->UnMap();
 
-        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_meshletVertexBuffer, m_meshletVertices.size() * sizeof(u32));
+        Buffer::CopyBuffer(m_logicalDevice, cmd, *stagingBuffer, *m_meshletVertexBuffer, m_meshletVertices.size() * sizeof(u32));
+        stagingBuffers.push_back(std::move(stagingBuffer));
     }
 
     // Meshlet primitives
@@ -427,14 +432,19 @@ void ResourceManager::AddMeshletsToModel(std::vector<Primitive*>& primitives, st
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 16;
         createInfo.name = "meshlet primitive staging buffer";
-        Buffer stagingBuffer{createInfo};
+        std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(createInfo);
 
-        stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer(m_meshletPrimitives.data(), m_meshletPrimitives.size() * sizeof(u8));
-        stagingBuffer.UnMap();
+        stagingBuffer->Map();
+        stagingBuffer->WriteToBuffer(m_meshletPrimitives.data(), m_meshletPrimitives.size() * sizeof(u8));
+        stagingBuffer->UnMap();
 
-        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_meshletPrimitiveBuffer, m_meshletPrimitives.size() * sizeof(u8));
+        Buffer::CopyBuffer(m_logicalDevice, cmd, *stagingBuffer, *m_meshletPrimitiveBuffer, m_meshletPrimitives.size() * sizeof(u8));
+        stagingBuffers.push_back(std::move(stagingBuffer));
     }
+
+    cmd.end();
+    m_logicalDevice.GetWorkScheduler().AddWork(cmd, m_logicalDevice.GetGraphicsQueue());
+    m_logicalDevice.GetWorkScheduler().AddStagingBuffers(stagingBuffers);
 }
 
 std::shared_ptr<ModelInstance> ResourceManager::RequestModel(const std::string& name)
@@ -522,13 +532,20 @@ void ResourceManager::AddIndicesToModel(const std::vector<u32>& modelIndices, st
     createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     createInfo.minOffsetAlignment = 16;
     createInfo.name = "global index staging buffer";
-    Buffer stagingBuffer{createInfo};
+    std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(createInfo);
 
-    stagingBuffer.Map();
-    stagingBuffer.WriteToBuffer(m_modelIndicies.data(), requiredBufferSize);
-    stagingBuffer.UnMap();
+    stagingBuffer->Map();
+    stagingBuffer->WriteToBuffer(m_modelIndicies.data(), requiredBufferSize);
+    stagingBuffer->UnMap();
 
-    Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_modelIndexBuffer, requiredBufferSize);
+    auto cmd = m_logicalDevice.BeginSingleTimeCommands();
+    Buffer::CopyBuffer(m_logicalDevice, cmd, *stagingBuffer, *m_modelIndexBuffer, requiredBufferSize);
+    cmd.end();
+    m_logicalDevice.GetWorkScheduler().AddWork(cmd, m_logicalDevice.GetGraphicsQueue());
+
+    std::vector<std::unique_ptr<Buffer>> stagingBuffers;
+    stagingBuffers.push_back(std::move(stagingBuffer));
+    m_logicalDevice.GetWorkScheduler().AddStagingBuffers(stagingBuffers);
 
     HGINFO("Indices added to model");
 }
@@ -584,13 +601,19 @@ void ResourceManager::AddVerticesToModel(const std::vector<Model::Vertex>& model
     createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     createInfo.minOffsetAlignment = 16;
     createInfo.name = "global vertex staging buffer";
-    Buffer stagingBuffer{createInfo};
+    std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(createInfo);
 
-    stagingBuffer.Map();
-    stagingBuffer.WriteToBuffer(m_modelVertices.data(), requiredBufferSize);
-    stagingBuffer.UnMap();
+    stagingBuffer->Map();
+    stagingBuffer->WriteToBuffer(m_modelVertices.data(), requiredBufferSize);
+    stagingBuffer->UnMap();
 
-    Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_modelVertexBuffer, requiredBufferSize);
+    auto cmd = m_logicalDevice.BeginSingleTimeCommands();
+    Buffer::CopyBuffer(m_logicalDevice, cmd, *stagingBuffer, *m_modelVertexBuffer, requiredBufferSize);
+    cmd.end();
+    m_logicalDevice.GetWorkScheduler().AddWork(cmd, m_logicalDevice.GetGraphicsQueue());
+    std::vector<std::unique_ptr<Buffer>> stagingBuffers;
+    stagingBuffers.push_back(std::move(stagingBuffer));
+    m_logicalDevice.GetWorkScheduler().AddStagingBuffers(stagingBuffers);
 }
 
 void ResourceManager::UpdateNodeMatrices(const std::vector<Eigen::Matrix4f>& nodeMatrices, const u32& handle)
@@ -636,6 +659,8 @@ void ResourceManager::UpdateMorphTargets(const std::vector<f32>& morphTargets, c
 
 void ResourceManager::FinalizeGPUData()
 {
+    auto                                 cmd = m_logicalDevice.BeginSingleTimeCommands();
+    std::vector<std::unique_ptr<Buffer>> stagingBuffers;
     if(!m_modelJointMatricies.empty())
     {
         const vk::DeviceSize requiredBufferSize = m_modelJointMatricies.size() * sizeof(Eigen::Matrix4f);
@@ -674,13 +699,14 @@ void ResourceManager::FinalizeGPUData()
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 16;
         createInfo.name = "global jointMatricies staging buffer";
-        Buffer stagingBuffer{createInfo};
+        std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(createInfo);
 
-        stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer(m_modelJointMatricies.data(), requiredBufferSize);
-        stagingBuffer.UnMap();
+        stagingBuffer->Map();
+        stagingBuffer->WriteToBuffer(m_modelJointMatricies.data(), requiredBufferSize);
+        stagingBuffer->UnMap();
 
-        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_modelJointMatriciesBuffer, requiredBufferSize);
+        Buffer::CopyBuffer(m_logicalDevice, cmd, *stagingBuffer, *m_modelJointMatriciesBuffer, requiredBufferSize);
+        stagingBuffers.push_back(std::move(stagingBuffer));
     }
 
     if(!m_modelMorphTargets.empty())
@@ -721,13 +747,14 @@ void ResourceManager::FinalizeGPUData()
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 16;
         createInfo.name = "global morphTargets staging buffer";
-        Buffer stagingBuffer{createInfo};
+        std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(createInfo);
 
-        stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer(m_modelMorphTargets.data(), requiredBufferSize);
-        stagingBuffer.UnMap();
+        stagingBuffer->Map();
+        stagingBuffer->WriteToBuffer(m_modelMorphTargets.data(), requiredBufferSize);
+        stagingBuffer->UnMap();
 
-        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_modelMorphTargetsBuffer, requiredBufferSize);
+        Buffer::CopyBuffer(m_logicalDevice, cmd, *stagingBuffer, *m_modelMorphTargetsBuffer, requiredBufferSize);
+        stagingBuffers.push_back(std::move(stagingBuffer));
     }
 
     if(!m_modelNodeMatricesFlat.empty())
@@ -767,14 +794,19 @@ void ResourceManager::FinalizeGPUData()
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 16;
         createInfo.name = "global nodeMatrices staging buffer";
-        Buffer stagingBuffer{createInfo};
+        std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(createInfo);
 
-        stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer(m_modelNodeMatricesFlat.data(), requiredBufferSize);
-        stagingBuffer.UnMap();
+        stagingBuffer->Map();
+        stagingBuffer->WriteToBuffer(m_modelNodeMatricesFlat.data(), requiredBufferSize);
+        stagingBuffer->UnMap();
 
-        Buffer::CopyBuffer(m_logicalDevice, stagingBuffer, *m_modelNodeMatriciesBuffer, requiredBufferSize);
+        Buffer::CopyBuffer(m_logicalDevice, cmd, *stagingBuffer, *m_modelNodeMatriciesBuffer, requiredBufferSize);
+        stagingBuffers.push_back(std::move(stagingBuffer));
     }
+    cmd.end();
+    m_logicalDevice.GetWorkScheduler().AddWork(cmd, m_logicalDevice.GetGraphicsQueue());
+
+    m_logicalDevice.GetWorkScheduler().AddStagingBuffers(stagingBuffers);
 }
 
 std::shared_ptr<Model> ResourceManager::GetModel(const u32& index)

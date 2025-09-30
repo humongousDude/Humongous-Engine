@@ -158,11 +158,11 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     bufCreateInfo.minOffsetAlignment = 1;
     bufCreateInfo.name = "staging buffer";
 
-    Buffer stagingBuffer{bufCreateInfo};
+    std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(bufCreateInfo);
 
-    stagingBuffer.Map();
+    stagingBuffer->Map();
 
-    stagingBuffer.WriteToBuffer(buffer, bufferSize);
+    stagingBuffer->WriteToBuffer(buffer, bufferSize);
 
     Image::ImageCreateInfo createInfo{};
     createInfo.width = m_width;
@@ -191,11 +191,13 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     region.imageSubresource.layerCount = 1;
     region.imageExtent = VkExtent3D(m_width, m_height, 1);
 
-    stagingBuffer.CopyToImage(cmd, *m_textureImage, {region});
+    stagingBuffer->CopyToImage(cmd, *m_textureImage, {region});
 
     m_textureImage->TransitionLayout(cmd, vk::ImageLayout::eTransferSrcOptimal);
 
-    m_logicalDevice.EndSingleTimeCommands(cmd);
+    cmd.end();
+
+    auto dep = m_logicalDevice.GetWorkScheduler().AddWork(cmd, m_logicalDevice.GetGraphicsQueue());
 
     vk::CommandBuffer blitCmd = m_logicalDevice.BeginSingleTimeCommands();
 
@@ -251,7 +253,12 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     m_textureImage->TransitionLayout(blitCmd, vk::ImageLayout::eShaderReadOnlyOptimal, subresourceRange.baseMipLevel, subresourceRange.levelCount,
                                      subresourceRange.baseArrayLayer, subresourceRange.layerCount);
 
-    m_logicalDevice.EndSingleTimeCommands(blitCmd);
+    blitCmd.end();
+    m_logicalDevice.GetWorkScheduler().AddWork(blitCmd, m_logicalDevice.GetGraphicsQueue(), {dep});
+
+    std::vector<std::unique_ptr<Buffer>> stagingBuffers;
+    stagingBuffers.push_back(std::move(stagingBuffer));
+    m_logicalDevice.GetWorkScheduler().AddStagingBuffers(stagingBuffers);
 
     TexSamplerInfo samplerInfo{};
     samplerInfo.minFilter = textureSampler.minFilter;
@@ -294,9 +301,9 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         bufCreateInfo.minOffsetAlignment = 1;
         bufCreateInfo.name = "staging buffer";
 
-        Buffer stagingBuffer{bufCreateInfo};
-        stagingBuffer.Map();
-        stagingBuffer.WriteToBuffer(pixels, static_cast<size_t>(imageSize));
+        std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(bufCreateInfo);
+        stagingBuffer->Map();
+        stagingBuffer->WriteToBuffer(pixels, static_cast<size_t>(imageSize));
 
         stbi_image_free(pixels);
 
@@ -374,7 +381,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         region.imageSubresource.baseArrayLayer = 0;
         region.imageSubresource.layerCount = 1;
         region.imageExtent = vk::Extent3D{m_width, m_height, 1};
-        stagingBuffer.CopyToImage(cmd, *m_textureImage, {region});
+        stagingBuffer->CopyToImage(cmd, *m_textureImage, {region});
 
         GenerateMipmaps(cmd, m_textureImage->GetImage(), m_width, m_height, m_miplevels,
                         storage ? vk::ImageLayout::eGeneral : vk::ImageLayout::eShaderReadOnlyOptimal);
@@ -416,11 +423,11 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         bufCreateInfo.minOffsetAlignment = 1;
         bufCreateInfo.name = "staging buffer";
 
-        Buffer stagingBuffer{bufCreateInfo};
+        std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(bufCreateInfo);
 
-        stagingBuffer.Map();
+        stagingBuffer->Map();
 
-        stagingBuffer.WriteToBuffer(ktxTexture_GetData(ktxTex), ktxTexture_GetDataSize(ktxTex));
+        stagingBuffer->WriteToBuffer(ktxTexture_GetData(ktxTex), ktxTexture_GetDataSize(ktxTex));
 
         std::vector<vk::BufferImageCopy> regions;
         for(u32 level = 0; level < m_miplevels; ++level)
@@ -467,18 +474,24 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
             return;
         }
 
-        auto cmd = m_logicalDevice.BeginSingleTimeCommands();
+        auto copyCmd = m_logicalDevice.BeginSingleTimeCommands();
 
-        m_textureImage->TransitionLayout(cmd, vk::ImageLayout::eTransferDstOptimal);
+        m_textureImage->TransitionLayout(copyCmd, vk::ImageLayout::eTransferDstOptimal);
 
-        stagingBuffer.CopyToImage(cmd, *m_textureImage, regions);
-        m_logicalDevice.EndSingleTimeCommands(cmd);
+        stagingBuffer->CopyToImage(copyCmd, *m_textureImage, regions);
 
-        vk::CommandBuffer cmd2 = m_logicalDevice.BeginSingleTimeCommands();
+        copyCmd.end();
+        auto dep = m_logicalDevice.GetWorkScheduler().AddWork(copyCmd, m_logicalDevice.GetGraphicsQueue());
 
-        m_textureImage->TransitionLayout(cmd2, storage ? vk::ImageLayout::eGeneral : vk::ImageLayout::eShaderReadOnlyOptimal);
+        vk::CommandBuffer transitionCmd = m_logicalDevice.BeginSingleTimeCommands();
 
-        m_logicalDevice.EndSingleTimeCommands(cmd2);
+        m_textureImage->TransitionLayout(transitionCmd, storage ? vk::ImageLayout::eGeneral : vk::ImageLayout::eShaderReadOnlyOptimal);
+
+        transitionCmd.end();
+        m_logicalDevice.GetWorkScheduler().AddWork(transitionCmd, m_logicalDevice.GetGraphicsQueue(), {dep});
+        std::vector<std::unique_ptr<Buffer>> stagingBuffers;
+        stagingBuffers.push_back(std::move(stagingBuffer));
+        m_logicalDevice.GetWorkScheduler().AddStagingBuffers(stagingBuffers);
 
         samplerInfo.magFilter = vk::Filter::eLinear;
         samplerInfo.minFilter = vk::Filter::eLinear;
@@ -520,7 +533,9 @@ void Texture::FillWithEmpty(const ILogicalDevice& logicalDevice, u32 width, u32 
 
     m_textureImage->TransitionLayout(cmd, storage ? vk::ImageLayout::eGeneral : vk::ImageLayout::eShaderReadOnlyOptimal);
 
-    logicalDevice.EndSingleTimeCommands(cmd);
+    cmd.end();
+
+    logicalDevice.GetWorkScheduler().AddWork(cmd, logicalDevice.GetGraphicsQueue());
 
     TexSamplerInfo samplerInfo{};
     samplerInfo.magFilter = vk::Filter::eLinear;

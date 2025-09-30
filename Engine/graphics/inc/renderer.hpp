@@ -67,6 +67,8 @@ public:
 
         vk::DescriptorSet occlusionSet;
         u32               boundingBoxCount;
+
+        std::vector<WorkScheduler::WorkPacketHandle> workPackets;
     };
 
     Renderer(Window& window, const ILogicalDevice& logicalDevice, const PhysicalDevice& physicalDevice, ResourceManager& resourceManager,

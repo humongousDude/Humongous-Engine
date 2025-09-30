@@ -138,7 +138,9 @@ void Renderer::CreateDrawImage()
         frame.drawImage->TransitionLayout(cmd, vk::ImageLayout::eGeneral);
     }
 
-    m_logicalDevice.EndSingleTimeCommands(cmd);
+    cmd.end();
+    auto dep = m_logicalDevice.GetWorkScheduler().AddWork(cmd, m_logicalDevice.GetGraphicsQueue());
+    GetCurrentFrame().workPackets.push_back(dep);
 
     HGINFO("Created draw image and view");
 }
@@ -275,7 +277,9 @@ void Renderer::CreateGBuffer()
         m_lightingPool->AllocateDescriptor(m_lightingDescriptorLayout->GetDescriptorSetLayout(), m_frames[i].gbuffer.imageSet);
     }
 
-    m_logicalDevice.EndSingleTimeCommands(cmd);
+    cmd.end();
+    auto dep = m_logicalDevice.GetWorkScheduler().AddWork(cmd, m_logicalDevice.GetGraphicsQueue());
+    GetCurrentFrame().workPackets.push_back(dep);
 
     HGINFO("Initialized G-Buffer (resized to %d x %d)", m_screenImageExtent.width, m_screenImageExtent.height);
 }
@@ -612,7 +616,6 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
     if(result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) { HGERROR("failed to acquire swap chain image!"); }
 
     HGINFO("Beginning frame...");
-    m_logicalDevice.GetWorkScheduler().BeginFrame();
 
     ReadyPerFrameData(visibleEntities);
 
@@ -649,6 +652,8 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
 
     cmd.setScissor(0, 1, &scissor);
 
+    m_logicalDevice.GetWorkScheduler().CollectGarbage();
+
     return cmd;
 }
 
@@ -678,7 +683,7 @@ void Renderer::EndFrame()
     Utils::TransitionImageLayout(presentTransitionInfo);
 
     cmd.end();
-    m_logicalDevice.GetWorkScheduler().AddWork(cmd, m_logicalDevice.GetGraphicsQueue());
+    m_logicalDevice.GetWorkScheduler().AddWork(cmd, m_logicalDevice.GetGraphicsQueue(), GetCurrentFrame().workPackets);
 
     m_logicalDevice.GetWorkScheduler().Flush(GetCurrentFrame().inFlightFence, GetCurrentFrame().imageAvailableSemaphore,
                                              m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex));
