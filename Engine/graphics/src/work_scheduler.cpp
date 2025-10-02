@@ -150,6 +150,48 @@ void WorkScheduler::Flush(vk::Fence fence, vk::Semaphore imageAvailableSemaphore
         }
     }
 
+    auto submitGenericPackets = [&](const std::vector<WorkPacket>& packets, const char* queueName) {
+        for(const auto& work: packets)
+        {
+            vk::SubmitInfo2 submit{};
+
+            // Command Buffer Info
+            vk::CommandBufferSubmitInfo cmdInfo(work.commandBuffer);
+            submit.setCommandBufferInfos(cmdInfo);
+
+            std::vector<vk::SemaphoreSubmitInfo> waitSemaphores;
+            std::vector<vk::SemaphoreSubmitInfo> signalSemaphores;
+
+            // Wait on Timeline Semaphore
+            vk::SemaphoreSubmitInfo timelineWait{};
+            timelineWait.semaphore = m_semaphores[m_currentFrameIndex];
+            timelineWait.value = work.waitValue;
+            timelineWait.stageMask = vk::PipelineStageFlagBits2::eAllCommands;
+            waitSemaphores.push_back(timelineWait);
+
+            // Signal Timeline Semaphore
+            vk::SemaphoreSubmitInfo timelineSignal{};
+            timelineSignal.semaphore = m_semaphores[m_currentFrameIndex];
+            timelineSignal.value = work.signalValue;
+            timelineSignal.stageMask = vk::PipelineStageFlagBits2::eAllCommands;
+            signalSemaphores.push_back(timelineSignal);
+
+            submit.setWaitSemaphoreInfos(waitSemaphores);
+            submit.setSignalSemaphoreInfos(signalSemaphores);
+
+            // No external fence or swapchain semaphores for generic packets
+            vk::Result result = work.queue.submit2(1, &submit, VK_NULL_HANDLE);
+
+            if(result != vk::Result::eSuccess)
+            {
+                HGERROR("Failed to submit %s command buffer with wait/signal values of %i, %i", queueName, work.waitValue, work.signalValue);
+            }
+        }
+    };
+
+    submitGenericPackets(m_computePackets[m_currentFrameIndex], "COMPUTE");
+    submitGenericPackets(m_transferPackets[m_currentFrameIndex], "TRANSFER");
+
     u64 finalSignalValue = m_timelineValues[m_currentFrameIndex];
 
     for(auto& buf: m_buffersToDestroy[m_currentFrameIndex])
