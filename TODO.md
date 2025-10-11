@@ -8,7 +8,7 @@
      * Graphics pipeline libraries
      * Timeline semaphores
      * Descriptor buffers
-     * Task/Mesh shaders
+     * Task/Mesh shaders **Done**
 
      * I'm not sure if I'll be able to get all of these working at once, but I'm definitely going to try
 

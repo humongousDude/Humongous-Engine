@@ -57,6 +57,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint drawID : SV_DrawInd
         float scaledRadius = m.boundingSphere.w * max(scale.x, max(scale.y, scale.z));
 
         bool inFrustum = IsSphereInFrustum(worldCenter, scaledRadius, ubo.frustumPlanes);
+        inFrustum = true;
         if(inFrustum)
         {
             uint storageIndex;
@@ -68,8 +69,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID, uint drawID : SV_DrawInd
         }
     }
 
-    GroupMemoryBarrierWithGroupSync();
 
+    GroupMemoryBarrierWithGroupSync();
     if (dispatchThreadID.x == 0 && visibleCount > 0)
     {
         uint baseOffset;

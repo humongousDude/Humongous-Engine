@@ -69,6 +69,7 @@ public:
         u32               boundingBoxCount;
 
         std::vector<WorkScheduler::WorkPacketHandle> workPackets;
+        b8                                           started{false};
     };
 
     Renderer(Window& window, const ILogicalDevice& logicalDevice, const PhysicalDevice& physicalDevice, ResourceManager& resourceManager,

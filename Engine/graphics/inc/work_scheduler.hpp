@@ -29,7 +29,8 @@ public:
     // Note, this function takes ownership of the staging buffers passed in
     void AddStagingBuffers(std::vector<std::unique_ptr<class Buffer>>& stagingBuffers);
 
-    void Flush(vk::Fence fence, vk::Semaphore imageAvailableSemaphore, vk::Semaphore renderFinishedSemaphore);
+    void Flush(vk::Fence fence = VK_NULL_HANDLE, vk::Semaphore imageAvailableSemaphore = VK_NULL_HANDLE,
+               vk::Semaphore renderFinishedSemaphore = VK_NULL_HANDLE);
 
     void CollectGarbage();
 

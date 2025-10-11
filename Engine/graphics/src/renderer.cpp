@@ -93,8 +93,6 @@ void Renderer::RecreateSwapChain()
     }
     // recreate the image views
 
-    m_logicalDevice.GetVkDevice().waitIdle();
-
     m_screenImageExtent = m_swapChain->GetExtent();
 
     CreateDrawImage();
@@ -611,11 +609,13 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
     if(result != vk::Result::eSuccess) { HGERROR("Failed to reset fences: %s", vk::to_string(result).c_str()); }
 
     result = m_swapChain->AcquireNextImage(GetCurrentFrame().imageAvailableSemaphore, m_currentImageIndex);
-    if(result == vk::Result::eErrorOutOfDateKHR) { RecreateSwapChain(); }
+    if(result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR)
+    {
+        RecreateSwapChain();
+        return VK_NULL_HANDLE;
+    }
 
-    if(result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) { HGERROR("failed to acquire swap chain image!"); }
-
-    HGINFO("Beginning frame...");
+    if(result != vk::Result::eSuccess) { HGERROR("failed to acquire swap chain image!"); }
 
     ReadyPerFrameData(visibleEntities);
 
@@ -653,6 +653,7 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
     cmd.setScissor(0, 1, &scissor);
 
     m_logicalDevice.GetWorkScheduler().CollectGarbage();
+    GetCurrentFrame().started = true;
 
     return cmd;
 }
@@ -660,6 +661,15 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
 void Renderer::EndFrame()
 {
     auto cmd = GetCurrentFrame().commandBuffer;
+    if(!GetCurrentFrame().started)
+    {
+        HGINFO("Cannot end a frame that has not been begun!");
+
+        // still need to flush the scheduler to avoid deadlocks
+        m_logicalDevice.GetWorkScheduler().Flush(GetCurrentFrame().inFlightFence);
+        m_currentFrameIndex = (m_currentFrameIndex + 1) % static_cast<u32>(Globals::Limits::MaxFramesInFlight);
+        return;
+    }
 
     GetCurrentFrame().drawImage->TransitionLayout(cmd, vk::ImageLayout::eTransferSrcOptimal);
 
@@ -689,6 +699,8 @@ void Renderer::EndFrame()
                                              m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex));
 
     auto result = m_swapChain->Present(m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex), m_currentImageIndex);
+    GetCurrentFrame().started = false;
+
     m_currentFrameIndex = (m_currentFrameIndex + 1) % static_cast<u32>(Globals::Limits::MaxFramesInFlight);
 }
 

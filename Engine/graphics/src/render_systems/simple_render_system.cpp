@@ -23,7 +23,7 @@ void IRenderSystem::CreatePipeline(const RenderPipeline::PipelineConfigInfo& con
     HGINFO("Created render pipeline");
 }
 
-void IRenderSystem::RenderObjectsToData(RenderData& renderData, std::vector<DrawData>& opaqueDrawData,
+void IRenderSystem::RenderObjectsToData(const RenderData& renderData, std::vector<DrawData>& opaqueDrawData,
                                         std::vector<vk::DrawIndexedIndirectCommand>& opaqueCommands, std::vector<DrawData>& transparentDrawData,
                                         std::vector<vk::DrawIndexedIndirectCommand>& transparentCommands, std::vector<InstanceData>& instanceData)
 {
@@ -152,7 +152,7 @@ TraditionalRenderSystem::~TraditionalRenderSystem()
     HGINFO("Destroyed Simple render system");
 }
 
-void TraditionalRenderSystem::Render(RenderData& renderData)
+void TraditionalRenderSystem::Render(const RenderData& renderData)
 {
     std::vector<DrawData>                       opaqueDrawData;
     std::vector<vk::DrawIndexedIndirectCommand> opaqueCommands;
@@ -536,7 +536,7 @@ void MeshRenderSystem::ReadyDescriptors(RenderData& renderData)
     writer.Build(m_set[renderData.frameIndex]);
 }
 
-void MeshRenderSystem::Render(RenderData& renderData)
+void MeshRenderSystem::Render(const RenderData& renderData)
 {
     if(!m_logicalDevice.GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders)
     {

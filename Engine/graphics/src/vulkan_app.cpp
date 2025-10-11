@@ -45,8 +45,6 @@ void VulkanApp::Init(const int argc, char* argv[])
         m_assetManager = std::make_unique<AssetManager>();
     }
 
-    // Allocator::Initialize(*m_logicalDevice);
-
     m_resourceManager = std::make_unique<ResourceManager>(*m_logicalDevice, *m_assetManager);
 
     UI::Init(*m_instance, *m_logicalDevice, *m_window);
@@ -65,6 +63,7 @@ void VulkanApp::Init(const int argc, char* argv[])
 
     CreateRenderSystems();
 
+    for(auto& rg: m_renderGraphs) { rg = std::make_unique<RenderGraph>(*m_logicalDevice); }
     m_mainDeletionQueue.PushDeletor([&]() {
         m_entityRenderSystem.reset();
         m_skyboxRenderSystem.reset();
@@ -507,7 +506,7 @@ void VulkanApp::Run()
 
             if(cmd != VK_NULL_HANDLE)
             {
-                RenderData data{
+                IRenderSystem::RenderData data{
                     .commandBuffer = cmd,
                     .uboSets = {m_cam->GetVertexDescriptorSet(m_renderer->GetFrameIndex())},
                     .entities = &sortedObjs,
@@ -520,47 +519,65 @@ void VulkanApp::Run()
                 m_depthRenderSystem->ReadyDescriptors(data);
                 m_entityRenderSystem->ReadyDescriptors(data);
 
-                m_renderer->BeginDepthPrePass(cmd);
-                m_depthRenderSystem->Render(data);
-                m_renderer->EndDepthPrePass(cmd);
-
-                // m_renderer->DoOcclusionCulling(cmd, sortedObjs, *world, *m_cam);
+                std::function<void(IRenderSystem::RenderData data)> depthExec = [&](const IRenderSystem::RenderData& data) {
+                    m_renderer->BeginDepthPrePass(data.commandBuffer);
+                    m_depthRenderSystem->Render(data);
+                    m_renderer->EndDepthPrePass(data.commandBuffer);
+                };
 
                 data.entities = &frustumAndSortedEntities;
-                m_renderer->BeginGeometryPass(cmd);
+                std::function<void(const IRenderSystem::RenderData& data)> mainExec = [&](const IRenderSystem::RenderData& data) {
+                    m_renderer->BeginGeometryPass(data.commandBuffer);
+                    m_entityRenderSystem->Render(data);
+                    m_renderer->EndGeometryPass(data.commandBuffer);
+                };
 
-                m_entityRenderSystem->Render(data);
+                auto geometryPass = m_renderGraphs[m_renderer->GetFrameIndex()]->AddPass("Main Render Pass", {}, mainExec);
+                auto depthPass = m_renderGraphs[m_renderer->GetFrameIndex()]->AddPass("Depth Pre-Pass", {}, depthExec);
 
-                m_renderer->EndGeometryPass(cmd);
+                geometryPass->AddDependency(depthPass);
 
-                m_renderer->DoLightingPass(cmd, m_cam->GetComputeDescriptorSet(m_renderer->GetFrameIndex()),
-                                           m_cam->GetParamDescriptorSet(m_renderer->GetFrameIndex()),
-                                           m_skyboxRenderSystem->GetSkybox()->GetCompDescriptorSet());
+                std::function<void(const IRenderSystem::RenderData& data)> lightExec = [&](const IRenderSystem::RenderData& data) {
+                    m_renderer->DoLightingPass(cmd, m_cam->GetComputeDescriptorSet(m_renderer->GetFrameIndex()),
+                                               m_cam->GetParamDescriptorSet(m_renderer->GetFrameIndex()),
+                                               m_skyboxRenderSystem->GetSkybox()->GetCompDescriptorSet());
+                };
 
-                m_renderer->BeginSkyboxPass(cmd);
+                auto lightingPass = m_renderGraphs[m_renderer->GetFrameIndex()]->AddPass("Lighting pass", {geometryPass}, lightExec);
+                std::function<void(const IRenderSystem::RenderData& data)> skyboxExec = [&](const IRenderSystem::RenderData& data) {
+                    m_renderer->BeginSkyboxPass(cmd);
 
-                m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
+                    m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
 
-                m_renderer->EndSkyboxPass(cmd);
+                    m_renderer->EndSkyboxPass(cmd);
+                };
+                auto skyboxPass = m_renderGraphs[m_renderer->GetFrameIndex()]->AddPass("Skybox pass", {lightingPass}, skyboxExec);
 
-                m_renderer->BeginUIPass(cmd);
+                std::function<void(const IRenderSystem::RenderData& data)> uiExec = [&](const IRenderSystem::RenderData& data) {
+                    m_renderer->BeginUIPass(cmd);
 
-                UI::BeginUIFrame(cmd);
+                    UI::BeginUIFrame(cmd);
 
-                objectDataWidget.Draw();
-                m_cam->DrawUI();
+                    objectDataWidget.Draw();
+                    m_cam->DrawUI();
 
-                UI::Debug_DrawMetrics(0, m_cam->GetPosition());
+                    UI::Debug_DrawMetrics(0, m_cam->GetPosition());
 
-                UI::EndUIFrame(cmd);
+                    UI::EndUIFrame(cmd);
 
-                m_renderer->EndUIPass(cmd);
+                    m_renderer->EndUIPass(cmd);
 
-                ImGui::UpdatePlatformWindows();
-                ImGui::RenderPlatformWindowsDefault();
+                    ImGui::UpdatePlatformWindows();
+                    ImGui::RenderPlatformWindowsDefault();
+                };
 
-                m_renderer->EndFrame();
+                m_renderGraphs[m_renderer->GetFrameIndex()]->AddPass("UI Pass", {geometryPass, skyboxPass}, uiExec);
+
+                m_renderGraphs[m_renderer->GetFrameIndex()]->Compile();
+                m_renderGraphs[m_renderer->GetFrameIndex()]->Execute(data);
             }
+
+            m_renderer->EndFrame();
         }
     }
     m_logicalDevice->GetVkDevice().waitIdle();

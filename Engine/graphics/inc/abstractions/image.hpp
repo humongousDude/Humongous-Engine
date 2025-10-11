@@ -24,7 +24,7 @@ public:
     {
         u32                     width{1}, height{1}, mipLevels{1}, layerCount{1}, arrayLayerCount{1};
         vk::Format              format{vk::Format::eR8G8B8A8Unorm};
-        vk::ImageTiling         tiling{vk::ImageTiling::eLinear};
+        vk::ImageTiling         tiling{vk::ImageTiling::eOptimal};
         vk::ImageUsageFlags     usage{};
         vk::MemoryPropertyFlags properties{};
         b32                     createWithSampler{false};
@@ -51,12 +51,13 @@ public:
                           u32 baseArrayLayer = 0, u32 arrayLayerCount = vk::RemainingArrayLayers);
     void TransitionQueue(vk::CommandBuffer cmd, u32 queue);
 
-    vk::ImageLayout GetLayout() const { return m_layout; }
-    u32             GetWidth() const { return m_width; }
-    u32             GetHeight() const { return m_height; }
-    u32             GetMipLevels() const { return m_mipLevels; }
-    u32             GetLayerCount() const { return m_layerCount; }
-    u32             GetArrayLayerCount() const { return m_arrayLayerCount; }
+    vk::ImageLayout      GetLayout() const { return m_layout; }
+    u32                  GetWidth() const { return m_width; }
+    u32                  GetHeight() const { return m_height; }
+    u32                  GetMipLevels() const { return m_mipLevels; }
+    u32                  GetLayerCount() const { return m_layerCount; }
+    u32                  GetArrayLayerCount() const { return m_arrayLayerCount; }
+    vk::ImageAspectFlags GetAspectFlags() const { return m_aspectFlags; }
 
     const vk::Image&     GetImage() const { return m_image; }
     const vk::ImageView& GetImageView() const { return m_imageView; }

@@ -9,15 +9,6 @@
 
 namespace Humongous
 {
-struct RenderData
-{
-    vk::CommandBuffer                            commandBuffer;
-    std::vector<vk::DescriptorSet>               uboSets;
-    const std::vector<Utils::VisibleEntityInfo>* entities;
-    Humongous::World&                            world;
-    u32                                          frameIndex;
-    Camera&                                      cam;
-};
 
 class IRenderSystem
 {
@@ -42,6 +33,16 @@ public:
         u32             morphTargetStart;
     };
 
+    struct RenderData
+    {
+        vk::CommandBuffer                            commandBuffer;
+        std::vector<vk::DescriptorSet>               uboSets;
+        const std::vector<Utils::VisibleEntityInfo>* entities;
+        Humongous::World&                            world;
+        u32                                          frameIndex;
+        Camera&                                      cam;
+    };
+
     IRenderSystem(const ILogicalDevice& logicalDevice, ResourceManager& resourceManager, const IAssetManager& assetManager,
                   const RenderPipeline::PipelineConfigInfo& configInfo)
         : m_logicalDevice{logicalDevice}, m_resourceManager{resourceManager}, m_assetManager{assetManager}
@@ -56,11 +57,11 @@ public:
      *
      * @param renderData: The data needed to render the objects
      */
-    virtual void Render(RenderData& renderData) = 0;
+    virtual void Render(const RenderData& renderData) = 0;
     virtual void ReadyBuffers(RenderData& renderData) = 0;
     virtual void ReadyDescriptors(RenderData& renderData) = 0;
 
-    void RenderObjectsToData(RenderData& renderData, std::vector<DrawData>& opaqueDrawData,
+    void RenderObjectsToData(const RenderData& renderData, std::vector<DrawData>& opaqueDrawData,
                              std::vector<vk::DrawIndexedIndirectCommand>& opaqueCommands, std::vector<DrawData>& transparentDrawData,
                              std::vector<vk::DrawIndexedIndirectCommand>& transparentCommands, std::vector<InstanceData>& instanceData);
 
@@ -99,7 +100,7 @@ public:
     ~MeshRenderSystem();
 
     void ReadyBuffers(RenderData& renderData) override;
-    void Render(RenderData& renderData) override;
+    void Render(const RenderData& renderData) override;
     void ReadyDescriptors(RenderData& renderData) override;
 
 private:
@@ -120,7 +121,7 @@ public:
                             const RenderPipeline::PipelineConfigInfo& configInfo);
     ~TraditionalRenderSystem();
 
-    void Render(RenderData& renderData) override;
+    void Render(const RenderData& renderData) override;
     void ReadyBuffers(RenderData& renderData) override {};
     void ReadyDescriptors(RenderData& renderData) override {};
 

@@ -72,7 +72,7 @@ void SkyboxRenderSystem::CreatePipeline()
 
 void SkyboxRenderSystem::InitSkybox(const std::string& skyBoxImgPath) { m_skybox = m_resourceManager.LoadSkybox("papermill"); }
 
-void SkyboxRenderSystem::RenderSkybox(const u32& frameIndex, std::vector<vk::DescriptorSet>& globalSets, vk::CommandBuffer cmd)
+void SkyboxRenderSystem::RenderSkybox(const u32& frameIndex, const std::vector<vk::DescriptorSet>& globalSets, vk::CommandBuffer cmd)
 {
     m_renderPipeline->Bind(cmd);
 
