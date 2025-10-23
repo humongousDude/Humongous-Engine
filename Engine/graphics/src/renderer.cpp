@@ -3,7 +3,6 @@
 #include "asset_manager.hpp"
 #include "extra.hpp"
 #include "logger.hpp"
-#include "scene_handler.hpp"
 
 #include <array>
 #include <vulkan/vk_enum_string_helper.h>
@@ -15,8 +14,9 @@ namespace Humongous
 
 Renderer::Renderer(Window& window, const ILogicalDevice& logicalDevice, const PhysicalDevice& physicalDevice, ResourceManager& resourceManager,
                    const IAssetManager& assetManager)
-    : m_window{window}, m_logicalDevice{logicalDevice}, m_resourceManager{resourceManager}, m_physicalDevice{physicalDevice},
-      m_assetManager{assetManager}
+    : m_window{window}, m_logicalDevice{logicalDevice}, m_assetManager{assetManager}, m_resourceManager{resourceManager},
+      m_physicalDevice{physicalDevice}
+
 {
     CreateCommandPool();
     CreateCommandBuffers();
@@ -191,7 +191,7 @@ void Renderer::CreateGBuffer()
     auto cmd = m_logicalDevice.BeginSingleTimeCommands();
     u32  mipLevels = floor(log2(std::max(imgCI.width, imgCI.height))) + 1;
 
-    for(int i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); i++)
+    for(u32 i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); i++)
     {
         if(m_frames[i].gbuffer.albedo && m_frames[i].gbuffer.albedo->IsValid()) { m_frames[i].gbuffer.albedo.reset(); }
         if(m_frames[i].gbuffer.normalRough && m_frames[i].gbuffer.normalRough->IsValid()) { m_frames[i].gbuffer.normalRough.reset(); }
@@ -323,8 +323,7 @@ void Renderer::CreateLightingPipeline()
 
     HGINFO("Creating pipeline...");
 
-    ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice};
-    configInfo.pipelineLayout = m_lightingPipelineLayout;
+    ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice, .pipelineLayout = m_lightingPipelineLayout};
     configInfo.shaderFile = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "lighting.comp");
 
     m_lightingPipeline = std::make_unique<ComputePipeline>(configInfo);
@@ -481,8 +480,7 @@ void Renderer::CreateComputePipeline()
             HGERROR("Failed to create pipeline layout");
         }
 
-        ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice};
-        configInfo.pipelineLayout = m_occlusionPipelineLayout;
+        ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice, .pipelineLayout = m_occlusionPipelineLayout};
         configInfo.shaderFile = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "occlusion.comp");
 
         m_occlusionPipeline = std::make_unique<ComputePipeline>(configInfo);
@@ -504,8 +502,7 @@ void Renderer::CreateComputePipeline()
             HGERROR("Failed to create pipeline layout");
         }
 
-        ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice};
-        configInfo.pipelineLayout = m_mipPipelineLayout;
+        ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice, .pipelineLayout = m_mipPipelineLayout};
         configInfo.shaderFile = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "mip.comp");
 
         m_mipPipeline = std::make_unique<ComputePipeline>(configInfo);
@@ -515,7 +512,6 @@ void Renderer::CreateComputePipeline()
 
 void Renderer::ReadyPerFrameData(std::vector<Utils::VisibleEntityInfo>& visibleEntities)
 {
-    auto world = SceneHandler::GetWorld();
 
     auto& visibilityResultsBuffer = GetCurrentFrame().visiblityResultBuffer;
     u32   numObjectsCulledLastFrame = GetCurrentFrame().numObjectsDispatched;
@@ -570,11 +566,6 @@ void Renderer::PreGeometryPassTransitions(vk::CommandBuffer cmd)
 {
     auto& currentFrame = GetCurrentFrame();
 
-    Utils::ImageTransitionInfo drawInfo{.logicalDevice = m_logicalDevice};
-    drawInfo.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
-    drawInfo.imageAspect = vk::ImageAspectFlagBits::eColor;
-    drawInfo.cmd = cmd;
-
     currentFrame.gbuffer.albedo->TransitionLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
     currentFrame.gbuffer.normalRough->TransitionLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
     currentFrame.gbuffer.materialParam->TransitionLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
@@ -584,11 +575,6 @@ void Renderer::PreGeometryPassTransitions(vk::CommandBuffer cmd)
 void Renderer::PostGeometryPassTransitions(vk::CommandBuffer cmd)
 {
     auto& currentFrame = GetCurrentFrame();
-
-    Utils::ImageTransitionInfo drawInfo{.logicalDevice = m_logicalDevice};
-    drawInfo.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-    drawInfo.cmd = cmd;
-    drawInfo.imageAspect = vk::ImageAspectFlagBits::eColor;
 
     currentFrame.gbuffer.albedo->TransitionLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
     currentFrame.gbuffer.normalRough->TransitionLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
@@ -673,18 +659,18 @@ void Renderer::EndFrame()
 
     GetCurrentFrame().drawImage->TransitionLayout(cmd, vk::ImageLayout::eTransferSrcOptimal);
 
-    Utils::ImageTransitionInfo swapInfo{.logicalDevice = m_logicalDevice};
-    swapInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
+    Utils::ImageTransitionInfo swapInfo{.cmd = cmd, .logicalDevice = m_logicalDevice, .image = m_swapChain->GetImages()[m_currentImageIndex]};
     swapInfo.oldLayout = vk::ImageLayout::eUndefined;
     swapInfo.newLayout = vk::ImageLayout::eTransferDstOptimal;
-    swapInfo.cmd = cmd;
 
     Utils::TransitionImageLayout(swapInfo);
 
     GetCurrentFrame().drawImage->CopyToImage(m_logicalDevice, cmd, GetCurrentFrame().drawImage->GetImage(),
                                              m_swapChain->GetImages()[m_currentImageIndex], m_screenImageExtent, m_swapChain->GetExtent());
 
-    Utils::ImageTransitionInfo presentTransitionInfo{.logicalDevice = m_logicalDevice};
+    Utils::ImageTransitionInfo presentTransitionInfo{.cmd = cmd,
+                                                     .logicalDevice = m_logicalDevice,
+                                                     .image = m_swapChain->GetImages()[m_currentImageIndex]};
     presentTransitionInfo.image = m_swapChain->GetImages()[m_currentImageIndex];
     presentTransitionInfo.oldLayout = vk::ImageLayout::eTransferDstOptimal;
     presentTransitionInfo.newLayout = vk::ImageLayout::ePresentSrcKHR;
@@ -698,7 +684,7 @@ void Renderer::EndFrame()
     m_logicalDevice.GetWorkScheduler().Flush(GetCurrentFrame().inFlightFence, GetCurrentFrame().imageAvailableSemaphore,
                                              m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex));
 
-    auto result = m_swapChain->Present(m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex), m_currentImageIndex);
+    m_swapChain->Present(m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex), m_currentImageIndex);
     GetCurrentFrame().started = false;
 
     m_currentFrameIndex = (m_currentFrameIndex + 1) % static_cast<u32>(Globals::Limits::MaxFramesInFlight);
@@ -913,12 +899,18 @@ struct OcclusionObjectData
 
 using namespace Utils;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 void Renderer::DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<Utils::VisibleEntityInfo>& frustumCulledEntities, World& world,
                                   const Camera& cam)
 {
     HGWARN("Occlusion culling is currently disabled");
     return;
 }
+
+#pragma GCC diagnostic pop
 
 void Renderer::WaitForCompute(vk::CommandBuffer cmd)
 {

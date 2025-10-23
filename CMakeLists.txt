@@ -44,6 +44,16 @@ FetchContent_Declare(
                 -DCMAKE_CXX_STANDARD_REQUIRED=ON
 )
 
+FetchContent_Declare(
+    VMA
+    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Engine/ThirdParty/VulkanMemoryAllocator"
+)
+
+FetchContent_Declare(
+    tinygltf
+    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Engine/ThirdParty/tinygltf"
+)
+
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 set(SDL_SHARED ON CACHE BOOL "" FORCE) 
 set(SDL_STATIC OFF CACHE BOOL "" FORCE)
@@ -59,7 +69,22 @@ set(KTX_FEATURE_TESTS OFF CACHE BOOL "" FORCE)
 set(KTX_FEATURE_TOOLS OFF CACHE BOOL "" FORCE)
 set(KTX_FEATURE_TOOLS_CTS OFF CACHE BOOL "" FORCE)
 
-FetchContent_MakeAvailable(SDL3 spdlog OpenAL32 Sndfile eigen meshoptimizer GoogleTest Ktx GoogleTest)
+FetchContent_MakeAvailable(SDL3 spdlog OpenAL32 Sndfile eigen meshoptimizer GoogleTest Ktx GoogleTest VMA tinygltf)
+
+function(make_target_system_includes TARGET_NAME)
+    get_target_property(INCLUDES ${TARGET_NAME} INTERFACE_INCLUDE_DIRECTORIES)
+    if(INCLUDES)
+        set_target_properties(${TARGET_NAME} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "")
+        
+        target_include_directories(${TARGET_NAME} 
+            SYSTEM INTERFACE ${INCLUDES}
+        )
+    endif()
+endfunction()
+
+make_target_system_includes(VulkanMemoryAllocator)
+make_target_system_includes(tinygltf)
+make_target_system_includes(OpenAL)
 
 add_subdirectory(Engine)
 add_subdirectory(App)

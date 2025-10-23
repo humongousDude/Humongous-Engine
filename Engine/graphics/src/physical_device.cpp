@@ -268,7 +268,7 @@ PhysicalDevice::QueueFamilyData PhysicalDevice::FindQueueFamilies(vk::PhysicalDe
     physicalDevice.getQueueFamilyProperties2(&queueFamilyCount, queueFamilyProperties.data());
     vk::Bool32 presentSupport = false;
 
-    s32 i = 0;
+    u32 i = 0;
     for(const auto& queueFamily: queueFamilyProperties)
     {
         if(queueFamily.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics)
@@ -286,12 +286,15 @@ PhysicalDevice::QueueFamilyData PhysicalDevice::FindQueueFamilies(vk::PhysicalDe
 
         if(queueFamily.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eCompute)
         {
-            if(!indices.computeFamily.has_value() || i != indices.graphicsFamily.value() && i != indices.transferFamily.value())
+            if(!indices.computeFamily.has_value() || (i != indices.graphicsFamily.value() && i != indices.transferFamily.value()))
             {
                 indices.computeFamily = i;
             }
             else if(!indices.computeFamily.has_value() || i != indices.graphicsFamily.value()) { indices.computeFamily = i; }
-            else { indices.computeFamily = indices.graphicsFamily.value(); }
+            else
+            {
+                indices.computeFamily = indices.graphicsFamily.value();
+            }
         }
 
         if(queueFamily.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eTransfer)
@@ -301,7 +304,10 @@ PhysicalDevice::QueueFamilyData PhysicalDevice::FindQueueFamilies(vk::PhysicalDe
                 indices.transferFamily = i;
             }
             else if(!indices.transferFamily.has_value() || i != indices.graphicsFamily.value()) { indices.transferFamily = i; }
-            else { indices.transferFamily = indices.graphicsFamily.value(); }
+            else
+            {
+                indices.transferFamily = indices.graphicsFamily.value();
+            }
         }
 
         i++;

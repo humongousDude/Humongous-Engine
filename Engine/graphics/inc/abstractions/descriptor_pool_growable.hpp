@@ -27,7 +27,8 @@ public:
 private:
     const ILogicalDevice& m_logicalDevice;
     vk::DescriptorPool    GetPool(const ILogicalDevice& logicalDevice);
-    vk::DescriptorPool    CreatePool(const ILogicalDevice& logicalDevice, u32 setCount, std::vector<vk::DescriptorType> poolTypes) const;
+    vk::DescriptorPool    CreatePool(const ILogicalDevice& logicalDevice, u32 setCount, std::vector<vk::DescriptorType> poolTypes,
+                                     vk::DescriptorPoolCreateFlags flags) const;
 
     std::vector<vk::DescriptorType> m_poolTypes;
     std::vector<vk::DescriptorPool> m_fullPools, m_readyPools;

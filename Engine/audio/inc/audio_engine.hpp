@@ -29,7 +29,6 @@ public:
 private:
     ALCdevice*  m_device;
     ALCcontext* m_context;
-    ALuint      m_alBuffer;
 
     bool Internal_Init();
     void Internal_Shutdown();

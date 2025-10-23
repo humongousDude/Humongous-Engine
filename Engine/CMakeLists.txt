@@ -201,15 +201,21 @@ endforeach()
 # Engine Library Target
 # ========================================================================================
 
-add_library(Engine ${ENGINE_SOURCES} ${ENGINE_HEADERS} ${ENGINE_TESTS})
+add_library(Engine ${ENGINE_SOURCES} ${ENGINE_TESTS})
 
 target_sources(Engine PRIVATE ${SHADER_SOURCES_FULL})
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${ENGINE_SOURCES} ${ENGINE_HEADERS})
 source_group(TREE ${CMAKE_SOURCE_DIR}/shaders PREFIX "Shaders" FILES ${SHADER_SOURCES_FULL})
 
+target_compile_options(Engine
+    PRIVATE
+    $<$<C_COMPILER_ID:Clang>:-Wall -Wextra -Wunused-variable -Wunused-parameter -Wpedantic -Werror>
+    $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra -Wunused-variable -Wunused-parameter -Wpedantic -Werror>
+)
+
 if(MSVC)
-    target_compile_options(Engine PUBLIC /utf-8)
+    target_compile_options(Engine PRIVATE /utf-8)
 endif()
 
 if(UNIX AND CMAKE_BUILD_TYPE MATCHES "Debug")
@@ -223,26 +229,15 @@ target_compile_definitions(Engine PUBLIC
 )
 
 target_include_directories(Engine PUBLIC
-    # Local includes
     core/inc
     gameplay/inc
     graphics/inc
     systems/inc
     utils/inc
     audio/inc
-
-    test_suite
-    
-    # Third-party includes
-    ThirdParty/stb
-    ThirdParty/VulkanMemoryAllocator/include
-    ThirdParty/tinygltf
+    test_suite/
     ThirdParty/imgui
     ThirdParty/imgui/backends
-    ThirdParty/eigen/Eigen
-    ThirdParty/meshoptimizer/src
-    ThirdParty/googletest/googletest/include
-    ThirdParty/googletest/googlemock/include
 )
 
 find_package(Vulkan REQUIRED)
@@ -258,10 +253,12 @@ target_link_libraries(Engine PUBLIC
     gtest
     gmock
     ktx
+    GPUOpen::VulkanMemoryAllocator
+    tinygltf
 )
 
 if(WIN32)
-    target_link_libraries(Engine PUBLIC
+    target_link_libraries(Engine PRIVATE
         gdi32 shell32 ole32 imm32 winmm version user32 setupapi dinput8 dxguid oleaut32 advapi32
     )
     if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")

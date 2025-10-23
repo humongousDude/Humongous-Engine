@@ -1,8 +1,6 @@
 #include "instance.hpp"
 #include "SDL3/SDL_vulkan.h"
-#include "defines.hpp"
 #include "logger.hpp"
-#include "vector"
 #include "vulkan/vk_enum_string_helper.h"
 #include "vulkan/vulkan_core.h"
 
@@ -11,10 +9,15 @@ namespace Humongous
 // TODO: move this + the rest of the debug related stuff
 // to a utils file or maybe to core
 
+#pragma GCC diagnostic push
 static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
                                                     VkDebugUtilsMessageTypeFlagsEXT             messageType,
                                                     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 {
+    if(pUserData)
+    {
+        // noop to stop clang's complaining
+    }
     switch(messageSeverity)
     {
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
@@ -41,7 +44,10 @@ VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMes
 {
     auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
     if(func != nullptr) { return func(instance, pCreateInfo, pAllocator, pDebugMessenger); }
-    else { return VK_ERROR_EXTENSION_NOT_PRESENT; }
+    else
+    {
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
 }
 
 void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
@@ -122,10 +128,12 @@ void Instance::InitInstance()
 
 bool Instance::CheckValidationLayerSupport()
 {
-    u32 layerCount;
-    vk::enumerateInstanceLayerProperties(&layerCount, nullptr);
+    u32  layerCount;
+    auto res = vk::enumerateInstanceLayerProperties(&layerCount, nullptr);
+    if(res != vk::Result::eSuccess) { HGFATAL("Failed to get instance layer property count! Error: %s", vk::to_string(res).c_str()); }
     std::vector<vk::LayerProperties> availableLayers(layerCount);
-    vk::enumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+    res = vk::enumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+    if(res != vk::Result::eSuccess) { HGFATAL("Failed to enumerate instance layer properties! Error: %s", vk::to_string(res).c_str()); }
 
     for(const char* layerName: m_validationLayers)
     {

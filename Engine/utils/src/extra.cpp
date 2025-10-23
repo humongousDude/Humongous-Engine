@@ -231,11 +231,9 @@ void TransitionImageLayout(ImageTransitionInfo& info)
 void TransitionImageLayout(const ILogicalDevice& logicalDevice, vk::Image image, vk::ImageLayout currentLayout, vk::ImageLayout newLayout)
 {
     vk::CommandBuffer   cmd = logicalDevice.BeginSingleTimeCommands();
-    ImageTransitionInfo info{.logicalDevice = logicalDevice};
-    info.cmd = cmd;
+    ImageTransitionInfo info{.cmd = cmd, .logicalDevice = logicalDevice, .image = image};
     info.oldLayout = currentLayout;
     info.newLayout = newLayout;
-    info.image = image;
 
     TransitionImageLayout(info);
 

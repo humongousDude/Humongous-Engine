@@ -1,7 +1,6 @@
 // Original from Brendan Galea's vulkan tutorial, adapted to use VMA
 #include "abstractions/descriptor_layout.hpp"
 #include "asserts.hpp"
-#include "logger.hpp"
 
 namespace Humongous
 {

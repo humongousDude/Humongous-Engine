@@ -28,45 +28,43 @@ void LogOutput(LogLevel level, const char* message, ...);
 void PauseLogging();
 void ResumeLogging();
 
-#define HGFATAL(message, ...) LogOutput(LOG_LEVEL_FATAL, message, ##__VA_ARGS__)
+#define HGFATAL(message, ...) LogOutput(LOG_LEVEL_FATAL, message __VA_OPT__(, __VA_ARGS__))
 
 // FIXME: VMA leak logs overrides don't work.
 
 #ifndef HGERROR
-#define HGERROR(message, ...) LogOutput(LOG_LEVEL_ERROR, message, ##__VA_ARGS__)
-#define VMA_LEAK_LOG_FORMAT(format, ...) LogOutput(LOG_LEVEL_ERROR, "[VMA LEAK] " format, ##__VA_ARGS__)
+#define HGERROR(message, ...) LogOutput(LOG_LEVEL_ERROR, message __VA_OPT__(, __VA_ARGS__))
 #endif
 
 #if LOG_WARN_ENABLE == 1
-#define HGWARN(message, ...) LogOutput(LOG_LEVEL_WARN, message, ##__VA_ARGS__)
+#define HGWARN(message, ...) LogOutput(LOG_LEVEL_WARN, message __VA_OPT__(, __VA_ARGS__))
 #else
 #define HGWARN(message, ...)
 #endif
 
 #if LOG_INFO_ENABLE == 1
-#define HGINFO(message, ...) LogOutput(LOG_LEVEL_INFO, message, ##__VA_ARGS__)
+#define HGINFO(message, ...) LogOutput(LOG_LEVEL_INFO, message __VA_OPT__(, __VA_ARGS__))
 #else
 #define HGINFO(message, ...)
 #endif
 
 #if LOG_DEBUG_ENABLE == 1
-#define HGDEBUG(message, ...) LogOutput(LOG_LEVEL_DEBUG, message, ##__VA_ARGS__)
+#define HGDEBUG(message, ...) LogOutput(LOG_LEVEL_DEBUG, message __VA_OPT__(, __VA_ARGS__))
 #else
 #define HGDEBUG(message, ...)
 #endif
 
 #if LOG_TRACE_ENABLE == 1
-#define HGTRACE(message, ...) LogOutput(LOG_LEVEL_TRACE, message, ##__VA_ARGS__)
-#define VMA_DEBUG_LOG_FORMAT(format, ...) LogOutput(LOG_LEVEL_DEBUG, "[VMA DEBUG] " format, ##__VA_ARGS__)
+#define HGTRACE(message, ...) LogOutput(LOG_LEVEL_TRACE, message __VA_OPT__(, __VA_ARGS__))
 #else
 #define HGTRACE(message, ...)
-#define VMA_DEBUG_LOG_FORMAT(format, ...)
 #endif
 
 // Basic error checking macro for OpenAL calls
 #ifndef AL_CHECK
 #define AL_CHECK(expr)                                                                                                                             \
-    do {                                                                                                                                           \
+    do                                                                                                                                             \
+    {                                                                                                                                              \
         expr;                                                                                                                                      \
         ALenum error = alGetError();                                                                                                               \
         if(error != AL_NO_ERROR) { HGERROR("OpenAL Error: %s AT %s : %i", alGetString(error), __FILE__, __LINE__); }                               \
@@ -75,7 +73,8 @@ void ResumeLogging();
 
 #ifndef ALC_CHECK
 #define ALC_CHECK(device, expr)                                                                                                                    \
-    do {                                                                                                                                           \
+    do                                                                                                                                             \
+    {                                                                                                                                              \
         expr;                                                                                                                                      \
         ALCenum error = alcGetError(device);                                                                                                       \
         if(error != ALC_NO_ERROR) { HGERROR("OpenALC Error: %s AT %s : %i", alGetString(error), __FILE__, __LINE__); }                             \

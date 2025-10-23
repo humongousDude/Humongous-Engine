@@ -8,14 +8,13 @@ namespace Humongous
 {
 
 SkyboxRenderSystem::SkyboxRenderSystem(const ILogicalDevice& logicalDevice, class ResourceManager& resourceManager,
-                                       const IAssetManager& assetManager, const std::string& skyboxImgPath,
-                                       const std::vector<vk::DescriptorSetLayout>& globalLayouts)
+                                       const IAssetManager& assetManager, const std::vector<vk::DescriptorSetLayout>& globalLayouts)
     : m_logicalDevice{logicalDevice}, m_resourceManager{resourceManager}, m_assetManager{assetManager}
 {
     HGINFO("Initializing skybox render system...");
     CreatePipelineLayout(globalLayouts);
     CreatePipeline();
-    InitSkybox(skyboxImgPath);
+    InitSkybox();
     HGINFO("Initialized skybox render system");
 }
 
@@ -70,9 +69,9 @@ void SkyboxRenderSystem::CreatePipeline()
     HGINFO("CREATED SKYBOX PIPELINE");
 }
 
-void SkyboxRenderSystem::InitSkybox(const std::string& skyBoxImgPath) { m_skybox = m_resourceManager.LoadSkybox("papermill"); }
+void SkyboxRenderSystem::InitSkybox() { m_skybox = m_resourceManager.LoadSkybox("papermill"); }
 
-void SkyboxRenderSystem::RenderSkybox(const u32& frameIndex, const std::vector<vk::DescriptorSet>& globalSets, vk::CommandBuffer cmd)
+void SkyboxRenderSystem::RenderSkybox(const std::vector<vk::DescriptorSet>& globalSets, vk::CommandBuffer cmd)
 {
     m_renderPipeline->Bind(cmd);
 

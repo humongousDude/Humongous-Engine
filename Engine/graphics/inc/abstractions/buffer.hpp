@@ -16,19 +16,19 @@ public:
         const ILogicalDevice&   device;
         vk::DeviceSize          size = 1;
         u32                     instanceCount = 1;
-        vk::BufferUsageFlags    bufferUsage;
+        vk::BufferUsageFlags    bufferUsage{};
         VmaMemoryUsage          memoryUsage = VMA_MEMORY_USAGE_AUTO;
-        vk::MemoryPropertyFlags properties;
+        vk::MemoryPropertyFlags properties{};
         vk::DeviceSize          minOffsetAlignment = 1;
         std::string             name = "";
         vk::SharingMode         sharingMode = vk::SharingMode::eExclusive;
-        std::vector<u32>        queueFamilyIndices;
+        std::vector<u32>        queueFamilyIndices{0};
     };
 
     Buffer(const BufferCreateInfo& createInfo);
     ~Buffer();
 
-    vk::Result Map(vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0);
+    vk::Result Map();
     void       UnMap();
 
     void Init(const BufferCreateInfo& createInfo);

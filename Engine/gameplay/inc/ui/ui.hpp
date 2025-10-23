@@ -26,13 +26,13 @@ public:
         Get().Internal_Init(instance, logicalDevice, window);
     }
     static void Shutdown() { Get().Internal_Shutdown(); }
-    static void BeginUIFrame(vk::CommandBuffer cmd) { Get().Internal_BeginUIFrame(cmd); }
+    static void BeginUIFrame() { Get().Internal_BeginUIFrame(); }
     static void EndUIFrame(vk::CommandBuffer cmd) { Get().Internal_EndUIFrame(cmd); }
 
     static void Debug_DrawMetrics(const s16& draws, const Eigen::Vector3f& camPosition) { Get().Internal_Debug_DrawMetrics(draws, camPosition); }
     static void Debug_DrawObjectData(std::unordered_map<u32, class Entity>& objects) { Get().Internal_Debug_DrawObjectData(objects); }
 
-    static void                   DrawWidgetList(const vk::CommandBuffer cmd) { Get().Internal_DrawWidgetList(); }
+    static void                   DrawWidgetList() { Get().Internal_DrawWidgetList(); }
     static std::vector<UiWidget*> GetWidgetList() { return Get().Internal_GetWidgetList(); }
     static void                   AddWidgetToList(UiWidget* widg) { Get().Internal_AddWidgetToList(widg); }
     static void                   PopWidgetAtIndex(const u32 index) { Get().Internal_PopWidgetAtIndex(index); }
@@ -54,7 +54,7 @@ private:
 
     void Internal_Init(const class IInstance& instance, const ILogicalDevice& logicalDevice, const Window& window);
     void Internal_Shutdown();
-    void Internal_BeginUIFrame(vk::CommandBuffer cmd);
+    void Internal_BeginUIFrame();
     void Internal_EndUIFrame(vk::CommandBuffer cmd);
 
     void Internal_DrawWidgetList();

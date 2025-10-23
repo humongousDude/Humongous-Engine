@@ -1,4 +1,5 @@
 #define STB_IMAGE_IMPLEMENTATION
+
 #include "texture.hpp"
 #include "abstractions/buffer.hpp"
 #include "allocator.hpp"
@@ -22,7 +23,7 @@ Texture::Texture(const ILogicalDevice& logicalDevice, const std::string& imagePa
         return;
     }
 
-    CreateFromFile(imagePath, logicalDevice, imageType, storage);
+    CreateFromFile(imagePath, imageType, storage);
 }
 
 void Texture::Destroy()
@@ -30,7 +31,7 @@ void Texture::Destroy()
     if(m_textureSampler) { m_logicalDevice.DestroySampler(m_textureSampler); }
 }
 
-void Texture::CreateFromFile(const std::string& path, const ILogicalDevice& device, const ImageType& imageType, const b8& storage)
+void Texture::CreateFromFile(const std::string& path, const ImageType& imageType, const b8& storage)
 {
     CreateTextureImage(path, imageType, storage);
 }
@@ -70,7 +71,7 @@ void Texture::GenerateMipmaps(vk::CommandBuffer commandBuffer, vk::Image image, 
     m_textureImage->TransitionLayout(commandBuffer, finalLayout, mipLevels - 1, 1, 0, 1);
 }
 
-void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo textureSampler, const ILogicalDevice& device, vk::Queue copyQueue)
+void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo textureSampler)
 {
     unsigned char* buffer = nullptr;
     vk::DeviceSize bufferSize = 0;
@@ -85,7 +86,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     {
         bufferSize = expectedBufferSize;
         buffer = new unsigned char[bufferSize];
-        for(s32 i = 0; i < m_width * m_height; ++i)
+        for(u32 i = 0; i < m_width * m_height; ++i)
         {
             auto rgba = buffer + i * 4;
             auto rgb = &gltfimage.image[i * 3];
@@ -105,7 +106,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     {
         bufferSize = expectedBufferSize;
         buffer = new unsigned char[bufferSize];
-        for(s32 i = 0; i < m_width * m_height; ++i)
+        for(u32 i = 0; i < m_width * m_height; ++i)
         {
             unsigned char grey = gltfimage.image[i];
             auto          rgba = buffer + i * 4;
@@ -120,7 +121,7 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
     {
         bufferSize = expectedBufferSize;
         buffer = new unsigned char[bufferSize];
-        for(s32 i = 0; i < m_width * m_height; ++i)
+        for(u32 i = 0; i < m_width * m_height; ++i)
         {
             auto ga = &gltfimage.image[i * 2];
             auto rgba = buffer + i * 4;
@@ -149,19 +150,19 @@ void Texture::CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo tex
         format = vk::Format::eR8G8B8A8Unorm;
     }
 
-    Buffer::BufferCreateInfo bufCreateInfo{.device = m_logicalDevice};
+    Buffer::BufferCreateInfo bufCreateInfo{.device = m_logicalDevice,
+                                           .bufferUsage = vk::BufferUsageFlagBits::eTransferSrc,
+                                           .properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                                           .queueFamilyIndices = {}};
     bufCreateInfo.size = bufferSize;
     bufCreateInfo.instanceCount = 1;
     bufCreateInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
-    bufCreateInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
     bufCreateInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     bufCreateInfo.minOffsetAlignment = 1;
     bufCreateInfo.name = "staging buffer";
 
     std::unique_ptr<Buffer> stagingBuffer = std::make_unique<Buffer>(bufCreateInfo);
-
     stagingBuffer->Map();
-
     stagingBuffer->WriteToBuffer(buffer, bufferSize);
 
     Image::ImageCreateInfo createInfo{};
@@ -292,11 +293,13 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
 
         m_miplevels = static_cast<u32>(std::floor(std::log2(std::max(m_width, m_height)))) + 1;
 
-        Buffer::BufferCreateInfo bufCreateInfo{.device = m_logicalDevice};
+        Buffer::BufferCreateInfo bufCreateInfo{.device = m_logicalDevice,
+                                               .bufferUsage = vk::BufferUsageFlagBits::eTransferSrc,
+                                               .properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                                               .queueFamilyIndices = {}};
         bufCreateInfo.size = imageSize;
         bufCreateInfo.instanceCount = 1;
         bufCreateInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
-        bufCreateInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
         bufCreateInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         bufCreateInfo.minOffsetAlignment = 1;
         bufCreateInfo.name = "staging buffer";
@@ -412,13 +415,13 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         m_height = ktxTex->baseHeight;
         m_miplevels = ktxTex->numLevels;
         m_baseSize = m_width;
-        vk::Format format = vk::Format(ktxTexture_GetVkFormat(ktxTex));
 
-        Buffer::BufferCreateInfo bufCreateInfo{.device = m_logicalDevice};
+        Buffer::BufferCreateInfo bufCreateInfo{.device = m_logicalDevice,
+                                               .bufferUsage = vk::BufferUsageFlagBits::eTransferSrc,
+                                               .properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                                               .queueFamilyIndices = {}};
         bufCreateInfo.size = ktxTexture_GetDataSize(ktxTex);
         bufCreateInfo.instanceCount = 1;
-        bufCreateInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
-        bufCreateInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
         bufCreateInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         bufCreateInfo.minOffsetAlignment = 1;
         bufCreateInfo.name = "staging buffer";
@@ -499,7 +502,7 @@ void Texture::CreateTextureImage(const std::string& imagePath, const ImageType& 
         samplerInfo.addressModeV = vk::SamplerAddressMode::eClampToEdge;
         samplerInfo.addressModeW = vk::SamplerAddressMode::eClampToEdge;
 
-        CreateTextureImageSampler(samplerInfo, ImageType::CUBEMAP);
+        CreateTextureImageSampler(samplerInfo);
 
         ktxTexture_Destroy(ktxTex);
     }
@@ -546,7 +549,7 @@ void Texture::FillWithEmpty(const ILogicalDevice& logicalDevice, u32 width, u32 
     CreateTextureImageSampler(samplerInfo);
 }
 
-void Texture::CreateTextureImageSampler(const TexSamplerInfo& info, const ImageType& imageType)
+void Texture::CreateTextureImageSampler(const TexSamplerInfo& info)
 {
     vk::SamplerCreateInfo samplerInfo{};
     samplerInfo.magFilter = info.magFilter;

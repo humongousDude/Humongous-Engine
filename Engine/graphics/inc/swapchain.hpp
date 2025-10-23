@@ -29,7 +29,7 @@ public:
 
     vk::SwapchainKHR GetSwapChain() const { return m_swapChain; }
 
-    const bool CompareSwapFormats(const SwapChain& swapChain)
+    b8 CompareSwapFormats(const SwapChain& swapChain) const
     {
         return swapChain.GetSurfaceFormat() == m_surfaceFormat && swapChain.GetPresentMode() == m_presentMode;
     }

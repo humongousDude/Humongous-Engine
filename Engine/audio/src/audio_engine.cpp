@@ -93,7 +93,8 @@ void AudioEngine::Play(AudioSourceComponent& src, const bool& loop)
     alGetSourcei(src.GetSourceID(), AL_SOURCE_STATE, &state);
     if(state == AL_STOPPED || state == AL_PAUSED) { src.Pause(); }
 
-    if(src.IsPlaying()) { return; }
+    // FIXME: this doesn't loop, will fix in later audio overhaul
+    if(src.IsPlaying() && !loop) { return; }
 
     ALenum error = alGetError();
     if(error != AL_NO_ERROR || src.GetSourceID() == 0)
@@ -101,8 +102,6 @@ void AudioEngine::Play(AudioSourceComponent& src, const bool& loop)
         HGERROR("PlaySound: Failed to generate OpenAL source. AL Error: %s (0x%x)", alGetString(error), error);
         return;
     }
-
-    u32 gain = 1;
 
     AL_CHECK(alSourcei(src.GetSourceID(), AL_BUFFER, src.GetALBuffer()));
     error = alGetError();

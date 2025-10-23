@@ -19,7 +19,7 @@ SwapChain::~SwapChain()
 {
     for(auto imageView: m_imageViews) { vkDestroyImageView(m_logicalDevice.GetVkDevice(), imageView, nullptr); }
 
-    for(int i = 0; i < m_images.size(); i++) { m_logicalDevice.GetVkDevice().destroySemaphore(m_renderFinishedSemaphore[i]); }
+    for(u32 i = 0; i < static_cast<u32>(m_images.size()); i++) { m_logicalDevice.GetVkDevice().destroySemaphore(m_renderFinishedSemaphore[i]); }
 
     vkDestroySwapchainKHR(m_logicalDevice.GetVkDevice(), m_swapChain, nullptr);
     HGINFO("Destroyed SwapChain");
@@ -107,7 +107,7 @@ void SwapChain::CreateSwapChain(const Window& window, const PhysicalDevice& phys
 
     vk::SemaphoreCreateInfo semaphoreCreateInfo{};
 
-    for(int i = 0; i < imageCount; i++)
+    for(u32 i = 0; i < imageCount; i++)
     {
         if(m_logicalDevice.GetVkDevice().createSemaphore(&semaphoreCreateInfo, nullptr, &m_renderFinishedSemaphore[i]) != vk::Result::eSuccess)
         {
@@ -214,7 +214,7 @@ vk::Result SwapChain::Present(vk::Semaphore renderFinished, u32& currentImageInd
     presentInfo.pNext = nullptr;
     presentInfo.pSwapchains = &m_swapChain;
     presentInfo.swapchainCount = 1;
-    presentInfo.pWaitSemaphores = &GetRenderFinishedSemaphoreAtIndex(currentImageIndex);
+    presentInfo.pWaitSemaphores = &renderFinished;
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pImageIndices = &currentImageIndex;
 

@@ -93,37 +93,37 @@ struct Material
     float           roughnessFactor = 1.0f;
     Eigen::Vector4f baseColorFactor = Eigen::Vector4f::Ones();
     Eigen::Vector4f emissiveFactor = Eigen::Vector4f::Zero();
-    u32             baseColorTextureIndex = -1;
-    u32             metallicRoughnessTextureIndex = -1;
-    u32             normalTextureIndex = -1;
-    u32             occlusionTextureIndex = -1;
-    u32             emissiveTextureIndex = -1;
+    s32             baseColorTextureIndex = -1;
+    s32             metallicRoughnessTextureIndex = -1;
+    s32             normalTextureIndex = -1;
+    s32             occlusionTextureIndex = -1;
+    s32             emissiveTextureIndex = -1;
     bool            doubleSided = false;
     struct TexCoordSets
     {
-        uint8_t baseColor = 0;
-        uint8_t metallicRoughness = 0;
-        uint8_t specularGlossiness = 0;
-        uint8_t normal = 0;
-        uint8_t occlusion = 0;
-        uint8_t emissive = 0;
+        u8 baseColor = 0;
+        u8 metallicRoughness = 0;
+        u8 specularGlossiness = 0;
+        u8 normal = 0;
+        u8 occlusion = 0;
+        u8 emissive = 0;
     } texCoordSets;
     struct Extension
     {
-        u32             specularGlossinessTextureIndex = -1;
-        u32             diffuseTextureIndex = -1;
+        s32             specularGlossinessTextureIndex = -1;
+        s32             diffuseTextureIndex = -1;
         Eigen::Vector4f diffuseFactor = Eigen::Vector4f::Ones();
         Eigen::Vector3f specularFactor = Eigen::Vector3f::Zero();
     } extension;
     struct PbrWorkflows
     {
-        bool metallicRoughness = true;
-        bool specularGlossiness = false;
+        b8 metallicRoughness = true;
+        b8 specularGlossiness = false;
     } pbrWorkflows;
-    int         index = 0;
+    s32         index = 0;
     std::string name = "";
-    bool        unlit = false;
-    float       emissiveStrength = 1.0f;
+    b8          unlit = false;
+    f32         emissiveStrength = 1.0f;
 };
 
 } // namespace Humongous

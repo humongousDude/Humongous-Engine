@@ -101,7 +101,7 @@ void UI::InitDescriptorThings()
     }
 }
 
-void UI::Internal_BeginUIFrame(vk::CommandBuffer cmd)
+void UI::Internal_BeginUIFrame()
 {
     if(!m_hasInitialized) { return; }
     if(m_startedFrame) { return; }

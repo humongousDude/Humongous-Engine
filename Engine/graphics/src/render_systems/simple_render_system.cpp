@@ -152,6 +152,22 @@ TraditionalRenderSystem::~TraditionalRenderSystem()
     HGINFO("Destroyed Simple render system");
 }
 
+void TraditionalRenderSystem::ReadyBuffers(RenderData& renderData)
+{
+    if(renderData.frameIndex == 0)
+    {
+        // noop
+    }
+}
+
+void TraditionalRenderSystem::ReadyDescriptors(RenderData& renderData)
+{
+    if(renderData.frameIndex == 0)
+    {
+        // noop
+    }
+}
+
 void TraditionalRenderSystem::Render(const RenderData& renderData)
 {
     std::vector<DrawData>                       opaqueDrawData;
@@ -159,7 +175,6 @@ void TraditionalRenderSystem::Render(const RenderData& renderData)
     std::vector<DrawData>                       transparentDrawData;
     std::vector<vk::DrawIndexedIndirectCommand> transparentCommands;
     std::vector<InstanceData>                   instanceData;
-    u32                                         instanceOffset = 0;
 
     RenderObjectsToData(renderData, opaqueDrawData, opaqueCommands, transparentDrawData, transparentCommands, instanceData);
 
@@ -184,11 +199,12 @@ void TraditionalRenderSystem::Render(const RenderData& renderData)
 
     std::vector<std::unique_ptr<Buffer>> stagingBuffers;
     {
-        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice,
+                                            .bufferUsage = vk::BufferUsageFlagBits::eTransferSrc,
+                                            .properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                                            .queueFamilyIndices = {m_logicalDevice.GetGraphicsQueueIndex()}};
         createInfo.size = indirectCommandsSize;
         createInfo.instanceCount = 1;
-        createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
-        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 1;
         createInfo.name = "indirect staging buffer";
@@ -210,11 +226,12 @@ void TraditionalRenderSystem::Render(const RenderData& renderData)
     // draw data buffer
 
     {
-        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice,
+                                            .bufferUsage = vk::BufferUsageFlagBits::eTransferSrc,
+                                            .properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                                            .queueFamilyIndices = {m_logicalDevice.GetGraphicsQueueIndex()}};
         createInfo.size = drawDataSize;
         createInfo.instanceCount = 1;
-        createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
-        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 1;
         createInfo.name = "draw data staging buffer";
@@ -238,11 +255,12 @@ void TraditionalRenderSystem::Render(const RenderData& renderData)
     // instance data buffer
 
     {
-        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice,
+                                            .bufferUsage = vk::BufferUsageFlagBits::eTransferSrc,
+                                            .properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                                            .queueFamilyIndices = {m_logicalDevice.GetGraphicsQueueIndex()}};
         createInfo.size = instanceDataSize;
         createInfo.instanceCount = 1;
-        createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
-        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 1;
         createInfo.name = "instance data staging buffer";
@@ -447,7 +465,10 @@ void MeshRenderSystem::ReadyBuffers(RenderData& renderData)
         {
             buf.reset();
 
-            Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+            Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice,
+                                                .bufferUsage = usage,
+                                                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                                                .queueFamilyIndices = {m_logicalDevice.GetGraphicsQueueIndex()}};
             createInfo.size = needed;
             createInfo.instanceCount = 1;
             createInfo.bufferUsage = usage;
@@ -482,11 +503,12 @@ void MeshRenderSystem::ReadyBuffers(RenderData& renderData)
 
     std::vector<std::unique_ptr<Buffer>> stagingBuffers;
     auto                                 uploadToDeviceBuffer = [&](Buffer& deviceBuf, void* src, vk::DeviceSize size, const char* tmpName) {
-        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
+        Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice,
+                                                                            .bufferUsage = vk::BufferUsageFlagBits::eTransferSrc,
+                                                                            .properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                                                                            .queueFamilyIndices = {m_logicalDevice.GetGraphicsQueueIndex()}};
         createInfo.size = size * 100;
         createInfo.instanceCount = 1;
-        createInfo.bufferUsage = vk::BufferUsageFlagBits::eTransferSrc;
-        createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 1;
         createInfo.name = tmpName;

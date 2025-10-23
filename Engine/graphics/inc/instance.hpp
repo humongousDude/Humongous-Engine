@@ -38,13 +38,13 @@ private:
     const std::vector<const char*> m_validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
 #ifndef _DEBUG
-    const bool ENABLE_VALIDATION_LAYERS = false;
+    const b8 ENABLE_VALIDATION_LAYERS = false;
 #else
-    const bool ENABLE_VALIDATION_LAYERS = true;
+    const b8 ENABLE_VALIDATION_LAYERS = true;
 #endif
 
     void                     InitInstance();
-    bool                     CheckValidationLayerSupport();
+    b8                       CheckValidationLayerSupport();
     std::vector<const char*> GetRequiredExtensions();
 
     void SetupDebugMessenger();

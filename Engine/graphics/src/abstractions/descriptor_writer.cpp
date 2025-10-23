@@ -55,9 +55,10 @@ DescriptorWriter& DescriptorWriter::WriteImage(const u32 binding, vk::Descriptor
 
 bool DescriptorWriter::Build(vk::DescriptorSet& set)
 {
-    bool success;
+    b8 success = false;
     if(m_pool) { success = m_pool->AllocateDescriptor(m_setLayout.m_descriptorSetLayout, set); }
     else if(m_poolGrowable) { success = m_poolGrowable->AllocateDescriptor(m_setLayout.m_descriptorSetLayout, set); }
+    HGASSERT(success && "No descriptor pool for DescriptorWriter");
 
     if(!success) { return false; }
     Overwrite(set);
@@ -68,7 +69,10 @@ void DescriptorWriter::Overwrite(vk::DescriptorSet& set)
 {
     for(auto& write: m_writes) { write.dstSet = set; }
     if(m_pool) { m_pool->m_logicalDevice.UpdateDescriptorSets(m_writes); }
-    else { m_poolGrowable->m_logicalDevice.UpdateDescriptorSets(m_writes); }
+    else
+    {
+        m_poolGrowable->m_logicalDevice.UpdateDescriptorSets(m_writes);
+    }
 }
 
 } // namespace Humongous

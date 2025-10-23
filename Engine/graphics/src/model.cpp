@@ -282,11 +282,7 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
 
             u32 vertexStart = static_cast<u32>(loaderInfo.vertexPos);
             u32 indexStart = static_cast<u32>(loaderInfo.indexPos);
-            u32 indexCount = 0;
-            u32 vertexCount = 0;
-
-            b8 hasSkin = false;
-            b8 hasIndices = primitive.indices > -1;
+            b8  hasIndices = primitive.indices > -1;
 
             std::vector<std::vector<Eigen::Vector3f>> morphTargetPositionsOriginal;
             std::vector<std::vector<Eigen::Vector3f>> morphTargetNormalsOriginal;
@@ -350,15 +346,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
                 morphTargetTangentsOriginal.push_back(targetTangents);
             }
 
-            const f32*  bufferPos = nullptr;
-            const f32*  bufferNormals = nullptr;
-            const f32*  bufferTexCoordSet0 = nullptr;
-            const f32*  bufferTexCoordSet1 = nullptr;
-            const f32*  bufferColorSet0 = nullptr;
-            const void* bufferJoints = nullptr;
-            const f32*  bufferWeights = nullptr;
-            const f32*  bufferTangents = nullptr;
-
             s32 posByteStride = 0;
             s32 normByteStride = 0;
             s32 uv0ByteStride = 0;
@@ -392,9 +379,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
                                                               : (sizeof(f32) * tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2));
                 rawUv0Base = model.buffers[uvView.buffer].data.data() + uvView.byteOffset + uvAccessor.byteOffset;
             }
-
-            hasSkin = (bufferJoints && bufferWeights);
-            vertexCount = static_cast<u32>(posAccessor.count);
 
             currentPrimitiveVertices.reserve(posAccessor.count);
 
@@ -538,7 +522,6 @@ void Model::LoadNode(Node* parent, const tinygltf::Node& node, u32 nodeIndex, co
                 const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
                 const tinygltf::Buffer&     buffer = model.buffers[bufferView.buffer];
 
-                indexCount = static_cast<u32>(accessor.count);
                 const void* dataPtr = &(buffer.data[accessor.byteOffset + bufferView.byteOffset]);
 
                 currentPrimitiveIndices.reserve(accessor.count);

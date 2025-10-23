@@ -1,10 +1,10 @@
 #pragma once
 
 #include "defines.hpp"
+#include "imgui.h"
 #include <Eigen/Dense>
 #include <deque>
 #include <functional>
-#include <imgui.h>
 
 namespace Humongous
 {

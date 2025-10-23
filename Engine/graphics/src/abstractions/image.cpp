@@ -4,7 +4,7 @@
 namespace Humongous
 {
 
-Image::Image(const ILogicalDevice& device, const u32& width, const u32& height, vk::ImageLayout layout)
+Image::Image(const ILogicalDevice& device, const u32& width, const u32& height)
     : m_logicalDevice(device), m_width(width), m_height(height), m_currentQueue(0)
 {
     ImageCreateInfo createInfo{};
@@ -20,8 +20,8 @@ Image::Image(const ILogicalDevice& device, const u32& width, const u32& height, 
 
 Image::Image(const ILogicalDevice& device, const ImageCreateInfo& createInfo)
     : m_logicalDevice(device), m_width(createInfo.width), m_height(createInfo.height), m_mipLevels(createInfo.mipLevels),
-      m_layerCount(createInfo.layerCount), m_arrayLayerCount(createInfo.arrayLayerCount), m_aspectFlags(createInfo.aspectFlags),
-      m_currentQueue(createInfo.queue), m_usage(createInfo.usage)
+      m_layerCount(createInfo.layerCount), m_arrayLayerCount(createInfo.arrayLayerCount), m_currentQueue(createInfo.queue),
+      m_aspectFlags(createInfo.aspectFlags), m_usage(createInfo.usage)
 {
     AllocateImage(createInfo);
 }

@@ -95,7 +95,7 @@ public:
 
     VkPhysicalDeviceFeatures2 GetFeatures() const override
     {
-        VkPhysicalDeviceFeatures2 features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+        VkPhysicalDeviceFeatures2 features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = nullptr, .features = {}};
         vkGetPhysicalDeviceFeatures2(m_physicalDevice, &features);
         return features;
     }

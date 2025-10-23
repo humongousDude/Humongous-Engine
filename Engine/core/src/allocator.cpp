@@ -1,9 +1,16 @@
-#include "allocator.hpp"
+#define VMA_IMPLEMENTATION
 #include "logger.hpp"
+
+#include "allocator.hpp"
 #include "logical_device.hpp"
 
 namespace Humongous
 {
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 void VKAPI_PTR VmaAllocateDeviceMemoryFunction(VmaAllocator allocator, u32 memoryType, VkDeviceMemory memory, VkDeviceSize size, void* pUserData)
 {
     Allocator::VMAData* myUserData = static_cast<Allocator::VMAData*>(pUserData);
@@ -21,6 +28,8 @@ void VKAPI_PTR VmaFreeDeviceMemoryFunction(VmaAllocator allocator, u32 memoryTyp
     HGTRACE("VMA_FREE_CB: Freeing memoryType=%u, memory=0x%p, size=%llu bytes. Total frees: %d", memoryType, (void*)memory,
             (unsigned long long)size, myUserData ? myUserData->freeCount : -1);
 }
+
+#pragma GCC diagnostic pop
 
 Allocator::Allocator(const ILogicalDevice& logicalDevice, const class IInstance& instance) : m_logicalDevice{logicalDevice}, m_instance{instance}
 {
@@ -53,15 +62,13 @@ void Allocator::Initialize()
     vmaCreateAllocator(&allocatorInfo, &m_allocator);
 }
 
-vk::Result Allocator::AllocateBuffer(const vk::DeviceSize size, const VmaMemoryUsage vmaUsage, const vk::BufferUsageFlags bufferUsage,
-                                     VmaAllocationCreateInfo allocCreateInfo, const vk::MemoryPropertyFlags properties, VmaAllocation& allocation,
-                                     vk::Buffer& buffer)
+vk::Result Allocator::AllocateBuffer(const vk::DeviceSize size, const vk::BufferUsageFlags bufferUsage, VmaAllocationCreateInfo allocCreateInfo,
+                                     VmaAllocation& allocation, vk::Buffer& buffer)
 {
     vk::BufferCreateInfo bufferInfo{};
     bufferInfo.size = size;
     bufferInfo.usage = bufferUsage;
     bufferInfo.sharingMode = vk::SharingMode::eExclusive;
-
     vk::Result result = static_cast<vk::Result>(vmaCreateBuffer(m_allocator, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocCreateInfo,
                                                                 reinterpret_cast<VkBuffer*>(&buffer), &allocation, nullptr));
 

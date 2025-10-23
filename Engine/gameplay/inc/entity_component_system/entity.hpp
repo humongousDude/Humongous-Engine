@@ -17,7 +17,7 @@ public:
     Entity(Entity&&) = default;
     Entity& operator=(Entity&&) = default;
 
-    const u32 GetId() const { return m_id; };
+    u32 GetId() const { return m_id; };
 
 private:
     u32 m_id;

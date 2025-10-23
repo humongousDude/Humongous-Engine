@@ -5,7 +5,7 @@
 // TODO: Change this to use vulkan.hpp
 namespace Humongous
 {
-DescriptorPoolGrowable::DescriptorPoolGrowable(const ILogicalDevice& logicalDevice, u32 maxSets, vk::DescriptorPoolCreateFlags m_poolFlags,
+DescriptorPoolGrowable::DescriptorPoolGrowable(const ILogicalDevice& logicalDevice, u32 maxSets, vk::DescriptorPoolCreateFlags poolFlags,
                                                std::vector<vk::DescriptorType>& poolTypes)
     : m_logicalDevice{logicalDevice}
 {
@@ -13,7 +13,7 @@ DescriptorPoolGrowable::DescriptorPoolGrowable(const ILogicalDevice& logicalDevi
 
     for(auto t: poolTypes) { m_poolTypes.push_back(t); }
 
-    vk::DescriptorPool newPool = CreatePool(logicalDevice, maxSets, poolTypes);
+    vk::DescriptorPool newPool = CreatePool(logicalDevice, maxSets, poolTypes, poolFlags);
 
     m_setsPerPool = maxSets * 1.5;
 
@@ -72,9 +72,9 @@ vk::DescriptorSet DescriptorPoolGrowable::AllocateDescriptor(const vk::Descripto
 
 void DescriptorPoolGrowable::ResetPools()
 {
-    for(int i = 0; i < m_fullPools.size(); i++) { m_logicalDevice.DestroyDescriptorPool(m_fullPools[i]); }
+    for(u32 i = 0; i < static_cast<u32>(m_fullPools.size()); i++) { m_logicalDevice.DestroyDescriptorPool(m_fullPools[i]); }
     m_fullPools.clear();
-    for(int i = 0; i < m_readyPools.size(); i++) { m_logicalDevice.ResetDescriptorPool(m_readyPools[i]); }
+    for(u32 i = 0; i < static_cast<u32>(m_readyPools.size()); i++) { m_logicalDevice.ResetDescriptorPool(m_readyPools[i]); }
     m_readyPools.clear();
 }
 
@@ -88,7 +88,7 @@ vk::DescriptorPool DescriptorPoolGrowable::GetPool(const ILogicalDevice& logical
     }
     else
     {
-        newPool = CreatePool(logicalDevice, m_setsPerPool, m_poolTypes);
+        newPool = CreatePool(logicalDevice, m_setsPerPool, m_poolTypes, {});
 
         m_setsPerPool = m_setsPerPool * 1.5;
 
@@ -98,8 +98,8 @@ vk::DescriptorPool DescriptorPoolGrowable::GetPool(const ILogicalDevice& logical
     return newPool;
 }
 
-vk::DescriptorPool DescriptorPoolGrowable::CreatePool(const ILogicalDevice& logicalDevice, u32 setCount,
-                                                      std::vector<vk::DescriptorType> poolTypes) const
+vk::DescriptorPool DescriptorPoolGrowable::CreatePool(const ILogicalDevice& logicalDevice, u32 setCount, std::vector<vk::DescriptorType> poolTypes,
+                                                      vk::DescriptorPoolCreateFlags flags) const
 {
     std::vector<vk::DescriptorPoolSize> poolSizes;
     for(vk::DescriptorType type: poolTypes) { poolSizes.push_back({type, setCount}); }
@@ -109,6 +109,7 @@ vk::DescriptorPool DescriptorPoolGrowable::CreatePool(const ILogicalDevice& logi
     info.maxSets = setCount;
     info.poolSizeCount = static_cast<u32>(poolSizes.size());
     info.pPoolSizes = poolSizes.data();
+    info.flags = flags;
 
     vk::DescriptorPool newPool = logicalDevice.CreateDescriptorPool(info);
 

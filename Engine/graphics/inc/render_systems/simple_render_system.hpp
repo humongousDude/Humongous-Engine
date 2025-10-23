@@ -122,8 +122,8 @@ public:
     ~TraditionalRenderSystem();
 
     void Render(const RenderData& renderData) override;
-    void ReadyBuffers(RenderData& renderData) override {};
-    void ReadyDescriptors(RenderData& renderData) override {};
+    void ReadyBuffers(RenderData& renderData) override;
+    void ReadyDescriptors(RenderData& renderData) override;
 
 private:
     std::unique_ptr<Buffer> m_debugBuffer{};

@@ -17,7 +17,7 @@ namespace Humongous
 {
 
 Buffer::Buffer(const BufferCreateInfo& createInfo)
-    : m_logicalDevice{createInfo.device}, m_instanceSize{createInfo.size}, m_instanceCount{createInfo.instanceCount},
+    : m_logicalDevice{createInfo.device}, m_instanceCount{createInfo.instanceCount}, m_instanceSize{createInfo.size},
       m_usageFlags{createInfo.bufferUsage}, m_memoryPropertyFlags{createInfo.properties}
 {
     Init(createInfo);
@@ -88,8 +88,7 @@ void Buffer::Init(const BufferCreateInfo& createInfo)
 
     if(RequiresExplicitVMAAccesFlag(createInfo.memoryUsage)) { allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT; }
 
-    vk::Result result = m_logicalDevice.GetAllocator().AllocateBuffer(m_instanceSize, createInfo.memoryUsage, m_usageFlags, allocCreateInfo,
-                                                                      m_memoryPropertyFlags, m_allocation, m_buffer);
+    vk::Result result = m_logicalDevice.GetAllocator().AllocateBuffer(m_instanceSize, m_usageFlags, allocCreateInfo, m_allocation, m_buffer);
 
     if(result != vk::Result::eSuccess)
     {
@@ -144,7 +143,7 @@ vk::DeviceSize Buffer::GetAlignment(vk::DeviceSize m_instanceSize, vk::DeviceSiz
  *
  * @return vk::Result of the buffer mapping call
  */
-vk::Result Buffer::Map(vk::DeviceSize size, vk::DeviceSize offset)
+vk::Result Buffer::Map()
 {
     if(!m_isValid)
     {

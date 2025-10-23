@@ -68,13 +68,14 @@ void Camera::InitDescriptorThings(const ILogicalDevice& logicalDevice)
     m_paramBuffers.resize(static_cast<u32>(Globals::Limits::MaxFramesInFlight));
     m_combinedCameraDataBuffers.resize(static_cast<u32>(Globals::Limits::MaxFramesInFlight));
 
-    Buffer::BufferCreateInfo createInfo{.device = logicalDevice};
+    Buffer::BufferCreateInfo createInfo{.device = logicalDevice,
+                                        .bufferUsage = vk::BufferUsageFlagBits::eUniformBuffer,
+                                        .properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                                        .queueFamilyIndices = {}};
     createInfo.instanceCount = 1;
-    createInfo.bufferUsage = vk::BufferUsageFlagBits::eUniformBuffer;
-    createInfo.properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
     createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     createInfo.minOffsetAlignment = 1;
-    for(int i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); ++i)
+    for(u32 i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); ++i)
     {
         createInfo.size = sizeof(ProjectionUBO);
         createInfo.name = "global projection buffer";

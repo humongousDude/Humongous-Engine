@@ -55,8 +55,7 @@ private:
     void LoadCubemap(const std::string& cubemapPath);
     void LoadDescriptorSet(DescriptorSetLayout& descriptorLayout, DescriptorSetLayout& compLayout, DescriptorPoolGrowable* pool);
 
-    void GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPoolGrowable& combinedImagePool,
-                           DescriptorPoolGrowable& storageImagePool);
+    void GeneratePBRImages(DescriptorPoolGrowable& combinedImagePool, DescriptorPoolGrowable& storageImagePool);
     void CreatePrefilteredMipViews();
 };
 } // namespace Humongous

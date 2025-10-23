@@ -495,8 +495,6 @@ std::shared_ptr<ModelInstance> ResourceManager::RequestModel(const std::string& 
     return it->second;
 }
 
-void AddMatriciesToModel(const std::vector<Eigen::Matrix4f>& matricies) {}
-
 void ResourceManager::AddIndicesToModel(const std::vector<u32>& modelIndices, std::vector<Primitive*>& modelPrimitives)
 {
     HGINFO("Adding indices to model...");
@@ -650,8 +648,6 @@ void ResourceManager::AddMorphTargetsToModel(const std::vector<f32>& morphTarget
 
 void ResourceManager::UpdateMorphTargets(const std::vector<f32>& morphTargets, const u32& handle)
 {
-    const size_t baseMorphTargets = m_modelVertices.size();
-
     u32 startPos = m_modelHandleToMorphStart.at(handle).first;
 
     std::copy(morphTargets.begin(), morphTargets.end(), m_modelMorphTargets.begin() + startPos);
@@ -869,7 +865,7 @@ std::string GenerateMaterialKey(const Model::ShaderMaterial& mat)
     return "mat_" + std::to_string(dataHash);
 }
 
-u32 ResourceManager::RequestTexture(class tinygltf::Image img, struct Texture::TexSamplerInfo sampler)
+u32 ResourceManager::RequestTexture(tinygltf::Image img, struct Texture::TexSamplerInfo sampler)
 {
     std::string key = GenerateImageKey(img);
 
@@ -877,7 +873,7 @@ u32 ResourceManager::RequestTexture(class tinygltf::Image img, struct Texture::T
     if(it != m_textureMap.end()) { return it->second.bindlessIndex; }
 
     auto newTex = std::make_unique<Texture>(m_logicalDevice);
-    newTex->CreateFromGLTFImage(img, sampler, m_logicalDevice, m_logicalDevice.GetGraphicsQueue());
+    newTex->CreateFromGLTFImage(img, sampler);
 
     u32 bindlessIndex = m_nextBindlessIndex++;
 

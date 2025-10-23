@@ -81,7 +81,6 @@ void ModelInstance::UpdateAnimatedAABB()
             {
                 worldSpacePrimitiveAABB = BoundingBox();
                 worldSpacePrimitiveAABB.valid = true;
-                Skin* skin = m_model->GetSkins()[ownerNode->skinIndex];
 
                 worldSpacePrimitiveAABB = BoundingBox::TransformAABB(inflatedLocalAABB, animatedOwnerGlobalTransform);
             }

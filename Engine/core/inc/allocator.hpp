@@ -11,9 +11,8 @@ class IAllocator
 public:
     virtual ~IAllocator() = default;
 
-    virtual vk::Result AllocateBuffer(const vk::DeviceSize size, const VmaMemoryUsage vmaUsage, const vk::BufferUsageFlags bufferUsage,
-                                      VmaAllocationCreateInfo allocCreateInfo, const vk::MemoryPropertyFlags properties, VmaAllocation& allocation,
-                                      vk::Buffer& buffer) = 0;
+    virtual vk::Result AllocateBuffer(const vk::DeviceSize size, const vk::BufferUsageFlags bufferUsage, VmaAllocationCreateInfo allocCreateInfo,
+                                      VmaAllocation& allocation, vk::Buffer& buffer) = 0;
     virtual void       FreeBuffer(VmaAllocation allocation, vk::Buffer buffer) = 0;
     virtual vk::Result AllocateImage(const vk::ImageCreateInfo& createInfo, VmaAllocationCreateInfo allocCreateInfo, VmaAllocation& allocation,
                                      vk::Image& image) = 0;
@@ -37,9 +36,8 @@ public:
     Allocator(const class ILogicalDevice& logicalDevice, const class IInstance& instance);
     ~Allocator();
 
-    vk::Result        AllocateBuffer(const vk::DeviceSize size, const VmaMemoryUsage vmaUsage, const vk::BufferUsageFlags bufferUsage,
-                                     VmaAllocationCreateInfo allocCreateInfo, const vk::MemoryPropertyFlags properties, VmaAllocation& allocation,
-                                     vk::Buffer& buffer) override;
+    vk::Result        AllocateBuffer(const vk::DeviceSize size, const vk::BufferUsageFlags bufferUsage, VmaAllocationCreateInfo allocCreateInfo,
+                                     VmaAllocation& allocation, vk::Buffer& buffer) override;
     void              FreeBuffer(VmaAllocation allocation, vk::Buffer buffer) override;
     vk::Result        AllocateImage(const vk::ImageCreateInfo& createInfo, VmaAllocationCreateInfo allocCreateInfo, VmaAllocation& allocation,
                                     vk::Image& image) override;
@@ -51,8 +49,6 @@ public:
     vk::Result        Invalidate(VmaAllocation allocation, vk::DeviceSize offset, vk::DeviceSize size) override;
 
 private:
-    b8 m_initialized = false;
-
     const class ILogicalDevice& m_logicalDevice;
     const class IInstance&      m_instance;
     VmaAllocator                m_allocator;

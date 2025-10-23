@@ -58,6 +58,6 @@ private:
     void CreateRenderSystems();
     void LoadGameObjects();
 
-    void HandleInput(float frameTime, SDL_Event* event);
+    void HandleInput(f32 frameTime);
 };
 } // namespace Humongous

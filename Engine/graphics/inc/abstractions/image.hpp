@@ -41,7 +41,7 @@ public:
     Image(const ILogicalDevice& device) : m_logicalDevice(device) {}
 
     // convenience constructor for creating an empty image with a specific layout on the graphics queue
-    Image(const ILogicalDevice& device, const u32& width, const u32& height, vk::ImageLayout layout);
+    Image(const ILogicalDevice& device, const u32& width, const u32& height);
 
     // Create an image with details specified in the createInfo struct
     Image(const ILogicalDevice& device, const ImageCreateInfo& createInfo);

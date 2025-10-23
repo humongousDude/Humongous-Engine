@@ -140,13 +140,13 @@ public:
     void AddColorOutput(TextureResource* texture, vk::PipelineStageFlags2 stages, vk::AccessFlags2 access)
     {
         colorOutputs.push_back(texture);
-        genericTexture.push_back({stages, access, texture, vk::ImageLayout::eColorAttachmentOptimal});
+        genericTexture.push_back({{stages, access}, texture, vk::ImageLayout::eColorAttachmentOptimal});
         texture->AddWriter(m_info.id);
     }
     void AddResolveOutput(TextureResource* texture, vk::PipelineStageFlags2 stages, vk::AccessFlags2 access)
     {
         resolveOutputs.push_back(texture);
-        genericTexture.push_back({stages, access, texture, vk::ImageLayout::eColorAttachmentOptimal});
+        genericTexture.push_back({{stages, access}, texture, vk::ImageLayout::eColorAttachmentOptimal});
         texture->AddWriter(m_info.id);
     }
 

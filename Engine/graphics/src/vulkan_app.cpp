@@ -41,7 +41,7 @@ void VulkanApp::Init(const int argc, char* argv[])
     }
     else
     {
-        HGINFO("Launch the engine with absolute paths to extra directories for the asset manager to look for models in");
+        HGINFO("Launch the engine with absolute paths to extra directories for the asset manager to look for models in. %s");
         m_assetManager = std::make_unique<AssetManager>();
     }
 
@@ -59,7 +59,7 @@ void VulkanApp::Init(const int argc, char* argv[])
 
     std::vector<vk::DescriptorSetLayout> skyboxLayouts = {m_cam->GetVertexDescriptorLayout()};
 
-    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, "papermill", skyboxLayouts);
+    m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, skyboxLayouts);
 
     CreateRenderSystems();
 
@@ -259,7 +259,7 @@ void VulkanApp::LoadGameObjects()
     HGINFO("Loaded game objects");
 }
 
-void VulkanApp::HandleInput(const float frameTime, SDL_Event* event)
+void VulkanApp::HandleInput(const f32 frameTime)
 {
     float deltaX = 0.0f, deltaY = 0.0f;
     auto  movementType = KeyboardHandler::Movements::NONE;
@@ -409,9 +409,9 @@ void VulkanApp::Run()
                     const char* preview = instance->GetAnimations()[itemSelectedIndex[entityId]].name.c_str();
                     if(ImGui::BeginCombo("Animations", preview))
                     {
-                        for(int i = 0; i < instance->GetAnimations().size(); i++)
+                        for(u32 i = 0; i < static_cast<u32>(instance->GetAnimations().size()); i++)
                         {
-                            const bool isSelected = (itemSelectedIndex[entityId] == i);
+                            const b8 isSelected = (itemSelectedIndex[entityId] == i);
                             if(ImGui::Selectable(instance->GetAnimations()[i].name.c_str(), isSelected)) { itemSelectedIndex[entityId] = i; }
 
                             if(isSelected) { ImGui::SetItemDefaultFocus(); }
@@ -477,7 +477,7 @@ void VulkanApp::Run()
         }
         if(quit) { break; }
 
-        HandleInput(frameTime, &e);
+        HandleInput(frameTime);
 
         const float aspect = m_renderer->GetAspectRatio();
 
@@ -538,7 +538,7 @@ void VulkanApp::Run()
                 geometryPass->AddDependency(depthPass);
 
                 std::function<void(const IRenderSystem::RenderData& data)> lightExec = [&](const IRenderSystem::RenderData& data) {
-                    m_renderer->DoLightingPass(cmd, m_cam->GetComputeDescriptorSet(m_renderer->GetFrameIndex()),
+                    m_renderer->DoLightingPass(data.commandBuffer, m_cam->GetComputeDescriptorSet(m_renderer->GetFrameIndex()),
                                                m_cam->GetParamDescriptorSet(m_renderer->GetFrameIndex()),
                                                m_skyboxRenderSystem->GetSkybox()->GetCompDescriptorSet());
                 };
@@ -547,25 +547,25 @@ void VulkanApp::Run()
                 std::function<void(const IRenderSystem::RenderData& data)> skyboxExec = [&](const IRenderSystem::RenderData& data) {
                     m_renderer->BeginSkyboxPass(cmd);
 
-                    m_skyboxRenderSystem->RenderSkybox(data.frameIndex, data.uboSets, cmd);
+                    m_skyboxRenderSystem->RenderSkybox(data.uboSets, data.commandBuffer);
 
                     m_renderer->EndSkyboxPass(cmd);
                 };
                 auto skyboxPass = m_renderGraphs[m_renderer->GetFrameIndex()]->AddPass("Skybox pass", {lightingPass}, skyboxExec);
 
                 std::function<void(const IRenderSystem::RenderData& data)> uiExec = [&](const IRenderSystem::RenderData& data) {
-                    m_renderer->BeginUIPass(cmd);
+                    m_renderer->BeginUIPass(data.commandBuffer);
 
-                    UI::BeginUIFrame(cmd);
+                    UI::BeginUIFrame();
 
                     objectDataWidget.Draw();
                     m_cam->DrawUI();
 
                     UI::Debug_DrawMetrics(0, m_cam->GetPosition());
 
-                    UI::EndUIFrame(cmd);
+                    UI::EndUIFrame(data.commandBuffer);
 
-                    m_renderer->EndUIPass(cmd);
+                    m_renderer->EndUIPass(data.commandBuffer);
 
                     ImGui::UpdatePlatformWindows();
                     ImGui::RenderPlatformWindowsDefault();

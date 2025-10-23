@@ -50,7 +50,7 @@ struct Primitive
     u32 globalMeshletOffset{0};
 
     Primitive(u32 firstIndex, u32 indexCount, u32 vertexCount, u32 localVertexOffset, Material* material)
-        : localFirstIndex(firstIndex), indexCount(indexCount), vertexCount(vertexCount), localVertexOffset(localVertexOffset), material(material),
+        : localFirstIndex(firstIndex), localVertexOffset(localVertexOffset), indexCount(indexCount), vertexCount(vertexCount), material(material),
           hasIndices(indexCount > 0)
     {
     }
@@ -80,7 +80,7 @@ struct Meshlet
     u32             globalIndexOffset{0};
     u32             primitiveCount{0};
     Eigen::Vector4f boundingSphere;
-    uint            __pad0[2];
+    u32             __pad0[2];
 };
 
 class Model
@@ -162,18 +162,18 @@ public:
         Eigen::Vector4f specularFactor;  // 16 bytes
 
         f32 workflow;                       // 4
-        int baseColorTextureIndex;          // 4
-        int baseColorTextureSet;            // 4
-        int physicalDescriptorTextureIndex; // 4
+        s32 baseColorTextureIndex;          // 4
+        s32 baseColorTextureSet;            // 4
+        s32 physicalDescriptorTextureIndex; // 4
 
-        int physicalDescriptorTextureSet; // 4
-        int normalTextureIndex;           // 4
-        int normalTextureSet;             // 4
-        int occlusionTextureIndex;        // 4
+        s32 physicalDescriptorTextureSet; // 4
+        s32 normalTextureIndex;           // 4
+        s32 normalTextureSet;             // 4
+        s32 occlusionTextureIndex;        // 4
 
-        int occlusionTextureSet;  // 4
-        int emissiveTextureIndex; // 4
-        int emissiveTextureSet;   // 4
+        s32 occlusionTextureSet;  // 4
+        s32 emissiveTextureIndex; // 4
+        s32 emissiveTextureSet;   // 4
         f32 metallicFactor;       // 4
 
         f32 roughnessFactor;  // 4

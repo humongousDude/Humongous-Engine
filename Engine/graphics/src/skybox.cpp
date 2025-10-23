@@ -13,7 +13,7 @@ Skybox::Skybox(const SkyboxCreateInfo& createInfo, const IAssetManager& assetMan
     HGINFO("Creating skybox from %s", createInfo.cubemapPath.c_str());
     LoadCubemap(createInfo.cubemapPath);
     HGINFO("created cubemap...");
-    GeneratePBRImages(createInfo.uniformPool, createInfo.imagePool, createInfo.storageImagePool);
+    GeneratePBRImages(createInfo.imagePool, createInfo.storageImagePool);
     HGINFO("generated pbr images...");
     LoadDescriptorSet(createInfo.descriptorSetLayout, createInfo.compDescriptorSetLayout, &createInfo.imagePool);
     HGINFO("loaded descriptor set...");
@@ -102,8 +102,7 @@ void Skybox::CreatePrefilteredMipViews()
     }
 }
 
-void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPoolGrowable& combinedImagePool,
-                               DescriptorPoolGrowable& storageImagePool)
+void Skybox::GeneratePBRImages(DescriptorPoolGrowable& combinedImagePool, DescriptorPoolGrowable& storageImagePool)
 {
     // Prep work
     m_irradiance = std::make_unique<Texture>(m_logicalDevice, m_assetManager.GetAsset(AssetManager::AssetType::TEXTURE, "papermill"),
@@ -201,8 +200,7 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
     // Irradiance map
     HGINFO("Generating irradiance map");
     {
-        ComputePipeline::ComputePipelineCreateInfo configInfo{m_logicalDevice};
-        configInfo.pipelineLayout = irradePipelineLayout;
+        ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice, .pipelineLayout = irradePipelineLayout};
         configInfo.shaderFile = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "irradiance.comp");
 
         ComputePipeline irradiancePipeline{configInfo};
@@ -234,8 +232,7 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
     // Prefiltered map
     HGINFO("Generating prefiltered map");
     {
-        ComputePipeline::ComputePipelineCreateInfo configInfo{m_logicalDevice};
-        configInfo.pipelineLayout = prefiltPipelineLayout;
+        ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice, .pipelineLayout = prefiltPipelineLayout};
         configInfo.shaderFile = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "prefiltredmap.comp");
         ComputePipeline prefilteredPipeline{configInfo};
 
@@ -291,8 +288,7 @@ void Skybox::GeneratePBRImages(DescriptorPoolGrowable& uniformPool, DescriptorPo
     // BRDF LUT
     HGINFO("Generating BRDF LUT");
     {
-        ComputePipeline::ComputePipelineCreateInfo configInfo{m_logicalDevice};
-        configInfo.pipelineLayout = brdfPipelineLayout;
+        ComputePipeline::ComputePipelineCreateInfo configInfo{.logicalDevice = m_logicalDevice, .pipelineLayout = brdfPipelineLayout};
         configInfo.shaderFile = m_assetManager.GetAsset(AssetManager::AssetType::SHADER, "brdflut.comp");
         ComputePipeline brdfPipeline{configInfo};
 

@@ -68,7 +68,7 @@ public:
         return {m_bindlessLayout->GetDescriptorSetLayout(), m_modelDescriptors.traditionalDrawData->GetDescriptorSetLayout()};
     }
 
-    u32 RequestTexture(class tinygltf::Image img, struct Texture::TexSamplerInfo sampler);
+    u32 RequestTexture(struct tinygltf::Image img, struct Texture::TexSamplerInfo sampler);
     u32 RequestMaterial(const Model::ShaderMaterial& mat);
 
     Buffer& GetModelIndexBuffer() { return *m_modelIndexBuffer; }

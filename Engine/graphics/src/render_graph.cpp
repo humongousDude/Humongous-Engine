@@ -136,7 +136,6 @@ void RenderGraph::Compile()
         compiledPass.id = static_cast<u32>(m_compiledPasses.size());
 
         RenderResource::Queue passQueue = RenderResource::Queue::Graphics;
-        vk::Queue             queue = QueueTypeToQueue(m_logicalDevice, pass->m_info.queue);
 
         std::unordered_set<u32> waits;
 

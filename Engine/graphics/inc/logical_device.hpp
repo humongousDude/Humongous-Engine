@@ -1,4 +1,5 @@
 #pragma once
+
 #include "allocator.hpp"
 #include "defines.hpp"
 #include "instance.hpp"
@@ -13,8 +14,8 @@ class ILogicalDevice
 {
 public:
     virtual ~ILogicalDevice() = default;
-    virtual vk::Device       GetVkDevice() const = 0;
-    virtual IPhysicalDevice& GetPhysicalDevice() const = 0;
+    virtual vk::Device             GetVkDevice() const = 0;
+    virtual const IPhysicalDevice& GetPhysicalDevice() const = 0;
 
     virtual vk::Queue GetGraphicsQueue() const = 0;
     virtual vk::Queue GetPresentQueue() const = 0;
@@ -83,11 +84,11 @@ public:
 class VulkanLogicalDevice : public ILogicalDevice, NonCopyable
 {
 public:
-    VulkanLogicalDevice(IInstance& instance, IPhysicalDevice& physicalDevice);
+    VulkanLogicalDevice(const IInstance& instance, const IPhysicalDevice& physicalDevice);
     ~VulkanLogicalDevice() override;
 
-    vk::Device       GetVkDevice() const override { return m_logicalDevice; }
-    IPhysicalDevice& GetPhysicalDevice() const override { return *m_physicalDevice; }
+    vk::Device             GetVkDevice() const override { return m_logicalDevice; }
+    const IPhysicalDevice& GetPhysicalDevice() const override { return m_physicalDevice; }
 
     vk::Queue GetGraphicsQueue() const override { return m_graphicsQueue; }
     vk::Queue GetPresentQueue() const override { return m_presentQueue; }
@@ -144,14 +145,12 @@ public:
 
     void                          RecordBlitCommand(vk::CommandBuffer cmd, vk::BlitImageInfo2 blit) const override;
     vk::FormatProperties          GetFormatProperties(vk::Format format) const override;
-    vk::PhysicalDeviceFeatures2   GetFeatures() const override { return m_physicalDevice->GetFeatures(); };
-    vk::PhysicalDeviceProperties2 GetProperties() const override { return m_physicalDevice->GetProperties(); };
+    vk::PhysicalDeviceFeatures2   GetFeatures() const override { return m_physicalDevice.GetFeatures(); };
+    vk::PhysicalDeviceProperties2 GetProperties() const override { return m_physicalDevice.GetProperties(); };
 
 private:
-    IInstance& m_instance;
-
-    vk::Device       m_logicalDevice = VK_NULL_HANDLE;
-    IPhysicalDevice* m_physicalDevice;
+    vk::Device             m_logicalDevice = VK_NULL_HANDLE;
+    const IPhysicalDevice& m_physicalDevice;
 
     vk::Queue m_graphicsQueue;
     vk::Queue m_presentQueue;
@@ -172,11 +171,11 @@ private:
     PFN_vkCmdDrawMeshTasksEXT         m_drawMeshTasks;
     PFN_vkCmdDrawMeshTasksIndirectEXT m_drawMeshTasksIndirect;
 
-    std::vector<vk::DeviceQueueCreateInfo> CreateQueues(IPhysicalDevice& physicalDevice);
+    std::vector<vk::DeviceQueueCreateInfo> CreateQueues();
 
     std::unique_ptr<WorkScheduler> m_scheduler;
 
-    void CreateLogicalDevice(IInstance& instance, IPhysicalDevice& physicalDevice);
-    void CreateCommandPool(IPhysicalDevice& physicalDevice);
+    void CreateLogicalDevice();
+    void CreateCommandPool();
 };
 } // namespace Humongous

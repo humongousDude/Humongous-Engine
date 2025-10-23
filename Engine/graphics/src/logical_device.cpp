@@ -1,20 +1,17 @@
-#define VMA_IMPLEMENTATION
-
 #include "logical_device.hpp"
 #include "asserts.hpp"
 #include "logger.hpp"
 
-#include "vk_mem_alloc.h"
 #include <set>
 
 namespace Humongous
 {
-VulkanLogicalDevice::VulkanLogicalDevice(IInstance& instance, IPhysicalDevice& physicalDevice)
-    : m_logicalDevice{VK_NULL_HANDLE}, m_instance{instance}, m_physicalDevice{&physicalDevice}
+VulkanLogicalDevice::VulkanLogicalDevice(const IInstance& instance, const IPhysicalDevice& physicalDevice)
+    : m_logicalDevice{VK_NULL_HANDLE}, m_physicalDevice{physicalDevice}
 {
     HGINFO("Creating logical device...");
-    CreateLogicalDevice(instance, physicalDevice);
-    CreateCommandPool(physicalDevice);
+    CreateLogicalDevice();
+    CreateCommandPool();
     m_allocator = std::make_unique<Allocator>(*this, instance);
     m_scheduler = std::make_unique<WorkScheduler>(*this);
     HGINFO("Created logical device");
@@ -33,12 +30,12 @@ VulkanLogicalDevice::~VulkanLogicalDevice()
     HGINFO("Destroyed logical device");
 }
 
-void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevice& physicalDevice)
+void VulkanLogicalDevice::CreateLogicalDevice()
 {
     HGASSERT(m_logicalDevice == VK_NULL_HANDLE && "Logical device has already been made!");
-    HGASSERT(physicalDevice.GetVkPhysicalDevice() != VK_NULL_HANDLE && "Can't create a logical device with a null physical device!");
+    HGASSERT(m_physicalDevice.GetVkPhysicalDevice() != VK_NULL_HANDLE && "Can't create a logical device with a null physical device!");
 
-    IPhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
+    IPhysicalDevice::QueueFamilyData indices = m_physicalDevice.FindQueueFamilies(m_physicalDevice.GetVkPhysicalDevice());
 
     HGASSERT(indices.IsComplete() && "Incomplete queue family indices!");
     m_graphicsQueueIndex = indices.graphicsFamily.value();
@@ -62,7 +59,7 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
     vulkan12Features.pNext = &vulkan11Features;
 
     vk::PhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{};
-    if(m_physicalDevice->GetCurrentCapabilities().supportsMeshShaders)
+    if(m_physicalDevice.GetCurrentCapabilities().supportsMeshShaders)
     {
         meshShaderFeatures.taskShader = true;
         meshShaderFeatures.meshShader = true;
@@ -88,26 +85,19 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
     deviceFeatures.samplerAnisotropy = VK_TRUE;
     deviceFeatures.multiDrawIndirect = VK_TRUE;
 
-    const f32 prio = 1.0f;
+    auto queueCreateInfos = CreateQueues();
 
-    auto queueCreateInfos = CreateQueues(physicalDevice);
-    // queueCreateInfos[0].pQueuePriorities = &prio;
-    // queueCreateInfos[1].pQueuePriorities = &prio;
-
-    auto extensions = physicalDevice.GetDeviceExtensions();
+    auto extensions = m_physicalDevice.GetDeviceExtensions();
 
     vk::DeviceCreateInfo createInfo{};
     createInfo.queueCreateInfoCount = static_cast<u32>(queueCreateInfos.size()); // queueCreateInfos.size();
     createInfo.pQueueCreateInfos = queueCreateInfos.data();
-    createInfo.enabledLayerCount = 0;
     createInfo.enabledExtensionCount = static_cast<u32>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
-    createInfo.enabledLayerCount = 0;
-    createInfo.ppEnabledLayerNames = nullptr;
     createInfo.pNext = &deviceFeatures2;
     createInfo.pEnabledFeatures = nullptr;
 
-    auto result = physicalDevice.GetVkPhysicalDevice().createDevice(&createInfo, nullptr, &m_logicalDevice);
+    auto result = m_physicalDevice.GetVkPhysicalDevice().createDevice(&createInfo, nullptr, &m_logicalDevice);
     if(result != vk::Result::eSuccess)
     {
         HGFATAL("Failed to create logical device! Error: %s", vk::to_string(result).c_str());
@@ -130,7 +120,7 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
     queueInfo.queueFamilyIndex = m_transferQueueIndex;
     m_logicalDevice.getQueue2(&queueInfo, &m_transferQueue);
 
-    if(m_physicalDevice->GetCurrentCapabilities().supportsMeshShaders)
+    if(m_physicalDevice.GetCurrentCapabilities().supportsMeshShaders)
     {
         m_drawMeshTasks = reinterpret_cast<PFN_vkCmdDrawMeshTasksEXT>(vkGetDeviceProcAddr(m_logicalDevice, "vkCmdDrawMeshTasksEXT"));
         m_drawMeshTasksIndirect =
@@ -139,11 +129,11 @@ void VulkanLogicalDevice::CreateLogicalDevice(IInstance& instance, IPhysicalDevi
     HGINFO("logical device queues acquired");
 }
 
-std::vector<vk::DeviceQueueCreateInfo> VulkanLogicalDevice::CreateQueues(IPhysicalDevice& physicalDevice)
+std::vector<vk::DeviceQueueCreateInfo> VulkanLogicalDevice::CreateQueues()
 {
     HGINFO("acquiring queue handles...");
 
-    IPhysicalDevice::QueueFamilyData indices = physicalDevice.FindQueueFamilies(physicalDevice.GetVkPhysicalDevice());
+    IPhysicalDevice::QueueFamilyData indices = m_physicalDevice.FindQueueFamilies(m_physicalDevice.GetVkPhysicalDevice());
 
     std::set<u32> uniqueQueueFamilyIndices;
     if(indices.graphicsFamily.has_value()) { uniqueQueueFamilyIndices.insert(indices.graphicsFamily.value()); }
@@ -174,7 +164,7 @@ std::vector<vk::DeviceQueueCreateInfo> VulkanLogicalDevice::CreateQueues(IPhysic
     return queueCreateInfos;
 }
 
-void VulkanLogicalDevice::CreateCommandPool(IPhysicalDevice& physicalDevice)
+void VulkanLogicalDevice::CreateCommandPool()
 {
     vk::CommandPoolCreateInfo poolInfo{};
     poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
@@ -225,9 +215,10 @@ vk::CommandBuffer VulkanLogicalDevice::BeginSingleTimeCommands(const u32& queueI
     return commandBuffer;
 }
 
-void VulkanLogicalDevice::EndSingleTimeCommands(vk::CommandBuffer commandBuffer) const
+[[deprecated]] void VulkanLogicalDevice::EndSingleTimeCommands(vk::CommandBuffer commandBuffer) const
 {
     HGERROR("Do not use this function!");
+    commandBuffer.end();
     // commandBuffer.end();
     //
     // vk::CommandBufferSubmitInfo commandBufferInfo{};
@@ -260,7 +251,8 @@ void VulkanLogicalDevice::DestroyDescriptorPool(vk::DescriptorPool pool) const {
 
 void VulkanLogicalDevice::FreeDescriptorSets(vk::DescriptorPool pool, std::vector<vk::DescriptorSet>& descriptors) const
 {
-    m_logicalDevice.freeDescriptorSets(pool, static_cast<u32>(descriptors.size()), descriptors.data());
+    auto res = m_logicalDevice.freeDescriptorSets(pool, static_cast<u32>(descriptors.size()), descriptors.data());
+    if(res != vk::Result::eSuccess) { HGERROR("Failed to free descriptor sets! Error: %s", vk::to_string(res).c_str()); }
 }
 
 void VulkanLogicalDevice::ResetDescriptorPool(vk::DescriptorPool pool) const { m_logicalDevice.resetDescriptorPool(pool); }
@@ -425,7 +417,7 @@ void VulkanLogicalDevice::RecordBlitCommand(vk::CommandBuffer cmd, vk::BlitImage
 
 vk::FormatProperties VulkanLogicalDevice::GetFormatProperties(vk::Format format) const
 {
-    return m_physicalDevice->GetVkPhysicalDevice().getFormatProperties(format);
+    return m_physicalDevice.GetVkPhysicalDevice().getFormatProperties(format);
 }
 
 } // namespace Humongous

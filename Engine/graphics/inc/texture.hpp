@@ -7,7 +7,7 @@
 
 namespace tinygltf
 {
-class Image;
+struct Image;
 };
 
 namespace Humongous
@@ -60,9 +60,8 @@ public:
 
     void Destroy();
 
-    void CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo textureSampler, const ILogicalDevice& device, vk::Queue copyQueue);
-    void CreateFromFile(const std::string& path, const ILogicalDevice& device, const ImageType& imageType = ImageType::TEX2D,
-                        const b8& storage = false);
+    void CreateFromGLTFImage(tinygltf::Image& gltfimage, TexSamplerInfo textureSampler);
+    void CreateFromFile(const std::string& path, const ImageType& imageType = ImageType::TEX2D, const b8& storage = false);
 
 private:
     const ILogicalDevice&  m_logicalDevice;
@@ -72,7 +71,7 @@ private:
     u32 m_width, m_height, m_miplevels, m_layerCount, m_baseSize;
 
     void CreateTextureImage(const std::string& imagePath, const ImageType& imageType = ImageType::TEX2D, const b8& storage = false);
-    void CreateTextureImageSampler(const TexSamplerInfo& samplerInfo, const ImageType& imageType = ImageType::TEX2D);
+    void CreateTextureImageSampler(const TexSamplerInfo& samplerInfo);
     void GenerateMipmaps(vk::CommandBuffer commandBuffer, vk::Image image, u32 texWidth, u32 texHeight, u32 mipLevels, vk::ImageLayout finalLayout);
 };
 }; // namespace Humongous
