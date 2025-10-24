@@ -15,7 +15,7 @@ struct OutVertex{
 
 static const uint MAX_MESHLET_VERTS = 64;
 static const uint MAX_MESHLET_PRIMS = 126;
-static const uint GROUP_SIZE = 64;
+static const uint GROUP_SIZE = 32;
 
 [numthreads(GROUP_SIZE, 1, 1)]
 [shader("mesh")]
@@ -33,10 +33,8 @@ void main(
     
     uint taskIndex = gid.x;
     
-    uint packedID = visibleMeshletIndicesOut[payload.visibleMeshletListOffset + gid.x];
-    
-    uint instanceIndex = packedID >> 16;
-    uint meshletIndex  = packedID & 0xFFFF;
+    uint meshletIndex = taskIndex % totalMeshlets;
+    uint instanceIndex = taskIndex / totalMeshlets;
 
     Meshlet m = meshlets[payload.meshletOffset + meshletIndex];
     DrawData d = drawData[payload.drawDataIndex];
@@ -85,7 +83,6 @@ void main(
     }
 
 
-    GroupMemoryBarrierWithGroupSync();
     if (tid == 0)
     {
         SetMeshOutputCounts(vcount, pcount);
