@@ -29,6 +29,8 @@ WorkScheduler::~WorkScheduler()
     for(u32 i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); ++i)
     {
         m_logicalDevice.GetVkDevice().destroySemaphore(m_semaphores[i]);
+        m_stagingBufferGraveyards[i].clear();
+        m_buffersToDestroy[i].clear();
     }
 }
 
@@ -202,7 +204,6 @@ void WorkScheduler::Flush(vk::Fence fence, vk::Semaphore imageAvailableSemaphore
         m_stagingBufferGraveyards[m_currentFrameIndex].push_back(std::move(grave));
     }
 
-    // m_buffersToDestroy[m_currentFrameIndex].clear();
     m_graphicsPackets[m_currentFrameIndex].clear();
     m_computePackets[m_currentFrameIndex].clear();
     m_transferPackets[m_currentFrameIndex].clear();

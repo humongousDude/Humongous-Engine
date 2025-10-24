@@ -110,8 +110,6 @@ private:
     std::array<std::unique_ptr<Buffer>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_instanceBuffers{};
     std::array<std::unique_ptr<Buffer>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_meshDataBuffers{};
     std::array<std::unique_ptr<Buffer>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_indirectBuffers{};
-    std::array<std::unique_ptr<Buffer>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_shaderbufferVisibleIndices{};
-    std::array<std::unique_ptr<Buffer>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_shaderbufferVisibleCounter{};
 };
 
 class TraditionalRenderSystem : public IRenderSystem

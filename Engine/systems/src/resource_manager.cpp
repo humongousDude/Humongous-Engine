@@ -120,10 +120,6 @@ void ResourceManager::InitDescriptors()
     {
         // MeshletDrawInfo
         drawDataBuilder.AddBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
-        // visibleMeshletIndices
-        drawDataBuilder.AddBinding(3, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
-        // visibleMeshletCounter
-        drawDataBuilder.AddBinding(4, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eTaskEXT | vk::ShaderStageFlagBits::eMeshEXT, 1);
     }
     m_modelDescriptors.traditionalDrawData = drawDataBuilder.Build();
 
@@ -150,7 +146,7 @@ void ResourceManager::InitializeInitials()
 {
     {
         Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
-        createInfo.size = 1;
+        createInfo.size = 32;
         createInfo.instanceCount = 1;
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
         createInfo.properties = vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible;
@@ -172,7 +168,7 @@ void ResourceManager::InitializeInitials()
 
     {
         Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
-        createInfo.size = 1;
+        createInfo.size = 32;
         createInfo.instanceCount = 1;
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
         createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
@@ -194,7 +190,7 @@ void ResourceManager::InitializeInitials()
 
     {
         Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice};
-        createInfo.size = 1;
+        createInfo.size = 32;
         createInfo.instanceCount = 1;
         createInfo.bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
         createInfo.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;

@@ -223,8 +223,8 @@ void TraditionalRenderSystem::Render(const RenderData& renderData)
         Buffer::CopyBuffer(m_logicalDevice, renderData.commandBuffer, *stagingBuffer, *indirectBufferToUse, indirectCommandsSize);
         stagingBuffers.push_back(std::move(stagingBuffer));
     }
-    // draw data buffer
 
+    // draw data buffer
     {
         Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice,
                                             .bufferUsage = vk::BufferUsageFlagBits::eTransferSrc,
@@ -252,8 +252,8 @@ void TraditionalRenderSystem::Render(const RenderData& renderData)
 
         stagingBuffers.push_back(std::move(stagingBuffer));
     }
-    // instance data buffer
 
+    // instance data buffer
     {
         Buffer::BufferCreateInfo createInfo{.device = m_logicalDevice,
                                             .bufferUsage = vk::BufferUsageFlagBits::eTransferSrc,
@@ -364,8 +364,6 @@ MeshRenderSystem::~MeshRenderSystem()
         m_instanceBuffers[i].reset();
         m_meshDataBuffers[i].reset();
         m_indirectBuffers[i].reset();
-        m_shaderbufferVisibleIndices[i].reset();
-        m_shaderbufferVisibleCounter[i].reset();
     }
 
     HGINFO("Destroyed mesh render system");
@@ -389,7 +387,6 @@ void MeshRenderSystem::ReadyBuffers(RenderData& renderData)
         if(mc && mc->instance && mc->instance->GetModel()) { staticModelIDToEntityIDs[mc->instance->GetModel()->GetHandle()].push_back(e.id); }
     }
 
-    u32 totalPossible = 0;
     for(const auto& [modelHandle, entityIDs]: staticModelIDToEntityIDs)
     {
         if(entityIDs.empty()) { continue; }
@@ -425,8 +422,6 @@ void MeshRenderSystem::ReadyBuffers(RenderData& renderData)
                 dc.instanceCount = static_cast<u32>(entityIDs.size());
                 meshletDrawInfo.push_back(dc);
 
-                totalPossible += entityIDs.size() * primitive->meshletCount;
-
                 vk::DrawMeshTasksIndirectCommandEXT drawCall{};
                 drawCall.groupCountX = 1;
                 drawCall.groupCountY = 1;
@@ -457,8 +452,6 @@ void MeshRenderSystem::ReadyBuffers(RenderData& renderData)
     vk::DeviceSize instanceDataSize = sizeof(InstanceData) * instanceDataVec.size();
     vk::DeviceSize meshDataSize = sizeof(MeshletDrawInfo) * meshletDrawInfo.size();
     vk::DeviceSize meshDataIndirectSize = sizeof(vk::DrawMeshTasksIndirectCommandEXT) * drawCalls.size();
-    vk::DeviceSize meshShaderBufferSize = sizeof(u32) * totalPossible;
-    vk::DeviceSize meshShaderCounterSize = sizeof(u32);
 
     auto ensureBuffer = [&](std::unique_ptr<Buffer>& buf, vk::DeviceSize needed, vk::BufferUsageFlags usage, const char* name) {
         if(!buf || buf->GetBuffer() == VK_NULL_HANDLE || buf->GetBufferSize() < needed)
@@ -485,8 +478,6 @@ void MeshRenderSystem::ReadyBuffers(RenderData& renderData)
     auto& instanceDataBuffer = m_instanceBuffers[renderData.frameIndex];
     auto& meshDataBuffer = m_meshDataBuffers[renderData.frameIndex];
     auto& meshDataIndirectBuffer = m_indirectBuffers[renderData.frameIndex];
-    auto& meshShaderBuffer = m_shaderbufferVisibleIndices[renderData.frameIndex];
-    auto& meshShaderCounterBuffer = m_shaderbufferVisibleCounter[renderData.frameIndex];
 
     ensureBuffer(drawDataBuffer, drawDataSize, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, "draw data buffer");
     ensureBuffer(instanceDataBuffer, instanceDataSize, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
@@ -494,12 +485,6 @@ void MeshRenderSystem::ReadyBuffers(RenderData& renderData)
     ensureBuffer(meshDataBuffer, meshDataSize, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, "mesh data buffer");
     ensureBuffer(meshDataIndirectBuffer, meshDataIndirectSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndirectBuffer,
                  "mesh data indirect buffer");
-    ensureBuffer(meshShaderBuffer, meshShaderBufferSize,
-                 vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eTransferSrc,
-                 "mesh shader buffer");
-    ensureBuffer(meshShaderCounterBuffer, meshShaderCounterSize,
-                 vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eTransferSrc,
-                 "mesh shader counter buffer");
 
     std::vector<std::unique_ptr<Buffer>> stagingBuffers;
     auto                                 uploadToDeviceBuffer = [&](Buffer& deviceBuf, void* src, vk::DeviceSize size, const char* tmpName) {
@@ -507,7 +492,7 @@ void MeshRenderSystem::ReadyBuffers(RenderData& renderData)
                                                                             .bufferUsage = vk::BufferUsageFlagBits::eTransferSrc,
                                                                             .properties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                                                                             .queueFamilyIndices = {m_logicalDevice.GetGraphicsQueueIndex()}};
-        createInfo.size = size * 100;
+        createInfo.size = size;
         createInfo.instanceCount = 1;
         createInfo.memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
         createInfo.minOffsetAlignment = 1;
@@ -529,13 +514,10 @@ void MeshRenderSystem::ReadyBuffers(RenderData& renderData)
         uploadToDeviceBuffer(*meshDataIndirectBuffer, drawCalls.data(), meshDataIndirectSize, "meshdata-indirect-staging");
     }
 
-    renderData.commandBuffer.fillBuffer(meshShaderBuffer->GetBuffer(), 0, meshShaderBuffer->GetBufferSize(), 0);
-    renderData.commandBuffer.fillBuffer(meshShaderCounterBuffer->GetBuffer(), 0, meshShaderCounterBuffer->GetBufferSize(), 0);
-
     m_drawCount[renderData.frameIndex] = static_cast<u32>(drawCalls.size());
 
     m_logicalDevice.GetWorkScheduler().AddStagingBuffers(stagingBuffers);
-}
+};
 
 void MeshRenderSystem::ReadyDescriptors(RenderData& renderData)
 {
@@ -547,15 +529,8 @@ void MeshRenderSystem::ReadyDescriptors(RenderData& renderData)
     auto drawInfo = m_drawDataBuffers[renderData.frameIndex]->DescriptorInfo();
     auto instInfo = m_instanceBuffers[renderData.frameIndex]->DescriptorInfo();
     auto meshInfo = m_meshDataBuffers[renderData.frameIndex]->DescriptorInfo();
-    auto meshShaderInfo = m_shaderbufferVisibleIndices[renderData.frameIndex]->DescriptorInfo();
-    auto meshShaderCounterInfo = m_shaderbufferVisibleCounter[renderData.frameIndex]->DescriptorInfo();
 
-    writer.WriteBuffer(0, &drawInfo)
-        .WriteBuffer(1, &instInfo)
-        .WriteBuffer(2, &meshInfo)
-        .WriteBuffer(3, &meshShaderInfo)
-        .WriteBuffer(4, &meshShaderCounterInfo);
-    writer.Build(m_set[renderData.frameIndex]);
+    writer.WriteBuffer(0, &drawInfo).WriteBuffer(1, &instInfo).WriteBuffer(2, &meshInfo).Build(m_set[renderData.frameIndex]);
 }
 
 void MeshRenderSystem::Render(const RenderData& renderData)

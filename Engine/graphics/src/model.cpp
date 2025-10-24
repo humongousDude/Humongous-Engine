@@ -596,7 +596,7 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
 
     const size_t maxVertices = 64;
     const size_t maxTriangles = 124;
-    const f32    coneWeight = 0.0f;
+    const f32    coneWeight = 0.2f;
 
     for(Primitive* primitive: m_primitives)
     {
@@ -635,31 +635,16 @@ void Model::CreateMeshlets(const LoaderInfo& loaderInfo)
             tempMeshletPrimitives.clear();
         }
 
-        // This was named tempBoundingSphere in your code, so I'll stick with that.
         std::vector<Eigen::Vector4f> tempBoundingSphere(actualMeshletCount);
 
         for(size_t i = 0; i < actualMeshletCount; ++i)
         {
             const meshopt_Meshlet& moMeshlet = tempMeshlets[i];
+            const unsigned int*    meshlet_vertices = &tempMeshletVertices[moMeshlet.vertex_offset];
+            const unsigned char*   meshlet_triangles = &tempMeshletPrimitives[moMeshlet.triangle_offset];
 
-            // --- FIX STARTS HERE ---
-
-            // Pointer to the start of this specific meshlet's vertex index data
-            const unsigned int* meshlet_vertices = &tempMeshletVertices[moMeshlet.vertex_offset];
-            // Pointer to the start of this specific meshlet's triangle data
-            const unsigned char* meshlet_triangles = &tempMeshletPrimitives[moMeshlet.triangle_offset];
-
-            // Correctly call the bounds computation function
-            meshopt_Bounds bounds =
-                meshopt_computeMeshletBounds(meshlet_vertices, meshlet_triangles, moMeshlet.triangle_count,
-                                             reinterpret_cast<const f32*>(vertices), // Pointer to the primitive's vertex position data
-                                             vertexCount,                            // Total vertices in the primitive
-                                             sizeof(Vertex)                          // Stride between vertices
-                );
-
-            // --- FIX ENDS HERE ---
-
-            // Store the center and radius in our temporary vector
+            meshopt_Bounds bounds = meshopt_computeMeshletBounds(meshlet_vertices, meshlet_triangles, moMeshlet.triangle_count,
+                                                                 reinterpret_cast<const f32*>(vertices), vertexCount, sizeof(Vertex));
             tempBoundingSphere[i] = Eigen::Vector4f(bounds.center[0], bounds.center[1], bounds.center[2], bounds.radius);
         }
 

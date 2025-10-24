@@ -34,6 +34,7 @@ void ResumeLogging();
 
 #ifndef HGERROR
 #define HGERROR(message, ...) LogOutput(LOG_LEVEL_ERROR, message __VA_OPT__(, __VA_ARGS__))
+#define VMA_LEAK_LOG_FORMAT(format, ...) LogOutput(LOG_LEVEL_ERROR, "[VMA LEAK] " format __VA_OPT__(, __VA_ARGS__))
 #endif
 
 #if LOG_WARN_ENABLE == 1
@@ -56,8 +57,10 @@ void ResumeLogging();
 
 #if LOG_TRACE_ENABLE == 1
 #define HGTRACE(message, ...) LogOutput(LOG_LEVEL_TRACE, message __VA_OPT__(, __VA_ARGS__))
+#define VMA_DEBUG_LOG_FORMAT(format, ...) LogOutput(LOG_LEVEL_DEBUG, "[VMA DEBUG] " format __VA_OPT__(, __VA_ARGS__))
 #else
 #define HGTRACE(message, ...)
+#define VMA_DEBUG_LOG_FORMAT(format, ...)
 #endif
 
 // Basic error checking macro for OpenAL calls

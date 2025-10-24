@@ -434,6 +434,7 @@ void Buffer::CopyBuffer(const ILogicalDevice& device, vk::CommandBuffer cmd, Buf
     copyBufferInfo.pRegions = &copyRegion;
     copyBufferInfo.pNext = nullptr;
 
+    HGTRACE("Copying %i bytes from %s to %s", size, srcBuffer.m_name.c_str(), dstBuffer.m_name.c_str());
     device.RecordCopyBuffer(cmd, copyBufferInfo);
 
     srcBuffer.UpdateAddress(srcBuffer.GetUsageFlags());

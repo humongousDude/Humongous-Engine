@@ -41,7 +41,7 @@ void VulkanApp::Init(const int argc, char* argv[])
     }
     else
     {
-        HGINFO("Launch the engine with absolute paths to extra directories for the asset manager to look for models in. %s");
+        HGINFO("Launch the engine with absolute paths to extra directories for the asset manager to look for models in.");
         m_assetManager = std::make_unique<AssetManager>();
     }
 
@@ -211,7 +211,7 @@ void VulkanApp::LoadGameObjects()
     transform = world->GetComponent<TransformComponent>(helmet);
     transform->SetTranslation(5, 0, 10);
     transform->SetScale(1, 1, 1);
-    //
+
     auto drone = world->CreateEntity();
     world->AddComponent<BoundingBox>(drone);
     world->AddComponent<ModelComponent>(drone);

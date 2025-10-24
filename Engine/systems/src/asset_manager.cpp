@@ -13,7 +13,7 @@ void AssetManager::Init(const std::vector<std::string>* paths)
     namespace fs = std::filesystem;
     const fs::path assetDir = HGASSETDIRPATH;
 
-    HGINFO("Asset directory is: %s", HGASSETDIRPATH);
+    HGINFO("Asset directory is: %s", assetDir.string().c_str());
 
     if(!fs::exists(assetDir) || !std::filesystem::is_directory(assetDir))
     {
@@ -110,27 +110,22 @@ void AssetManager::Init(const std::vector<std::string>* paths)
             else if(strcmp(entry.path().extension().string().substr(1).c_str(), "wav") == 0)
             {
                 m_audioMap.emplace(entry.path().stem().string(), entry.path().string());
-                HGDEBUG("Found audio with name: %s", entry.path().stem().string().c_str());
             }
             else if(strcmp(entry.path().extension().string().substr(1).c_str(), "mp3") == 0)
             {
                 m_audioMap.emplace(entry.path().stem().string(), entry.path().string());
-                HGDEBUG("Found audio with name: %s", entry.path().stem().string().c_str());
             }
             else if(strcmp(entry.path().extension().string().substr(1).c_str(), "mp4") == 0)
             {
                 m_audioMap.emplace(entry.path().stem().string(), entry.path().string());
-                HGDEBUG("Found audio with name: %s", entry.path().stem().string().c_str());
             }
             else if(strcmp(entry.path().extension().string().substr(1).c_str(), "ogg") == 0)
             {
                 m_audioMap.emplace(entry.path().stem().string(), entry.path().string());
-                HGDEBUG("Found audio with name: %s", entry.path().stem().string().c_str());
             }
             else if(strcmp(entry.path().extension().string().substr(1).c_str(), "flac") == 0)
             {
                 m_audioMap.emplace(entry.path().stem().string(), entry.path().string());
-                HGDEBUG("Found audio with name: %s", entry.path().stem().string().c_str());
             }
         }
     }
@@ -165,7 +160,7 @@ std::string AssetManager::GetAsset(const AssetType type, const std::string_view 
             }
             else
             {
-                HGWARN("Unable to find requested texture! returning empty texture! ");
+                HGWARN("Unable to find requested texture! returning empty texture!");
                 return GetAsset(AssetType::TEXTURE, "empty");
             }
             break;

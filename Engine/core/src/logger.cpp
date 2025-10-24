@@ -1,10 +1,10 @@
 #include "logger.hpp"
 #include "asserts.hpp"
 
+#include <iostream>
+#include <memory> // For std::shared_ptr
 #include <stdarg.h>
 #include <string>
-
-#include <memory> // For std::shared_ptr
 #include <vector> // For storing sinks
 
 #include "spdlog/sinks/basic_file_sink.h"    // For basic file logging
@@ -67,7 +67,8 @@ b8 InitializeLogging(LogLevel minLevel, const char* logFilePath)
     catch(const spdlog::spdlog_ex& ex)
     {
         // Use std::cerr or printf for logging initialization errors, as spdlog might not be ready
-        fprintf(stderr, "Log initialization failed: %s\n", ex.what());
+        // fprintf(stderr, "Log initialization failed: %s\n", ex.what());
+        std::cerr << "Log init failed! Error: " << ex.what();
         return false;
     }
     return true;
@@ -86,25 +87,21 @@ void ShutDownLogging()
 void LogOutput(LogLevel level, const char* message, ...)
 {
     std::string outMessage;
-    outMessage.resize(64000);
+    outMessage.resize(32000);
 
     va_list argPtr;
     va_start(argPtr, message);
-    int chars_written = vsnprintf(&outMessage[0], outMessage.size(), message, argPtr);
+    u32 charsWritten = vsnprintf(&outMessage[0], outMessage.size(), message, argPtr);
     va_end(argPtr);
 
-    if(chars_written > 0 && static_cast<size_t>(chars_written) < outMessage.size())
-    {
-        outMessage.resize(chars_written); // Resize to actual content length
-    }
-    else if(chars_written >= static_cast<int>(outMessage.size()))
+    if(charsWritten > 0 && static_cast<size_t>(charsWritten) < outMessage.size()) { outMessage.resize(charsWritten); }
+    else if(charsWritten >= static_cast<u32>(outMessage.size()))
     {
         spdlog::warn("Log message truncated due to buffer size limit.");
         outMessage.back() = '\0';
     }
     else
     {
-        // vsnprintf error
         spdlog::error("vsnprintf error during log formatting.");
         return;
     }

@@ -101,7 +101,7 @@ void SwapChain::CreateSwapChain(const Window& window, const PhysicalDevice& phys
         return;
     }
 
-    HGINFO("Got %d swapchain images", imageCount);
+    HGINFO("Got %i swapchain images", imageCount);
 
     m_renderFinishedSemaphore.resize(imageCount);
 
