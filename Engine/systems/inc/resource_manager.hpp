@@ -29,6 +29,9 @@ public:
     std::shared_ptr<ModelInstance> RequestModel(const std::string& name);
     u32                            RequestModelNodeMatriciesIndex(const u32& index);
 
+    // Remove's a model instance from all memory locations. Will set modelInstance to nullptr
+    void RemoveModelInstance(std::shared_ptr<ModelInstance>& modelInstance);
+
     void FinalizeGPUData();
 
     void AddIndicesToModel(const std::vector<u32>& modelIndices, std::vector<Primitive*>& modelPrimitives);
@@ -37,7 +40,6 @@ public:
     void UpdateNodeMatrices(const std::vector<Eigen::Matrix4f>& nodeMatrices, const u32& handle);
 
     void AddJointMatriciesToModel(const std::vector<Eigen::Matrix4f>& jointMatricies, const u32& handle);
-
     void UpdateJointMatrices(const std::vector<Eigen::Matrix4f>& jointMatricies, const u32& handle);
 
     void AddMorphTargetsToModel(const std::vector<f32>& morphTargets, const u32& handle);
@@ -46,8 +48,8 @@ public:
     std::shared_ptr<Model>         GetModel(const u32& index);
     std::shared_ptr<ModelInstance> GetModelInstance(const u32& index)
     {
-        auto it = m_modelInstanceMap.find(index);
-        if(it != m_modelInstanceMap.end()) { return it->second; }
+        auto it = m_instanceIndexToInstance.find(index);
+        if(it != m_instanceIndexToInstance.end()) { return it->second; }
         return nullptr;
     }
 
@@ -72,20 +74,17 @@ public:
     u32 RequestMaterial(const Model::ShaderMaterial& mat);
 
     Buffer& GetModelIndexBuffer() { return *m_modelIndexBuffer; }
-    u32&    GetModelHandleToIndexBufferStart(const u32& handle) { return m_modelHandleToIndexStart.at(handle); }
-    u32&    GetModelHandleToMatrixStart(const u32& handle) { return m_modelHandleToMatrixStart.at(handle).first; }
+    u32     GetModelToIndexStart(const u32& handle) { return m_modelToIndexStart.at(handle); }
     Buffer& GetModelVertexBuffer() { return *m_modelVertexBuffer; }
 
-    u32 GetModelHandleToMeshletStart(const u32& handle) { return m_modelHandleToMeshletStart.at(handle).first; }
-    u32 GetModelHandleToMeshletIndexStart(const u32& handle) { return m_modelHandleToMeshletIndexStart.at(handle).first; }
-    u32 GetModelHandleToMeshletVertexStart(const u32& handle) { return m_modelHandleToMeshletIndexStart.at(handle).second; }
-    u32 GetModelHandleToMeshletPrimitiveStart(const u32& handle)
-    {
-        return m_modelHandleToMeshletIndexStart.at(handle).second + m_meshletPrimitives.size();
-    }
+    u32 GetInstanceMatrixStart(const u32& handle) { return m_instanceToMatrixStart.at(handle).first; }
+    u32 GetModelMeshletStart(const u32& handle) { return m_modelToMeshletStart.at(handle).first; }
+    u32 GetModelMeshletIndexStart(const u32& handle) { return m_modelToMeshletIndexStart.at(handle).first; }
+    u32 GetModelToMeshletVertexStart(const u32& handle) { return m_modelToMeshletIndexStart.at(handle).second; }
+    u32 GetModelToMeshletPrimitiveStart(const u32& handle) { return m_modelToMeshletIndexStart.at(handle).second + m_meshletPrimitives.size(); }
 
-    u32 GetModelHandleToJointStart(const u32& handle) { return m_modelHandleToJointStart.at(handle).first; }
-    u32 GetModelHandleToMorphStart(const u32& handle) { return m_modelHandleToMorphStart.at(handle).first; }
+    u32 GetInstanceJointStart(const u32& handle) { return m_instanceToJointStart.at(handle).first; }
+    u32 GetInstanceMorphStart(const u32& handle) { return m_instanceToMorphStart.at(handle).first; }
 
     void AddMeshletsToModel(std::vector<Primitive*>& primitives, std::vector<Meshlet>& meshlets, const std::vector<u32>& meshletVertices,
                             const std::vector<u8>& meshletPrimitives, const u32& handle);
@@ -126,19 +125,20 @@ private:
     std::unique_ptr<DescriptorSetLayout>                           m_skyboxCompLayout;
     std::unordered_map<u32, std::shared_ptr<Model>>                m_modelMap;
     std::unordered_map<std::string, u32>                           m_modelNameToHandle;
-    std::unordered_map<u32, std::shared_ptr<ModelInstance>>        m_modelInstanceMap;
+    std::unordered_map<u32, std::shared_ptr<ModelInstance>>        m_instanceIndexToInstance;
+    std::unordered_map<Model*, std::shared_ptr<ModelInstance>>     m_modelToModelInstances;
     std::unique_ptr<Buffer>                                        m_modelIndexBuffer;
-    std::unordered_map<u32, u32>                                   m_modelHandleToIndexStart;
+    std::unordered_map<u32, u32>                                   m_modelToIndexStart;
     std::unique_ptr<Buffer>                                        m_modelVertexBuffer;
     std::vector<u32>                                               m_modelIndicies;
     std::vector<Model::Vertex>                                     m_modelVertices;
-    std::vector<Eigen::Matrix4f>                                   m_modelJointMatricies;
-    std::unique_ptr<Buffer>                                        m_modelJointMatriciesBuffer;
-    std::vector<f32>                                               m_modelMorphTargets;
-    std::unique_ptr<Buffer>                                        m_modelMorphTargetsBuffer;
-    std::unordered_map<u32, std::pair<u32, u32>>                   m_modelHandleToMatrixStart;
-    std::vector<Eigen::Matrix4f>                                   m_modelNodeMatricesFlat;
-    std::unique_ptr<Buffer>                                        m_modelNodeMatriciesBuffer;
+    std::vector<Eigen::Matrix4f>                                   m_instanceJointMatrices;
+    std::unique_ptr<Buffer>                                        m_instanceJointMatricesBuffer;
+    std::vector<f32>                                               m_instanceMorphTargets;
+    std::unique_ptr<Buffer>                                        m_instanceMorphTargetsBuffer;
+    std::unordered_map<u32, std::pair<u32, u32>>                   m_instanceToMatrixStart;
+    std::vector<Eigen::Matrix4f>                                   m_instanceNodeMatricesFlat;
+    std::unique_ptr<Buffer>                                        m_instanceNodeMatricesBuffer;
     u32                                                            m_nextModelID{0};
     u32                                                            m_prevModelID{0};
     u32                                                            m_nextInstanceID{0};
@@ -154,16 +154,16 @@ private:
     std::vector<MaterialBinding>                                   m_materials;
     std::unordered_map<std::string, u32>                           m_materialMap;
     std::unique_ptr<Buffer>                                        m_materialDataBuffer;
-    std::unordered_map<u32, std::pair<u32, u32>>                   m_modelHandleToMeshletStart;
-    std::unordered_map<u32, std::pair<u32, u32>>                   m_modelHandleToMeshletIndexStart;
+    std::unordered_map<u32, std::pair<u32, u32>>                   m_modelToMeshletStart;
+    std::unordered_map<u32, std::pair<u32, u32>>                   m_modelToMeshletIndexStart;
     std::unique_ptr<Buffer>                                        m_meshletBuffer;
     std::unique_ptr<Buffer>                                        m_meshletVertexBuffer;
     std::unique_ptr<Buffer>                                        m_meshletPrimitiveBuffer;
     std::vector<Meshlet>                                           m_meshlets;
     std::vector<u32>                                               m_meshletVertices;
     std::vector<u8>                                                m_meshletPrimitives;
-    std::unordered_map<u32, std::pair<u32, u32>>                   m_modelHandleToJointStart;
-    std::unordered_map<u32, std::pair<u32, u32>>                   m_modelHandleToMorphStart;
+    std::unordered_map<u32, std::pair<u32, u32>>                   m_instanceToJointStart;
+    std::unordered_map<u32, std::pair<u32, u32>>                   m_instanceToMorphStart;
 
     void                                  InitDescriptors();
     void                                  InitializeInitials();
