@@ -93,17 +93,10 @@ void IRenderSystem::RenderObjectsToData(const RenderData& renderData, std::vecto
             InstanceData instance{};
             instance.modelMatrix = SceneHandler::GetWorld()->GetComponent<TransformComponent>(entityId)->Mat4();
             instance.modelID = currentModelInstance->GetInstanceID();
-            instance.globalNodeIndex = m_resourceManager.GetModelHandleToMatrixStart(currentModelInstance->GetInstanceID());
+            instance.globalNodeIndex = currentModelInstance->GetNodeMatrixOffset();
 
-            // TODO: fix this
-            // if(drawData.back().isSkinned)
-            // {
-            //     instance.jointMatrixStart = m_resourceManager.Get().m_modelHandleToJointStart[currentModelInstance->GetInstanceID()].first;
-            // }
-            // if(drawData.back().isMorphed)
-            // {
-            //     instance.morphTargetStart = m_resourceManager.Get().m_modelHandleToMorphStart[currentModelInstance->GetInstanceID()].first;
-            // }
+            if(currentModelInstance->HasJoints()) { instance.jointMatrixStart = currentModelInstance->GetJointMatrixOffset(); }
+            if(currentModelInstance->HasMorphs()) { instance.morphTargetStart = currentModelInstance->GetMorphTargetOffset(); }
 
             instanceData.push_back(instance);
         }
@@ -438,9 +431,9 @@ void MeshRenderSystem::ReadyBuffers(RenderData& renderData)
             InstanceData inst{};
             inst.modelMatrix = SceneHandler::GetWorld()->GetComponent<TransformComponent>(entId)->Mat4();
             inst.modelID = mc->instance->GetInstanceID();
-            inst.globalNodeIndex = m_resourceManager.GetModelHandleToMatrixStart(mc->instance->GetInstanceID());
-            if(staticModel->HasSkins()) { inst.jointMatrixStart = m_resourceManager.GetModelHandleToJointStart(mc->instance->GetInstanceID()); }
-            if(staticModel->HasMorphs()) { inst.morphTargetStart = m_resourceManager.GetModelHandleToMorphStart(mc->instance->GetInstanceID()); }
+            inst.globalNodeIndex = mc->instance->GetNodeMatrixOffset();
+            if(staticModel->HasSkins()) { inst.jointMatrixStart = mc->instance->GetJointMatrixOffset(); }
+            if(staticModel->HasMorphs()) { inst.morphTargetStart = mc->instance->GetMorphTargetOffset(); }
 
             instanceDataVec.push_back(inst);
         }

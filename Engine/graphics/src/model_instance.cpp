@@ -57,6 +57,8 @@ u32 ModelInstance::GetMorphTargetOffset() const { return m_resourceManager.GetIn
 // FIXME: This way of calculating the AABB is very loose, and should be improved.
 void ModelInstance::UpdateAnimatedAABB()
 {
+    if(!m_dirtyNodes && !m_dirtyMorphs) { return; }
+
     m_animatedAABB.Invalidate();
     m_animatedAABB.valid = true;
 
@@ -96,8 +98,6 @@ void ModelInstance::UpdateAnimatedAABB()
 
 void ModelInstance::UpdateAnimation()
 {
-    if(!m_playAnimation) { return; }
-
     std::fill(m_morphWeights.begin(), m_morphWeights.end(), 0.0f);
 
     for(size_t i = 0; i < m_model->GetNodes().size(); ++i)
@@ -136,15 +136,19 @@ void ModelInstance::UpdateAnimation()
         switch(channel.path)
         {
             case Model::AnimationChannel::PathType::TRANSLATION:
+                m_dirtyNodes = true;
                 sampler.ApplyTranslation(index, m_animationTime, m_nodeTranslations, channel.node->index);
                 break;
             case Model::AnimationChannel::PathType::ROTATION:
+                m_dirtyNodes = true;
                 sampler.ApplyRotation(index, m_animationTime, m_nodeRotations, channel.node->index);
                 break;
             case Model::AnimationChannel::PathType::SCALE:
+                m_dirtyNodes = true;
                 sampler.ApplyScale(index, m_animationTime, m_nodeScales, channel.node->index);
                 break;
             case Model::AnimationChannel::PathType::WEIGHTS:
+                m_dirtyMorphs = true;
                 auto node = m_model->NodeFromIndex(channel.node->index);
                 if(!node)
                 {
@@ -188,9 +192,10 @@ void ModelInstance::UpdateTransforms()
 
 void ModelInstance::UpdateSkins()
 {
+    if(!m_dirtyNodes) { return; }
     for(const auto* skin: m_model->GetSkins())
     {
-        if(skin->joints.empty()) { return; }
+        if(skin->joints.empty()) { continue; }
 
         if(m_jointMatrices.size() != skin->joints.size()) { m_jointMatrices.resize(skin->joints.size()); }
 
@@ -201,11 +206,19 @@ void ModelInstance::UpdateSkins()
             m_jointMatrices[i] = globalJointTransform * skin->inverseBindMatrices[i];
         }
     }
+
+    m_dirtyJoints = true;
 }
 
 void ModelInstance::Update()
 {
-    if(!m_playAnimation) { return; }
+    if(!m_playAnimation)
+    {
+        m_dirtyJoints = false;
+        m_dirtyMorphs = false;
+        m_dirtyNodes = false;
+        return;
+    }
 
     UpdateAnimation();
     UpdateTransforms();

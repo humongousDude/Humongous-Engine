@@ -135,6 +135,7 @@ void UI::Internal_Debug_DrawMetrics(const s16& draws, const Eigen::Vector3f& cam
     debugWidget.Add([&]() {
         ImGui::Text("Draws: %i", draws);
         ImGui::Text("Camera Position: %f, %f, %f", camPosition.x(), camPosition.y(), camPosition.z());
+        ImGui::Text("Frametime: %.2f ms", Globals::Time::AverageDeltaTime() * 1000.0f);
     });
 
     debugWidget.Draw();

@@ -1,7 +1,5 @@
 import "../includes/inputs.slang";
 
-static const uint MAX_MESHLETS_PER_TASK = 256; 
-
 static const uint WORKGROUP_SIZE = 64;
 
 [[vk::binding(2, 2)]] StructuredBuffer<MeshletDrawInfo> meshDrawData;

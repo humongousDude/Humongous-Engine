@@ -14,7 +14,7 @@ struct OutVertex{
 
 
 static const uint MAX_MESHLET_VERTS = 64;
-static const uint MAX_MESHLET_PRIMS = 126;
+static const uint MAX_MESHLET_PRIMS = 124;
 static const uint GROUP_SIZE = 32;
 
 [numthreads(GROUP_SIZE, 1, 1)]
@@ -32,7 +32,7 @@ void main(
     uint totalInstances = payload.instanceCount;
     
     uint taskIndex = gid.x;
-    
+
     uint meshletIndex = taskIndex % totalMeshlets;
     uint instanceIndex = taskIndex / totalMeshlets;
 

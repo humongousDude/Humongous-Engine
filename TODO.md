@@ -3,7 +3,7 @@
 * Render graph (probably never gonna finish this lmao)
 * Graphics pipeline libraries
 * Descriptor buffers
-* Task/Mesh shaders **Done**
+* Task/Mesh shaders **i hate my life**
 * Add the ability to remove models and audio and memory defragmentation using VMA
 * Overhaul UI, add an actually usable widget system, gizmos, etc.
 * Overhaul audio

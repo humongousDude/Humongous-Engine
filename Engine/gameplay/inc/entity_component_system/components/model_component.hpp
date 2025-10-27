@@ -1,6 +1,5 @@
 #pragma once
 
-#include "defines.hpp"
 #include "entity_component_system/components/entity_component.hpp"
 #include "model_instance.hpp"
 

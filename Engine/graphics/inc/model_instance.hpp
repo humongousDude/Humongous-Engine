@@ -65,6 +65,7 @@ public:
     BoundingBox GetAnimatedBoundingBox() const { return m_animatedAABB; }
 
     void Update();
+    b8   IsDirty() const { return m_dirtyNodes || m_dirtyJoints || m_dirtyMorphs; }
 
 private:
     std::shared_ptr<Model> m_model;
@@ -95,6 +96,10 @@ private:
     std::vector<b32>             m_nodeIsMatrixSpecified;
 
     std::vector<Eigen::Matrix4f> m_jointMatrices;
+
+    b8 m_dirtyNodes{true};
+    b8 m_dirtyJoints{true};
+    b8 m_dirtyMorphs{true};
 
     void UpdateAnimation();
     void UpdateTransforms();

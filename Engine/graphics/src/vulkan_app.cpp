@@ -226,7 +226,7 @@ void VulkanApp::LoadGameObjects()
     transform->SetScale(1, 1, 1);
 
     f32 start = 0;
-    f32 end = 100;
+    f32 end = 1000;
     f32 step = 2.5;
     f32 border = 15;
     f32 x = start, y = start, z = start;
@@ -489,8 +489,6 @@ void VulkanApp::Run()
 
             AudioEngine::UpdateListener(m_cam->GetPosition(), {0, 0, 0}, m_cam->GetForward(), m_cam->GetUp());
 
-            world->BoundingVolumeUpdateSystem();
-
             AudioEngine::UpdateSources();
 
             auto frustumAndSortedEntities = Utils::SortAndCullEntities(*m_cam, *world);
@@ -499,6 +497,7 @@ void VulkanApp::Run()
 
             auto world = SceneHandler::GetWorld();
             world->ModelInstanceUpdateSystem(*m_resourceManager);
+            world->BoundingVolumeUpdateSystem();
 
             m_resourceManager->FinalizeGPUData();
 

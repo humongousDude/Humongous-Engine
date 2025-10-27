@@ -137,7 +137,10 @@ public:
                     *worldBB = BoundingBox::LocalToGlobal(modelComp->instance->GetAnimatedBoundingBox(), transform->Mat4());
                     transform->SetDirty(false);
                 }
-                else { worldBB->valid = false; }
+                else
+                {
+                    worldBB->valid = false;
+                }
 
                 worldBB->valid = true;
             }
@@ -156,10 +159,11 @@ public:
         {
             ModelInstance* modelInstance = GetComponent<ModelComponent>(entity)->instance.get();
             modelInstance->Update();
+            if(!modelInstance->IsDirty()) { continue; }
 
             const u32& modelInstanceID = modelInstance->GetInstanceID();
-            resourceManager.UpdateNodeMatrices(modelInstance->GetNodeMatrices(), modelInstanceID);
 
+            resourceManager.UpdateNodeMatrices(modelInstance->GetNodeMatrices(), modelInstanceID);
             if(modelInstance->HasJoints()) { resourceManager.UpdateJointMatrices(modelInstance->GetJointMatrices(), modelInstanceID); }
             if(modelInstance->HasMorphs()) { resourceManager.UpdateMorphTargets(modelInstance->GetMorphWeights(), modelInstanceID); }
         }
