@@ -487,8 +487,7 @@ std::shared_ptr<ModelInstance> ResourceManager::RequestModel(const std::string& 
 
     m_nextInstanceID++;
 
-    m_instanceIndexToInstance.emplace(m_nextInstanceID, inst);
-    auto [it, inserted] = m_modelToModelInstances.emplace(m.get(), std::move(inst));
+    auto [it, inserted] = m_instanceIndexToInstance.emplace(m_nextInstanceID, std::move(inst));
     return it->second;
 }
 

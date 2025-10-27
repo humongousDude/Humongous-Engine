@@ -126,7 +126,6 @@ private:
     std::unordered_map<u32, std::shared_ptr<Model>>                m_modelMap;
     std::unordered_map<std::string, u32>                           m_modelNameToHandle;
     std::unordered_map<u32, std::shared_ptr<ModelInstance>>        m_instanceIndexToInstance;
-    std::unordered_map<Model*, std::shared_ptr<ModelInstance>>     m_modelToModelInstances;
     std::unique_ptr<Buffer>                                        m_modelIndexBuffer;
     std::unordered_map<u32, u32>                                   m_modelToIndexStart;
     std::unique_ptr<Buffer>                                        m_modelVertexBuffer;
