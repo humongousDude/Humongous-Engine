@@ -7,6 +7,7 @@
 [submodule "Engine/ThirdParty/imgui"]
 	path = Engine/ThirdParty/imgui
 	url = https://github.com/ocornut/imgui/
+    branch = docking
 [submodule "Engine/ThirdParty/tinygltf"]
 	path = Engine/ThirdParty/tinygltf
 	url = https://github.com/syoyo/tinygltf

@@ -15,7 +15,7 @@ struct OutVertex{
 
 static const uint MAX_MESHLET_VERTS = 64;
 static const uint MAX_MESHLET_PRIMS = 124;
-static const uint GROUP_SIZE = 32;
+static const uint GROUP_SIZE = 64;
 
 [numthreads(GROUP_SIZE, 1, 1)]
 [shader("mesh")]
@@ -46,6 +46,13 @@ void main(
 
     uint vcount = min(m.vertexCount, MAX_MESHLET_VERTS);
     uint pcount = min(m.primitiveCount, MAX_MESHLET_PRIMS);
+
+    if(vcount == 0 || pcount == 0)
+    {
+        return;
+    }
+
+    SetMeshOutputCounts(vcount, pcount);
 
     for (uint i = tid; i < vcount; i += GROUP_SIZE)
     {
@@ -82,9 +89,4 @@ void main(
         outIndices[pi] = uint3(b0, b1, b2);
     }
 
-
-    if (tid == 0)
-    {
-        SetMeshOutputCounts(vcount, pcount);
-    }
 }

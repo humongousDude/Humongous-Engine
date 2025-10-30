@@ -1,4 +1,5 @@
 #include "ui/ui.hpp"
+#include "abstractions/image.hpp"
 #include "instance.hpp"
 #include "logger.hpp"
 #include "logical_device.hpp"
@@ -28,7 +29,9 @@ void UI::Internal_Init(const class IInstance& instance, const ILogicalDevice& lo
     IMGUI_CHECKVERSION();
     ImGuiContext* io = ImGui::CreateContext();
     io->IO.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io->IO.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
+    // Causing too many issues.
+    // io->IO.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
     ImGui_ImplSDL3_InitForVulkan(window.GetWindow());
 
@@ -54,17 +57,21 @@ void UI::Internal_Init(const class IInstance& instance, const ILogicalDevice& lo
     vk::Format colorFormat = vk::Format::eR8G8B8A8Unorm;
     m_renderingInfo.pColorAttachmentFormats = &colorFormat;
 
+    ImGui_ImplVulkan_PipelineInfo imguiInfo{};
+    imguiInfo.MSAASamples = static_cast<VkSampleCountFlagBits>(vk::SampleCountFlagBits::e1);
+    imguiInfo.PipelineRenderingCreateInfo = m_renderingInfo;
+    imguiInfo.Subpass = 0;
+    imguiInfo.SwapChainImageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
     initInfo.Queue = m_logicalDevice->GetGraphicsQueue();
     initInfo.QueueFamily = m_logicalDevice->GetGraphicsQueueIndex();
     initInfo.PhysicalDevice = m_logicalDevice->GetPhysicalDevice().GetVkPhysicalDevice();
     initInfo.DescriptorPool = m_pool->GetRawPoolHandle();
     initInfo.UseDynamicRendering = true;
-    initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     initInfo.PipelineCache = VK_NULL_HANDLE;
     initInfo.CheckVkResultFn = nullptr;
-    initInfo.Subpass = 0;
     initInfo.Allocator = nullptr;
-    initInfo.PipelineRenderingCreateInfo = m_renderingInfo;
+    initInfo.PipelineInfoMain = imguiInfo;
     initInfo.MinAllocationSize = 1024 * 1024;
     ImGui_ImplVulkan_Init(&initInfo);
 
@@ -110,6 +117,37 @@ void UI::Internal_BeginUIFrame()
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
+
+    ImGui::DockSpaceOverViewport(1, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+}
+
+// Called with the renderer's scene image
+void UI::Internal_RecreateViewportResources(const class Image& sceneImage, const u32& index)
+{
+    if(m_sceneTextureID[index] != VK_NULL_HANDLE) { ImGui_ImplVulkan_RemoveTexture(m_sceneTextureID[index]); }
+
+    const auto descInfo = sceneImage.GetDescriptorInfo();
+    m_sceneTextureID[index] =
+        ImGui_ImplVulkan_AddTexture(descInfo.sampler, descInfo.imageView, static_cast<VkImageLayout>(vk::ImageLayout::eShaderReadOnlyOptimal));
+    m_sceneTextureRef[index] = ImTextureRef{m_sceneTextureID[index]};
+}
+
+void UI::Internal_RenderViewport()
+{
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+
+    ImGui::Begin("Viewport", nullptr);
+    ImGui::SetWindowSize(ImVec2(static_cast<f32>(800), static_cast<f32>(600)), ImGuiCond_Once);
+
+    ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+    m_viewportWidth = static_cast<u32>(viewportPanelSize.x);
+    m_viewportHeight = static_cast<u32>(viewportPanelSize.y);
+    HGINFO("Viewport size: %ix%i", m_viewportWidth, m_viewportHeight);
+
+    ImGui::Image(m_sceneTextureRef[m_currentFrameIndex], viewportPanelSize, ImVec2(0, 0), ImVec2(1, 1));
+
+    ImGui::End();
+    ImGui::PopStyleVar();
 }
 
 void UI::Internal_EndUIFrame(const vk::CommandBuffer cmd)
@@ -121,6 +159,8 @@ void UI::Internal_EndUIFrame(const vk::CommandBuffer cmd)
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 
     m_startedFrame = false;
+
+    m_currentFrameIndex = (m_currentFrameIndex + 1) % static_cast<u32>(Globals::Limits::MaxFramesInFlight);
 }
 
 void UI::Internal_DrawWidgetList()

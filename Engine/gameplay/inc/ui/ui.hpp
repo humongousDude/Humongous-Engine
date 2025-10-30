@@ -5,6 +5,7 @@
 
 #include "abstractions/descriptor_layout.hpp"
 #include "abstractions/descriptor_pool.hpp"
+#include "logger.hpp"
 #include "singleton.hpp"
 #include "ui/widget.hpp"
 
@@ -15,7 +16,6 @@ class UI : public Singleton<UI>
 public:
     struct UICreationInfo
     {
-        // Apparently we can't just have "instance", we need "class IInstance" for some reason.
         const class IInstance&      instance;
         const class ILogicalDevice& logicalDevice;
         const Window&               window;
@@ -37,9 +37,30 @@ public:
     static void                   AddWidgetToList(UiWidget* widg) { Get().Internal_AddWidgetToList(widg); }
     static void                   PopWidgetAtIndex(const u32 index) { Get().Internal_PopWidgetAtIndex(index); }
 
+    static void RenderViewport() { Get().Internal_RenderViewport(); };
+    static void RecreateViewportResources(const class Image& sceneImage, const u32& index)
+    {
+        Get().Internal_RecreateViewportResources(sceneImage, index);
+    };
+
+    static vk::Extent2D GetViewportSize() { return vk::Extent2D(Get().m_viewportWidth, Get().m_viewportHeight); }
+    static vk::Extent2D GetViewportSizePixels()
+    {
+        ImVec2 scale = ImGui::GetIO().DisplayFramebufferScale;
+
+        return {static_cast<u32>(Get().m_viewportWidth * scale.x), static_cast<u32>(Get().m_viewportHeight * scale.y)};
+    }
+
 private:
-    bool m_hasInitialized{false};
-    bool m_startedFrame{false};
+    b8  m_hasInitialized{false};
+    b8  m_startedFrame{false};
+    u32 m_viewportWidth{800};
+    u32 m_viewportHeight{600};
+    u32 m_currentFrameIndex{0};
+
+    // ImGui stores the texture ID as a descriptor set when using Vulkan
+    std::array<vk::DescriptorSet, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_sceneTextureID{};
+    std::array<ImTextureRef, static_cast<u32>(Globals::Limits::MaxFramesInFlight)>      m_sceneTextureRef{};
 
     const ILogicalDevice* m_logicalDevice;
 
@@ -58,6 +79,9 @@ private:
     void Internal_EndUIFrame(vk::CommandBuffer cmd);
 
     void Internal_DrawWidgetList();
+
+    void Internal_RenderViewport();
+    void Internal_RecreateViewportResources(const class Image& sceneImage, const u32& index);
 
     void                   Internal_AddWidgetToList(UiWidget* widget);
     void                   Internal_PopWidgetAtIndex(u32 index);

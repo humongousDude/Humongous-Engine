@@ -3,11 +3,18 @@
 #include "asset_manager.hpp"
 #include "extra.hpp"
 #include "logger.hpp"
+#include "ui/ui.hpp"
 
 #include <array>
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_enums.hpp>
+
+/***
+ * For image transitions, I've taken the approach of "Transition when needed", IE: Each pass has the responsibility of ensuring the images it uses
+ * are in the correct layout. part of this is making sure passes do not have "post transitions", the "post" stage of a pass should be cleaning up
+ * it's own resources, not preparing them for the next pass. Eventually, I plan to implement a frame graph to remove this headache entirely.
+ */
 
 namespace Humongous
 {
@@ -18,11 +25,14 @@ Renderer::Renderer(Window& window, const ILogicalDevice& logicalDevice, const Ph
       m_physicalDevice{physicalDevice}
 
 {
+
     CreateCommandPool();
     CreateCommandBuffers();
     CreateComputePipeline();
     CreateSyncStructures();
     CreateLightingPipeline();
+
+    m_sceneExtent = UI::GetViewportSizePixels();
     RecreateSwapChain();
 }
 
@@ -46,7 +56,7 @@ Renderer::~Renderer()
         frame.objectDataBuffer.reset();
         frame.rendererDataBuffer.reset();
 
-        frame.drawImage.reset();
+        frame.sceneImage.reset();
         frame.hiZImage.reset();
         for(auto& mip: frame.hiZMips)
         {
@@ -93,25 +103,32 @@ void Renderer::RecreateSwapChain()
     }
     // recreate the image views
 
-    m_screenImageExtent = m_swapChain->GetExtent();
+    m_windowExtent = m_swapChain->GetExtent();
 
+    RecreateViewport();
+
+    HGINFO("Recreated swap chain");
+}
+
+void Renderer::RecreateViewport()
+{
+    m_logicalDevice.GetVkDevice().waitIdle();
     CreateDrawImage();
     CreateGBuffer();
 
-    HGINFO("Recreated swap chain");
+    for(u32 i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); ++i) { UI::RecreateViewportResources(*m_frames[i].sceneImage, i); }
 }
 
 void Renderer::CreateDrawImage()
 {
     HGINFO("Creating draw image and view...");
 
-    vk::Extent3D drawImageExtent = {m_swapChain->GetExtent().width, m_swapChain->GetExtent().height, 1};
-
     vk::ImageUsageFlags drawImageUsages{};
     drawImageUsages |= vk::ImageUsageFlagBits::eTransferSrc;
     drawImageUsages |= vk::ImageUsageFlagBits::eTransferDst;
     drawImageUsages |= vk::ImageUsageFlagBits::eStorage;
     drawImageUsages |= vk::ImageUsageFlagBits::eColorAttachment;
+    drawImageUsages |= vk::ImageUsageFlagBits::eSampled;
 
     Image::ImageCreateInfo imgCI{};
     imgCI.layerCount = 1;
@@ -119,21 +136,38 @@ void Renderer::CreateDrawImage()
     imgCI.tiling = vk::ImageTiling::eOptimal;
     imgCI.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
     imgCI.aspectFlags = vk::ImageAspectFlagBits::eColor;
-    imgCI.width = m_screenImageExtent.width;
-    imgCI.height = m_screenImageExtent.height;
     imgCI.mipLevels = 1;
     imgCI.usage = drawImageUsages;
     imgCI.layerCount = 1;
     imgCI.format = vk::Format::eR8G8B8A8Unorm;
 
+    Image::SamplerCreateInfo samCI{};
+    samCI.mipMode = vk::SamplerMipmapMode::eNearest;
+    samCI.magFilter = vk::Filter::eLinear;
+    samCI.minFilter = vk::Filter::eLinear;
+    samCI.addressModeU = vk::SamplerAddressMode::eClampToEdge;
+    samCI.addressModeV = vk::SamplerAddressMode::eClampToEdge;
+    samCI.addressModeW = vk::SamplerAddressMode::eClampToEdge;
+
     auto cmd = m_logicalDevice.BeginSingleTimeCommands();
     for(auto& frame: m_frames)
     {
-        if(frame.drawImage != nullptr && frame.drawImage->IsValid()) { frame.drawImage.reset(); }
+        if(frame.sceneImage != nullptr && frame.sceneImage->IsValid()) { frame.sceneImage.reset(); }
+        if(frame.windowImage != nullptr && frame.windowImage->IsValid()) { frame.windowImage.reset(); }
 
-        frame.drawImage = std::make_unique<Image>(m_logicalDevice, imgCI);
+        imgCI.width = m_sceneExtent.width;
+        imgCI.height = m_sceneExtent.height;
+        imgCI.createWithSampler = true;
+        imgCI.samplerInfo = &samCI;
+        frame.sceneImage = std::make_unique<Image>(m_logicalDevice, imgCI);
 
-        frame.drawImage->TransitionLayout(cmd, vk::ImageLayout::eGeneral);
+        imgCI.width = m_windowExtent.width;
+        imgCI.height = m_windowExtent.height;
+        imgCI.createWithSampler = false;
+        frame.windowImage = std::make_unique<Image>(m_logicalDevice, imgCI);
+
+        frame.sceneImage->TransitionLayout(cmd, vk::ImageLayout::eGeneral);
+        frame.windowImage->TransitionLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
     }
 
     cmd.end();
@@ -167,8 +201,8 @@ void Renderer::CreateGBuffer()
     imgCI.tiling = vk::ImageTiling::eOptimal;
     imgCI.properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
     imgCI.aspectFlags = vk::ImageAspectFlagBits::eColor;
-    imgCI.width = m_screenImageExtent.width;
-    imgCI.height = m_screenImageExtent.height;
+    imgCI.width = m_sceneExtent.width;
+    imgCI.height = m_sceneExtent.height;
     imgCI.mipLevels = 1;
     imgCI.usage = colorUsages;
     imgCI.format = vk::Format::eR8G8B8A8Unorm;
@@ -279,7 +313,7 @@ void Renderer::CreateGBuffer()
     auto dep = m_logicalDevice.GetWorkScheduler().AddWork(cmd, m_logicalDevice.GetGraphicsQueue());
     GetCurrentFrame().workPackets.push_back(dep);
 
-    HGINFO("Initialized G-Buffer (resized to %d x %d)", m_screenImageExtent.width, m_screenImageExtent.height);
+    HGINFO("Initialized G-Buffer (resized to %d x %d)", m_sceneExtent.width, m_sceneExtent.height);
 }
 
 void Renderer::CreateLightingPipeline()
@@ -398,10 +432,10 @@ void Renderer::CreateSyncStructures()
             HGERROR("Failed to create fence");
         }
 
-        if(m_frames[i].imageAvailableSemaphore != VK_NULL_HANDLE)
-        {
-            m_logicalDevice.GetVkDevice().destroySemaphore(m_frames[i].imageAvailableSemaphore, nullptr);
-        }
+        // if(m_frames[i].imageAvailableSemaphore != VK_NULL_HANDLE)
+        // {
+        //     m_logicalDevice.GetVkDevice().destroySemaphore(m_frames[i].imageAvailableSemaphore, nullptr);
+        // }
 
         if(m_logicalDevice.GetVkDevice().createSemaphore(&semaphoreCreateInfo, nullptr, &m_frames[i].imageAvailableSemaphore) !=
            vk::Result::eSuccess)
@@ -562,26 +596,6 @@ void Renderer::ReadyPerFrameData(std::vector<Utils::VisibleEntityInfo>& visibleE
     visibleEntities = std::move(filteredVisibleEntities);
 }
 
-void Renderer::PreGeometryPassTransitions(vk::CommandBuffer cmd)
-{
-    auto& currentFrame = GetCurrentFrame();
-
-    currentFrame.gbuffer.albedo->TransitionLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
-    currentFrame.gbuffer.normalRough->TransitionLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
-    currentFrame.gbuffer.materialParam->TransitionLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
-    currentFrame.gbuffer.depth->TransitionLayout(cmd, vk::ImageLayout::eDepthStencilAttachmentOptimal);
-}
-
-void Renderer::PostGeometryPassTransitions(vk::CommandBuffer cmd)
-{
-    auto& currentFrame = GetCurrentFrame();
-
-    currentFrame.gbuffer.albedo->TransitionLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
-    currentFrame.gbuffer.normalRough->TransitionLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
-    currentFrame.gbuffer.materialParam->TransitionLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
-    currentFrame.gbuffer.depth->TransitionLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
-}
-
 vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& visibleEntities)
 {
     vk::Result result = m_logicalDevice.GetVkDevice().waitForFences(1, &GetCurrentFrame().inFlightFence, vk::True, std::numeric_limits<u64>::max());
@@ -601,11 +615,20 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
         return VK_NULL_HANDLE;
     }
 
-    if(result != vk::Result::eSuccess) { HGERROR("failed to acquire swap chain image!"); }
+    if(result != vk::Result::eSuccess)
+    {
+        HGERROR("failed to acquire swap chain image!");
+        return VK_NULL_HANDLE;
+    }
+
+    vk::Extent2D desiredExtent = UI::GetViewportSizePixels();
+    if(desiredExtent != m_sceneExtent)
+    {
+        m_sceneExtent = desiredExtent;
+        RecreateViewport();
+    }
 
     ReadyPerFrameData(visibleEntities);
-
-    m_screenImageExtent = m_swapChain->GetExtent();
 
     auto cmd = GetCurrentFrame().commandBuffer;
     cmd.reset();
@@ -619,13 +642,11 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
         return VK_NULL_HANDLE;
     }
 
-    GetCurrentFrame().drawImage->TransitionLayout(cmd, vk::ImageLayout::eGeneral);
-
     vk::Viewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = static_cast<float>(m_screenImageExtent.width);
-    viewport.height = static_cast<float>(m_screenImageExtent.height);
+    viewport.width = m_sceneExtent.width;
+    viewport.height = m_sceneExtent.height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
@@ -633,8 +654,8 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
 
     vk::Rect2D scissor{};
     scissor.offset = vk::Offset2D{0, 0};
-    scissor.extent.width = m_screenImageExtent.width;
-    scissor.extent.height = m_screenImageExtent.height;
+    scissor.extent.width = m_sceneExtent.width;
+    scissor.extent.height = m_sceneExtent.height;
 
     cmd.setScissor(0, 1, &scissor);
 
@@ -651,13 +672,12 @@ void Renderer::EndFrame()
     {
         HGINFO("Cannot end a frame that has not been begun!");
 
-        // still need to flush the scheduler to avoid deadlocks
         m_logicalDevice.GetWorkScheduler().Flush(GetCurrentFrame().inFlightFence);
         m_currentFrameIndex = (m_currentFrameIndex + 1) % static_cast<u32>(Globals::Limits::MaxFramesInFlight);
         return;
     }
 
-    GetCurrentFrame().drawImage->TransitionLayout(cmd, vk::ImageLayout::eTransferSrcOptimal);
+    GetCurrentFrame().windowImage->TransitionLayout(cmd, vk::ImageLayout::eTransferSrcOptimal);
 
     Utils::ImageTransitionInfo swapInfo{.cmd = cmd, .logicalDevice = m_logicalDevice, .image = m_swapChain->GetImages()[m_currentImageIndex]};
     swapInfo.oldLayout = vk::ImageLayout::eUndefined;
@@ -665,8 +685,8 @@ void Renderer::EndFrame()
 
     Utils::TransitionImageLayout(swapInfo);
 
-    GetCurrentFrame().drawImage->CopyToImage(m_logicalDevice, cmd, GetCurrentFrame().drawImage->GetImage(),
-                                             m_swapChain->GetImages()[m_currentImageIndex], m_screenImageExtent, m_swapChain->GetExtent());
+    Image::CopyToImage(m_logicalDevice, cmd, GetCurrentFrame().windowImage->GetImage(), m_swapChain->GetImages()[m_currentImageIndex],
+                       m_windowExtent, m_swapChain->GetExtent());
 
     Utils::ImageTransitionInfo presentTransitionInfo{.cmd = cmd,
                                                      .logicalDevice = m_logicalDevice,
@@ -678,6 +698,8 @@ void Renderer::EndFrame()
 
     Utils::TransitionImageLayout(presentTransitionInfo);
 
+    GetCurrentFrame().windowImage->TransitionLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
+
     cmd.end();
     m_logicalDevice.GetWorkScheduler().AddWork(cmd, m_logicalDevice.GetGraphicsQueue(), GetCurrentFrame().workPackets);
 
@@ -685,14 +707,19 @@ void Renderer::EndFrame()
                                              m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex));
 
     m_swapChain->Present(m_swapChain->GetRenderFinishedSemaphoreAtIndex(m_currentImageIndex), m_currentImageIndex);
-    GetCurrentFrame().started = false;
 
+    GetCurrentFrame().started = false;
     m_currentFrameIndex = (m_currentFrameIndex + 1) % static_cast<u32>(Globals::Limits::MaxFramesInFlight);
 }
 
 void Renderer::BeginGeometryPass(vk::CommandBuffer cmd)
 {
-    PreGeometryPassTransitions(cmd);
+    auto& currentFrame = GetCurrentFrame();
+
+    currentFrame.gbuffer.albedo->TransitionLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
+    currentFrame.gbuffer.normalRough->TransitionLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
+    currentFrame.gbuffer.materialParam->TransitionLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
+    currentFrame.gbuffer.depth->TransitionLayout(cmd, vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
     std::array<vk::ClearValue, 2> clearValues{};
     clearValues[0].color = {0.5f, 0.5f, 0.5f, 0.5f};
@@ -704,8 +731,6 @@ void Renderer::BeginGeometryPass(vk::CommandBuffer cmd)
     attach.loadOp = vk::AttachmentLoadOp::eClear;
     attach.storeOp = vk::AttachmentStoreOp::eStore;
     attach.clearValue = clearValues[0];
-
-    auto& currentFrame = GetCurrentFrame();
 
     std::array<vk::RenderingAttachmentInfo, 3> colorAttachments{attach, attach, attach};
     colorAttachments[0].imageView = currentFrame.gbuffer.albedo->GetImageView();
@@ -730,7 +755,7 @@ void Renderer::BeginGeometryPass(vk::CommandBuffer cmd)
 
     vk::RenderingInfo renderingInfo{};
     renderingInfo.sType = vk::StructureType::eRenderingInfo;
-    renderingInfo.renderArea = vk::Rect2D(vk::Offset2D(0, 0), m_screenImageExtent);
+    renderingInfo.renderArea = vk::Rect2D(vk::Offset2D(0, 0), m_sceneExtent);
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = colorAttachments.size();
     renderingInfo.pColorAttachments = colorAttachments.data();
@@ -742,20 +767,24 @@ void Renderer::BeginGeometryPass(vk::CommandBuffer cmd)
     cmd.beginRendering(&renderingInfo);
 }
 
-void Renderer::EndGeometryPass(vk::CommandBuffer cmd)
-{
-    cmd.endRendering();
-    PostGeometryPassTransitions(cmd);
-}
+void Renderer::EndGeometryPass(vk::CommandBuffer cmd) { cmd.endRendering(); }
 
 void Renderer::DoLightingPass(vk::CommandBuffer cmd, vk::DescriptorSet camSet, vk::DescriptorSet sceneSet, vk::DescriptorSet skyboxSet)
 {
     auto& currentFrame = GetCurrentFrame();
-    auto  albedoInfo = currentFrame.gbuffer.albedo->GetDescriptorInfo();
-    auto  normalInfo = currentFrame.gbuffer.normalRough->GetDescriptorInfo();
-    auto  matInfo = currentFrame.gbuffer.materialParam->GetDescriptorInfo();
-    auto  depthInfo = currentFrame.gbuffer.depth->GetDescriptorInfo();
-    auto  drawInfo = currentFrame.drawImage->GetDescriptorInfo();
+
+    currentFrame.gbuffer.albedo->TransitionLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
+    currentFrame.gbuffer.normalRough->TransitionLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
+    currentFrame.gbuffer.materialParam->TransitionLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
+    currentFrame.gbuffer.depth->TransitionLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+    currentFrame.sceneImage->TransitionLayout(cmd, vk::ImageLayout::eGeneral);
+
+    auto albedoInfo = currentFrame.gbuffer.albedo->GetDescriptorInfo();
+    auto normalInfo = currentFrame.gbuffer.normalRough->GetDescriptorInfo();
+    auto matInfo = currentFrame.gbuffer.materialParam->GetDescriptorInfo();
+    auto depthInfo = currentFrame.gbuffer.depth->GetDescriptorInfo();
+    auto drawInfo = currentFrame.sceneImage->GetDescriptorInfo();
 
     DescriptorWriter writer(*m_lightingDescriptorLayout, m_lightingPool.get());
     writer.WriteImage(0, &albedoInfo)
@@ -772,32 +801,25 @@ void Renderer::DoLightingPass(vk::CommandBuffer cmd, vk::DescriptorSet camSet, v
 
     u32 localSize = 8;
 
-    u32 countX = std::ceil(m_screenImageExtent.width / localSize);
-    u32 countY = std::ceil(m_screenImageExtent.height / localSize);
+    u32 countX = std::ceil(m_sceneExtent.width / localSize);
+    u32 countY = std::ceil(m_sceneExtent.height / localSize);
 
     m_logicalDevice.RecordComputeDispatch(cmd, countX, countY, 1);
 
     WaitForCompute(cmd);
-
-    // Utils::ImageTransitionInfo transitionInfo{.logicalDevice = m_logicalDevice};
-    // transitionInfo.image = GetCurrentFrame().drawImage.image;
-    // transitionInfo.oldLayout = GetCurrentFrame().drawImage.imageLayout;
-    // transitionInfo.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
-    // transitionInfo.cmd = cmd;
-    // Utils::TransitionImageLayout(transitionInfo);
-
-    GetCurrentFrame().drawImage->TransitionLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
 }
 
 void Renderer::BeginSkyboxPass(vk::CommandBuffer cmd)
 {
+    GetCurrentFrame().sceneImage->TransitionLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
+
     std::array<vk::ClearValue, 2> clearValues{};
     clearValues[0].color = {0.0f, 0.0f, 0.0f, 0.0f};
     clearValues[1].depthStencil = vk::ClearDepthStencilValue(0.0f, 0);
 
     vk::RenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = vk::StructureType::eRenderingAttachmentInfo;
-    colorAttachment.imageView = GetCurrentFrame().drawImage->GetImageView();
+    colorAttachment.imageView = GetCurrentFrame().sceneImage->GetImageView();
     colorAttachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
     colorAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
     colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
@@ -813,7 +835,7 @@ void Renderer::BeginSkyboxPass(vk::CommandBuffer cmd)
 
     vk::RenderingInfo renderingInfo{};
     renderingInfo.sType = vk::StructureType::eRenderingInfo;
-    renderingInfo.renderArea = vk::Rect2D(vk::Offset2D(0, 0), m_screenImageExtent);
+    renderingInfo.renderArea = vk::Rect2D(vk::Offset2D(0, 0), m_sceneExtent);
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachments = &colorAttachment;
@@ -829,20 +851,36 @@ void Renderer::EndSkyboxPass(vk::CommandBuffer cmd) { cmd.endRendering(); }
 
 void Renderer::BeginUIPass(vk::CommandBuffer cmd)
 {
+    GetCurrentFrame().sceneImage->TransitionLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+    vk::Viewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = m_windowExtent.width;
+    viewport.height = m_windowExtent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    cmd.setViewport(0, 1, &viewport);
+
+    vk::Rect2D scissor{};
+    scissor.offset = vk::Offset2D{0, 0};
+    scissor.extent.width = m_windowExtent.width;
+    scissor.extent.height = m_windowExtent.height;
+    cmd.setScissor(0, 1, &scissor);
+
     std::array<vk::ClearValue, 2> clearValues{};
-    clearValues[0].color = {0.0f, 0.0f, 0.0f, 0.0f};
+    clearValues[0].color = {0.3f, 0.3f, 0.3f, 0.3f};
 
     vk::RenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = vk::StructureType::eRenderingAttachmentInfo;
-    colorAttachment.imageView = GetCurrentFrame().drawImage->GetImageView();
+    colorAttachment.imageView = GetCurrentFrame().windowImage->GetImageView();
     colorAttachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
-    colorAttachment.loadOp = vk::AttachmentLoadOp::eLoad;
+    colorAttachment.loadOp = vk::AttachmentLoadOp::eClear;
     colorAttachment.storeOp = vk::AttachmentStoreOp::eStore;
     colorAttachment.clearValue = clearValues[0];
 
     vk::RenderingInfo renderingInfo{};
-    renderingInfo.sType = vk::StructureType::eRenderingInfo;
-    renderingInfo.renderArea = vk::Rect2D(vk::Offset2D(0, 0), m_screenImageExtent);
+    renderingInfo.renderArea = vk::Rect2D(vk::Offset2D(0, 0), m_windowExtent);
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachments = &colorAttachment;
@@ -850,7 +888,6 @@ void Renderer::BeginUIPass(vk::CommandBuffer cmd)
     renderingInfo.pStencilAttachment = nullptr;
     renderingInfo.pNext = nullptr;
     renderingInfo.viewMask = 0;
-    // renderingInfo.flags = 0;
 
     cmd.beginRendering(&renderingInfo);
 }
@@ -859,6 +896,7 @@ void Renderer::EndUIPass(vk::CommandBuffer cmd) { cmd.endRendering(); }
 
 void Renderer::BeginDepthPrePass(vk::CommandBuffer cmd)
 {
+    GetCurrentFrame().gbuffer.depth->TransitionLayout(cmd, vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
     vk::ClearValue clearValue{};
     clearValue.depthStencil = vk::ClearDepthStencilValue{0.0f, 0};
@@ -872,7 +910,7 @@ void Renderer::BeginDepthPrePass(vk::CommandBuffer cmd)
     depthAttachment.clearValue = clearValue;
 
     vk::RenderingInfo renderingInfo{};
-    renderingInfo.renderArea = vk::Rect2D(vk::Offset2D(0, 0), m_screenImageExtent);
+    renderingInfo.renderArea = vk::Rect2D(vk::Offset2D(0, 0), m_sceneExtent);
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 0;
     renderingInfo.pColorAttachments = nullptr;

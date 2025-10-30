@@ -53,7 +53,8 @@ public:
         std::vector<VisiblityResultSet> visiblityResults;
         u32                             numObjectsDispatched;
 
-        std::unique_ptr<Image> drawImage;
+        std::unique_ptr<Image> sceneImage;
+        std::unique_ptr<Image> windowImage;
 
         struct DepthMip
         {
@@ -119,6 +120,8 @@ public:
     void DoOcclusionCulling(vk::CommandBuffer cmd, const std::vector<struct Utils::VisibleEntityInfo>& frustumCulledEntities, class World& world,
                             const Camera& cam);
 
+    Image& GetCurrentFrameSceneImage() { return *GetCurrentFrame().sceneImage; }
+
     static void WaitForCompute(vk::CommandBuffer cmd);
 
 private:
@@ -150,12 +153,10 @@ private:
     u32    m_currentFrameIndex{0};
     Frame& GetCurrentFrame() { return m_frames[m_currentFrameIndex]; }
 
-    vk::Extent2D m_screenImageExtent;
+    vk::Extent2D m_windowExtent;
+    vk::Extent2D m_sceneExtent;
 
     vk::Sampler m_depthImageSampler;
-
-    void PreGeometryPassTransitions(vk::CommandBuffer cmd);
-    void PostGeometryPassTransitions(vk::CommandBuffer cmd);
 
     void CreateGBuffer();
     void CreateLightingPipeline();
@@ -167,5 +168,6 @@ private:
     void CreateCommandBuffers();
     void RecreateSwapChain();
     void UpdateDepthBuffer();
+    void RecreateViewport();
 };
 } // namespace Humongous

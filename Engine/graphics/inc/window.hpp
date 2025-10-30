@@ -33,7 +33,7 @@ public:
     b8 IsCursorHidden() { return m_cursorHidden; }
 
 private:
-    int width = 800, height = 600;
+    int width = 1280, height = 720;
     b8  m_cursorHidden = false;
 
     SDL_Window* window = nullptr;

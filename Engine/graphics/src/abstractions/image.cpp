@@ -35,6 +35,12 @@ void Image::Destroy(const ILogicalDevice& logicalDevice)
 
 void Image::AllocateImage(const ImageCreateInfo& createInfo)
 {
+    if(createInfo.width == 0 || createInfo.height == 0)
+    {
+        HGERROR("Cannot create image with 0 width or height");
+        return;
+    }
+
     vk::ImageCreateInfo imageInfo{};
     imageInfo.imageType = vk::ImageType::e2D;
     imageInfo.extent.width = createInfo.width;
@@ -60,7 +66,8 @@ void Image::AllocateImage(const ImageCreateInfo& createInfo)
     allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(createInfo.properties);
 
-    if(m_logicalDevice.GetAllocator().AllocateImage(imageInfo, allocInfo, m_allocation, m_image) != vk::Result::eSuccess)
+    auto res = m_logicalDevice.GetAllocator().AllocateImage(imageInfo, allocInfo, m_allocation, m_image);
+    if(res != vk::Result::eSuccess)
     {
         HGERROR("Failed to create image");
         return;
@@ -136,7 +143,7 @@ void Image::TransitionLayout(vk::CommandBuffer cmd, vk::ImageLayout newLayout, u
 
     if(newLayout == m_layout)
     {
-        HGTRACE("Identical layouts, skipping transition");
+        HGTRACE("Identical layouts %s and %s, skipping transition", vk::to_string(m_layout).c_str(), vk::to_string(newLayout).c_str());
         return;
     }
 
@@ -218,7 +225,7 @@ void Image::TransitionLayout(vk::CommandBuffer cmd, vk::ImageLayout newLayout, u
             break;
 
         case vk::ImageLayout::eShaderReadOnlyOptimal:
-            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
+            imageBarrier.dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader | vk::PipelineStageFlagBits2::eComputeShader;
             imageBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead;
             break;
 

@@ -557,6 +557,8 @@ void VulkanApp::Run()
 
                     UI::BeginUIFrame();
 
+                    UI::RenderViewport();
+
                     objectDataWidget.Draw();
                     m_cam->DrawUI();
 
@@ -570,7 +572,7 @@ void VulkanApp::Run()
                     ImGui::RenderPlatformWindowsDefault();
                 };
 
-                m_renderGraphs[m_renderer->GetFrameIndex()]->AddPass("UI Pass", {geometryPass, skyboxPass}, uiExec);
+                m_renderGraphs[m_renderer->GetFrameIndex()]->AddPass("UI Pass", {lightingPass, skyboxPass}, uiExec);
 
                 m_renderGraphs[m_renderer->GetFrameIndex()]->Compile();
                 m_renderGraphs[m_renderer->GetFrameIndex()]->Execute(data);

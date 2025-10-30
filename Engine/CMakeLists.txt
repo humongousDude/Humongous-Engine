@@ -219,8 +219,8 @@ if(MSVC)
 endif()
 
 if(UNIX AND CMAKE_BUILD_TYPE MATCHES "Debug")
-    target_compile_options(Engine PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
-    target_link_options(Engine PRIVATE -fsanitize=address,undefined)
+    target_compile_options(Engine PRIVATE -fsanitize=address,undefined,leak -fno-omit-frame-pointer)
+    target_link_options(Engine PRIVATE -fsanitize=address,undefined,leak)
 endif()
 
 target_compile_definitions(Engine PUBLIC
