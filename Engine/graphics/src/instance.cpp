@@ -78,9 +78,9 @@ void Instance::InitInstance()
 
     vk::ApplicationInfo appInfo{};
     appInfo.sType = vk::StructureType::eApplicationInfo;
-    appInfo.pApplicationName = "HumongousEngine";
+    appInfo.pApplicationName = "HumongousApp";
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "Humongous";
+    appInfo.pEngineName = "HumongousEngine";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion = VK_API_VERSION_1_4;
 
@@ -163,6 +163,7 @@ std::vector<const char*> Instance::GetRequiredExtensions()
     std::vector<const char*> extensions(sdlExtensions, sdlExtensions + sdlExtensionCount);
 
     if(ENABLE_VALIDATION_LAYERS) { extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME); }
+
     extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
     extensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
 

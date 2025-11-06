@@ -1,48 +1,37 @@
 {
-  "version": 6,
-  "configurePresets": [
-    {
-      "name": "debug",
-      "binaryDir": "${sourceDir}/Binaries",
-      "generator": "Ninja",
-      "cacheVariables": {
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_COLOR_DIAGNOSTICS": "ON",
-        "CMAKE_CXX_STANDARD": "23",
-        "CMAKE_C_STANDARD": "23",
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_CXX_COMPILER": "clang++",
-        "CMAKE_C_COMPILER":"clang"
-      }
-    },
-    {
-      "name": "release",
-      "binaryDir": "${sourceDir}/Binaries-Release",
-      "generator": "Ninja",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_CXX_STANDARD": "23",
-        "CMAKE_C_STANDARD": "23",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "OFF",
-        "CMAKE_COLOR_DIAGNOSTICS": "OFF",
-        "CMAKE_CXX_FLAGS_RELEASE": "-O3 -march=native -flto -DNDEBUG",
-        "CMAKE_C_FLAGS_RELEASE": "-O3 -march=native -flto -DNDEBUG",
-        "CMAKE_CXX_COMPILER": "g++",
-        "CMAKE_C_COMPILER":"gcc"
-      }
-    }
-  ],
-  "workflowPresets": [
-    {
-      "name": "workflowPresets",
-      "displayName": "Custom Workflow Preset",
-      "description": "Custom workflow preset description",
-      "steps": [
+    "version": 6,
+    "configurePresets": [
         {
-          "type": "configure",
-          "name": "debug"
+            "name": "debug",
+            "binaryDir": "${sourceDir}/Binaries",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_COLOR_DIAGNOSTICS": "ON",
+                "CMAKE_CXX_STANDARD": "23",
+                "CMAKE_C_STANDARD": "23",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_CXX_COMPILER": "clang++",
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_FLAGS_DEBUG": "-O1",
+                "CMAKE_C_FLAGS_DEBUG": "-O1"
+            }
+        },
+        {
+            "name": "release",
+            "binaryDir": "${sourceDir}/Binaries-Release",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_CXX_STANDARD": "23",
+                "CMAKE_C_STANDARD": "23",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "OFF",
+                "CMAKE_COLOR_DIAGNOSTICS": "OFF",
+                "CMAKE_CXX_FLAGS_RELEASE": "-O3 -flto -march=x86-64 -DNDEBUG",
+                "CMAKE_C_FLAGS_RELEASE": "-O3 -flto -march=x86-64 -DNDEBUG",
+                "CMAKE_CXX_COMPILER": "g++",
+                "CMAKE_C_COMPILER": "gcc"
+            }
         }
-      ]
-    }
-  ]
+    ]
 }
