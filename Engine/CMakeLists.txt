@@ -20,6 +20,7 @@ set(ENGINE_SOURCES
     systems/src/asset_manager.cpp
     systems/src/globals.cpp
     systems/src/resource_manager.cpp
+    systems/src/event.cpp
 
     # --- Utils ---
     utils/src/extra.cpp
@@ -94,6 +95,7 @@ set(ENGINE_HEADERS
     systems/inc/asset_manager.hpp
     systems/inc/globals.hpp
     systems/inc/resource_manager.hpp
+    systems/inc/event.hpp
 
     # --- Utils ---
     utils/inc/extra.hpp
