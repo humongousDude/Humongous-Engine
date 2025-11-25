@@ -47,7 +47,6 @@ public:
     static vk::Extent2D GetViewportSizePixels()
     {
         ImVec2 scale = ImGui::GetIO().DisplayFramebufferScale;
-
         return {static_cast<u32>(Get().m_viewportWidth * scale.x), static_cast<u32>(Get().m_viewportHeight * scale.y)};
     }
 

@@ -34,8 +34,11 @@ void Window::CreateWindow()
         return;
     };
     if(!SDL_Vulkan_LoadLibrary(NULL)) { HGFATAL("Failed to load vulkan! Error: %s", SDL_GetError()); };
-    if(!(window = SDL_CreateWindow("Humongous Window", width, height,
-                                   SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_FULLSCREEN)))
+
+    u32 flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS;
+    window = SDL_CreateWindow("Humongous Window", width, height, flags);
+
+    if(!window)
     {
         HGFATAL("Failed to create SDL3 Window! Error: %s", SDL_GetError());
         return;
@@ -48,12 +51,11 @@ vk::SurfaceKHR Window::CreateWindowSurface(vk::Instance instance)
 {
     VkSurfaceKHR a;
     if(!SDL_Vulkan_CreateSurface(window, instance, nullptr, &a)) { HGFATAL("Failed to create window surface"); }
-    SDL_UpdateWindowSurface(window);
     HGINFO("Created window surface");
     return a;
 }
 
-bool Window::HandleWindowResized(void* userdata, SDL_Event* event)
+b8 Window::HandleWindowResized(void* userdata, SDL_Event* event)
 {
     if(event->type != SDL_EVENT_WINDOW_RESIZED) { return false; }
     auto self = reinterpret_cast<Window*>(userdata);

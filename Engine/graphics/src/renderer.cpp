@@ -99,14 +99,19 @@ void Renderer::RecreateSwapChain()
     else
     {
         std::shared_ptr<SwapChain> oldSwapChain = std::move(m_swapChain);
-        m_swapChain = std::make_unique<SwapChain>(m_window, m_physicalDevice, m_logicalDevice, std::move(m_swapChain));
+        m_swapChain = std::make_unique<SwapChain>(m_window, m_physicalDevice, m_logicalDevice, oldSwapChain);
     }
-    // recreate the image views
-
     m_windowExtent = m_swapChain->GetExtent();
 
     RecreateViewport();
 
+    m_logicalDevice.GetVkDevice().waitIdle();
+
+    // We don't need to reset the frame index, since our resources are independent of the swapchain's image index
+    // m_currentFrameIndex = 0;
+    m_currentImageIndex = 0;
+
+    m_window.ResetWindowResizedFlag();
     HGINFO("Recreated swap chain");
 }
 
@@ -609,23 +614,20 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
     if(result != vk::Result::eSuccess) { HGERROR("Failed to reset fences: %s", vk::to_string(result).c_str()); }
 
     result = m_swapChain->AcquireNextImage(GetCurrentFrame().imageAvailableSemaphore, m_currentImageIndex);
-    if(result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR)
+    if(result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || m_window.WasWindowResized())
     {
         RecreateSwapChain();
         return VK_NULL_HANDLE;
     }
 
-    if(result != vk::Result::eSuccess)
-    {
-        HGERROR("failed to acquire swap chain image!");
-        return VK_NULL_HANDLE;
-    }
+    if(result != vk::Result::eSuccess) { HGERROR("failed to acquire swap chain image!"); }
 
     vk::Extent2D desiredExtent = UI::GetViewportSizePixels();
     if(desiredExtent != m_sceneExtent)
     {
         m_sceneExtent = desiredExtent;
         RecreateViewport();
+        return VK_NULL_HANDLE;
     }
 
     ReadyPerFrameData(visibleEntities);

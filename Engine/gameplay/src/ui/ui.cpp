@@ -142,7 +142,6 @@ void UI::Internal_RenderViewport()
     ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
     m_viewportWidth = static_cast<u32>(viewportPanelSize.x);
     m_viewportHeight = static_cast<u32>(viewportPanelSize.y);
-    HGINFO("Viewport size: %ix%i", m_viewportWidth, m_viewportHeight);
 
     ImGui::Image(m_sceneTextureRef[m_currentFrameIndex], viewportPanelSize, ImVec2(0, 0), ImVec2(1, 1));
 

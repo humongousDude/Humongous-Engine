@@ -10,7 +10,9 @@ SwapChain::SwapChain(const Window& window, const PhysicalDevice& physicalDevice,
                      std::shared_ptr<SwapChain> oldSwap)
     : m_logicalDevice(logicalDevice)
 {
-    auto old = oldSwap == nullptr ? nullptr : oldSwap->m_swapChain;
+    vk::SwapchainKHR old;
+    if(oldSwap) { old = oldSwap->m_swapChain; }
+
     CreateSwapChain(window, physicalDevice, &old);
     CreateImageViews();
 }

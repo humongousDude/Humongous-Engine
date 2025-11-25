@@ -1,0 +1,382 @@
+Checking build status...
+Default build directory './Binaries' found.
+Starting build process...
+Changing to directory './Binaries'...
+Running Ninja build...
+[0/2] Re-checking globbed directories...
+Ninja build successful.
+Running AppTests: './Binaries/App/AppTests'
+AppTests successful.
+Running application: './Binaries/App/App' 
+[2025-11-25 16:54:35.380] [engine_logger] [info] Logging initialized. Log file at: log.txt
+[2025-11-25 16:54:35.864] [engine_logger] [info] Initializing Vulkan Instance!
+[2025-11-25 16:54:35.879] [engine_logger] [warning] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateInstance(): Both GPU Assisted Validation and Normal Core Check Validation are enabled, this is not recommend as it  will be very slow. Once all errors in Core Check are solved, please disable, then only use GPU-AV for best performance.
+
+[2025-11-25 16:54:35.887] [engine_logger] [info] Created window surface
+[2025-11-25 16:54:35.887] [engine_logger] [info] looking for a physical device...
+[2025-11-25 16:54:35.888] [engine_logger] [info] found 2 devices
+[2025-11-25 16:54:35.888] [engine_logger] [info] Evaluating device: AMD Radeon RX 7800 XT (RADV NAVI32)
+[2025-11-25 16:54:35.890] [engine_logger] [info]   Support Level: Mesh Shaders
+[2025-11-25 16:54:35.890] [engine_logger] [info] Selected Physical Device: AMD Radeon RX 7800 XT (RADV NAVI32) (Support Level: Mesh Shaders)
+[2025-11-25 16:54:35.890] [engine_logger] [info] Creating logical device...
+[2025-11-25 16:54:35.890] [engine_logger] [info] Indices graphics: 0, present: 0, compute: 1, transfer: 1
+[2025-11-25 16:54:35.890] [engine_logger] [info] acquiring queue handles...
+[2025-11-25 16:54:35.890] [engine_logger] [info] Indices graphics: 0, present: 0, compute: 1, transfer: 1
+[2025-11-25 16:54:35.891] [engine_logger] [warning] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateDevice(): Internal Warning: Forcing fragmentStoresAndAtomics to VK_TRUE
+
+[2025-11-25 16:54:35.891] [engine_logger] [warning] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateDevice(): Internal Warning: Forcing vertexPipelineStoresAndAtomics to VK_TRUE
+
+[2025-11-25 16:54:35.891] [engine_logger] [warning] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateDevice(): Internal Warning: Forcing shaderInt64 to VK_TRUE
+
+[2025-11-25 16:54:35.891] [engine_logger] [warning] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateDevice(): Internal Warning: Forcing robustBufferAccess to VK_TRUE
+
+[2025-11-25 16:54:35.891] [engine_logger] [warning] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateDevice(): Internal Warning: Forcing VkPhysicalDeviceVulkan12Features::vulkanMemoryModel to VK_TRUE
+
+[2025-11-25 16:54:35.891] [engine_logger] [warning] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateDevice(): Internal Warning: Forcing VkPhysicalDeviceVulkan12Features::vulkanMemoryModelDeviceScope to VK_TRUE
+
+[2025-11-25 16:54:35.891] [engine_logger] [warning] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateDevice(): Internal Warning: Forcing VkPhysicalDeviceVulkan12Features::scalarBlockLayout to VK_TRUE
+
+[2025-11-25 16:54:35.891] [engine_logger] [warning] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateDevice(): Internal Warning: Adding a VkPhysicalDeviceRobustness2FeaturesKHR to pNext with robustBufferAccess2 set to VK_TRUE
+
+[2025-11-25 16:54:35.891] [engine_logger] [warning] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateDevice(): Internal Warning: Adding a VkPhysicalDeviceRobustness2FeaturesKHR to pNext with robustImageAccess2 set to VK_TRUE
+
+[2025-11-25 16:54:35.892] [engine_logger] [warning] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateDevice(): Internal Warning: Ray Query validation option was enabled, but the rayQuery feature was not supported [Disabling gpuav_validate_ray_query]
+
+[2025-11-25 16:54:35.893] [engine_logger] [info] logical device created
+[2025-11-25 16:54:35.893] [engine_logger] [info] logical device queues acquired
+[2025-11-25 16:54:35.893] [engine_logger] [info] Initializing allocator...
+[2025-11-25 16:54:35.894] [engine_logger] [info] Allocator initialized
+[2025-11-25 16:54:35.894] [engine_logger] [info] Created logical device
+[2025-11-25 16:54:35.894] [engine_logger] [info] Asset directory is: /home/youssef/Programming/CPP/Humongous-Engine/Assets/
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/irradiance.comp.slang.spv added as irradiance.comp
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/occlusion.comp.slang.spv added as occlusion.comp
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/simple.task.slang.spv added as simple.task
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/nothing.vert.slang.spv added as nothing.vert
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/depth.vert.slang.spv added as depth.vert
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/skybox.frag.slang.spv added as skybox.frag
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/mip.comp.slang.spv added as mip.comp
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/nothing.frag.slang.spv added as nothing.frag
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/simple.vert.slang.spv added as simple.vert
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/brdflut.comp.slang.spv added as brdflut.comp
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/skybox.vert.slang.spv added as skybox.vert
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/simple.mesh.slang.spv added as simple.mesh
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/pbr.frag.slang.spv added as pbr.frag
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/prefiltredmap.comp.slang.spv added as prefiltredmap.comp
+[2025-11-25 16:54:35.894] [engine_logger] [info] Found shader: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/lighting.comp.slang.spv added as lighting.comp
+[2025-11-25 16:54:35.894] [engine_logger] [error] Unable to access requested asset directory: 
+[2025-11-25 16:54:35.894] [engine_logger] [info] Initializing Resource manager...
+[2025-11-25 16:54:35.894] [engine_logger] [info] Initializing descriptors...
+[2025-11-25 16:54:35.894] [engine_logger] [info] Initializing initials...
+[2025-11-25 16:54:35.896] [engine_logger] [info] Resource manager initialized
+[2025-11-25 16:54:35.896] [engine_logger] [info] Initializing UI...
+[2025-11-25 16:54:35.899] [engine_logger] [info] UI Initialized
+[2025-11-25 16:54:35.901] [engine_logger] [info] Opened OpenAL device: OpenAL Soft
+[2025-11-25 16:54:35.901] [engine_logger] [info] HRTF extension available!
+[2025-11-25 16:54:35.912] [engine_logger] [info] OpenAL m_context created and made current.
+[2025-11-25 16:54:35.912] [engine_logger] [info] OpenAL Vendor: OpenAL Community
+[2025-11-25 16:54:35.912] [engine_logger] [info] OpenAL Version: 1.1 ALSOFT 1.24.3
+[2025-11-25 16:54:35.912] [engine_logger] [info] OpenAL Renderer: OpenAL Soft
+[2025-11-25 16:54:35.912] [engine_logger] [info] Creating command pool...
+[2025-11-25 16:54:35.912] [engine_logger] [info] Indices graphics: 0, present: 0, compute: 1, transfer: 1
+[2025-11-25 16:54:35.912] [engine_logger] [info] Created command pool
+[2025-11-25 16:54:35.912] [engine_logger] [info] Allocating command buffers...
+[2025-11-25 16:54:35.913] [engine_logger] [info] Allocated command buffers
+[2025-11-25 16:54:35.913] [engine_logger] [info] Creating compute pipeline...
+[2025-11-25 16:54:35.913] [engine_logger] [info] Creating compute pipeline...
+[2025-11-25 16:54:35.913] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/occlusion.comp.slang.spv
+[2025-11-25 16:54:35.915] [engine_logger] [info] Created compute pipeline
+[2025-11-25 16:54:35.915] [engine_logger] [info] Creating compute pipeline...
+[2025-11-25 16:54:35.915] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/mip.comp.slang.spv
+Validation Error: [ VUID-VkShaderModuleCreateInfo-pCode-08740 ] | MessageID = 0x6e224e9
+vkCreateShaderModule(): SPIR-V Capability ComputeDerivativeGroupQuadsKHR was declared, but one of the following requirements is required (VkPhysicalDeviceComputeShaderDerivativesFeaturesKHR::computeDerivativeGroupQuads OR VkPhysicalDeviceComputeShaderDerivativesFeaturesNV::computeDerivativeGroupQuads).
+The Vulkan spec states: If pCode is a pointer to SPIR-V code, and pCode declares any of the capabilities listed in the SPIR-V Environment appendix, one of the corresponding requirements must be satisfied (https://docs.vulkan.org/spec/latest/chapters/shaders.html#VUID-VkShaderModuleCreateInfo-pCode-08740)
+
+[2025-11-25 16:54:35.917] [engine_logger] [error] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateShaderModule(): SPIR-V Capability ComputeDerivativeGroupQuadsKHR was declared, but one of the following requirements is required (VkPhysicalDeviceComputeShaderDerivativesFeaturesKHR::computeDerivativeGroupQuads OR VkPhysicalDeviceComputeShaderDerivativesFeaturesNV::computeDerivativeGroupQuads).
+The Vulkan spec states: If pCode is a pointer to SPIR-V code, and pCode declares any of the capabilities listed in the SPIR-V Environment appendix, one of the corresponding requirements must be satisfied (https://docs.vulkan.org/spec/latest/chapters/shaders.html#VUID-VkShaderModuleCreateInfo-pCode-08740)
+
+[2025-11-25 16:54:35.917] [engine_logger] [info] Created compute pipeline
+[2025-11-25 16:54:35.917] [engine_logger] [info] Created compute pipeline
+[2025-11-25 16:54:35.917] [engine_logger] [info] Initializing synchronization structures...
+[2025-11-25 16:54:35.917] [engine_logger] [info] Initialized synchronization structures
+[2025-11-25 16:54:35.917] [engine_logger] [info] Creating lighting layout...
+[2025-11-25 16:54:35.917] [engine_logger] [info] Created lighting layout
+[2025-11-25 16:54:35.917] [engine_logger] [info] Creating pipeline...
+[2025-11-25 16:54:35.917] [engine_logger] [info] Creating compute pipeline...
+[2025-11-25 16:54:35.917] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/lighting.comp.slang.spv
+Validation Error: [ VUID-VkShaderModuleCreateInfo-pCode-08740 ] | MessageID = 0x6e224e9
+vkCreateShaderModule(): SPIR-V Capability ComputeDerivativeGroupQuadsKHR was declared, but one of the following requirements is required (VkPhysicalDeviceComputeShaderDerivativesFeaturesKHR::computeDerivativeGroupQuads OR VkPhysicalDeviceComputeShaderDerivativesFeaturesNV::computeDerivativeGroupQuads).
+The Vulkan spec states: If pCode is a pointer to SPIR-V code, and pCode declares any of the capabilities listed in the SPIR-V Environment appendix, one of the corresponding requirements must be satisfied (https://docs.vulkan.org/spec/latest/chapters/shaders.html#VUID-VkShaderModuleCreateInfo-pCode-08740)
+
+[2025-11-25 16:54:35.918] [engine_logger] [error] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateShaderModule(): SPIR-V Capability ComputeDerivativeGroupQuadsKHR was declared, but one of the following requirements is required (VkPhysicalDeviceComputeShaderDerivativesFeaturesKHR::computeDerivativeGroupQuads OR VkPhysicalDeviceComputeShaderDerivativesFeaturesNV::computeDerivativeGroupQuads).
+The Vulkan spec states: If pCode is a pointer to SPIR-V code, and pCode declares any of the capabilities listed in the SPIR-V Environment appendix, one of the corresponding requirements must be satisfied (https://docs.vulkan.org/spec/latest/chapters/shaders.html#VUID-VkShaderModuleCreateInfo-pCode-08740)
+
+[2025-11-25 16:54:35.919] [engine_logger] [info] Created compute pipeline
+[2025-11-25 16:54:35.919] [engine_logger] [info] Created pipeline
+[2025-11-25 16:54:35.919] [engine_logger] [info] Recreating swap chain...
+[2025-11-25 16:54:35.919] [engine_logger] [error] creating swapchain
+[2025-11-25 16:54:35.919] [engine_logger] [info] Creating SwapChain...
+[2025-11-25 16:54:35.920] [engine_logger] [info] Window Size: 1280, 720
+[2025-11-25 16:54:35.920] [engine_logger] [info] Indices graphics: 0, present: 0, compute: 1, transfer: 1
+[2025-11-25 16:54:35.921] [engine_logger] [info] Created SwapChain
+[2025-11-25 16:54:35.921] [engine_logger] [info] Got 4 swapchain images
+[2025-11-25 16:54:35.921] [engine_logger] [info] Creating draw image and view...
+[2025-11-25 16:54:35.922] [engine_logger] [info] Created draw image and view
+[2025-11-25 16:54:35.922] [engine_logger] [info] Initializing G-Buffer...
+[2025-11-25 16:54:35.923] [engine_logger] [info] Initialized G-Buffer (resized to 800 x 600)
+[2025-11-25 16:54:35.923] [engine_logger] [info] Recreated swap chain
+[2025-11-25 16:54:35.923] [engine_logger] [info] Initializing descriptor things...
+[2025-11-25 16:54:35.923] [engine_logger] [info] Initializing skybox render system...
+[2025-11-25 16:54:35.923] [engine_logger] [info] CREATING SKYBOX PIPELINE...
+[2025-11-25 16:54:35.923] [engine_logger] [info] Creating Render Pipeline...
+[2025-11-25 16:54:35.923] [engine_logger] [info] Reading shader files...
+[2025-11-25 16:54:35.923] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/skybox.vert.slang.spv
+[2025-11-25 16:54:35.923] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/skybox.frag.slang.spv
+[2025-11-25 16:54:35.923] [engine_logger] [info] Created graphics pipeline with 1 render attachments
+Validation Error: [ VUID-VkGraphicsPipelineCreateInfo-layout-07988 ] | MessageID = 0x215f02cd
+vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[0] SPIR-V (VK_SHADER_STAGE_VERTEX_BIT) uses descriptor [Set 0, Binding 0, variable "ubo"] (type VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC or VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK or VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) but the VkDescriptorSetLayoutBinding::stageFlags was VK_SHADER_STAGE_TASK_BIT_EXT|VK_SHADER_STAGE_MESH_BIT_EXT.
+The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
+Objects: 2
+    [0] VkShaderModule 0xec00000000ec
+    [1] VkPipelineLayout 0xeb00000000eb
+
+[2025-11-25 16:54:35.923] [engine_logger] [error] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[0] SPIR-V (VK_SHADER_STAGE_VERTEX_BIT) uses descriptor [Set 0, Binding 0, variable "ubo"] (type VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC or VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK or VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) but the VkDescriptorSetLayoutBinding::stageFlags was VK_SHADER_STAGE_TASK_BIT_EXT|VK_SHADER_STAGE_MESH_BIT_EXT.
+The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
+
+[2025-11-25 16:54:35.924] [engine_logger] [info] Successfully created pipeline
+[2025-11-25 16:54:35.924] [engine_logger] [info] Successfully destroyed shader modules
+[2025-11-25 16:54:35.924] [engine_logger] [info] Created render pipeline
+[2025-11-25 16:54:35.924] [engine_logger] [info] CREATED SKYBOX PIPELINE
+[2025-11-25 16:54:35.924] [engine_logger] [info] Loading skybox papermill
+[2025-11-25 16:54:35.924] [engine_logger] [info] Creating skybox from /home/youssef/Programming/CPP/Humongous-Engine/Assets/textures/papermill.ktx
+[2025-11-25 16:54:35.930] [engine_logger] [info] created cubemap...
+[2025-11-25 16:54:35.943] [engine_logger] [info] Generating irradiance map
+[2025-11-25 16:54:35.943] [engine_logger] [info] Creating compute pipeline...
+[2025-11-25 16:54:35.943] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/irradiance.comp.slang.spv
+Validation Error: [ VUID-VkShaderModuleCreateInfo-pCode-08740 ] | MessageID = 0x6e224e9
+vkCreateShaderModule(): SPIR-V Capability ComputeDerivativeGroupQuadsKHR was declared, but one of the following requirements is required (VkPhysicalDeviceComputeShaderDerivativesFeaturesKHR::computeDerivativeGroupQuads OR VkPhysicalDeviceComputeShaderDerivativesFeaturesNV::computeDerivativeGroupQuads).
+The Vulkan spec states: If pCode is a pointer to SPIR-V code, and pCode declares any of the capabilities listed in the SPIR-V Environment appendix, one of the corresponding requirements must be satisfied (https://docs.vulkan.org/spec/latest/chapters/shaders.html#VUID-VkShaderModuleCreateInfo-pCode-08740)
+
+[2025-11-25 16:54:35.943] [engine_logger] [error] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkCreateShaderModule(): SPIR-V Capability ComputeDerivativeGroupQuadsKHR was declared, but one of the following requirements is required (VkPhysicalDeviceComputeShaderDerivativesFeaturesKHR::computeDerivativeGroupQuads OR VkPhysicalDeviceComputeShaderDerivativesFeaturesNV::computeDerivativeGroupQuads).
+The Vulkan spec states: If pCode is a pointer to SPIR-V code, and pCode declares any of the capabilities listed in the SPIR-V Environment appendix, one of the corresponding requirements must be satisfied (https://docs.vulkan.org/spec/latest/chapters/shaders.html#VUID-VkShaderModuleCreateInfo-pCode-08740)
+
+[2025-11-25 16:54:35.944] [engine_logger] [info] Created compute pipeline
+[2025-11-25 16:54:35.944] [engine_logger] [error] Do not use this function!
+[2025-11-25 16:54:35.944] [engine_logger] [info] Done generating irradiance map
+[2025-11-25 16:54:35.944] [engine_logger] [info] Generating prefiltered map
+[2025-11-25 16:54:35.944] [engine_logger] [info] Creating compute pipeline...
+[2025-11-25 16:54:35.944] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/prefiltredmap.comp.slang.spv
+[2025-11-25 16:54:35.945] [engine_logger] [info] Created compute pipeline
+[2025-11-25 16:54:35.946] [engine_logger] [error] Failed to allocate descriptor sets! Error: ErrorOutOfPoolMemory
+[2025-11-25 16:54:35.946] [engine_logger] [error] Do not use this function!
+[2025-11-25 16:54:35.946] [engine_logger] [info] Done generating prefiltered map
+[2025-11-25 16:54:35.946] [engine_logger] [info] Generating BRDF LUT
+[2025-11-25 16:54:35.946] [engine_logger] [info] Creating compute pipeline...
+[2025-11-25 16:54:35.946] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/brdflut.comp.slang.spv
+[2025-11-25 16:54:35.947] [engine_logger] [info] Created compute pipeline
+[2025-11-25 16:54:35.947] [engine_logger] [error] Do not use this function!
+[2025-11-25 16:54:35.947] [engine_logger] [info] Done generating BRDF LUT
+[2025-11-25 16:54:35.947] [engine_logger] [info] generated pbr images...
+[2025-11-25 16:54:35.947] [engine_logger] [info] loaded descriptor set...
+[2025-11-25 16:54:35.947] [engine_logger] [info] Skybox /home/youssef/Programming/CPP/Humongous-Engine/Assets/textures/papermill.ktx created
+[2025-11-25 16:54:35.947] [engine_logger] [info] Skybox papermill loaded
+[2025-11-25 16:54:35.947] [engine_logger] [info] Initialized skybox render system
+[2025-11-25 16:54:35.947] [engine_logger] [info] Creating entity render system...
+[2025-11-25 16:54:35.947] [engine_logger] [info] Creating render pipeline...
+[2025-11-25 16:54:35.947] [engine_logger] [info] Creating Render Pipeline Layout...
+[2025-11-25 16:54:35.947] [engine_logger] [info] Created pipeline layout
+[2025-11-25 16:54:35.947] [engine_logger] [info] Creating Render Pipeline...
+[2025-11-25 16:54:35.947] [engine_logger] [info] Reading shader files...
+[2025-11-25 16:54:35.947] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/simple.task.slang.spv
+[2025-11-25 16:54:35.947] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/simple.mesh.slang.spv
+[2025-11-25 16:54:35.948] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/pbr.frag.slang.spv
+[2025-11-25 16:54:35.949] [engine_logger] [info] Created graphics pipeline with 3 render attachments
+[2025-11-25 16:54:35.951] [engine_logger] [info] Successfully created pipeline
+[2025-11-25 16:54:35.951] [engine_logger] [info] Successfully destroyed shader modules
+[2025-11-25 16:54:35.951] [engine_logger] [info] Created render pipeline
+[2025-11-25 16:54:35.951] [engine_logger] [info] Created render pipeline
+[2025-11-25 16:54:35.951] [engine_logger] [info] Creating mesh render system...
+[2025-11-25 16:54:35.951] [engine_logger] [info] Creating render pipeline...
+[2025-11-25 16:54:35.951] [engine_logger] [info] Creating Render Pipeline Layout...
+[2025-11-25 16:54:35.951] [engine_logger] [info] Created pipeline layout
+[2025-11-25 16:54:35.951] [engine_logger] [info] Creating Render Pipeline...
+[2025-11-25 16:54:35.951] [engine_logger] [info] Reading shader files...
+[2025-11-25 16:54:35.951] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/simple.task.slang.spv
+[2025-11-25 16:54:35.951] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/simple.mesh.slang.spv
+[2025-11-25 16:54:35.952] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/pbr.frag.slang.spv
+[2025-11-25 16:54:35.952] [engine_logger] [info] Created graphics pipeline with 3 render attachments
+[2025-11-25 16:54:35.954] [engine_logger] [info] Successfully created pipeline
+[2025-11-25 16:54:35.954] [engine_logger] [info] Successfully destroyed shader modules
+[2025-11-25 16:54:35.954] [engine_logger] [info] Created render pipeline
+[2025-11-25 16:54:35.954] [engine_logger] [info] Destroying Render pipeline...
+[2025-11-25 16:54:35.954] [engine_logger] [info] Destroyed Render Pipeline
+[2025-11-25 16:54:35.954] [engine_logger] [info] Created render pipeline
+[2025-11-25 16:54:35.954] [engine_logger] [info] Created mesh render system
+[2025-11-25 16:54:35.954] [engine_logger] [info] Created entity render system
+[2025-11-25 16:54:35.954] [engine_logger] [info] Creating depth only render system...
+[2025-11-25 16:54:35.954] [engine_logger] [info] Creating render pipeline...
+[2025-11-25 16:54:35.954] [engine_logger] [info] Creating Render Pipeline Layout...
+[2025-11-25 16:54:35.954] [engine_logger] [info] Created pipeline layout
+[2025-11-25 16:54:35.954] [engine_logger] [info] Creating Render Pipeline...
+[2025-11-25 16:54:35.954] [engine_logger] [info] Reading shader files...
+[2025-11-25 16:54:35.954] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/simple.task.slang.spv
+[2025-11-25 16:54:35.955] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/simple.mesh.slang.spv
+[2025-11-25 16:54:35.955] [engine_logger] [info] Created graphics pipeline with 0 render attachments
+[2025-11-25 16:54:35.956] [engine_logger] [info] Successfully created pipeline
+[2025-11-25 16:54:35.956] [engine_logger] [info] Successfully destroyed shader modules
+[2025-11-25 16:54:35.956] [engine_logger] [info] Created render pipeline
+[2025-11-25 16:54:35.956] [engine_logger] [info] Created render pipeline
+[2025-11-25 16:54:35.956] [engine_logger] [info] Creating mesh render system...
+[2025-11-25 16:54:35.956] [engine_logger] [info] Creating render pipeline...
+[2025-11-25 16:54:35.956] [engine_logger] [info] Creating Render Pipeline Layout...
+[2025-11-25 16:54:35.956] [engine_logger] [info] Created pipeline layout
+[2025-11-25 16:54:35.956] [engine_logger] [info] Creating Render Pipeline...
+[2025-11-25 16:54:35.956] [engine_logger] [info] Reading shader files...
+[2025-11-25 16:54:35.956] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/simple.task.slang.spv
+[2025-11-25 16:54:35.957] [engine_logger] [info] Reading file: /home/youssef/Programming/CPP/Humongous-Engine/Assets/shaders/simple.mesh.slang.spv
+[2025-11-25 16:54:35.957] [engine_logger] [info] Created graphics pipeline with 0 render attachments
+[2025-11-25 16:54:35.958] [engine_logger] [info] Successfully created pipeline
+[2025-11-25 16:54:35.958] [engine_logger] [info] Successfully destroyed shader modules
+[2025-11-25 16:54:35.958] [engine_logger] [info] Created render pipeline
+[2025-11-25 16:54:35.958] [engine_logger] [info] Destroying Render pipeline...
+[2025-11-25 16:54:35.958] [engine_logger] [info] Destroyed Render Pipeline
+[2025-11-25 16:54:35.958] [engine_logger] [info] Created render pipeline
+[2025-11-25 16:54:35.958] [engine_logger] [info] Created mesh render system
+[2025-11-25 16:54:35.958] [engine_logger] [info] Created depth only render system
+[2025-11-25 16:54:35.958] [engine_logger] [info] Loading game objects...
+[2025-11-25 16:54:35.958] [engine_logger] [info] Loading model buster_drone with handle 0
+[2025-11-25 16:54:35.958] [engine_logger] [info] Creating model...
+[2025-11-25 16:54:36.391] [engine_logger] [info] Loaded 1 animations for model buster_drone
+[2025-11-25 16:54:36.393] [engine_logger] [info] Creating meshlets...
+[2025-11-25 16:54:36.402] [engine_logger] [info] Created 455 total meshlets across all primitives.
+[2025-11-25 16:54:36.403] [engine_logger] [info] Model buster_drone loaded
+[2025-11-25 16:54:36.403] [engine_logger] [info] Nodes: 1
+[2025-11-25 16:54:36.403] [engine_logger] [info] Meshes: 39
+[2025-11-25 16:54:36.403] [engine_logger] [info] Animations: 1
+[2025-11-25 16:54:36.403] [engine_logger] [info] Vertices: 25598
+[2025-11-25 16:54:36.403] [engine_logger] [info] Indices: 98160
+[2025-11-25 16:54:36.407] [engine_logger] [info] Created model
+[2025-11-25 16:54:36.407] [engine_logger] [info] Model buster_drone loaded. Added to map with handle 0. Map size: 0
+[2025-11-25 16:54:36.408] [engine_logger] [info] We now have 25598 vertices
+[2025-11-25 16:54:36.409] [engine_logger] [info] Adding indices to model...
+[2025-11-25 16:54:36.409] [engine_logger] [info] Indices added to model
+[2025-11-25 16:54:36.410] [engine_logger] [info] Successfully loaded audio file: "/home/youssef/Programming/CPP/Humongous-Engine/Assets/audio/default.wav" (Buffer ID: 1, ALFormat: 0x1101, Rate: 44100Hz, Size: 177794 bytes, Frames: 88897)
+[2025-11-25 16:54:36.410] [engine_logger] [warning] Unable to find requested model! returning default model!
+[2025-11-25 16:54:36.410] [engine_logger] [info] Loading model CommercialRefrigerator with handle 1
+[2025-11-25 16:54:36.410] [engine_logger] [info] Creating model...
+[2025-11-25 16:54:36.524] [engine_logger] [info] Creating meshlets...
+[2025-11-25 16:54:36.544] [engine_logger] [info] Created 1536 total meshlets across all primitives.
+[2025-11-25 16:54:36.544] [engine_logger] [info] Model default loaded
+[2025-11-25 16:54:36.544] [engine_logger] [info] Nodes: 1
+[2025-11-25 16:54:36.544] [engine_logger] [info] Meshes: 1
+[2025-11-25 16:54:36.544] [engine_logger] [info] Animations: 0
+[2025-11-25 16:54:36.544] [engine_logger] [info] Vertices: 98304
+[2025-11-25 16:54:36.544] [engine_logger] [info] Indices: 147456
+[2025-11-25 16:54:36.546] [engine_logger] [info] Created model
+[2025-11-25 16:54:36.546] [engine_logger] [info] Model CommercialRefrigerator loaded. Added to map with handle 1. Map size: 1
+[2025-11-25 16:54:36.549] [engine_logger] [info] We now have 98304 vertices
+[2025-11-25 16:54:36.554] [engine_logger] [info] Adding indices to model...
+[2025-11-25 16:54:36.554] [engine_logger] [info] Indices added to model
+[2025-11-25 16:54:36.556] [engine_logger] [info] Successfully loaded audio file: "/home/youssef/Programming/CPP/Humongous-Engine/Assets/audio/default.wav" (Buffer ID: 2, ALFormat: 0x1101, Rate: 44100Hz, Size: 177794 bytes, Frames: 88897)
+[2025-11-25 16:54:37.349] [engine_logger] [info] Loaded game objects
+[2025-11-25 16:54:37.351] [engine_logger] [info] Running...
+[2025-11-25 16:54:37.353] [engine_logger] [info] Desired extent: 800, 600. Current extent: 800, 600
+[2025-11-25 16:54:37.355] [engine_logger] [info] available region: 800.000000, 581.000000
+Validation Error: [ VUID-vkQueueSubmit2-commandBuffer-03874 ] | MessageID = 0x9185224f
+vkQueueSubmit2(): pSubmits[0].pCommandBufferInfos[0].commandBuffer was called in VkCommandBuffer 0x7db89a575200 which was recorded but now has become invalid to use because the following objects bound to the command buffer were invalidated
+ VkBuffer 0x20a000000020a was destroy
+The Vulkan spec states: The commandBuffer member of any element of the pCommandBufferInfos member of any element of pSubmits must be in the pending or executable state (https://docs.vulkan.org/spec/latest/chapters/cmdbuffers.html#VUID-vkQueueSubmit2-commandBuffer-03874)
+Objects: 2
+    [0] VkCommandBuffer 0x7db89a575200
+    [1] VkBuffer 0x20a000000020a
+
+[2025-11-25 16:54:37.386] [engine_logger] [error] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkQueueSubmit2(): pSubmits[0].pCommandBufferInfos[0].commandBuffer was called in VkCommandBuffer 0x7db89a575200 which was recorded but now has become invalid to use because the following objects bound to the command buffer were invalidated
+ VkBuffer 0x20a000000020a was destroy
+The Vulkan spec states: The commandBuffer member of any element of the pCommandBufferInfos member of any element of pSubmits must be in the pending or executable state (https://docs.vulkan.org/spec/latest/chapters/cmdbuffers.html#VUID-vkQueueSubmit2-commandBuffer-03874)
+
+Validation Error: [ VUID-vkQueueSubmit2-commandBuffer-03874 ] | MessageID = 0x9185224f
+vkQueueSubmit2(): pSubmits[0].pCommandBufferInfos[0].commandBuffer was called in VkCommandBuffer 0x7db89a570200 which was recorded but now has become invalid to use because the following objects bound to the command buffer were invalidated
+ VkBuffer 0x20f000000020f was destroy
+The Vulkan spec states: The commandBuffer member of any element of the pCommandBufferInfos member of any element of pSubmits must be in the pending or executable state (https://docs.vulkan.org/spec/latest/chapters/cmdbuffers.html#VUID-vkQueueSubmit2-commandBuffer-03874)
+Objects: 2
+    [0] VkCommandBuffer 0x7db89a570200
+    [1] VkBuffer 0x20f000000020f
+
+[2025-11-25 16:54:37.387] [engine_logger] [error] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkQueueSubmit2(): pSubmits[0].pCommandBufferInfos[0].commandBuffer was called in VkCommandBuffer 0x7db89a570200 which was recorded but now has become invalid to use because the following objects bound to the command buffer were invalidated
+ VkBuffer 0x20f000000020f was destroy
+The Vulkan spec states: The commandBuffer member of any element of the pCommandBufferInfos member of any element of pSubmits must be in the pending or executable state (https://docs.vulkan.org/spec/latest/chapters/cmdbuffers.html#VUID-vkQueueSubmit2-commandBuffer-03874)
+
+Validation Error: [ VUID-vkQueueSubmit2-commandBuffer-03874 ] | MessageID = 0x9185224f
+vkQueueSubmit2(): pSubmits[0].pCommandBufferInfos[0].commandBuffer was called in VkCommandBuffer 0x7db89a56b200 which was recorded but now has become invalid to use because the following objects bound to the command buffer were invalidated
+ VkBuffer 0x21b000000021b was destroy
+ VkBuffer 0x2170000000217 was destroy
+ VkBuffer 0x2190000000219 was destroy
+The Vulkan spec states: The commandBuffer member of any element of the pCommandBufferInfos member of any element of pSubmits must be in the pending or executable state (https://docs.vulkan.org/spec/latest/chapters/cmdbuffers.html#VUID-vkQueueSubmit2-commandBuffer-03874)
+Objects: 4
+    [0] VkCommandBuffer 0x7db89a56b200
+    [1] VkBuffer 0x21b000000021b
+    [2] VkBuffer 0x2170000000217
+    [3] VkBuffer 0x2190000000219
+
+[2025-11-25 16:54:37.387] [engine_logger] [error] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkQueueSubmit2(): pSubmits[0].pCommandBufferInfos[0].commandBuffer was called in VkCommandBuffer 0x7db89a56b200 which was recorded but now has become invalid to use because the following objects bound to the command buffer were invalidated
+ VkBuffer 0x21b000000021b was destroy
+ VkBuffer 0x2170000000217 was destroy
+ VkBuffer 0x2190000000219 was destroy
+The Vulkan spec states: The commandBuffer member of any element of the pCommandBufferInfos member of any element of pSubmits must be in the pending or executable state (https://docs.vulkan.org/spec/latest/chapters/cmdbuffers.html#VUID-vkQueueSubmit2-commandBuffer-03874)
+
+[2025-11-25 16:54:37.394] [engine_logger] [info] Desired extent: 800, 581. Current extent: 800, 600
+[2025-11-25 16:54:37.395] [engine_logger] [info] Creating draw image and view...
+[2025-11-25 16:54:37.396] [engine_logger] [info] Created draw image and view
+[2025-11-25 16:54:37.396] [engine_logger] [info] Initializing G-Buffer...
+[2025-11-25 16:54:37.396] [engine_logger] [info] Initialized G-Buffer (resized to 800 x 581)
+[2025-11-25 16:54:37.398] [engine_logger] [info] available region: 800.000000, 581.000000
+[2025-11-25 16:54:37.400] [engine_logger] [info] Window Resized
+[2025-11-25 16:54:37.400] [engine_logger] [info] Window gained focus
+[2025-11-25 16:54:37.401] [engine_logger] [info] Recreating swap chain...
+[2025-11-25 16:54:37.402] [engine_logger] [error] creating swapchain
+[2025-11-25 16:54:37.402] [engine_logger] [info] Creating SwapChain...
+[2025-11-25 16:54:37.403] [engine_logger] [info] Window Size: 707, 1028
+[2025-11-25 16:54:37.403] [engine_logger] [info] Indices graphics: 0, present: 0, compute: 1, transfer: 1
+[2025-11-25 16:54:37.403] [engine_logger] [critical] Failed to create swapchain! Error: ErrorNativeWindowInUseKHR
+[2025-11-25 16:54:37.403] [engine_logger] [info] Destroyed SwapChain
+[2025-11-25 16:54:37.403] [engine_logger] [info] Creating draw image and view...
+[2025-11-25 16:54:37.404] [engine_logger] [error] Cannot create image with 0 width or height
+[2025-11-25 16:54:37.404] [engine_logger] [error] Unable to transition image layout, image is null
+[2025-11-25 16:54:37.404] [engine_logger] [error] Cannot create image with 0 width or height
+[2025-11-25 16:54:37.404] [engine_logger] [error] Unable to transition image layout, image is null
+[2025-11-25 16:54:37.404] [engine_logger] [info] Created draw image and view
+[2025-11-25 16:54:37.404] [engine_logger] [info] Initializing G-Buffer...
+[2025-11-25 16:54:37.405] [engine_logger] [info] Initialized G-Buffer (resized to 800 x 581)
+[2025-11-25 16:54:37.405] [engine_logger] [info] Recreated swap chain
+[2025-11-25 16:54:37.405] [engine_logger] [info] Cannot end a frame that has not been begun!
+Validation Error: [ UNASSIGNED-GeneralParameterError-RequiredHandle ] | MessageID = 0x8fdcb17b
+vkAcquireNextImageKHR(): swapchain is VK_NULL_HANDLE.
+
+[2025-11-25 16:54:37.406] [engine_logger] [error] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkAcquireNextImageKHR(): swapchain is VK_NULL_HANDLE.
+
+Validation Error: [ VUID-vkAcquireNextImageKHR-swapchain-parameter ] | MessageID = 0x4d6f2519
+vkAcquireNextImageKHR(): swapchain Invalid VkSwapchainKHR Object 0x0.
+The Vulkan spec states: swapchain must be a valid VkSwapchainKHR handle (https://docs.vulkan.org/spec/latest/chapters/VK_KHR_surface/wsi.html#VUID-vkAcquireNextImageKHR-swapchain-parameter)
+
+[2025-11-25 16:54:37.406] [engine_logger] [error] VALIDATION TYPE: Unhandled VkDebugUtilsMessageSeverityFlagBitsEXT
+ VALIDATION MESSAGE: vkAcquireNextImageKHR(): swapchain Invalid VkSwapchainKHR Object 0x0.
+The Vulkan spec states: swapchain must be a valid VkSwapchainKHR handle (https://docs.vulkan.org/spec/latest/chapters/VK_KHR_surface/wsi.html#VUID-vkAcquireNextImageKHR-swapchain-parameter)
+

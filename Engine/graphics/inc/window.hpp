@@ -42,6 +42,6 @@ private:
 
     void CreateWindow();
 
-    static bool HandleWindowResized(void* userdata, SDL_Event* event);
+    static b8 HandleWindowResized(void* userdata, SDL_Event* event);
 };
 }; // namespace Humongous

@@ -434,9 +434,12 @@ void VulkanApp::Run()
     });
 
     HGINFO("Running...");
-    b8        quit = false;
-    b8        focused = false;
-    b8        minimized = false;
+    b8 quit = false;
+    b8 minimized = false;
+
+    // We must begin the program in a focused state since wayland only creates a native window on first present. If this is false, we hang at the
+    // first run loop, since wayland never creates a window for us
+    b8        focused = true;
     SDL_Event e;
     while(!quit)
     {

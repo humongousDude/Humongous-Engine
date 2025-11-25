@@ -71,20 +71,51 @@ set(KTX_FEATURE_TOOLS_CTS OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(SDL3 spdlog OpenAL32 Sndfile eigen meshoptimizer GoogleTest Ktx GoogleTest VMA tinygltf)
 
-function(make_target_system_includes TARGET_NAME)
-    get_target_property(INCLUDES ${TARGET_NAME} INTERFACE_INCLUDE_DIRECTORIES)
-    if(INCLUDES)
-        set_target_properties(${TARGET_NAME} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "")
-        
-        target_include_directories(${TARGET_NAME} 
-            SYSTEM INTERFACE ${INCLUDES}
-        )
+function(suppress_warnings_recursive_impl TARGET_DIR)
+    get_property(is_defined DIRECTORY "${TARGET_DIR}" PROPERTY LISTFILE_STACK SET)
+    if(NOT is_defined)
+        return()
     endif()
+
+    get_property(targets DIRECTORY "${TARGET_DIR}" PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(target ${targets})
+        get_target_property(target_type ${target} TYPE)
+        
+        # FIX: Apply SYSTEM to ALL targets (including INTERFACE_LIBRARY)
+        # This forces consumers (your Engine) to treat these includes as -isystem
+        set_target_properties(${target} PROPERTIES SYSTEM ON)
+
+        # Only apply compile flags to targets that actually compile binary objects
+        if(${target_type} STREQUAL "EXECUTABLE" OR 
+           ${target_type} STREQUAL "STATIC_LIBRARY" OR 
+           ${target_type} STREQUAL "SHARED_LIBRARY" OR 
+           ${target_type} STREQUAL "MODULE_LIBRARY" OR 
+           ${target_type} STREQUAL "OBJECT_LIBRARY")
+            
+            target_compile_options(${target} PRIVATE 
+                $<$<CXX_COMPILER_ID:MSVC>:/W0>
+                $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-w>
+            )
+        endif()
+    endforeach()
+
+    get_property(subdirs DIRECTORY "${TARGET_DIR}" PROPERTY SUBDIRECTORIES)
+    foreach(subdir ${subdirs})
+        suppress_warnings_recursive_impl("${subdir}")
+    endforeach()
 endfunction()
 
-make_target_system_includes(VulkanMemoryAllocator)
-make_target_system_includes(tinygltf)
-make_target_system_includes(OpenAL)
+set(FETCHED_LIBS 
+    SDL3 spdlog OpenAL32 sndfile eigen MeshOptimizer 
+    GoogleTest Ktx VMA tinygltf
+)
+
+foreach(LIB ${FETCHED_LIBS})
+    string(TOLOWER ${LIB} LIB_LOWER)
+    if(DEFINED ${LIB_LOWER}_SOURCE_DIR)
+        suppress_warnings_recursive_impl("${${LIB_LOWER}_SOURCE_DIR}")
+    endif()
+endforeach()
 
 add_subdirectory(Engine)
 add_subdirectory(App)
