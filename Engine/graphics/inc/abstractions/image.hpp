@@ -77,7 +77,7 @@ public:
             HGERROR("Attempting to get descriptor info of an image without an image view!");
             return {};
         }
-        if(m_sampler) { return {*m_sampler, m_imageView, m_layout}; }
+        if(m_sampler != VK_NULL_HANDLE) { return {m_sampler, m_imageView, m_layout}; }
         else
         {
             return {VK_NULL_HANDLE, m_imageView, m_layout};
@@ -96,7 +96,7 @@ private:
     vk::Extent3D         m_extent{vk::Extent3D{0, 0, 0}};
     vk::Format           m_format{vk::Format::eUndefined};
     vk::ImageLayout      m_layout{vk::ImageLayout::eUndefined};
-    vk::Sampler*         m_sampler{nullptr};
+    vk::Sampler          m_sampler{VK_NULL_HANDLE};
     vk::ImageAspectFlags m_aspectFlags{};
     vk::ImageUsageFlags  m_usage{};
 

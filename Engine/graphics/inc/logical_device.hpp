@@ -79,6 +79,7 @@ public:
     virtual vk::FormatProperties          GetFormatProperties(vk::Format format) const = 0;
     virtual vk::PhysicalDeviceFeatures2   GetFeatures() const = 0;
     virtual vk::PhysicalDeviceProperties2 GetProperties() const = 0;
+    virtual void                          FreeCommandBuffer(vk::CommandBuffer cmd, const u32& queueIndex) const = 0;
 };
 
 class VulkanLogicalDevice : public ILogicalDevice, NonCopyable
@@ -147,6 +148,7 @@ public:
     vk::FormatProperties          GetFormatProperties(vk::Format format) const override;
     vk::PhysicalDeviceFeatures2   GetFeatures() const override { return m_physicalDevice.GetFeatures(); };
     vk::PhysicalDeviceProperties2 GetProperties() const override { return m_physicalDevice.GetProperties(); };
+    void                          FreeCommandBuffer(vk::CommandBuffer cmd, const u32& queueIndex) const override;
 
 private:
     vk::Device             m_logicalDevice = VK_NULL_HANDLE;

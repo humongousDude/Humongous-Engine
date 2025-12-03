@@ -53,6 +53,8 @@ private:
     const class IInstance&      m_instance;
     VmaAllocator                m_allocator;
     VMAData                     m_vmaData;
+    s64                         m_bufferCount{0};
+    s64                         m_imageCount{0};
 
     void Initialize();
 };

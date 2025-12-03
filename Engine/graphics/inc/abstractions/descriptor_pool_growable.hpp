@@ -20,7 +20,7 @@ public:
     int GetReadyPoolCount() const { return m_readyPools.size(); }
     int GetFullPoolCount() const { return m_fullPools.size(); }
 
-    bool              AllocateDescriptor(const vk::DescriptorSetLayout descriptorSetLayout, vk::DescriptorSet& descriptor);
+    b8                AllocateDescriptor(const vk::DescriptorSetLayout descriptorSetLayout, vk::DescriptorSet& descriptor);
     vk::DescriptorSet AllocateDescriptor(const vk::DescriptorSetLayout descriptorSetLayout);
     void              ResetPools();
 
@@ -32,7 +32,7 @@ private:
 
     std::vector<vk::DescriptorType> m_poolTypes;
     std::vector<vk::DescriptorPool> m_fullPools, m_readyPools;
-    u32                             m_setsPerPool{1};
+    u32                             m_setsPerPool{16};
 
     friend class DescriptorWriter;
 };

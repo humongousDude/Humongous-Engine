@@ -10,7 +10,7 @@ SwapChain::SwapChain(const Window& window, const PhysicalDevice& physicalDevice,
                      std::shared_ptr<SwapChain> oldSwap)
     : m_logicalDevice(logicalDevice)
 {
-    vk::SwapchainKHR old;
+    vk::SwapchainKHR old = VK_NULL_HANDLE;
     if(oldSwap) { old = oldSwap->m_swapChain; }
 
     CreateSwapChain(window, physicalDevice, &old);
@@ -23,7 +23,8 @@ SwapChain::~SwapChain()
 
     for(u32 i = 0; i < static_cast<u32>(m_images.size()); i++) { m_logicalDevice.GetVkDevice().destroySemaphore(m_renderFinishedSemaphore[i]); }
 
-    vkDestroySwapchainKHR(m_logicalDevice.GetVkDevice(), m_swapChain, nullptr);
+    if(m_swapChain != VK_NULL_HANDLE) { m_logicalDevice.GetVkDevice().destroySwapchainKHR(m_swapChain); }
+
     HGINFO("Destroyed SwapChain");
 }
 

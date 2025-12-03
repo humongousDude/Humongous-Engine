@@ -31,6 +31,7 @@ void Image::Destroy(const ILogicalDevice& logicalDevice)
 {
     if(m_imageView) { logicalDevice.DestroyImageView(m_imageView); }
     if(m_image) { logicalDevice.GetAllocator().FreeImage(m_allocation, m_image); }
+    if(m_sampler) { logicalDevice.DestroySampler(m_sampler); }
 }
 
 void Image::AllocateImage(const ImageCreateInfo& createInfo)
@@ -109,9 +110,7 @@ void Image::AllocateImage(const ImageCreateInfo& createInfo)
     samplerInfo.maxLod = static_cast<float>(createInfo.mipLevels);
     samplerInfo.pNext = createInfo.samplerInfo->pNext;
 
-    // CHECKME: is this a correct way to create a sampler?
-    m_sampler = new vk::Sampler;
-    *m_sampler = m_logicalDevice.CreateSampler(samplerInfo);
+    m_sampler = m_logicalDevice.CreateSampler(samplerInfo);
 
     m_layout = vk::ImageLayout::eUndefined;
 

@@ -149,6 +149,7 @@ public:
     MOCK_METHOD(vk::FormatProperties, GetFormatProperties, (vk::Format format), (const, override));
     MOCK_METHOD(vk::PhysicalDeviceFeatures2, GetFeatures, (), (const, override));
     MOCK_METHOD(vk::PhysicalDeviceProperties2, GetProperties, (), (const, override));
+    MOCK_METHOD(void, FreeCommandBuffer, (vk::CommandBuffer cmd, const u32& q), (const, override));
 };
 
 } // namespace Humongous

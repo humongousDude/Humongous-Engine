@@ -16,22 +16,22 @@ WorkScheduler::WorkScheduler(const ILogicalDevice& logicalDevice) : m_logicalDev
 
     for(u32 i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); ++i)
     {
-        m_timelineValues[i] = 1;
         m_graphicsPackets[i].reserve(128);
         m_computePackets[i].reserve(128);
         m_transferPackets[i].reserve(128);
-        m_semaphores[i] = m_logicalDevice.GetVkDevice().createSemaphore(createInfo);
     }
+
+    m_timelineSemaphore = m_logicalDevice.GetVkDevice().createSemaphore(createInfo);
 }
 
 WorkScheduler::~WorkScheduler()
 {
     for(u32 i = 0; i < static_cast<u32>(Globals::Limits::MaxFramesInFlight); ++i)
     {
-        m_logicalDevice.GetVkDevice().destroySemaphore(m_semaphores[i]);
         m_stagingBufferGraveyards[i].clear();
         m_buffersToDestroy[i].clear();
     }
+    m_logicalDevice.GetVkDevice().destroySemaphore(m_timelineSemaphore);
 }
 
 WorkScheduler::WorkPacketHandle WorkScheduler::AddWork(vk::CommandBuffer cmd, vk::Queue queue, const std::vector<WorkPacketHandle>& waits)
@@ -55,13 +55,26 @@ WorkScheduler::WorkPacketHandle WorkScheduler::AddWork(vk::CommandBuffer cmd, vk
     }
 
     packet.waitValue = waitValue;
-    packet.signalValue = m_timelineValues[m_currentFrameIndex] + 1;
+    packet.signalValue = m_timeline + 1;
 
-    m_timelineValues[m_currentFrameIndex]++;
+    m_timeline++;
 
-    if(queue == m_logicalDevice.GetGraphicsQueue()) { m_graphicsPackets[m_currentFrameIndex].push_back(packet); }
-    else if(queue == m_logicalDevice.GetComputeQueue()) { m_computePackets[m_currentFrameIndex].push_back(packet); }
-    else if(queue == m_logicalDevice.GetTransferQueue()) { m_transferPackets[m_currentFrameIndex].push_back(packet); }
+    u16 targetQueueIndex = 0;
+    if(queue == m_logicalDevice.GetGraphicsQueue())
+    {
+        m_graphicsPackets[m_currentFrameIndex].push_back(packet);
+        targetQueueIndex = m_logicalDevice.GetGraphicsQueueIndex();
+    }
+    else if(queue == m_logicalDevice.GetComputeQueue())
+    {
+        m_computePackets[m_currentFrameIndex].push_back(packet);
+        targetQueueIndex = m_logicalDevice.GetComputeQueueIndex();
+    }
+    else if(queue == m_logicalDevice.GetTransferQueue())
+    {
+        m_transferPackets[m_currentFrameIndex].push_back(packet);
+        targetQueueIndex = m_logicalDevice.GetTransferQueueIndex();
+    }
     else
     {
         HGERROR("Attempted to schedule work on an unknown queue");
@@ -70,6 +83,9 @@ WorkScheduler::WorkPacketHandle WorkScheduler::AddWork(vk::CommandBuffer cmd, vk
 
     WorkPacketHandle handle;
     handle.signalValue = packet.signalValue;
+    m_commandBuffersToDestroy[m_currentFrameIndex].push_back({cmd, targetQueueIndex});
+
+    HGINFO("Added work at timeline %u", m_timeline);
     return handle;
 }
 
@@ -82,17 +98,30 @@ void WorkScheduler::AddStagingBuffers(std::vector<std::unique_ptr<Buffer>>& stag
 
 void WorkScheduler::CollectGarbage()
 {
-    while(!m_stagingBufferGraveyards[m_currentFrameIndex].empty())
+    auto& currentStagingGraveyard = m_stagingBufferGraveyards[m_currentFrameIndex];
+    // auto& currentCommandGraveyard = m_commandBufferGraveyards[m_currentFrameIndex];
+
+    while(!currentStagingGraveyard.empty())
     {
-        if(m_stagingBufferGraveyards[m_currentFrameIndex].front().signalValue < m_timelineValues[m_currentFrameIndex])
-        {
-            m_stagingBufferGraveyards[m_currentFrameIndex].pop_front();
-        }
+        if(currentStagingGraveyard.front().signalValue < m_timeline) { currentStagingGraveyard.pop_front(); }
         else
         {
             break;
         }
     }
+
+    // while(!currentCommandGraveyard.empty())
+    // {
+    //     if(currentCommandGraveyard.front().signalValue < m_timeline)
+    //     {
+    //         m_logicalDevice.FreeCommandBuffer(currentCommandGraveyard.front().cmd, currentCommandGraveyard.front().queueIndex);
+    //         currentCommandGraveyard.pop_front();
+    //     }
+    //     else
+    //     {
+    //         break;
+    //     }
+    // }
 }
 
 void WorkScheduler::Flush(vk::Fence fence, vk::Semaphore imageAvailableSemaphore, vk::Semaphore renderFinishedSemaphore)
@@ -120,13 +149,13 @@ void WorkScheduler::Flush(vk::Fence fence, vk::Semaphore imageAvailableSemaphore
         }
 
         vk::SemaphoreSubmitInfo timelineWait{};
-        timelineWait.semaphore = m_semaphores[m_currentFrameIndex];
+        timelineWait.semaphore = m_timelineSemaphore;
         timelineWait.value = work.waitValue;
         timelineWait.stageMask = vk::PipelineStageFlagBits2::eAllCommands;
         waitSemaphores.push_back(timelineWait);
 
         vk::SemaphoreSubmitInfo timelineSignal{};
-        timelineSignal.semaphore = m_semaphores[m_currentFrameIndex];
+        timelineSignal.semaphore = m_timelineSemaphore;
         timelineSignal.value = work.signalValue;
         timelineSignal.stageMask = vk::PipelineStageFlagBits2::eAllCommands;
         signalSemaphores.push_back(timelineSignal);
@@ -166,14 +195,14 @@ void WorkScheduler::Flush(vk::Fence fence, vk::Semaphore imageAvailableSemaphore
 
             // Wait on Timeline Semaphore
             vk::SemaphoreSubmitInfo timelineWait{};
-            timelineWait.semaphore = m_semaphores[m_currentFrameIndex];
+            timelineWait.semaphore = m_timelineSemaphore;
             timelineWait.value = work.waitValue;
             timelineWait.stageMask = vk::PipelineStageFlagBits2::eAllCommands;
             waitSemaphores.push_back(timelineWait);
 
             // Signal Timeline Semaphore
             vk::SemaphoreSubmitInfo timelineSignal{};
-            timelineSignal.semaphore = m_semaphores[m_currentFrameIndex];
+            timelineSignal.semaphore = m_timelineSemaphore;
             timelineSignal.value = work.signalValue;
             timelineSignal.stageMask = vk::PipelineStageFlagBits2::eAllCommands;
             signalSemaphores.push_back(timelineSignal);
@@ -194,7 +223,7 @@ void WorkScheduler::Flush(vk::Fence fence, vk::Semaphore imageAvailableSemaphore
     submitGenericPackets(m_computePackets[m_currentFrameIndex], "COMPUTE");
     submitGenericPackets(m_transferPackets[m_currentFrameIndex], "TRANSFER");
 
-    u64 finalSignalValue = m_timelineValues[m_currentFrameIndex];
+    u64 finalSignalValue = m_timeline;
 
     for(auto& buf: m_buffersToDestroy[m_currentFrameIndex])
     {
@@ -202,6 +231,15 @@ void WorkScheduler::Flush(vk::Fence fence, vk::Semaphore imageAvailableSemaphore
         grave.buffer = std::move(buf);
         grave.signalValue = finalSignalValue;
         m_stagingBufferGraveyards[m_currentFrameIndex].push_back(std::move(grave));
+    }
+
+    for(auto& cmd: m_commandBuffersToDestroy[m_currentFrameIndex])
+    {
+        CommandBufferGrave grave{};
+        grave.cmd = cmd.first;
+        grave.signalValue = finalSignalValue;
+        grave.queueIndex = cmd.second;
+        m_commandBufferGraveyards[m_currentFrameIndex].push_back(std::move(grave));
     }
 
     m_graphicsPackets[m_currentFrameIndex].clear();

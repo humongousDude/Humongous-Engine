@@ -23,6 +23,8 @@ public:
         b32         useFragmentShader{true};
         std::string fragShaderPath{};
 
+        std::string pipelineName;
+
         std::vector<vk::VertexInputBindingDescription>   inputBindings{};
         std::vector<vk::VertexInputAttributeDescription> attribBindings{};
 
@@ -57,9 +59,10 @@ public:
 
 private:
     const ILogicalDevice& m_logicalDevice;
-    vk::Pipeline          m_pipeline;
-    vk::PipelineLayout    m_pipelineLayout;
+    vk::Pipeline          m_pipeline{VK_NULL_HANDLE};
+    vk::PipelineLayout    m_pipelineLayout{VK_NULL_HANDLE};
     b8                    m_ownsLayout{false};
+    std::string           m_name{"Unnamed pipeline"};
 
     void CreateLayout(const PipelineConfigInfo& configInfo);
     void CreatePipeline(const PipelineConfigInfo& configInfo);

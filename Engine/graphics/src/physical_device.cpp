@@ -255,6 +255,8 @@ PhysicalDevice::DeviceCapabilities PhysicalDevice::GetDeviceCapabilities(vk::Phy
             [](const vk::PhysicalDeviceDescriptorIndexingFeaturesEXT& f) { return f.descriptorBindingPartiallyBound && f.runtimeDescriptorArray; });
     }
 
+    m_presentExtensions.push_back(VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME);
+
     return capabilities;
 }
 

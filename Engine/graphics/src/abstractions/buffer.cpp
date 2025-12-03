@@ -6,7 +6,6 @@
  * Initially based off VulkanBuffer by Sascha Willems -
  * https://github.com/SaschaWillems/Vulkan/blob/master/base/VulkanBuffer.h
  */
-
 #include "logger.hpp"
 #include <abstractions/buffer.hpp>
 
@@ -407,6 +406,12 @@ vk::Result Buffer::InvalidateIndex(int index) { return Invalidate(m_alignmentSiz
 
 void Buffer::CopyBuffer(const ILogicalDevice& device, vk::CommandBuffer cmd, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size)
 {
+    if(cmd == VK_NULL_HANDLE)
+    {
+        HGERROR("Trying to copy to a buffer using an invalid command buffer!");
+        return;
+    }
+
     if(!srcBuffer.IsValid() || !dstBuffer.IsValid())
     {
         HGERROR("Trying to copy a buffer that has not been created");

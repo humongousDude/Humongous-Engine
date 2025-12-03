@@ -107,10 +107,6 @@ void Renderer::RecreateSwapChain()
 
     m_logicalDevice.GetVkDevice().waitIdle();
 
-    // We don't need to reset the frame index, since our resources are independent of the swapchain's image index
-    // m_currentFrameIndex = 0;
-    m_currentImageIndex = 0;
-
     m_window.ResetWindowResizedFlag();
     HGINFO("Recreated swap chain");
 }
@@ -182,6 +178,7 @@ void Renderer::CreateDrawImage()
     HGINFO("Created draw image and view");
 }
 
+// TODO: Refactor this abomination
 void Renderer::CreateGBuffer()
 {
     HGINFO("Initializing G-Buffer...");
@@ -617,7 +614,13 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
     if(result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || m_window.WasWindowResized())
     {
         RecreateSwapChain();
-        return VK_NULL_HANDLE;
+        result = m_swapChain->AcquireNextImage(GetCurrentFrame().imageAvailableSemaphore, m_currentImageIndex);
+
+        if(result != vk::Result::eSuccess)
+        {
+            HGERROR("Failed to acquire new swapchain's image!");
+            return VK_NULL_HANDLE;
+        }
     }
 
     if(result != vk::Result::eSuccess) { HGERROR("failed to acquire swap chain image!"); }
@@ -627,7 +630,6 @@ vk::CommandBuffer Renderer::BeginFrame(std::vector<Utils::VisibleEntityInfo>& vi
     {
         m_sceneExtent = desiredExtent;
         RecreateViewport();
-        return VK_NULL_HANDLE;
     }
 
     ReadyPerFrameData(visibleEntities);

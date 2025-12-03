@@ -28,7 +28,7 @@ DescriptorPoolGrowable::~DescriptorPoolGrowable()
     m_fullPools.clear();
 }
 
-bool DescriptorPoolGrowable::AllocateDescriptor(const vk::DescriptorSetLayout descriptorSetLayout, vk::DescriptorSet& descriptor)
+b8 DescriptorPoolGrowable::AllocateDescriptor(const vk::DescriptorSetLayout descriptorSetLayout, vk::DescriptorSet& descriptor)
 {
     // Get or create a pool to allocate from
     vk::DescriptorPool poolToUse = GetPool(m_logicalDevice);

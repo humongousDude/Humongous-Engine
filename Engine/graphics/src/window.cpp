@@ -33,7 +33,11 @@ void Window::CreateWindow()
         HGFATAL("Failed to initalize SDL3! Error: %s", SDL_GetError());
         return;
     };
-    if(!SDL_Vulkan_LoadLibrary(NULL)) { HGFATAL("Failed to load vulkan! Error: %s", SDL_GetError()); };
+    if(!SDL_Vulkan_LoadLibrary(NULL))
+    {
+        HGFATAL("Failed to load vulkan! Error: %s", SDL_GetError());
+        return;
+    };
 
     u32 flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS;
     window = SDL_CreateWindow("Humongous Window", width, height, flags);

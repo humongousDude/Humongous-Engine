@@ -49,18 +49,28 @@ private:
         u64                           signalValue;
     };
 
+    struct CommandBufferGrave
+    {
+        vk::CommandBuffer cmd;
+        u16               queueIndex;
+        u64               signalValue;
+    };
+
     const class ILogicalDevice& m_logicalDevice;
 
     std::array<std::vector<WorkPacket>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_graphicsPackets;
     std::array<std::vector<WorkPacket>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_computePackets;
     std::array<std::vector<WorkPacket>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_transferPackets;
 
-    std::array<u64, static_cast<u32>(Globals::Limits::MaxFramesInFlight)>                                        m_timelineValues;
-    std::array<vk::Semaphore, static_cast<u32>(Globals::Limits::MaxFramesInFlight)>                              m_semaphores;
+    u64                                                                                                          m_timeline{0};
+    vk::Semaphore                                                                                                m_timelineSemaphore;
     std::array<std::vector<std::unique_ptr<class Buffer>>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_buffersToDestroy;
-    u32                                                                                                          m_currentFrameIndex{0};
+    // pair of the buffer and it's queue index
+    std::array<std::vector<std::pair<vk::CommandBuffer, u16>>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_commandBuffersToDestroy;
+    u32                                                                                                              m_currentFrameIndex{0};
 
     std::array<std::deque<StagingBufferGrave>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_stagingBufferGraveyards;
+    std::array<std::deque<CommandBufferGrave>, static_cast<u32>(Globals::Limits::MaxFramesInFlight)> m_commandBufferGraveyards;
 };
 
 } // namespace Humongous

@@ -25,7 +25,6 @@ VulkanLogicalDevice::~VulkanLogicalDevice()
     m_logicalDevice.destroyCommandPool(m_computeCommandPool, nullptr);
     m_logicalDevice.destroyCommandPool(m_transferCommandPool, nullptr);
     m_allocator.reset();
-    m_scheduler.reset();
     m_logicalDevice.destroy();
     HGINFO("Destroyed logical device");
 }
@@ -282,10 +281,16 @@ void VulkanLogicalDevice::DestroyDescriptorSetLayout(vk::DescriptorSetLayout lay
 
 vk::Sampler VulkanLogicalDevice::CreateSampler(const vk::SamplerCreateInfo& info) const
 {
-    vk::Sampler sampler;
+    vk::Sampler sampler{VK_NULL_HANDLE};
     auto        ret = m_logicalDevice.createSampler(&info, nullptr, &sampler);
 
-    if(ret != vk::Result::eSuccess) { HGERROR("Failed to create sampler! Error: %s", vk::to_string(ret).c_str()); }
+    HGINFO("Creating sampler");
+
+    if(ret != vk::Result::eSuccess)
+    {
+        HGERROR("Failed to create sampler! Error: %s", vk::to_string(ret).c_str());
+        return VK_NULL_HANDLE;
+    }
 
     return sampler;
 }
@@ -419,5 +424,12 @@ vk::FormatProperties VulkanLogicalDevice::GetFormatProperties(vk::Format format)
 {
     return m_physicalDevice.GetVkPhysicalDevice().getFormatProperties(format);
 }
+
+void VulkanLogicalDevice::FreeCommandBuffer(vk::CommandBuffer cmd, const u32& queueIndex) const
+{
+    if(queueIndex == m_graphicsQueueIndex) { m_logicalDevice.freeCommandBuffers(m_graphicsCommandPool, cmd); }
+    else if(queueIndex == m_computeQueueIndex) { m_logicalDevice.freeCommandBuffers(m_computeCommandPool, cmd); }
+    else if(queueIndex == m_transferQueueIndex) { m_logicalDevice.freeCommandBuffers(m_transferCommandPool, cmd); }
+};
 
 } // namespace Humongous

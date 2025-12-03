@@ -13,8 +13,8 @@
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_CXX_COMPILER": "clang++",
                 "CMAKE_C_COMPILER": "clang",
-                "CMAKE_CXX_FLAGS_DEBUG": "-O1",
-                "CMAKE_C_FLAGS_DEBUG": "-O1"
+                "CMAKE_CXX_FLAGS_DEBUG": "-g -O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls -D_GLIBCXX_ASSERTIONS",
+                "CMAKE_C_FLAGS_DEBUG": "-g -O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls"
             }
         },
         {

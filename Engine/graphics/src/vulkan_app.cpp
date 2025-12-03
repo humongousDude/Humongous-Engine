@@ -15,6 +15,7 @@ namespace Humongous
 VulkanApp::VulkanApp(int argc, char* argv[])
 {
     Init(argc, argv);
+    CreateRenderSystems();
     LoadGameObjects();
 }
 
@@ -61,8 +62,6 @@ void VulkanApp::Init(const int argc, char* argv[])
 
     m_skyboxRenderSystem = std::make_unique<SkyboxRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, skyboxLayouts);
 
-    CreateRenderSystems();
-
     for(auto& rg: m_renderGraphs) { rg = std::make_unique<RenderGraph>(*m_logicalDevice); }
     m_mainDeletionQueue.PushDeletor([&]() {
         m_entityRenderSystem.reset();
@@ -72,7 +71,6 @@ void VulkanApp::Init(const int argc, char* argv[])
         UI::Shutdown();
         m_resourceManager.reset();
         AudioEngine::Shutdown();
-        // Allocator::Shutdown();
         m_logicalDevice.reset();
         m_physicalDevice.reset();
         m_window.reset();
@@ -133,6 +131,8 @@ void VulkanApp::CreateRenderSystems()
 
     configInfo.useMeshShaders = m_logicalDevice->GetPhysicalDevice().GetCurrentCapabilities().supportsMeshShaders;
 
+    configInfo.pipelineName = "Standard render pipeline";
+
     if(configInfo.useMeshShaders)
     {
         m_entityRenderSystem = std::make_unique<MeshRenderSystem>(*m_logicalDevice, *m_resourceManager, *m_assetManager, configInfo);
@@ -164,6 +164,8 @@ void VulkanApp::CreateRenderSystems()
     configInfo.depthStencilInfo.front = vk::StencilOpState{};
 
     configInfo.useFragmentShader = false;
+
+    configInfo.pipelineName = "Standard depth pipeline";
 
     if(configInfo.useMeshShaders)
     {

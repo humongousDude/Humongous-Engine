@@ -72,12 +72,17 @@ vk::Result Allocator::AllocateBuffer(const vk::DeviceSize size, const vk::Buffer
     vk::Result result = static_cast<vk::Result>(vmaCreateBuffer(m_allocator, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocCreateInfo,
                                                                 reinterpret_cast<VkBuffer*>(&buffer), &allocation, nullptr));
 
-    if(result != vk::Result::eSuccess) { buffer = VK_NULL_HANDLE; }
+    m_bufferCount++;
 
+    if(result != vk::Result::eSuccess) { buffer = VK_NULL_HANDLE; }
     return result;
 }
 
-void Allocator::FreeBuffer(VmaAllocation allocation, vk::Buffer buffer) { vmaDestroyBuffer(m_allocator, buffer, allocation); }
+void Allocator::FreeBuffer(VmaAllocation allocation, vk::Buffer buffer)
+{
+    vmaDestroyBuffer(m_allocator, buffer, allocation);
+    m_bufferCount--;
+}
 
 vk::Result Allocator::AllocateImage(const vk::ImageCreateInfo& createInfo, VmaAllocationCreateInfo allocCreateInfo, VmaAllocation& allocation,
                                     vk::Image& image)
@@ -87,10 +92,15 @@ vk::Result Allocator::AllocateImage(const vk::ImageCreateInfo& createInfo, VmaAl
 
     if(res != vk::Result::eSuccess) { image = VK_NULL_HANDLE; }
 
+    m_imageCount++;
     return res;
 }
 
-void Allocator::FreeImage(VmaAllocation allocation, vk::Image image) { vmaDestroyImage(m_allocator, image, allocation); }
+void Allocator::FreeImage(VmaAllocation allocation, vk::Image image)
+{
+    vmaDestroyImage(m_allocator, image, allocation);
+    m_imageCount--;
+}
 
 void Allocator::NameAllocation(VmaAllocation allocation, const char* name) { vmaSetAllocationName(m_allocator, allocation, name); }
 

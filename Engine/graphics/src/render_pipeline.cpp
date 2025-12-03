@@ -14,6 +14,7 @@ RenderPipeline::RenderPipeline(const ILogicalDevice& logicalDevice, const Render
     {
         CreateLayout(configinfo);
         m_ownsLayout = true;
+        HGINFO("Created without external pipeline layout");
     }
     else
     {
@@ -25,10 +26,13 @@ RenderPipeline::RenderPipeline(const ILogicalDevice& logicalDevice, const Render
 
 RenderPipeline::~RenderPipeline()
 {
-    HGINFO("Destroying Render pipeline...");
-    if(m_ownsLayout) { m_logicalDevice.DestroyPipelineLayout(m_pipelineLayout); }
+    HGINFO("Destroying Render pipeline \"%s\"...", m_name.c_str());
+    if(m_ownsLayout)
+    {
+        if(m_pipelineLayout != VK_NULL_HANDLE) { m_logicalDevice.DestroyPipelineLayout(m_pipelineLayout); }
+    }
     m_logicalDevice.DestroyPipeline(m_pipeline);
-    HGINFO("Destroyed Render Pipeline");
+    HGINFO("Destroyed Render Pipeline \"%s\".", m_name.c_str());
 }
 
 void RenderPipeline::CreateLayout(const RenderPipeline::PipelineConfigInfo& configInfo)
@@ -54,6 +58,8 @@ void RenderPipeline::CreatePipeline(const RenderPipeline::PipelineConfigInfo& co
 {
     HGINFO("Creating Render Pipeline...");
     HGINFO("Reading shader files...");
+
+    m_name = configInfo.pipelineName;
 
     std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
 

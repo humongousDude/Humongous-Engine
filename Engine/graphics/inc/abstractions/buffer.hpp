@@ -58,6 +58,7 @@ public:
         UpdateAddress(m_usageFlags);
         return m_deviceAddress;
     }
+    std::string GetName() const { return m_name; }
 
     static void CopyBuffer(const ILogicalDevice& device, vk::CommandBuffer cmd, Buffer& srcBuffer, Buffer& dstBuffer, vk::DeviceSize size);
 
